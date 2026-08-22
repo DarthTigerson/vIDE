@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useTodoStore, EMPTY_TODOS } from '@/stores/todoStore'
 import { useEditorStore } from '@/stores/editorStore'
-import { buildTodoNewPath } from '@/components/Settings/paths'
+import { buildTodoDetailPath, buildTodoNewPath } from '@/components/Settings/paths'
 import { TODO_COLUMNS, groupTodosByStatus } from '@/lib/todoBoard'
 import { TodoCard } from './TodoCard'
 import { TodoArchiveList } from './TodoArchiveList'
-import { TodoDetailModal } from './TodoDetailModal'
+import type { TodoStatus } from '@/types/api'
 
 export function TodoBoardPage({ projectId }: { projectId: string }) {
   const project = useTodoStore((s) => s.projects.find((p) => p.id === projectId))
@@ -16,7 +16,6 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
   const openTab = useEditorStore((s) => s.openTab)
 
   const [view, setView] = useState<'board' | 'archive'>('board')
-  const [selectedTodoId, setSelectedTodoId] = useState<string | null>(null)
 
   useEffect(() => {
     loadTodos(projectId)
@@ -24,7 +23,16 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
 
   const groups = groupTodosByStatus(todos)
   const archived = todos.filter((t) => t.archived)
-  const selectedTodo = todos.find((t) => t.id === selectedTodoId) ?? null
+
+  function openDetail(todoId: string) {
+    openTab({ path: buildTodoDetailPath(projectId, todoId), content: '', dirty: false })
+  }
+
+  function handleDrop(e: React.DragEvent, status: TodoStatus) {
+    e.preventDefault()
+    const todoId = e.dataTransfer.getData('text/plain')
+    if (todoId) updateTodo(todoId, { status })
+  }
 
   return (
     <div className="h-full flex flex-col bg-panel overflow-hidden relative">
@@ -53,7 +61,12 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
       {view === 'board' ? (
         <div className="flex-1 overflow-x-auto flex divide-x divide-border">
           {TODO_COLUMNS.map((col) => (
-            <div key={col.status} className="flex-1 min-w-[240px] flex flex-col bg-sidebar/30">
+            <div
+              key={col.status}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => handleDrop(e, col.status)}
+              className="flex-1 min-w-[240px] flex flex-col bg-sidebar/30"
+            >
               <div className="px-3 py-2 flex items-center justify-between shrink-0 border-b border-border/60">
                 <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
                   {col.title}
@@ -67,12 +80,7 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
                   <p className="text-xs text-fg-subtle/70 italic">No todos</p>
                 ) : (
                   groups[col.status].map((todo) => (
-                    <TodoCard
-                      key={todo.id}
-                      todo={todo}
-                      onOpen={() => setSelectedTodoId(todo.id)}
-                      onStatusChange={(status) => updateTodo(todo.id, { status })}
-                    />
+                    <TodoCard key={todo.id} todo={todo} onOpen={() => openDetail(todo.id)} />
                   ))
                 )}
               </div>
@@ -82,7 +90,7 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
       ) : (
         <TodoArchiveList
           todos={archived}
-          onOpen={(id) => setSelectedTodoId(id)}
+          onOpen={openDetail}
           onUnarchive={(id) => archiveTodo(id, false)}
         />
       )}
@@ -95,8 +103,6 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
       >
         +
       </button>
-
-      {selectedTodo && <TodoDetailModal todo={selectedTodo} onClose={() => setSelectedTodoId(null)} />}
     </div>
   )
 }

@@ -1,8 +1,10 @@
 /// <reference types="@testing-library/jest-dom" />
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
-import { TodoDetailModal } from '../TodoDetailModal'
+import { TodoDetailPage } from '../TodoDetailPage'
 import { useTodoStore } from '@/stores/todoStore'
+import { useEditorStore } from '@/stores/editorStore'
+import { buildTodoBoardPath, buildTodoDetailPath } from '@/components/Settings/paths'
 import type { Todo } from '@/types/api'
 
 afterEach(() => {
@@ -33,6 +35,8 @@ const archiveTodoMock = vi.fn()
 const deleteTodoMock = vi.fn()
 const addCommentMock = vi.fn()
 const saveAttachmentMock = vi.fn()
+const closeTabMock = vi.fn()
+const openTabMock = vi.fn()
 
 beforeEach(() => {
   updateTodoMock.mockReset().mockResolvedValue(makeTodo())
@@ -40,22 +44,25 @@ beforeEach(() => {
   deleteTodoMock.mockReset().mockResolvedValue(undefined)
   addCommentMock.mockReset().mockResolvedValue(makeTodo())
   saveAttachmentMock.mockReset().mockResolvedValue('att-1')
+  closeTabMock.mockReset()
+  openTabMock.mockReset()
   useTodoStore.setState({
-    todosByProject: {},
+    todosByProject: { p1: [makeTodo()] },
     updateTodo: updateTodoMock,
     archiveTodo: archiveTodoMock,
     deleteTodo: deleteTodoMock,
     addComment: addCommentMock,
     saveAttachment: saveAttachmentMock,
   })
+  useEditorStore.setState({ closeTab: closeTabMock, openTab: openTabMock })
   ;(global as any).window.api = {
     todosReadAttachmentDataUrl: vi.fn().mockResolvedValue('data:image/png;base64,AAA'),
   }
 })
 
-describe('TodoDetailModal', () => {
+describe('TodoDetailPage', () => {
   it('saves the title on blur when it changed', () => {
-    render(<TodoDetailModal todo={makeTodo()} onClose={vi.fn()} />)
+    render(<TodoDetailPage projectId="p1" todoId="H-1" />)
     const titleInput = screen.getByLabelText('Title')
     fireEvent.change(titleInput, { target: { value: 'Fix the real bug' } })
     fireEvent.blur(titleInput)
@@ -63,26 +70,33 @@ describe('TodoDetailModal', () => {
   })
 
   it('does not call updateTodo on blur when the title is unchanged', () => {
-    render(<TodoDetailModal todo={makeTodo()} onClose={vi.fn()} />)
+    render(<TodoDetailPage projectId="p1" todoId="H-1" />)
     const titleInput = screen.getByLabelText('Title')
     fireEvent.blur(titleInput)
     expect(updateTodoMock).not.toHaveBeenCalled()
   })
 
   it('selecting a label calls updateTodo with the single label', () => {
-    render(<TodoDetailModal todo={makeTodo()} onClose={vi.fn()} />)
+    render(<TodoDetailPage projectId="p1" todoId="H-1" />)
     fireEvent.change(screen.getByLabelText('Label'), { target: { value: 'bug' } })
     expect(updateTodoMock).toHaveBeenCalledWith('H-1', { label: 'bug' })
   })
 
   it('selecting "No label" clears an already-applied label', () => {
-    render(<TodoDetailModal todo={makeTodo({ label: 'bug' })} onClose={vi.fn()} />)
+    useTodoStore.setState({ todosByProject: { p1: [makeTodo({ label: 'bug' })] } })
+    render(<TodoDetailPage projectId="p1" todoId="H-1" />)
     fireEvent.change(screen.getByLabelText('Label'), { target: { value: '' } })
     expect(updateTodoMock).toHaveBeenCalledWith('H-1', { label: null })
   })
 
+  it('changing the status calls updateTodo with the new status', () => {
+    render(<TodoDetailPage projectId="p1" todoId="H-1" />)
+    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'done' } })
+    expect(updateTodoMock).toHaveBeenCalledWith('H-1', { status: 'done' })
+  })
+
   it('saves the PR/MR URL on blur', () => {
-    render(<TodoDetailModal todo={makeTodo()} onClose={vi.fn()} />)
+    render(<TodoDetailPage projectId="p1" todoId="H-1" />)
     const urlInput = screen.getByLabelText('PR/MR URL')
     fireEvent.change(urlInput, { target: { value: 'https://github.com/org/repo/pull/1' } })
     fireEvent.blur(urlInput)
@@ -90,7 +104,7 @@ describe('TodoDetailModal', () => {
   })
 
   it('adds a comment and clears the input', async () => {
-    render(<TodoDetailModal todo={makeTodo()} onClose={vi.fn()} />)
+    render(<TodoDetailPage projectId="p1" todoId="H-1" />)
     fireEvent.change(screen.getByLabelText('New comment'), { target: { value: 'Looks good' } })
     fireEvent.click(screen.getByRole('button', { name: 'Add Comment' }))
 
@@ -101,42 +115,55 @@ describe('TodoDetailModal', () => {
   })
 
   it('renders existing comments', () => {
-    render(
-      <TodoDetailModal
-        todo={makeTodo({ comments: [{ id: 'c1', body: 'already here', attachments: [], createdAt: 2 }] })}
-        onClose={vi.fn()}
-      />
-    )
+    useTodoStore.setState({
+      todosByProject: {
+        p1: [makeTodo({ comments: [{ id: 'c1', body: 'already here', attachments: [], createdAt: 2 }] })],
+      },
+    })
+    render(<TodoDetailPage projectId="p1" todoId="H-1" />)
     expect(screen.getByText('already here')).toBeInTheDocument()
   })
 
   it('archives the todo', () => {
-    render(<TodoDetailModal todo={makeTodo()} onClose={vi.fn()} />)
+    render(<TodoDetailPage projectId="p1" todoId="H-1" />)
     fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
     expect(archiveTodoMock).toHaveBeenCalledWith('H-1', true)
   })
 
   it('unarchives an already-archived todo', () => {
-    render(<TodoDetailModal todo={makeTodo({ archived: true })} onClose={vi.fn()} />)
+    useTodoStore.setState({ todosByProject: { p1: [makeTodo({ archived: true })] } })
+    render(<TodoDetailPage projectId="p1" todoId="H-1" />)
     fireEvent.click(screen.getByRole('button', { name: 'Unarchive' }))
     expect(archiveTodoMock).toHaveBeenCalledWith('H-1', false)
   })
 
-  it('requires a second click to confirm delete', async () => {
-    const onClose = vi.fn()
-    render(<TodoDetailModal todo={makeTodo()} onClose={onClose} />)
+  it('requires a second click to confirm delete, then returns to the board', async () => {
+    render(<TodoDetailPage projectId="p1" todoId="H-1" />)
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
     expect(deleteTodoMock).not.toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm delete?' }))
     await waitFor(() => {
       expect(deleteTodoMock).toHaveBeenCalledWith('H-1')
-      expect(onClose).toHaveBeenCalled()
+      expect(closeTabMock).toHaveBeenCalledWith(buildTodoDetailPath('p1', 'H-1'))
+      expect(openTabMock).toHaveBeenCalledWith({
+        path: buildTodoBoardPath('p1'),
+        content: '',
+        dirty: false,
+      })
     })
   })
 
+  it('closing the page returns to the board', () => {
+    render(<TodoDetailPage projectId="p1" todoId="H-1" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+
+    expect(closeTabMock).toHaveBeenCalledWith(buildTodoDetailPath('p1', 'H-1'))
+    expect(openTabMock).toHaveBeenCalledWith({ path: buildTodoBoardPath('p1'), content: '', dirty: false })
+  })
+
   it('adding a tag calls updateTodo with the new tags array', () => {
-    render(<TodoDetailModal todo={makeTodo()} onClose={vi.fn()} />)
+    render(<TodoDetailPage projectId="p1" todoId="H-1" />)
     const input = screen.getByLabelText('Tags')
     fireEvent.change(input, { target: { value: 'frontend' } })
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -146,16 +173,16 @@ describe('TodoDetailModal', () => {
 
   it('suggests tags already used elsewhere in the same project', () => {
     useTodoStore.setState({
-      todosByProject: { p1: [makeTodo({ id: 'H-2', tags: ['frontend'] })] },
+      todosByProject: { p1: [makeTodo(), makeTodo({ id: 'H-2', tags: ['frontend'] })] },
     })
-    render(<TodoDetailModal todo={makeTodo()} onClose={vi.fn()} />)
+    render(<TodoDetailPage projectId="p1" todoId="H-1" />)
     fireEvent.change(screen.getByLabelText('Tags'), { target: { value: 'front' } })
 
     expect(screen.getByRole('button', { name: 'frontend' })).toBeInTheDocument()
   })
 
   it('pasting an image into the description uploads it and adds it to the todo’s attachments', async () => {
-    render(<TodoDetailModal todo={makeTodo()} onClose={vi.fn()} />)
+    render(<TodoDetailPage projectId="p1" todoId="H-1" />)
     const file = new File(['fake'], 'shot.png', { type: 'image/png' })
     fireEvent.paste(screen.getByLabelText('Description'), {
       clipboardData: { items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }] },
@@ -165,5 +192,10 @@ describe('TodoDetailModal', () => {
       expect(saveAttachmentMock).toHaveBeenCalled()
       expect(updateTodoMock).toHaveBeenCalledWith('H-1', { attachments: ['att-1'] })
     })
+  })
+
+  it('does not crash when the todo cannot be found yet', () => {
+    useTodoStore.setState({ todosByProject: {} })
+    expect(() => render(<TodoDetailPage projectId="p1" todoId="H-1" />)).not.toThrow()
   })
 })

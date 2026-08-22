@@ -61,3 +61,13 @@ export function isTodoNewTab(path: string): boolean { return path.startsWith(TOD
 export function buildTodoNewPath(projectId: string): string { return TODO_NEW_PREFIX + projectId }
 export function getTodoNewProjectId(path: string): string { return path.slice(TODO_NEW_PREFIX.length) }
 
+const TODO_DETAIL_PREFIX = 'todo-detail://'
+export function isTodoDetailTab(path: string): boolean { return path.startsWith(TODO_DETAIL_PREFIX) }
+export function buildTodoDetailPath(projectId: string, todoId: string): string {
+  return TODO_DETAIL_PREFIX + projectId + '/' + todoId
+}
+export function getTodoDetailIds(path: string): { projectId: string; todoId: string } {
+  const [projectId, todoId] = path.slice(TODO_DETAIL_PREFIX.length).split('/')
+  return { projectId, todoId }
+}
+

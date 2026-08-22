@@ -1,36 +1,54 @@
 import { useState } from 'react'
-import { Modal } from '@/components/ui/Modal'
 import { useTodoStore, EMPTY_TODOS } from '@/stores/todoStore'
+import { useEditorStore } from '@/stores/editorStore'
+import { buildTodoBoardPath, buildTodoDetailPath } from '@/components/Settings/paths'
 import { getProjectTags } from '@/lib/todoTags'
+import { TODO_COLUMNS } from '@/lib/todoBoard'
 import { AttachmentThumbnails } from './AttachmentThumbnails'
 import { TODO_LABELS, TODO_LABEL_META } from './labels'
 import { TodoTagInput } from './TodoTagInput'
 import { inputClass, uploadPastedImages } from './todoFormShared'
-import type { Todo, TodoLabel } from '@/types/api'
+import type { TodoLabel, TodoStatus } from '@/types/api'
 
-export function TodoDetailModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
+export function TodoDetailPage({ projectId, todoId }: { projectId: string; todoId: string }) {
+  const todo = useTodoStore((s) => s.todosByProject[projectId]?.find((t) => t.id === todoId))
   const updateTodo = useTodoStore((s) => s.updateTodo)
   const archiveTodo = useTodoStore((s) => s.archiveTodo)
   const deleteTodo = useTodoStore((s) => s.deleteTodo)
   const addComment = useTodoStore((s) => s.addComment)
   const saveAttachment = useTodoStore((s) => s.saveAttachment)
-  const projectTodos = useTodoStore((s) => s.todosByProject[todo.projectId] ?? EMPTY_TODOS)
+  const projectTodos = useTodoStore((s) => s.todosByProject[projectId] ?? EMPTY_TODOS)
   const tagSuggestions = getProjectTags(projectTodos)
+  const closeTab = useEditorStore((s) => s.closeTab)
+  const openTab = useEditorStore((s) => s.openTab)
 
-  const [title, setTitle] = useState(todo.title)
-  const [description, setDescription] = useState(todo.description)
-  const [prUrl, setPrUrl] = useState(todo.prUrl ?? '')
+  const [title, setTitle] = useState(todo?.title ?? '')
+  const [description, setDescription] = useState(todo?.description ?? '')
+  const [prUrl, setPrUrl] = useState(todo?.prUrl ?? '')
   const [commentBody, setCommentBody] = useState('')
   const [commentAttachments, setCommentAttachments] = useState<string[]>([])
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
+  function goToBoard() {
+    if (todo) closeTab(buildTodoDetailPath(projectId, todo.id))
+    openTab({ path: buildTodoBoardPath(projectId), content: '', dirty: false })
+  }
+
+  if (!todo) {
+    return <div className="h-full bg-panel" />
+  }
+
   function handleLabelChange(value: string) {
-    updateTodo(todo.id, { label: value === '' ? null : (value as TodoLabel) })
+    updateTodo(todo!.id, { label: value === '' ? null : (value as TodoLabel) })
+  }
+
+  function handleStatusChange(value: TodoStatus) {
+    updateTodo(todo!.id, { status: value })
   }
 
   async function handleDescriptionPaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
     const ids = await uploadPastedImages(e.clipboardData, saveAttachment)
-    if (ids.length > 0) updateTodo(todo.id, { attachments: [...todo.attachments, ...ids] })
+    if (ids.length > 0) updateTodo(todo!.id, { attachments: [...todo!.attachments, ...ids] })
   }
 
   async function handleCommentPaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
@@ -40,7 +58,7 @@ export function TodoDetailModal({ todo, onClose }: { todo: Todo; onClose: () => 
 
   async function handleAddComment() {
     if (!commentBody.trim()) return
-    await addComment(todo.id, commentBody.trim(), commentAttachments)
+    await addComment(todo!.id, commentBody.trim(), commentAttachments)
     setCommentBody('')
     setCommentAttachments([])
   }
@@ -50,13 +68,13 @@ export function TodoDetailModal({ todo, onClose }: { todo: Todo; onClose: () => 
       setConfirmingDelete(true)
       return
     }
-    await deleteTodo(todo.id)
-    onClose()
+    await deleteTodo(todo!.id)
+    goToBoard()
   }
 
   return (
-    <Modal onClose={onClose}>
-      <div className="flex flex-col gap-4 max-h-[80vh] overflow-y-auto w-[32rem] max-w-full">
+    <div className="h-full overflow-y-auto bg-panel p-6">
+      <div className="max-w-2xl mx-auto flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <span className="text-xs font-mono text-fg-subtle">{todo.id}</span>
           <button
@@ -81,22 +99,40 @@ export function TodoDetailModal({ todo, onClose }: { todo: Todo; onClose: () => 
           />
         </label>
 
-        <label htmlFor="todo-label" className="flex flex-col gap-1 text-xs text-fg-muted">
-          Label
-          <select
-            id="todo-label"
-            value={todo.label ?? ''}
-            onChange={(e) => handleLabelChange(e.target.value)}
-            className={inputClass}
-          >
-            <option value="">No label</option>
-            {TODO_LABELS.map((label) => (
-              <option key={label} value={label}>
-                {TODO_LABEL_META[label].text}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="flex gap-3">
+          <label htmlFor="todo-label" className="flex-1 flex flex-col gap-1 text-xs text-fg-muted">
+            Label
+            <select
+              id="todo-label"
+              value={todo.label ?? ''}
+              onChange={(e) => handleLabelChange(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">No label</option>
+              {TODO_LABELS.map((label) => (
+                <option key={label} value={label}>
+                  {TODO_LABEL_META[label].text}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label htmlFor="todo-status" className="flex-1 flex flex-col gap-1 text-xs text-fg-muted">
+            Status
+            <select
+              id="todo-status"
+              value={todo.status}
+              onChange={(e) => handleStatusChange(e.target.value as TodoStatus)}
+              className={inputClass}
+            >
+              {TODO_COLUMNS.map((col) => (
+                <option key={col.status} value={col.status}>
+                  {col.title}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
 
         <TodoTagInput
           tags={todo.tags}
@@ -108,7 +144,7 @@ export function TodoDetailModal({ todo, onClose }: { todo: Todo; onClose: () => 
           Description
           <textarea
             id="todo-description"
-            rows={4}
+            rows={6}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             onBlur={() => {
@@ -182,13 +218,13 @@ export function TodoDetailModal({ todo, onClose }: { todo: Todo; onClose: () => 
           </button>
           <button
             type="button"
-            onClick={onClose}
+            onClick={goToBoard}
             className="px-3 py-1.5 rounded text-sm text-fg-muted hover:text-fg hover:bg-white/5"
           >
             Close
           </button>
         </div>
       </div>
-    </Modal>
+    </div>
   )
 }

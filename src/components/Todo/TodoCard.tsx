@@ -1,19 +1,12 @@
-import { TODO_COLUMNS } from '@/lib/todoBoard'
 import { TODO_LABEL_META } from './labels'
-import type { Todo, TodoStatus } from '@/types/api'
+import type { Todo } from '@/types/api'
 
-export function TodoCard({
-  todo,
-  onOpen,
-  onStatusChange,
-}: {
-  todo: Todo
-  onOpen: () => void
-  onStatusChange: (status: TodoStatus) => void
-}) {
+export function TodoCard({ todo, onOpen }: { todo: Todo; onOpen: () => void }) {
   return (
     <div
       onClick={onOpen}
+      draggable
+      onDragStart={(e) => e.dataTransfer.setData('text/plain', todo.id)}
       className="rounded border border-border bg-sidebar p-2 flex flex-col gap-1.5 cursor-pointer hover:border-accent/60"
     >
       <span className="text-[0.65rem] font-mono text-fg-subtle">{todo.id}</span>
@@ -37,18 +30,6 @@ export function TodoCard({
           ))}
         </div>
       )}
-      <select
-        value={todo.status}
-        onClick={(e) => e.stopPropagation()}
-        onChange={(e) => onStatusChange(e.target.value as TodoStatus)}
-        className="text-xs bg-panel border border-border rounded px-1 py-0.5 text-fg-muted"
-      >
-        {TODO_COLUMNS.map((col) => (
-          <option key={col.status} value={col.status}>
-            {col.title}
-          </option>
-        ))}
-      </select>
     </div>
   )
 }

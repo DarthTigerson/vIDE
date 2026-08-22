@@ -4,7 +4,7 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { TodoBoardPage } from '../TodoBoardPage'
 import { useTodoStore } from '@/stores/todoStore'
 import { useEditorStore } from '@/stores/editorStore'
-import { buildTodoNewPath } from '@/components/Settings/paths'
+import { buildTodoDetailPath, buildTodoNewPath } from '@/components/Settings/paths'
 import type { Todo, TodoProject } from '@/types/api'
 
 afterEach(() => {
@@ -95,15 +95,20 @@ describe('TodoBoardPage', () => {
     expect(openTabMock).toHaveBeenCalledWith({ path: buildTodoNewPath('p1'), content: '', dirty: false })
   })
 
-  it('clicking a card opens its detail modal', () => {
+  it('clicking a card opens its detail page as a tab', () => {
     render(<TodoBoardPage projectId="p1" />)
     fireEvent.click(screen.getByText('Fix bug'))
-    expect(screen.getByLabelText('Title')).toHaveValue('Fix bug')
+    expect(openTabMock).toHaveBeenCalledWith({
+      path: buildTodoDetailPath('p1', 'H-1'),
+      content: '',
+      dirty: false,
+    })
   })
 
-  it('changing a card status select calls updateTodo', () => {
+  it('dropping a card onto another column calls updateTodo with that column status', () => {
     render(<TodoBoardPage projectId="p1" />)
-    fireEvent.change(screen.getByDisplayValue('Backlog'), { target: { value: 'done' } })
+    const doneColumn = screen.getByText('Done').closest('div')!.parentElement!
+    fireEvent.drop(doneColumn, { dataTransfer: { getData: () => 'H-1' } })
     expect(updateTodoMock).toHaveBeenCalledWith('H-1', { status: 'done' })
   })
 
@@ -113,6 +118,18 @@ describe('TodoBoardPage', () => {
 
     expect(screen.getByText('Old and done')).toBeInTheDocument()
     expect(screen.queryByText('Fix bug')).not.toBeInTheDocument()
+  })
+
+  it('opening an archived todo opens its detail page as a tab', () => {
+    render(<TodoBoardPage projectId="p1" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
+    fireEvent.click(screen.getByText('Old and done'))
+
+    expect(openTabMock).toHaveBeenCalledWith({
+      path: buildTodoDetailPath('p1', 'H-3'),
+      content: '',
+      dirty: false,
+    })
   })
 
   it('does not crash when opening a project that has no todosByProject entry yet', () => {
