@@ -11,6 +11,16 @@ afterEach(() => {
   cleanup()
 })
 
+// jsdom's synthetic DragEvent doesn't carry MouseEvent fields like clientY
+// through fireEvent.drop's event-map, so it always reads as `undefined`.
+// Building the event manually and assigning the fields we need keeps the
+// card-level before/after placement math under test.
+function fireDrop(el: Element, clientY: number, draggedId: string) {
+  const event = new Event('drop', { bubbles: true, cancelable: true })
+  Object.assign(event, { clientY, dataTransfer: { getData: () => draggedId } })
+  fireEvent(el, event)
+}
+
 const project: TodoProject = { id: 'p1', name: 'Huginn', key: 'H', nextNumber: 3, createdAt: 1 }
 
 function makeTodo(overrides: Partial<Todo> = {}): Todo {
@@ -35,6 +45,7 @@ function makeTodo(overrides: Partial<Todo> = {}): Todo {
 const loadTodosMock = vi.fn()
 const createTodoMock = vi.fn()
 const updateTodoMock = vi.fn()
+const reorderTodoMock = vi.fn()
 const archiveTodoMock = vi.fn()
 const openTabMock = vi.fn()
 
@@ -42,6 +53,7 @@ beforeEach(() => {
   loadTodosMock.mockReset()
   createTodoMock.mockReset().mockResolvedValue(makeTodo({ id: 'H-4', title: 'New one' }))
   updateTodoMock.mockReset().mockResolvedValue(makeTodo())
+  reorderTodoMock.mockReset().mockResolvedValue(undefined)
   archiveTodoMock.mockReset().mockResolvedValue(makeTodo())
   openTabMock.mockReset()
   useTodoStore.setState({
@@ -56,6 +68,7 @@ beforeEach(() => {
     loadTodos: loadTodosMock,
     createTodo: createTodoMock,
     updateTodo: updateTodoMock,
+    reorderTodo: reorderTodoMock,
     archiveTodo: archiveTodoMock,
   })
   useEditorStore.setState({ openTab: openTabMock })
@@ -101,11 +114,23 @@ describe('TodoBoardPage', () => {
     })
   })
 
-  it('dropping a card onto another column calls updateTodo with that column status', () => {
+  it('dropping a card onto empty column space appends it to the end of that column', () => {
     render(<TodoBoardPage projectId="p1" />)
     const doneColumn = screen.getByText('Done').closest('div')!.parentElement!
     fireEvent.drop(doneColumn, { dataTransfer: { getData: () => 'H-1' } })
-    expect(updateTodoMock).toHaveBeenCalledWith('H-1', { status: 'done' })
+    expect(reorderTodoMock).toHaveBeenCalledWith('p1', 'H-1', 'done', null)
+  })
+
+  it('dropping a card onto the top half of another card reorders it before that card', () => {
+    render(<TodoBoardPage projectId="p1" />)
+    fireDrop(screen.getByText('Ship feature'), -5, 'H-1')
+    expect(reorderTodoMock).toHaveBeenCalledWith('p1', 'H-1', 'in_progress', 'H-2')
+  })
+
+  it('dropping a card onto the bottom half of the last card in a column appends it there', () => {
+    render(<TodoBoardPage projectId="p1" />)
+    fireDrop(screen.getByText('Ship feature'), 5, 'H-1')
+    expect(reorderTodoMock).toHaveBeenCalledWith('p1', 'H-1', 'in_progress', null)
   })
 
   it('clicking "+ Add issue" in a column reveals an inline title input', () => {

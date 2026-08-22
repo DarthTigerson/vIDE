@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Todo, TodoProject, TodoUpdatePatch } from '@/types/api'
+import type { Todo, TodoProject, TodoStatus, TodoUpdatePatch } from '@/types/api'
 
 // A stable reference for "no todos loaded yet" — selectors must never
 // fall back to a fresh `[]` literal, since a new array on every call
@@ -27,6 +27,12 @@ interface TodoStore {
   loadTodos: (projectId: string) => Promise<void>
   createTodo: (projectId: string, title: string) => Promise<Todo>
   updateTodo: (id: string, patch: TodoUpdatePatch) => Promise<Todo>
+  reorderTodo: (
+    projectId: string,
+    id: string,
+    status: TodoStatus,
+    beforeId: string | null
+  ) => Promise<void>
   archiveTodo: (id: string, archived: boolean) => Promise<Todo>
   deleteTodo: (id: string) => Promise<void>
   addComment: (todoId: string, body: string, attachments?: string[]) => Promise<Todo>
@@ -64,6 +70,20 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
     const updated = await window.api.todosUpdateTodo(id, patch)
     set({ todosByProject: replaceInBucket(get().todosByProject, updated) })
     return updated
+  },
+
+  reorderTodo: async (projectId, id, status, beforeId) => {
+    const bucket = get().todosByProject[projectId] ?? []
+    const todo = bucket.find((t) => t.id === id)
+    if (todo) {
+      const rest = bucket.filter((t) => t.id !== id)
+      const moved = { ...todo, status }
+      const insertAt = beforeId ? rest.findIndex((t) => t.id === beforeId) : -1
+      const reordered =
+        insertAt === -1 ? [...rest, moved] : [...rest.slice(0, insertAt), moved, ...rest.slice(insertAt)]
+      set({ todosByProject: { ...get().todosByProject, [projectId]: reordered } })
+    }
+    await window.api.todosReorderTodo(id, status, beforeId)
   },
 
   archiveTodo: async (id, archived) => {

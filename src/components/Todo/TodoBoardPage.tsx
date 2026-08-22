@@ -18,6 +18,7 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
   const loadTodos = useTodoStore((s) => s.loadTodos)
   const createTodo = useTodoStore((s) => s.createTodo)
   const updateTodo = useTodoStore((s) => s.updateTodo)
+  const reorderTodo = useTodoStore((s) => s.reorderTodo)
   const archiveTodo = useTodoStore((s) => s.archiveTodo)
   const openTab = useEditorStore((s) => s.openTab)
 
@@ -37,10 +38,22 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
     openTab({ path: buildTodoDetailPath(projectId, todoId), content: '', dirty: false })
   }
 
-  function handleDrop(e: React.DragEvent, status: TodoStatus) {
+  function handleColumnDrop(e: React.DragEvent, status: TodoStatus) {
     e.preventDefault()
-    const todoId = e.dataTransfer.getData('text/plain')
-    if (todoId) updateTodo(todoId, { status })
+    const draggedId = e.dataTransfer.getData('text/plain')
+    if (draggedId) reorderTodo(projectId, draggedId, status, null)
+  }
+
+  function handleCardDrop(
+    status: TodoStatus,
+    targetId: string,
+    placement: 'before' | 'after',
+    draggedId: string
+  ) {
+    const list = groups[status]
+    const targetIndex = list.findIndex((t) => t.id === targetId)
+    const beforeId = placement === 'before' ? targetId : (list[targetIndex + 1]?.id ?? null)
+    reorderTodo(projectId, draggedId, status, beforeId)
   }
 
   function closeComposer() {
@@ -91,7 +104,7 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
             <div
               key={col.status}
               onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => handleDrop(e, col.status)}
+              onDrop={(e) => handleColumnDrop(e, col.status)}
               className="flex-1 min-w-[240px] flex flex-col bg-sidebar/30"
             >
               <div className="px-3 py-2 flex items-center justify-between shrink-0 border-b border-border/60">
@@ -104,7 +117,14 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
               </div>
               <div className="flex-1 flex flex-col gap-2 overflow-y-auto p-3">
                 {groups[col.status].map((todo) => (
-                  <TodoCard key={todo.id} todo={todo} onOpen={() => openDetail(todo.id)} />
+                  <TodoCard
+                    key={todo.id}
+                    todo={todo}
+                    onOpen={() => openDetail(todo.id)}
+                    onDropOn={(draggedId, placement) =>
+                      handleCardDrop(col.status, todo.id, placement, draggedId)
+                    }
+                  />
                 ))}
                 {addingStatus === col.status ? (
                   <div className="rounded border border-accent/60 bg-sidebar p-2">

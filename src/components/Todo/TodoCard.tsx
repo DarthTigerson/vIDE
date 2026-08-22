@@ -1,12 +1,32 @@
 import { TODO_LABEL_META } from './labels'
 import type { Todo } from '@/types/api'
 
-export function TodoCard({ todo, onOpen }: { todo: Todo; onOpen: () => void }) {
+export function TodoCard({
+  todo,
+  onOpen,
+  onDropOn,
+}: {
+  todo: Todo
+  onOpen: () => void
+  onDropOn: (draggedId: string, placement: 'before' | 'after') => void
+}) {
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    const draggedId = e.dataTransfer.getData('text/plain')
+    if (!draggedId || draggedId === todo.id) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const placement = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
+    onDropOn(draggedId, placement)
+  }
+
   return (
     <div
       onClick={onOpen}
       draggable
       onDragStart={(e) => e.dataTransfer.setData('text/plain', todo.id)}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={handleDrop}
       className="relative overflow-hidden rounded border border-border bg-sidebar p-2 pl-3 flex flex-col gap-1.5 cursor-pointer hover:border-accent/60"
     >
       {todo.label && (

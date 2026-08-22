@@ -30,6 +30,7 @@ vi.stubGlobal('window', {
     todosListTodos: vi.fn().mockResolvedValue([makeTodo()]),
     todosCreateTodo: vi.fn(),
     todosUpdateTodo: vi.fn(),
+    todosReorderTodo: vi.fn(),
     todosArchiveTodo: vi.fn(),
     todosDeleteTodo: vi.fn().mockResolvedValue(undefined),
     todosAddComment: vi.fn(),
@@ -84,6 +85,34 @@ describe('todoStore', () => {
 
     expect(window.api.todosUpdateTodo).toHaveBeenCalledWith('H-1', { status: 'in_progress' })
     expect(useTodoStore.getState().todosByProject.p1).toEqual([updated])
+  })
+
+  it('reorderTodo splices the todo before the target id and updates its status locally', async () => {
+    useTodoStore.setState({
+      todosByProject: {
+        p1: [makeTodo({ id: 'H-1' }), makeTodo({ id: 'H-2' }), makeTodo({ id: 'H-3' })],
+      },
+    })
+
+    await useTodoStore.getState().reorderTodo('p1', 'H-3', 'in_progress', 'H-2')
+
+    expect(window.api.todosReorderTodo).toHaveBeenCalledWith('H-3', 'in_progress', 'H-2')
+    const ids = useTodoStore.getState().todosByProject.p1.map((t) => t.id)
+    expect(ids).toEqual(['H-1', 'H-3', 'H-2'])
+    expect(useTodoStore.getState().todosByProject.p1.find((t) => t.id === 'H-3')?.status).toBe(
+      'in_progress'
+    )
+  })
+
+  it('reorderTodo appends to the end when beforeId is null', async () => {
+    useTodoStore.setState({
+      todosByProject: { p1: [makeTodo({ id: 'H-1' }), makeTodo({ id: 'H-2' })] },
+    })
+
+    await useTodoStore.getState().reorderTodo('p1', 'H-1', 'done', null)
+
+    const ids = useTodoStore.getState().todosByProject.p1.map((t) => t.id)
+    expect(ids).toEqual(['H-2', 'H-1'])
   })
 
   it('archiveTodo replaces the matching todo in its project list', async () => {

@@ -148,6 +148,26 @@ async function updateTodo(id: string, patch: TodoPatch): Promise<Todo> {
   return todo
 }
 
+async function reorderTodo(id: string, status: TodoStatus, beforeId: string | null): Promise<Todo> {
+  const data = await readTodosData()
+  const index = data.todos.findIndex((t) => t.id === id)
+  if (index === -1) throw new Error(`No such todo: ${id}`)
+
+  const [todo] = data.todos.splice(index, 1)
+  todo.status = status
+  todo.updatedAt = Date.now()
+
+  const insertAt = beforeId ? data.todos.findIndex((t) => t.id === beforeId) : -1
+  if (insertAt === -1) {
+    data.todos.push(todo)
+  } else {
+    data.todos.splice(insertAt, 0, todo)
+  }
+
+  await writeTodosData(data)
+  return todo
+}
+
 async function archiveTodo(id: string, archived: boolean): Promise<Todo> {
   const data = await readTodosData()
   const todo = data.todos.find((t) => t.id === id)
@@ -194,6 +214,9 @@ export function registerTodoHandlers(): void {
   ipcMain.handle('todos:listTodos', (_e, projectId: string) => listTodos(projectId))
   ipcMain.handle('todos:createTodo', (_e, projectId: string, title: string) => createTodo(projectId, title))
   ipcMain.handle('todos:updateTodo', (_e, id: string, patch: TodoPatch) => updateTodo(id, patch))
+  ipcMain.handle('todos:reorderTodo', (_e, id: string, status: TodoStatus, beforeId: string | null) =>
+    reorderTodo(id, status, beforeId)
+  )
   ipcMain.handle('todos:archiveTodo', (_e, id: string, archived: boolean) => archiveTodo(id, archived))
   ipcMain.handle('todos:deleteTodo', (_e, id: string) => deleteTodo(id))
   ipcMain.handle('todos:addComment', (_e, todoId: string, body: string, attachments?: string[]) =>

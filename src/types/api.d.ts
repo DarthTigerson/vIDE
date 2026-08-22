@@ -291,6 +291,7 @@ declare global {
       todosListTodos: (projectId: string) => Promise<Todo[]>
       todosCreateTodo: (projectId: string, title: string) => Promise<Todo>
       todosUpdateTodo: (id: string, patch: TodoUpdatePatch) => Promise<Todo>
+      todosReorderTodo: (id: string, status: TodoStatus, beforeId: string | null) => Promise<Todo>
       todosArchiveTodo: (id: string, archived: boolean) => Promise<Todo>
       todosDeleteTodo: (id: string) => Promise<void>
       todosAddComment: (todoId: string, body: string, attachments?: string[]) => Promise<Todo>

@@ -131,6 +131,35 @@ describe('todos', () => {
       await expect(handlers['todos:updateTodo']({}, 'missing', { title: 'x' })).rejects.toThrow()
     })
 
+    it('reorderTodo moves the todo before the given id and updates its status', async () => {
+      const project = (await handlers['todos:createProject']({}, 'Huginn', 'H')) as any
+      const t1 = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
+      const t2 = (await handlers['todos:createTodo']({}, project.id, 'Second')) as any
+      const t3 = (await handlers['todos:createTodo']({}, project.id, 'Third')) as any
+
+      const moved = (await handlers['todos:reorderTodo']({}, t3.id, 'in_progress', t2.id)) as any
+      expect(moved.status).toBe('in_progress')
+
+      const todos = (await handlers['todos:listTodos']({}, project.id)) as any[]
+      expect(todos.map((t) => t.id)).toEqual([t1.id, t3.id, t2.id])
+    })
+
+    it('reorderTodo appends to the end when beforeId is null', async () => {
+      const project = (await handlers['todos:createProject']({}, 'Huginn', 'H')) as any
+      const t1 = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
+      const t2 = (await handlers['todos:createTodo']({}, project.id, 'Second')) as any
+
+      await handlers['todos:reorderTodo']({}, t1.id, 'done', null)
+
+      const todos = (await handlers['todos:listTodos']({}, project.id)) as any[]
+      expect(todos.map((t) => t.id)).toEqual([t2.id, t1.id])
+      expect(todos[1].status).toBe('done')
+    })
+
+    it('reorderTodo throws for an unknown id', async () => {
+      await expect(handlers['todos:reorderTodo']({}, 'missing', 'todo', null)).rejects.toThrow()
+    })
+
     it('archiveTodo sets the archived flag', async () => {
       const project = (await handlers['todos:createProject']({}, 'Huginn', 'H')) as any
       const todo = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
