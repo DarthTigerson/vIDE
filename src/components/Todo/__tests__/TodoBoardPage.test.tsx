@@ -1,10 +1,10 @@
 /// <reference types="@testing-library/jest-dom" />
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { TodoBoardPage } from '../TodoBoardPage'
 import { useTodoStore } from '@/stores/todoStore'
 import { useEditorStore } from '@/stores/editorStore'
-import { buildTodoDetailPath, buildTodoNewPath } from '@/components/Settings/paths'
+import { buildTodoDetailPath } from '@/components/Settings/paths'
 import type { Todo, TodoProject } from '@/types/api'
 
 afterEach(() => {
@@ -33,12 +33,14 @@ function makeTodo(overrides: Partial<Todo> = {}): Todo {
 }
 
 const loadTodosMock = vi.fn()
+const createTodoMock = vi.fn()
 const updateTodoMock = vi.fn()
 const archiveTodoMock = vi.fn()
 const openTabMock = vi.fn()
 
 beforeEach(() => {
   loadTodosMock.mockReset()
+  createTodoMock.mockReset().mockResolvedValue(makeTodo({ id: 'H-4', title: 'New one' }))
   updateTodoMock.mockReset().mockResolvedValue(makeTodo())
   archiveTodoMock.mockReset().mockResolvedValue(makeTodo())
   openTabMock.mockReset()
@@ -52,6 +54,7 @@ beforeEach(() => {
       ],
     },
     loadTodos: loadTodosMock,
+    createTodo: createTodoMock,
     updateTodo: updateTodoMock,
     archiveTodo: archiveTodoMock,
   })
@@ -88,13 +91,6 @@ describe('TodoBoardPage', () => {
     expect(screen.getByText('urgent')).toBeInTheDocument()
   })
 
-  it('the floating New todo button opens the new-todo page as a tab', () => {
-    render(<TodoBoardPage projectId="p1" />)
-    fireEvent.click(screen.getByRole('button', { name: 'New todo' }))
-
-    expect(openTabMock).toHaveBeenCalledWith({ path: buildTodoNewPath('p1'), content: '', dirty: false })
-  })
-
   it('clicking a card opens its detail page as a tab', () => {
     render(<TodoBoardPage projectId="p1" />)
     fireEvent.click(screen.getByText('Fix bug'))
@@ -110,6 +106,42 @@ describe('TodoBoardPage', () => {
     const doneColumn = screen.getByText('Done').closest('div')!.parentElement!
     fireEvent.drop(doneColumn, { dataTransfer: { getData: () => 'H-1' } })
     expect(updateTodoMock).toHaveBeenCalledWith('H-1', { status: 'done' })
+  })
+
+  it('clicking "+ Add issue" in a column reveals an inline title input', () => {
+    render(<TodoBoardPage projectId="p1" />)
+    const backlogAdd = screen.getAllByRole('button', { name: '+ Add issue' })[0]
+    fireEvent.click(backlogAdd)
+    expect(screen.getByPlaceholderText('What needs to be done?')).toBeInTheDocument()
+  })
+
+  it('typing a title and pressing Enter creates the todo in that column and keeps the composer open', async () => {
+    render(<TodoBoardPage projectId="p1" />)
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Add issue' })[2]) // In Progress column
+    const input = screen.getByPlaceholderText('What needs to be done?')
+    fireEvent.change(input, { target: { value: 'New one' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    await waitFor(() => {
+      expect(createTodoMock).toHaveBeenCalledWith('p1', 'New one')
+      expect(updateTodoMock).toHaveBeenCalledWith('H-4', { status: 'in_progress' })
+    })
+    expect(screen.getByPlaceholderText('What needs to be done?')).toHaveValue('')
+  })
+
+  it('pressing Enter with an empty title does not create a todo', () => {
+    render(<TodoBoardPage projectId="p1" />)
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Add issue' })[0])
+    fireEvent.keyDown(screen.getByPlaceholderText('What needs to be done?'), { key: 'Enter' })
+    expect(createTodoMock).not.toHaveBeenCalled()
+  })
+
+  it('pressing Escape closes the composer without creating a todo', () => {
+    render(<TodoBoardPage projectId="p1" />)
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Add issue' })[0])
+    fireEvent.keyDown(screen.getByPlaceholderText('What needs to be done?'), { key: 'Escape' })
+    expect(screen.queryByPlaceholderText('What needs to be done?')).not.toBeInTheDocument()
+    expect(createTodoMock).not.toHaveBeenCalled()
   })
 
   it('switching to Archive view shows archived todos instead of the board', () => {

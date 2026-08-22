@@ -1,21 +1,30 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTodoStore, EMPTY_TODOS } from '@/stores/todoStore'
 import { useEditorStore } from '@/stores/editorStore'
-import { buildTodoDetailPath, buildTodoNewPath } from '@/components/Settings/paths'
+import { buildTodoDetailPath } from '@/components/Settings/paths'
 import { TODO_COLUMNS, groupTodosByStatus } from '@/lib/todoBoard'
 import { TodoCard } from './TodoCard'
 import { TodoArchiveList } from './TodoArchiveList'
 import type { TodoStatus } from '@/types/api'
 
+function autoGrow(el: HTMLTextAreaElement) {
+  el.style.height = 'auto'
+  el.style.height = `${el.scrollHeight}px`
+}
+
 export function TodoBoardPage({ projectId }: { projectId: string }) {
   const project = useTodoStore((s) => s.projects.find((p) => p.id === projectId))
   const todos = useTodoStore((s) => s.todosByProject[projectId] ?? EMPTY_TODOS)
   const loadTodos = useTodoStore((s) => s.loadTodos)
+  const createTodo = useTodoStore((s) => s.createTodo)
   const updateTodo = useTodoStore((s) => s.updateTodo)
   const archiveTodo = useTodoStore((s) => s.archiveTodo)
   const openTab = useEditorStore((s) => s.openTab)
 
   const [view, setView] = useState<'board' | 'archive'>('board')
+  const [addingStatus, setAddingStatus] = useState<TodoStatus | null>(null)
+  const [newTitle, setNewTitle] = useState('')
+  const newTitleInputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     loadTodos(projectId)
@@ -32,6 +41,24 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
     e.preventDefault()
     const todoId = e.dataTransfer.getData('text/plain')
     if (todoId) updateTodo(todoId, { status })
+  }
+
+  function closeComposer() {
+    setAddingStatus(null)
+    setNewTitle('')
+  }
+
+  async function handleCreate(status: TodoStatus) {
+    const title = newTitle.trim()
+    if (!title) return
+    const todo = await createTodo(projectId, title)
+    if (status !== 'backlog') await updateTodo(todo.id, { status })
+    setNewTitle('')
+    const el = newTitleInputRef.current
+    if (el) {
+      el.style.height = 'auto'
+      el.focus()
+    }
   }
 
   return (
@@ -76,12 +103,41 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
                 </span>
               </div>
               <div className="flex-1 flex flex-col gap-2 overflow-y-auto p-3">
-                {groups[col.status].length === 0 ? (
-                  <p className="text-xs text-fg-subtle/70 italic">No todos</p>
+                {groups[col.status].map((todo) => (
+                  <TodoCard key={todo.id} todo={todo} onOpen={() => openDetail(todo.id)} />
+                ))}
+                {addingStatus === col.status ? (
+                  <div className="rounded border border-accent/60 bg-sidebar p-2">
+                    <textarea
+                      ref={newTitleInputRef}
+                      autoFocus
+                      rows={1}
+                      value={newTitle}
+                      onChange={(e) => {
+                        setNewTitle(e.target.value)
+                        autoGrow(e.target)
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          handleCreate(col.status)
+                        } else if (e.key === 'Escape') {
+                          closeComposer()
+                        }
+                      }}
+                      onBlur={closeComposer}
+                      placeholder="What needs to be done?"
+                      className="w-full bg-transparent text-sm leading-5 text-fg placeholder:text-fg-subtle resize-none outline-none max-h-10 overflow-y-auto"
+                    />
+                  </div>
                 ) : (
-                  groups[col.status].map((todo) => (
-                    <TodoCard key={todo.id} todo={todo} onOpen={() => openDetail(todo.id)} />
-                  ))
+                  <button
+                    type="button"
+                    onClick={() => setAddingStatus(col.status)}
+                    className="text-left text-xs text-fg-subtle hover:text-fg-muted px-1 py-1"
+                  >
+                    + Add issue
+                  </button>
                 )}
               </div>
             </div>
@@ -94,15 +150,6 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
           onUnarchive={(id) => archiveTodo(id, false)}
         />
       )}
-
-      <button
-        type="button"
-        aria-label="New todo"
-        onClick={() => openTab({ path: buildTodoNewPath(projectId), content: '', dirty: false })}
-        className="absolute bottom-6 right-6 w-12 h-12 rounded-full bg-accent text-on-accent shadow-lg shadow-black/40 flex items-center justify-center text-2xl leading-none hover:bg-accent/90 active:scale-95 transition-transform"
-      >
-        +
-      </button>
     </div>
   )
 }

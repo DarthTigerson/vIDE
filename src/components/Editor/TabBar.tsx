@@ -3,7 +3,7 @@ import { useEditorStore } from '@/stores/editorStore'
 import { useBrowserStore } from '@/stores/browserStore'
 import { useTodoStore } from '@/stores/todoStore'
 import { FileIcon } from '@/components/Sidebar/FileIcon'
-import { isTerminalTab, isBrowserTab, getBrowserId, isTodoBoardTab, getTodoBoardProjectId, isTodoNewTab, getTodoNewProjectId, isTodoDetailTab, getTodoDetailIds } from '@/components/Settings/paths'
+import { isTerminalTab, isBrowserTab, getBrowserId, isTodoBoardTab, getTodoBoardProjectId, isTodoDetailTab, getTodoDetailIds } from '@/components/Settings/paths'
 import { orderTabsForDisplay, truncateTabLabel } from './tabDisplay'
 import { TabContextMenu } from './TabContextMenu'
 import { useTabContextMenuStore } from '@/stores/tabContextMenuStore'
@@ -65,14 +65,12 @@ export function TabBar({ paneId }: { paneId: string }) {
             ? (browserTabs[getBrowserId(tab.path)]?.title || 'New Tab')
             : isTodoBoardTab(tab.path)
               ? (todoProjects.find((p) => p.id === getTodoBoardProjectId(tab.path))?.name || 'To Do')
-              : isTodoNewTab(tab.path)
-                ? `New — ${todoProjects.find((p) => p.id === getTodoNewProjectId(tab.path))?.name || 'To Do'}`
-                : isTodoDetailTab(tab.path)
-                  ? (() => {
-                      const { projectId, todoId } = getTodoDetailIds(tab.path)
-                      return todosByProject[projectId]?.find((t) => t.id === todoId)?.title || 'To Do'
-                    })()
-                  : (tab.path.split('/').pop() ?? tab.path)
+              : isTodoDetailTab(tab.path)
+                ? (() => {
+                    const { projectId, todoId } = getTodoDetailIds(tab.path)
+                    return todosByProject[projectId]?.find((t) => t.id === todoId)?.title || 'To Do'
+                  })()
+                : (tab.path.split('/').pop() ?? tab.path)
         const isActive = activePath === tab.path
         const isDragging = draggedPath === tab.path
         const isDropTarget = dropTarget?.path === tab.path && draggedPath !== tab.path

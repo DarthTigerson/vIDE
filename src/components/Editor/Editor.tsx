@@ -36,8 +36,6 @@ import {
   isUsageGraphTab,
   isTodoBoardTab,
   getTodoBoardProjectId,
-  isTodoNewTab,
-  getTodoNewProjectId,
   isTodoDetailTab,
   getTodoDetailIds,
   isTerminalTab,
@@ -74,7 +72,6 @@ import { GitBranchDiffPage } from '@/components/Git/GitBranchDiffPage'
 import { GraphifyGraphPage } from '@/components/Graphify/GraphifyGraphPage'
 import { UsageGraphPage } from '@/components/UsagePanel/UsageGraphPage'
 import { TodoBoardPage } from '@/components/Todo/TodoBoardPage'
-import { TodoNewPage } from '@/components/Todo/TodoNewPage'
 import { TodoDetailPage } from '@/components/Todo/TodoDetailPage'
 import {
   isImagePreviewTab,
@@ -243,7 +240,6 @@ function EditorPane({ paneId }: { paneId: string }) {
   const isGraphifyGraph = !!activeTab && isGraphifyGraphTab(activeTab.path)
   const isUsageGraph = !!activeTab && isUsageGraphTab(activeTab.path)
   const isTodoBoard = !!activeTab && isTodoBoardTab(activeTab.path)
-  const isTodoNew = !!activeTab && isTodoNewTab(activeTab.path)
   const isTodoDetail = !!activeTab && isTodoDetailTab(activeTab.path)
   const isDockerLogs = !!activeTab && isDockerLogsTab(activeTab.path)
   const isImagePreview = !!activeTab && isImagePreviewTab(activeTab.path)
@@ -255,7 +251,7 @@ function EditorPane({ paneId }: { paneId: string }) {
     !!activeTab &&
     !isVirtual && !isTerminal && !isBrowser &&
     !isDiff && !isCommitDiff && !isGitLog && !isGitGraph && !isGitBranchDiff &&
-    !isGraphifyGraph && !isUsageGraph && !isTodoBoard && !isTodoNew && !isTodoDetail && !isDockerLogs && !isImagePreview && !isMarkdownPreview
+    !isGraphifyGraph && !isUsageGraph && !isTodoBoard && !isTodoDetail && !isDockerLogs && !isImagePreview && !isMarkdownPreview
 
   function activatePane() {
     setActivePane(paneId)
@@ -414,8 +410,6 @@ function EditorPane({ paneId }: { paneId: string }) {
           <UsageGraphPage />
         ) : isTodoBoard ? (
           <TodoBoardPage key={activeTab.path} projectId={getTodoBoardProjectId(activeTab.path)} />
-        ) : isTodoNew ? (
-          <TodoNewPage key={activeTab.path} projectId={getTodoNewProjectId(activeTab.path)} />
         ) : isTodoDetail ? (
           <TodoDetailPage key={activeTab.path} {...getTodoDetailIds(activeTab.path)} />
         ) : isDockerLogs ? (
