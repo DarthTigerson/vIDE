@@ -26,6 +26,17 @@ function noteDisplayName(name: string): string {
   return name.endsWith('.md') ? name.slice(0, -3) : name
 }
 
+// -1 for the root itself, so a new item created directly in it lands at
+// depth 0 (a Book) via depthOf(directory) + 1.
+function depthOf(path: string, root: string): number {
+  if (path === root) return -1
+  return path.slice(root.length + 1).split('/').length - 1
+}
+
+function folderLabel(depth: number): string {
+  return depth === 0 ? 'Book' : depth === 1 ? 'Chapter' : 'Folder'
+}
+
 function ContextMenuButton({ children, danger = false, onClick }: {
   children: ReactNode
   danger?: boolean
@@ -134,14 +145,16 @@ export function NotesPanel() {
 
   async function startCreate(kind: CreateKind, node: FileNode | null) {
     const directory = targetDirectory(node)
-    if (!directory) return
+    if (!directory || !root) return
     if (node?.isDirectory && !expandedPaths.has(node.path)) await toggleDir(node)
     setMenu(null)
     setPromptError(null)
-    setPrompt({ kind, value: '', directory, node: null })
+    const label = kind === 'note' ? 'Note' : folderLabel(depthOf(directory, root) + 1)
+    setPrompt({ kind, value: '', directory, node: null, label })
   }
 
   function startRename(node: FileNode) {
+    if (!root) return
     setMenu(null)
     setPromptError(null)
     setPrompt({
@@ -149,6 +162,7 @@ export function NotesPanel() {
       value: node.isDirectory ? node.name : noteDisplayName(node.name),
       directory: dirname(node.path),
       node,
+      label: node.isDirectory ? folderLabel(depthOf(node.path, root)) : 'Note',
     })
   }
 
@@ -260,7 +274,9 @@ export function NotesPanel() {
             </ContextMenuButton>
           )}
           <ContextMenuButton onClick={() => startCreate('note', menu.node)}>New Note</ContextMenuButton>
-          <ContextMenuButton onClick={() => startCreate('folder', menu.node)}>New Folder</ContextMenuButton>
+          <ContextMenuButton onClick={() => startCreate('folder', menu.node)}>
+            New {root ? folderLabel(depthOf(targetDirectory(menu.node) ?? root, root) + 1) : 'Folder'}
+          </ContextMenuButton>
           {menu.node && (
             <>
               <ContextMenuDivider />
@@ -279,7 +295,7 @@ export function NotesPanel() {
         <Modal onClose={() => setDeleteTarget(null)}>
           <h2 className="text-sm font-semibold text-fg mb-1">Move to Trash</h2>
           <p className="text-sm text-fg-muted mb-5">
-            Move{' '}
+            Move the {root ? (deleteTarget.isDirectory ? folderLabel(depthOf(deleteTarget.path, root)) : 'Note').toLowerCase() : ''}{' '}
             <span className="font-mono text-fg break-all">
               {deleteTarget.isDirectory ? deleteTarget.name : noteDisplayName(deleteTarget.name)}
             </span>{' '}

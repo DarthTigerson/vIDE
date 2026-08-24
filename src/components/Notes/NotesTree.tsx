@@ -1,6 +1,9 @@
 import type { MouseEvent } from 'react'
 import type { FileNode } from '@/types/index'
-import { FileIcon, FolderIcon } from '@/components/Sidebar/FileIcon'
+import { FolderIcon } from '@/components/Sidebar/FileIcon'
+import { DiaryPageIcon } from './DiaryPageIcon'
+import { BookIcon } from './BookIcon'
+import { ChapterIcon } from './ChapterIcon'
 
 export type NotesPromptKind = 'note' | 'folder' | 'rename'
 
@@ -9,6 +12,9 @@ export interface NotesPromptState {
   value: string
   directory: string
   node: FileNode | null
+  // Human label for the thing being created/renamed — "Book"/"Chapter"/"Folder"
+  // for a directory (depending on depth) or "Note" for a note.
+  label: string
 }
 
 interface NotesTreeProps {
@@ -31,6 +37,12 @@ function noteDisplayName(name: string): string {
   return name.endsWith('.md') ? name.slice(0, -3) : name
 }
 
+function FolderKindIcon({ depth, open }: { depth: number; open: boolean }) {
+  if (depth === 0) return <BookIcon open={open} />
+  if (depth === 1) return <ChapterIcon open={open} />
+  return <FolderIcon open={open} />
+}
+
 function InlineNameInput({ prompt, depth, setPromptValue, commitPrompt, cancelPrompt }: {
   prompt: NotesPromptState
   depth: number
@@ -46,7 +58,7 @@ function InlineNameInput({ prompt, depth, setPromptValue, commitPrompt, cancelPr
       onContextMenu={(event) => event.stopPropagation()}
     >
       <span className="shrink-0 text-xs w-3 text-fg-subtle" />
-      {isFolder ? <FolderIcon open={false} /> : <FileIcon name="note.md" />}
+      {isFolder ? <FolderKindIcon depth={depth} open={false} /> : <DiaryPageIcon />}
       <input
         value={prompt.value}
         onChange={(event) => setPromptValue(event.target.value)}
@@ -56,7 +68,7 @@ function InlineNameInput({ prompt, depth, setPromptValue, commitPrompt, cancelPr
         }}
         onBlur={cancelPrompt}
         autoFocus
-        placeholder={prompt.kind === 'folder' ? 'folder name' : 'note name'}
+        placeholder={`${prompt.label.toLowerCase()} name`}
         className="min-w-0 flex-1 rounded border border-accent bg-panel px-1 py-0 text-sm text-fg outline-none placeholder:text-fg-subtle"
         style={{ userSelect: 'text' }}
       />
@@ -126,9 +138,9 @@ export function NotesTree({
                 {node.isDirectory ? (expandedPaths.has(node.path) ? '▾' : '▸') : ''}
               </span>
               {node.isDirectory ? (
-                <FolderIcon open={expandedPaths.has(node.path)} />
+                <FolderKindIcon depth={depth} open={expandedPaths.has(node.path)} />
               ) : (
-                <FileIcon name={node.name} />
+                <DiaryPageIcon />
               )}
               <span className={`truncate text-fg ${node.isDirectory && depth === 0 ? 'font-semibold' : ''}`}>
                 {node.isDirectory ? node.name : noteDisplayName(node.name)}
