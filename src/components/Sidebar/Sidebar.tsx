@@ -14,6 +14,9 @@ import { Modal } from '@/components/ui/Modal'
 import { clampToViewport } from '@/components/ui/clampToViewport'
 import { buildTerminalPath } from '@/components/Settings/paths'
 import { pendingTerminalCommands } from '@/components/Terminal/TerminalTab'
+import { UndoToast } from '@/components/ui/UndoToast'
+
+const UNDO_TIMEOUT_MS = 10000
 
 type CreateKind = 'file' | 'directory'
 
@@ -79,6 +82,23 @@ export function Sidebar() {
   const menuRef = useRef<HTMLDivElement>(null)
   const [prompt, setPrompt] = useState<TreePromptState | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<FileNode | null>(null)
+  const [dragOverPath, setDragOverPath] = useState<string | null>(null)
+  const [undoMove, setUndoMove] = useState<{ from: string; to: string } | null>(null)
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    const clear = () => setDragOverPath(null)
+    window.addEventListener('dragend', clear)
+    window.addEventListener('drop', clear)
+    return () => {
+      window.removeEventListener('dragend', clear)
+      window.removeEventListener('drop', clear)
+    }
+  }, [])
+
+  useEffect(() => () => {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+  }, [])
 
   useEffect(() => {
     if (!projectRoot || !activeTabPath) return
@@ -274,11 +294,43 @@ export function Sidebar() {
     setDeleteTarget(null)
   }
 
+  async function moveNode(sourcePath: string, targetDir: string) {
+    if (!projectRoot) return
+    if (sourcePath === targetDir || targetDir.startsWith(sourcePath + '/')) return
+    if (dirname(sourcePath) === targetDir) return
+    const destPath = joinPath(targetDir, sourcePath.split('/').pop()!)
+    if (await window.api.pathExists(destPath)) return
+    await window.api.renamePath(sourcePath, destPath)
+    await refreshTree()
+    armUndo(sourcePath, destPath)
+  }
+
+  function armUndo(from: string, to: string) {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+    setUndoMove({ from, to })
+    undoTimerRef.current = setTimeout(() => setUndoMove(null), UNDO_TIMEOUT_MS)
+  }
+
+  async function undoMoveNode() {
+    if (!undoMove) return
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+    const { from, to } = undoMove
+    setUndoMove(null)
+    await window.api.renamePath(to, from)
+    await refreshTree()
+  }
+
   return (
     <div
-      className="h-full flex flex-col bg-sidebar border-r border-border overflow-hidden"
+      className="relative h-full flex flex-col bg-sidebar border-r border-border overflow-hidden"
       onContextMenu={(event) => openContextMenu(event, null)}
     >
+      {undoMove && (
+        <UndoToast
+          message={`Moved "${undoMove.from.split('/').pop()}"`}
+          onUndo={undoMoveNode}
+        />
+      )}
       {projectRoot ? (
         <>
           <div className="h-9 px-3 flex items-center justify-between border-b border-border shrink-0">
@@ -287,7 +339,20 @@ export function Sidebar() {
             </span>
           </div>
 
-          <div className="flex-1 overflow-y-auto py-1">
+          <div
+            className={`flex-1 overflow-y-auto py-1 ${dragOverPath === projectRoot ? 'bg-accent/5' : ''}`}
+            onDragOver={(event) => {
+              event.preventDefault()
+              event.dataTransfer.dropEffect = 'move'
+              if (dragOverPath !== projectRoot) setDragOverPath(projectRoot)
+            }}
+            onDrop={(event) => {
+              event.preventDefault()
+              setDragOverPath(null)
+              const sourcePath = event.dataTransfer.getData('text/plain')
+              if (sourcePath) moveNode(sourcePath, projectRoot)
+            }}
+          >
             <FileTree
               nodes={tree}
               directoryPath={projectRoot}
@@ -296,6 +361,9 @@ export function Sidebar() {
               setPromptValue={setPromptValue}
               commitPrompt={commitPrompt}
               cancelPrompt={cancelPrompt}
+              dragOverPath={dragOverPath}
+              setDragOverPath={setDragOverPath}
+              onMoveNode={moveNode}
             />
           </div>
 

@@ -31,6 +31,9 @@ interface NotesTreeProps {
   setPromptValue: (value: string) => void
   commitPrompt: () => void
   cancelPrompt: () => void
+  dragOverPath: string | null
+  setDragOverPath: (path: string | null) => void
+  onMoveNode: (sourcePath: string, targetDir: string) => void
 }
 
 function noteDisplayName(name: string): string {
@@ -90,6 +93,9 @@ export function NotesTree({
   setPromptValue,
   commitPrompt,
   cancelPrompt,
+  dragOverPath,
+  setDragOverPath,
+  onMoveNode,
 }: NotesTreeProps) {
   const createPromptHere = prompt && !prompt.node && prompt.directory === directoryPath
 
@@ -126,13 +132,34 @@ export function NotesTree({
             />
           ) : (
             <button
+              id={`file-tree-node:${node.path}`}
               type="button"
+              draggable
               className={`flex items-center gap-1 w-full text-left py-0.5 text-sm hover:bg-white/5 rounded truncate ${
                 activeNotePath === node.path ? 'bg-accent/20 text-fg' : 'text-fg'
-              }`}
+              } ${dragOverPath === node.path ? 'ring-1 ring-inset ring-accent bg-accent/10' : ''}`}
               style={{ paddingLeft: `${8 + depth * 12}px`, paddingRight: '8px' }}
               onClick={() => handleClick(node)}
               onContextMenu={(event) => onContextMenu(event, node)}
+              onDragStart={(event) => {
+                event.dataTransfer.effectAllowed = 'move'
+                event.dataTransfer.setData('text/plain', node.path)
+              }}
+              onDragOver={(event) => {
+                if (!node.isDirectory) return
+                event.preventDefault()
+                event.stopPropagation()
+                event.dataTransfer.dropEffect = 'move'
+                if (dragOverPath !== node.path) setDragOverPath(node.path)
+              }}
+              onDrop={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                setDragOverPath(null)
+                if (!node.isDirectory) return
+                const sourcePath = event.dataTransfer.getData('text/plain')
+                if (sourcePath) onMoveNode(sourcePath, node.path)
+              }}
             >
               <span className="shrink-0 text-xs w-3 text-fg-subtle">
                 {node.isDirectory ? (expandedPaths.has(node.path) ? '▾' : '▸') : ''}
@@ -162,6 +189,9 @@ export function NotesTree({
               setPromptValue={setPromptValue}
               commitPrompt={commitPrompt}
               cancelPrompt={cancelPrompt}
+              dragOverPath={dragOverPath}
+              setDragOverPath={setDragOverPath}
+              onMoveNode={onMoveNode}
             />
           )}
         </li>

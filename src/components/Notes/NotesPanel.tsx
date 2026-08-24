@@ -7,7 +7,10 @@ import { useEditorStore } from '@/stores/editorStore'
 import { buildMarkdownPreviewPath } from '@/components/Viewer/paths'
 import { Modal } from '@/components/ui/Modal'
 import { clampToViewport } from '@/components/ui/clampToViewport'
+import { UndoToast } from '@/components/ui/UndoToast'
 import { NotesTree, type NotesPromptState } from './NotesTree'
+
+const UNDO_TIMEOUT_MS = 10000
 
 type CreateKind = 'note' | 'folder'
 
@@ -74,6 +77,23 @@ export function NotesPanel() {
   const [prompt, setPrompt] = useState<NotesPromptState | null>(null)
   const [promptError, setPromptError] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<FileNode | null>(null)
+  const [dragOverPath, setDragOverPath] = useState<string | null>(null)
+  const [undoMove, setUndoMove] = useState<{ from: string; to: string } | null>(null)
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    const clear = () => setDragOverPath(null)
+    window.addEventListener('dragend', clear)
+    window.addEventListener('drop', clear)
+    return () => {
+      window.removeEventListener('dragend', clear)
+      window.removeEventListener('drop', clear)
+    }
+  }, [])
+
+  useEffect(() => () => {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+  }, [])
 
   async function refreshDir(dirPath: string) {
     const nodes = await window.api.readDir(dirPath)
@@ -221,11 +241,46 @@ export function NotesPanel() {
     setDeleteTarget(null)
   }
 
+  async function moveNode(sourcePath: string, targetDir: string) {
+    if (!root) return
+    if (sourcePath === targetDir || targetDir.startsWith(sourcePath + '/')) return
+    const sourceParent = dirname(sourcePath)
+    if (sourceParent === targetDir) return
+    const destPath = `${targetDir}/${sourcePath.split('/').pop()}`
+    if (await window.api.pathExists(destPath)) return
+    await window.api.renamePath(sourcePath, destPath)
+    await refreshDir(sourceParent)
+    await refreshDir(targetDir)
+    armUndo(sourcePath, destPath)
+  }
+
+  function armUndo(from: string, to: string) {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+    setUndoMove({ from, to })
+    undoTimerRef.current = setTimeout(() => setUndoMove(null), UNDO_TIMEOUT_MS)
+  }
+
+  async function undoMoveNode() {
+    if (!undoMove) return
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+    const { from, to } = undoMove
+    setUndoMove(null)
+    await window.api.renamePath(to, from)
+    await refreshDir(dirname(from))
+    await refreshDir(dirname(to))
+  }
+
   return (
     <div
-      className="h-full flex flex-col bg-sidebar border-r border-border overflow-hidden"
+      className="relative h-full flex flex-col bg-sidebar border-r border-border overflow-hidden"
       onContextMenu={(e) => openContextMenu(e, null)}
     >
+      {undoMove && (
+        <UndoToast
+          message={`Moved "${noteDisplayName(undoMove.from.split('/').pop() ?? '')}"`}
+          onUndo={undoMoveNode}
+        />
+      )}
       <div className="h-9 px-3 border-b border-border shrink-0 flex items-center justify-between">
         <span className="text-xs font-semibold text-fg-muted uppercase tracking-wider">Notes</span>
         <button
@@ -238,7 +293,21 @@ export function NotesPanel() {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto py-1">
+      <div
+        className={`flex-1 overflow-y-auto py-1 ${root && dragOverPath === root ? 'bg-accent/5' : ''}`}
+        onDragOver={(event) => {
+          if (!root) return
+          event.preventDefault()
+          event.dataTransfer.dropEffect = 'move'
+          if (dragOverPath !== root) setDragOverPath(root)
+        }}
+        onDrop={(event) => {
+          event.preventDefault()
+          setDragOverPath(null)
+          const sourcePath = event.dataTransfer.getData('text/plain')
+          if (sourcePath && root) moveNode(sourcePath, root)
+        }}
+      >
         {root && (
           <NotesTree
             nodes={childrenByDir[root] ?? []}
@@ -253,6 +322,9 @@ export function NotesPanel() {
             setPromptValue={setPromptValue}
             commitPrompt={commitPrompt}
             cancelPrompt={cancelPrompt}
+            dragOverPath={dragOverPath}
+            setDragOverPath={setDragOverPath}
+            onMoveNode={moveNode}
           />
         )}
         {promptError && <p className="px-3 pt-1 text-xs text-red-400">{promptError}</p>}
