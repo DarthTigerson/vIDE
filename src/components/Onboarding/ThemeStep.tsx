@@ -1,8 +1,7 @@
 import { useThemeStore, THEME_OPTIONS, familyOf } from '@/stores/themeStore'
-import { useDisplayStore, PANEL_STYLE_OPTIONS } from '@/stores/displayStore'
+import { useDisplayStore, PANEL_STYLE_OPTIONS, BACKGROUND_IMAGE_OPTIONS, type BackgroundImage } from '@/stores/displayStore'
 import { Select } from '@/components/ui/Select'
 import { RadioGroup } from '@/components/ui/RadioGroup'
-import { Toggle } from '@/components/ui/Toggle'
 
 const FAMILIES = [
   { value: 'claude', label: 'Claude' },
@@ -45,8 +44,8 @@ function SwatchPreview({ themeId, swatches, active, onClick }: {
 
 export function ThemeStep() {
   const { theme, matchSystem, setFamily, setVariant, setMatchSystem } = useThemeStore()
-  const backgroundImageVisible = useDisplayStore((s) => s.backgroundImageVisible)
-  const setBackgroundImageVisible = useDisplayStore((s) => s.setBackgroundImageVisible)
+  const backgroundImage = useDisplayStore((s) => s.backgroundImage)
+  const setBackgroundImage = useDisplayStore((s) => s.setBackgroundImage)
   const panelStyle = useDisplayStore((s) => s.panelStyle)
   const setPanelStyle = useDisplayStore((s) => s.setPanelStyle)
 
@@ -109,12 +108,15 @@ export function ThemeStep() {
           />
         </div>
 
-        <Toggle
-          label="Show background image"
-          description="Decorative badge in the corner of the empty editor pane, and (with Glass panel style) behind the editor and terminal panels."
-          checked={backgroundImageVisible}
-          onChange={setBackgroundImageVisible}
-        />
+        <div>
+          <label htmlFor="onboarding-background-image" className="text-xs text-fg-muted mb-1.5 block">Background image</label>
+          <Select
+            id="onboarding-background-image"
+            value={backgroundImage}
+            onChange={(v) => setBackgroundImage(v as BackgroundImage)}
+            options={BACKGROUND_IMAGE_OPTIONS}
+          />
+        </div>
       </div>
     </div>
   )

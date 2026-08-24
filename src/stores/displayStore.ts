@@ -4,6 +4,7 @@ const FONT_KEY = 'vide:font'
 const PANEL_STYLE_KEY = 'vide:panelStyle'
 const FOOTER_CONTENT_KEY = 'vide:footerContent'
 const MEMORY_USAGE_VISIBLE_KEY = 'vide:memoryUsageVisible'
+const BACKGROUND_IMAGE_KEY = 'vide:backgroundImage'
 const BACKGROUND_IMAGE_VISIBLE_KEY = 'vide:backgroundImageVisible'
 const NAVBAR_POSITION_KEY = 'vide:navbarPosition'
 
@@ -36,6 +37,16 @@ export const PANEL_STYLE_OPTIONS: { value: PanelStyle; label: string; descriptio
 // don't need reshaping when that happens.
 export type FooterContent = 'hints' | 'clock'
 
+export type BackgroundImage = 'none' | 'vide' | 'clawd'
+
+// Shared between DisplayPage and the setup wizard's theme step, same as
+// PANEL_STYLE_OPTIONS below.
+export const BACKGROUND_IMAGE_OPTIONS: { value: BackgroundImage; label: string }[] = [
+  { value: 'none',  label: 'None' },
+  { value: 'vide',  label: 'vIDE' },
+  { value: 'clawd', label: 'Clawd' },
+]
+
 // Which physical side the primary (Explorer/Git/Settings) activity bar and
 // its Sidebar panel render on; the Claude/assistant activity bar and Chat
 // panel always take the opposite side — see App.tsx's mirrored layout.
@@ -48,13 +59,13 @@ interface DisplayStore {
   panelStyle: PanelStyle
   footerContent: FooterContent
   memoryUsageVisible: boolean
-  backgroundImageVisible: boolean
+  backgroundImage: BackgroundImage
   navbarPosition: NavbarPosition
   setFont: (font: string) => void
   setPanelStyle: (style: PanelStyle) => void
   setFooterContent: (content: FooterContent) => void
   setMemoryUsageVisible: (visible: boolean) => void
-  setBackgroundImageVisible: (visible: boolean) => void
+  setBackgroundImage: (image: BackgroundImage) => void
   setNavbarPosition: (position: NavbarPosition) => void
 }
 
@@ -75,7 +86,14 @@ const storedFooterContent = localStorage.getItem(FOOTER_CONTENT_KEY)
 const initialFooterContent: FooterContent = storedFooterContent === 'clock' ? 'clock' : 'hints'
 const storedMemoryUsageVisible = localStorage.getItem(MEMORY_USAGE_VISIBLE_KEY)
 const initialMemoryUsageVisible = storedMemoryUsageVisible === null ? true : storedMemoryUsageVisible === 'true'
-const initialBackgroundImageVisible = localStorage.getItem(BACKGROUND_IMAGE_VISIBLE_KEY) === 'true'
+// Migrates the old on/off toggle (pre-dating the None/vIDE/Clawd picker):
+// if a background image was already selected, this key exists and wins; if
+// only the old boolean is present, "on" carries forward as the vIDE badge
+// (the only option that used to exist) and "off"/absent becomes "none".
+const storedBackgroundImage = localStorage.getItem(BACKGROUND_IMAGE_KEY) as BackgroundImage | null
+const initialBackgroundImage: BackgroundImage = storedBackgroundImage && BACKGROUND_IMAGE_OPTIONS.some((o) => o.value === storedBackgroundImage)
+  ? storedBackgroundImage
+  : localStorage.getItem(BACKGROUND_IMAGE_VISIBLE_KEY) === 'true' ? 'vide' : 'none'
 const storedNavbarPosition = localStorage.getItem(NAVBAR_POSITION_KEY)
 const initialNavbarPosition: NavbarPosition = storedNavbarPosition === 'right' ? 'right' : 'left'
 applyFont(initialFont)
@@ -86,7 +104,7 @@ export const useDisplayStore = create<DisplayStore>((set) => ({
   panelStyle: initialPanelStyle,
   footerContent: initialFooterContent,
   memoryUsageVisible: initialMemoryUsageVisible,
-  backgroundImageVisible: initialBackgroundImageVisible,
+  backgroundImage: initialBackgroundImage,
   navbarPosition: initialNavbarPosition,
   setFont: (font) => {
     applyFont(font)
@@ -104,9 +122,9 @@ export const useDisplayStore = create<DisplayStore>((set) => ({
     localStorage.setItem(MEMORY_USAGE_VISIBLE_KEY, String(visible))
     set({ memoryUsageVisible: visible })
   },
-  setBackgroundImageVisible: (visible) => {
-    localStorage.setItem(BACKGROUND_IMAGE_VISIBLE_KEY, String(visible))
-    set({ backgroundImageVisible: visible })
+  setBackgroundImage: (image) => {
+    localStorage.setItem(BACKGROUND_IMAGE_KEY, image)
+    set({ backgroundImage: image })
   },
   setNavbarPosition: (position) => {
     localStorage.setItem(NAVBAR_POSITION_KEY, position)

@@ -59,6 +59,7 @@ import { useGitSettingsStore } from './stores/gitSettingsStore'
 import { useMobileStore } from './stores/mobileStore'
 import { useThemeStore } from './stores/themeStore'
 import { useDisplayStore } from './stores/displayStore'
+import { EMPTY_EDITOR_BACKGROUNDS } from './assets/emptyEditorBackgrounds'
 import { useEditorStore } from './stores/editorStore'
 import { useSearchStore } from './stores/searchStore'
 import { useFontSizeStore } from './stores/fontSizeStore'
@@ -152,7 +153,7 @@ export default function App() {
   const theme = useThemeStore((s) => s.theme)
   const font = useDisplayStore((s) => s.font)
   const memoryUsageVisible = useDisplayStore((s) => s.memoryUsageVisible)
-  const backgroundImageVisible = useDisplayStore((s) => s.backgroundImageVisible)
+  const backgroundImage = useDisplayStore((s) => s.backgroundImage)
   const navbarPosition = useDisplayStore((s) => s.navbarPosition)
   const mirrored = navbarPosition === 'right'
   const periodicFetchEnabled = useGitSettingsStore((s) => s.periodicFetchEnabled)
@@ -589,7 +590,13 @@ export default function App() {
 
   return (
     <div className="w-screen h-screen overflow-hidden bg-panel flex flex-col relative isolate">
-      {backgroundImageVisible && <div className="app-bg-badge" aria-hidden="true" />}
+      {backgroundImage !== 'none' && (
+        <div
+          className="app-bg-badge"
+          style={{ backgroundImage: `url(${EMPTY_EDITOR_BACKGROUNDS[backgroundImage]})` }}
+          aria-hidden="true"
+        />
+      )}
       <EasterEgg />
       <div
         className="relative z-50 h-8 shrink-0 flex items-center justify-center bg-tab-bar border-b border-border"

@@ -1,4 +1,4 @@
-import { useDisplayStore, FONT_PRESETS, PANEL_STYLE_OPTIONS, type FooterContent } from '@/stores/displayStore'
+import { useDisplayStore, FONT_PRESETS, PANEL_STYLE_OPTIONS, BACKGROUND_IMAGE_OPTIONS, type FooterContent, type BackgroundImage } from '@/stores/displayStore'
 import { useThemeStore, THEME_OPTIONS } from '@/stores/themeStore'
 import { Toggle } from '@/components/ui/Toggle'
 import { Select } from '@/components/ui/Select'
@@ -11,8 +11,8 @@ const FOOTER_CONTENT_OPTIONS: { value: FooterContent; label: string }[] = [
 
 export function DisplayPage() {
   const {
-    font, panelStyle, footerContent, memoryUsageVisible, backgroundImageVisible, navbarPosition,
-    setFont, setPanelStyle, setFooterContent, setMemoryUsageVisible, setBackgroundImageVisible, setNavbarPosition,
+    font, panelStyle, footerContent, memoryUsageVisible, backgroundImage, navbarPosition,
+    setFont, setPanelStyle, setFooterContent, setMemoryUsageVisible, setBackgroundImage, setNavbarPosition,
   } = useDisplayStore()
   const { theme, setTheme, matchSystem, setMatchSystem } = useThemeStore()
 
@@ -161,15 +161,19 @@ export function DisplayPage() {
                   options={FONT_PRESETS.map((preset) => ({ value: preset.value, label: preset.label, style: { fontFamily: preset.value } }))}
                 />
               </div>
+
+              <div className="flex-1 min-w-[220px]">
+                <label htmlFor="background-image-select" className="text-xs text-fg-muted mb-1.5 block">Background Image</label>
+                <Select
+                  id="background-image-select"
+                  value={backgroundImage}
+                  onChange={(v) => setBackgroundImage(v as BackgroundImage)}
+                  options={BACKGROUND_IMAGE_OPTIONS}
+                />
+              </div>
             </div>
 
             <div className="mt-4 flex flex-col gap-4">
-              <Toggle
-                label="Show background image"
-                description="Decorative badge in the corner of the empty editor pane, and (with Glass panel style) behind the editor and terminal panels."
-                checked={backgroundImageVisible}
-                onChange={setBackgroundImageVisible}
-              />
               <Toggle
                 label="Show memory usage"
                 description="Show the RAM used/total indicator next to the model dropdown in the title bar."
