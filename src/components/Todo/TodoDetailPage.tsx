@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTodoStore, EMPTY_TODOS } from '@/stores/todoStore'
 import { getProjectTags } from '@/lib/todoTags'
 import { TODO_COLUMNS } from '@/lib/todoBoard'
+import { ArchiveIcon } from './ArchiveIcon'
 import { AttachmentThumbnails } from './AttachmentThumbnails'
 import { TODO_LABELS, TODO_LABEL_META } from './labels'
 import { TodoTagInput } from './TodoTagInput'
@@ -190,9 +191,11 @@ export function TodoDetailPage({ projectId, todoId }: { projectId: string; todoI
               <button
                 type="button"
                 onClick={() => archiveTodo(todo.id, !todo.archived)}
-                className="text-xs text-fg-muted hover:text-fg"
+                aria-label={todo.archived ? 'Unarchive' : 'Archive'}
+                title={todo.archived ? 'Unarchive' : 'Archive'}
+                className="text-fg-muted hover:text-fg"
               >
-                {todo.archived ? 'Unarchive' : 'Archive'}
+                <ArchiveIcon />
               </button>
             </div>
           </div>

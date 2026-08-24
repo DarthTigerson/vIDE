@@ -3,6 +3,8 @@ import { useTodoStore, EMPTY_TODOS } from '@/stores/todoStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { buildTodoDetailPath } from '@/components/Settings/paths'
 import { TODO_COLUMNS, groupTodosByStatus } from '@/lib/todoBoard'
+import { ArchiveIcon } from './ArchiveIcon'
+import { BoardIcon } from './BoardIcon'
 import { TodoCard } from './TodoCard'
 import { TodoArchiveList } from './TodoArchiveList'
 import type { TodoStatus } from '@/types/api'
@@ -78,22 +80,29 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
     <div className="h-full flex flex-col bg-panel overflow-hidden relative">
       <div className="h-11 px-4 border-b border-border shrink-0 flex items-center justify-between">
         <h1 className="text-sm font-semibold text-fg">{project?.name ?? 'Todo'}</h1>
-        <div className="flex gap-1">
+        <div className="relative flex bg-white/5 rounded-md p-0.5">
+          <div
+            className={`absolute inset-y-0.5 w-7 rounded bg-white/10 transition-transform ${view === 'archive' ? 'translate-x-7' : 'translate-x-0'}`}
+          />
           <button
             type="button"
             aria-pressed={view === 'board'}
+            aria-label="Board"
+            title="Board"
             onClick={() => setView('board')}
-            className={`text-xs px-2 py-1 rounded ${view === 'board' ? 'bg-white/10 text-fg' : 'text-fg-muted'}`}
+            className={`relative w-7 h-6 flex items-center justify-center rounded ${view === 'board' ? 'text-fg' : 'text-fg-muted'}`}
           >
-            Board
+            <BoardIcon />
           </button>
           <button
             type="button"
             aria-pressed={view === 'archive'}
+            aria-label="Archive"
+            title="Archive"
             onClick={() => setView('archive')}
-            className={`text-xs px-2 py-1 rounded ${view === 'archive' ? 'bg-white/10 text-fg' : 'text-fg-muted'}`}
+            className={`relative w-7 h-6 flex items-center justify-center rounded ${view === 'archive' ? 'text-fg' : 'text-fg-muted'}`}
           >
-            Archive
+            <ArchiveIcon />
           </button>
         </div>
       </div>
