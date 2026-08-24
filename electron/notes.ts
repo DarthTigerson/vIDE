@@ -1,57 +1,20 @@
-import { app, ipcMain, shell } from 'electron'
+import { app, ipcMain } from 'electron'
 import { join, dirname } from 'path'
-import { access, mkdir, readFile, rename, writeFile } from 'fs/promises'
-
-export interface NotesProject {
-  id: string
-  name: string
-  createdAt: number
-  rootPath: string
-}
-
-interface StoredNotesProject {
-  id: string
-  name: string
-  createdAt: number
-}
-
-interface NotesData {
-  projects: StoredNotesProject[]
-}
-
-function notebooksPath(): string {
-  return join(app.getPath('userData'), 'notebooks.json')
-}
+import { access, mkdir, rename, writeFile } from 'fs/promises'
 
 function notesRoot(): string {
   return join(app.getPath('userData'), 'notes')
 }
 
-function notebookDir(id: string): string {
-  return join(notesRoot(), id)
-}
-
-function withRootPath(project: StoredNotesProject): NotesProject {
-  return { ...project, rootPath: notebookDir(project.id) }
-}
-
-async function readNotesData(): Promise<NotesData> {
-  try {
-    const data = await readFile(notebooksPath(), 'utf-8')
-    return JSON.parse(data) as NotesData
-  } catch {
-    return { projects: [] }
-  }
-}
-
-async function writeNotesData(data: NotesData): Promise<void> {
-  await mkdir(app.getPath('userData'), { recursive: true })
-  await writeFile(notebooksPath(), JSON.stringify(data), 'utf-8')
+async function ensureNotesRoot(): Promise<string> {
+  const root = notesRoot()
+  await mkdir(root, { recursive: true })
+  return root
 }
 
 // Notes and folders are real files/directories on disk (not JSON records),
 // so their names double as filesystem path segments — reject anything that
-// would escape the notebook's own directory or collide with '.'/'..'.
+// would escape the notes root or collide with '.'/'..'.
 function sanitizeEntryName(raw: string): string {
   const name = raw.trim()
   if (!name) throw new Error('Name is required')
@@ -73,47 +36,6 @@ async function pathExists(path: string): Promise<boolean> {
     return true
   } catch {
     return false
-  }
-}
-
-async function listProjects(): Promise<NotesProject[]> {
-  const data = await readNotesData()
-  return data.projects.map(withRootPath)
-}
-
-async function createProject(name: string): Promise<NotesProject> {
-  const trimmed = name.trim()
-  if (!trimmed) throw new Error('Notebook name is required')
-
-  const data = await readNotesData()
-  const project: StoredNotesProject = { id: crypto.randomUUID(), name: trimmed, createdAt: Date.now() }
-  await mkdir(notebookDir(project.id), { recursive: true })
-  data.projects.push(project)
-  await writeNotesData(data)
-  return withRootPath(project)
-}
-
-async function renameProject(id: string, name: string): Promise<NotesProject> {
-  const trimmed = name.trim()
-  if (!trimmed) throw new Error('Notebook name is required')
-
-  const data = await readNotesData()
-  const project = data.projects.find((p) => p.id === id)
-  if (!project) throw new Error(`No such notebook: ${id}`)
-
-  project.name = trimmed
-  await writeNotesData(data)
-  return withRootPath(project)
-}
-
-async function deleteProject(id: string): Promise<void> {
-  const data = await readNotesData()
-  data.projects = data.projects.filter((p) => p.id !== id)
-  await writeNotesData(data)
-  try {
-    await shell.trashItem(notebookDir(id))
-  } catch {
-    // Directory may already be gone; the index entry is what matters.
   }
 }
 
@@ -146,10 +68,7 @@ async function renameEntry(
 }
 
 export function registerNotesHandlers(): void {
-  ipcMain.handle('notes:listProjects', () => listProjects())
-  ipcMain.handle('notes:createProject', (_e, name: string) => createProject(name))
-  ipcMain.handle('notes:renameProject', (_e, id: string, name: string) => renameProject(id, name))
-  ipcMain.handle('notes:deleteProject', (_e, id: string) => deleteProject(id))
+  ipcMain.handle('notes:getRoot', () => ensureNotesRoot())
   ipcMain.handle('notes:createNote', (_e, dirPath: string, name: string) => createNote(dirPath, name))
   ipcMain.handle('notes:createFolder', (_e, dirPath: string, name: string) => createFolder(dirPath, name))
   ipcMain.handle('notes:renameEntry', (_e, oldPath: string, newName: string, isNote: boolean) =>

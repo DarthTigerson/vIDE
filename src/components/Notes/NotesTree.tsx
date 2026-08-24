@@ -130,7 +130,7 @@ export function NotesTree({
               ) : (
                 <FileIcon name={node.name} />
               )}
-              <span className="truncate text-fg">
+              <span className={`truncate text-fg ${node.isDirectory && depth === 0 ? 'font-semibold' : ''}`}>
                 {node.isDirectory ? node.name : noteDisplayName(node.name)}
               </span>
             </button>

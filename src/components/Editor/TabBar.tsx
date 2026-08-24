@@ -4,7 +4,7 @@ import { useBrowserStore } from '@/stores/browserStore'
 import { useTodoStore } from '@/stores/todoStore'
 import { useNotesStore } from '@/stores/notesStore'
 import { FileIcon } from '@/components/Sidebar/FileIcon'
-import { isTerminalTab, isBrowserTab, getBrowserId, isTodoBoardTab, getTodoBoardProjectId, isTodoDetailTab, getTodoDetailIds, isNotesBoardTab, getNotesBoardProjectId } from '@/components/Settings/paths'
+import { isTerminalTab, isBrowserTab, getBrowserId, isTodoBoardTab, getTodoBoardProjectId, isTodoDetailTab, getTodoDetailIds } from '@/components/Settings/paths'
 import { orderTabsForDisplay, truncateTabLabel } from './tabDisplay'
 import { TabContextMenu } from './TabContextMenu'
 import { useTabContextMenuStore } from '@/stores/tabContextMenuStore'
@@ -15,7 +15,7 @@ export function TabBar({ paneId }: { paneId: string }) {
   const browserTabs = useBrowserStore((s) => s.tabs)
   const todoProjects = useTodoStore((s) => s.projects)
   const todosByProject = useTodoStore((s) => s.todosByProject)
-  const notesProjects = useNotesStore((s) => s.projects)
+  const notesRoot = useNotesStore((s) => s.root)
   const paneTabs = useEditorStore((s) => s.paneTabs)
   const paneTabLists = useEditorStore((s) => s.paneTabLists)
   const pinnedPaths = useEditorStore((s) => s.pinnedPaths)
@@ -72,13 +72,11 @@ export function TabBar({ paneId }: { paneId: string }) {
                     const { projectId, todoId } = getTodoDetailIds(tab.path)
                     return todosByProject[projectId]?.find((t) => t.id === todoId)?.title || 'To Do'
                   })()
-                : isNotesBoardTab(tab.path)
-                  ? (notesProjects.find((p) => p.id === getNotesBoardProjectId(tab.path))?.name || 'Notes')
-                  : (() => {
-                      const base = tab.path.split('/').pop() ?? tab.path
-                      const inNotebook = notesProjects.some((p) => tab.path.startsWith(p.rootPath + '/'))
-                      return inNotebook && base.endsWith('.md') ? base.slice(0, -3) : base
-                    })()
+                : (() => {
+                    const base = tab.path.split('/').pop() ?? tab.path
+                    const inNotesRoot = !!notesRoot && tab.path.startsWith(notesRoot + '/')
+                    return inNotesRoot && base.endsWith('.md') ? base.slice(0, -3) : base
+                  })()
         const isActive = activePath === tab.path
         const isDragging = draggedPath === tab.path
         const isDropTarget = dropTarget?.path === tab.path && draggedPath !== tab.path

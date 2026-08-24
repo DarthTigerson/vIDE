@@ -39,8 +39,6 @@ import {
   getTodoBoardProjectId,
   isTodoDetailTab,
   getTodoDetailIds,
-  isNotesBoardTab,
-  getNotesBoardProjectId,
   isTerminalTab,
   getTerminalId,
   isBrowserTab,
@@ -80,7 +78,6 @@ import { GraphifyGraphPage } from '@/components/Graphify/GraphifyGraphPage'
 import { UsageGraphPage } from '@/components/UsagePanel/UsageGraphPage'
 import { TodoBoardPage } from '@/components/Todo/TodoBoardPage'
 import { TodoDetailPage } from '@/components/Todo/TodoDetailPage'
-import { NotesExplorerPage } from '@/components/Notes/NotesExplorerPage'
 import {
   isImagePreviewTab,
   parseImagePreviewPath,
@@ -217,7 +214,7 @@ function EditorPane({ paneId }: { paneId: string }) {
   const font = useDisplayStore((s) => s.font)
   const wordWrapEnabled = useEditorSettingsStore((s) => s.wordWrapEnabled)
   const projectRoot = useFileStore((s) => s.projectRoot)
-  const notesProjects = useNotesStore((s) => s.projects)
+  const notesRoot = useNotesStore((s) => s.root)
   const selectedRepo = useGitReposStore((s) => s.selectedRepo)
   const [diffContent, setDiffContent] = useState<GitDiffContent | null>(null)
   const [editorContextMenu, setEditorContextMenu] = useState<{ x: number; y: number } | null>(null)
@@ -250,7 +247,6 @@ function EditorPane({ paneId }: { paneId: string }) {
   const isUsageGraph = !!activeTab && isUsageGraphTab(activeTab.path)
   const isTodoBoard = !!activeTab && isTodoBoardTab(activeTab.path)
   const isTodoDetail = !!activeTab && isTodoDetailTab(activeTab.path)
-  const isNotesBoard = !!activeTab && isNotesBoardTab(activeTab.path)
   const isDockerLogs = !!activeTab && isDockerLogsTab(activeTab.path)
   const isImagePreview = !!activeTab && isImagePreviewTab(activeTab.path)
   const isMarkdownPreview = !!activeTab && isMarkdownPreviewTab(activeTab.path)
@@ -261,7 +257,7 @@ function EditorPane({ paneId }: { paneId: string }) {
     !!activeTab &&
     !isVirtual && !isTerminal && !isBrowser &&
     !isDiff && !isCommitDiff && !isGitLog && !isGitGraph && !isGitBranchDiff &&
-    !isGraphifyGraph && !isUsageGraph && !isTodoBoard && !isTodoDetail && !isNotesBoard &&
+    !isGraphifyGraph && !isUsageGraph && !isTodoBoard && !isTodoDetail &&
     !isDockerLogs && !isImagePreview && !isMarkdownPreview
 
   function activatePane() {
@@ -374,7 +370,7 @@ function EditorPane({ paneId }: { paneId: string }) {
     >
       <TabBar paneId={paneId} />
       {isPlainFileTab && activeTab &&
-        !notesProjects.some((p) => activeTab.path.startsWith(p.rootPath + '/')) && (
+        !(notesRoot && activeTab.path.startsWith(notesRoot + '/')) && (
           <EditorBreadcrumb path={activeTab.path} projectRoot={projectRoot} />
         )}
       <div className="relative flex-1 min-h-0 overflow-hidden">
@@ -430,8 +426,6 @@ function EditorPane({ paneId }: { paneId: string }) {
           <TodoBoardPage key={activeTab.path} projectId={getTodoBoardProjectId(activeTab.path)} />
         ) : isTodoDetail ? (
           <TodoDetailPage key={activeTab.path} {...getTodoDetailIds(activeTab.path)} />
-        ) : isNotesBoard ? (
-          <NotesExplorerPage key={activeTab.path} projectId={getNotesBoardProjectId(activeTab.path)} />
         ) : isDockerLogs ? (
           <DockerLogsPage path={activeTab.path} />
         ) : isGitBranchDiff ? (

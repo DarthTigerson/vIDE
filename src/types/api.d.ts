@@ -105,13 +105,6 @@ export interface Todo {
   updatedAt: number
 }
 
-export interface NotesProject {
-  id: string
-  name: string
-  createdAt: number
-  rootPath: string
-}
-
 export interface NotesEntryResult {
   path: string
   name: string
@@ -310,10 +303,7 @@ declare global {
       todosSaveAttachment: (dataUrl: string) => Promise<string>
       todosReadAttachmentDataUrl: (id: string) => Promise<string>
 
-      notesListProjects: () => Promise<NotesProject[]>
-      notesCreateProject: (name: string) => Promise<NotesProject>
-      notesRenameProject: (id: string, name: string) => Promise<NotesProject>
-      notesDeleteProject: (id: string) => Promise<void>
+      notesGetRoot: () => Promise<string>
       notesCreateNote: (dirPath: string, name: string) => Promise<NotesEntryResult>
       notesCreateFolder: (dirPath: string, name: string) => Promise<NotesEntryResult>
       notesRenameEntry: (oldPath: string, newName: string, isNote: boolean) => Promise<NotesEntryResult>
