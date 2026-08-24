@@ -35,12 +35,12 @@ describe('autocompleteSettingsStore', () => {
   it('setEnabled persists to localStorage', () => {
     useAutocompleteSettingsStore.getState().setEnabled(false)
     expect(useAutocompleteSettingsStore.getState().enabled).toBe(false)
-    expect(store['huginn:autocomplete:enabled']).toBe('false')
+    expect(store['vide:autocomplete:enabled']).toBe('false')
   })
 
   it('setModel persists to localStorage', () => {
     useAutocompleteSettingsStore.getState().setModel('claude-opus-5')
     expect(useAutocompleteSettingsStore.getState().model).toBe('claude-opus-5')
-    expect(store['huginn:autocomplete:model']).toBe('claude-opus-5')
+    expect(store['vide:autocomplete:model']).toBe('claude-opus-5')
   })
 })

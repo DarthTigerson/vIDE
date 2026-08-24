@@ -75,7 +75,7 @@ describe('updateStore', () => {
     useUpdateStore.getState().startUpdate()
     const [[{ path }]] = openTabMock.mock.calls
     const id = path.replace('terminal://', '')
-    termDataHandler!(id, '__HUGINN_UPDATE_EXIT_0__')
+    termDataHandler!(id, '__VIDE_UPDATE_EXIT_0__')
     expect(useUpdateStore.getState().status).toBe('ready')
   })
 
@@ -83,13 +83,13 @@ describe('updateStore', () => {
     useUpdateStore.getState().startUpdate()
     const [[{ path }]] = openTabMock.mock.calls
     const id = path.replace('terminal://', '')
-    termDataHandler!(id, '__HUGINN_UPDATE_EXIT_1__')
+    termDataHandler!(id, '__VIDE_UPDATE_EXIT_1__')
     expect(useUpdateStore.getState().status).toBe('failed')
   })
 
   it('ignores terminal output from unrelated terminals', () => {
     useUpdateStore.getState().startUpdate()
-    termDataHandler!('some-other-terminal', '__HUGINN_UPDATE_EXIT_0__')
+    termDataHandler!('some-other-terminal', '__VIDE_UPDATE_EXIT_0__')
     expect(useUpdateStore.getState().status).toBe('updating')
   })
 

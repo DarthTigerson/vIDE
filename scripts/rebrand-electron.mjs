@@ -15,12 +15,12 @@ function main() {
   const currentName = execFileSync('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleName', plistPath], {
     encoding: 'utf-8',
   }).trim()
-  if (currentName === 'Huginn') return // already rebranded, idempotent no-op
+  if (currentName === 'vIDE') return // already rebranded, idempotent no-op
 
   for (const key of ['CFBundleName', 'CFBundleDisplayName']) {
-    execFileSync('/usr/libexec/PlistBuddy', ['-c', `Set :${key} Huginn`, plistPath])
+    execFileSync('/usr/libexec/PlistBuddy', ['-c', `Set :${key} vIDE`, plistPath])
   }
-  console.log('[rebrand-electron] Patched dev Electron.app bundle name to "Huginn".')
+  console.log('[rebrand-electron] Patched dev Electron.app bundle name to "vIDE".')
 }
 
 try {

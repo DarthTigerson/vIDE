@@ -37,7 +37,7 @@ export function PaneDropZoneOverlay({ paneId }: { paneId: string }) {
   const isDragActive = dragging !== null
 
   function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
-    if (!dragging || !e.dataTransfer.types.includes('application/x-huginn-pane')) return
+    if (!dragging || !e.dataTransfer.types.includes('application/x-vide-pane')) return
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     const rect = containerRef.current!.getBoundingClientRect()

@@ -25,7 +25,7 @@ export function GitIdentityStep() {
       <div>
         <h2 className="text-sm font-semibold text-fg">Git identity</h2>
         <p className="text-xs text-fg-muted mt-0.5">
-          Huginn is git-heavy — commits need a name and email set globally (<code className="text-fg-subtle">git config --global</code>).
+          vIDE is git-heavy — commits need a name and email set globally (<code className="text-fg-subtle">git config --global</code>).
         </p>
       </div>
 

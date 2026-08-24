@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 
-const URL_KEY = 'huginn:gitRemote:externalUrl'
-const PROJECT_URLS_KEY = 'huginn:gitRemote:projectUrls'
-const CLOSE_SIDE_PANEL_KEY = 'huginn:gitRemote:closeSidePanel'
+const URL_KEY = 'vide:gitRemote:externalUrl'
+const PROJECT_URLS_KEY = 'vide:gitRemote:projectUrls'
+const CLOSE_SIDE_PANEL_KEY = 'vide:gitRemote:closeSidePanel'
 
 function getBool(key: string, def: boolean): boolean {
   const value = localStorage.getItem(key)

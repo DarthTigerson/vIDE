@@ -9,7 +9,7 @@ export function DockerSettingsPage() {
     <div className="h-full overflow-auto p-6 bg-panel">
       <h1 className="text-base font-semibold text-fg mb-1">Docker</h1>
       <p className="text-sm text-fg-muted mb-8">
-        See and control local Docker containers without leaving Huginn.
+        See and control local Docker containers without leaving vIDE.
       </p>
 
       <div className="grid grid-cols-1 gap-6 max-w-lg">

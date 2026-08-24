@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-const KEY = 'huginn:browser:defaultUrl'
+const KEY = 'vide:browser:defaultUrl'
 export const DEFAULT_BROWSER_URL = 'http://localhost:5173'
 
 interface BrowserSettingsStore {

@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog, Menu, shell, webContents, nativeImage } from 'electron'
 import { basename, join } from 'path'
 import { is } from '@electron-toolkit/utils'
-import { access, mkdir, readFile, rename, writeFile } from 'fs/promises'
+import { access, cp, mkdir, readFile, rename, writeFile } from 'fs/promises'
 import { homedir } from 'os'
 import { PtyManager } from './pty'
 import { ClaudeManager } from './claude'
@@ -142,7 +142,7 @@ function createWindow(projectRoot?: string): BrowserWindow {
     minWidth: 800,
     minHeight: 600,
     show: false,
-    title: projectRoot ? basename(projectRoot) : 'Huginn',
+    title: projectRoot ? basename(projectRoot) : 'vIDE',
     titleBarStyle: 'hiddenInset',
     vibrancy: 'sidebar',
     backgroundColor: '#1e1e1e',
@@ -156,11 +156,11 @@ function createWindow(projectRoot?: string): BrowserWindow {
   windows.set(win.id, win)
   win.once('ready-to-show', () => win.show())
   win.on('focus', () => buildMenu())
-  // index.html declares <title>Huginn</title>, and Electron lets the loaded
+  // index.html declares <title>vIDE</title>, and Electron lets the loaded
   // page's title win over the constructor's `title:` option (and over any
   // later win.setTitle(...) call) once that tag is parsed — without this,
   // the project-name title set above would be silently clobbered back to
-  // "Huginn" right after load. Preventing the default keeps our title.
+  // "vIDE" right after load. Preventing the default keeps our title.
   win.on('page-title-updated', (e) => e.preventDefault())
   win.on('closed', () => {
     windows.delete(win.id)
@@ -207,7 +207,33 @@ async function openProjectInNewWindow(path: string): Promise<void> {
   buildMenu()
 }
 
-app.name = 'Huginn'
+app.name = 'vIDE'
+
+// One-time, non-destructive migration for users upgrading from Huginn: copy
+// the old userData directory (settings, usage history, etc.) into the new
+// vIDE one before anything reads from it. The old directory is left in
+// place rather than moved, so this is safe to run on every launch.
+async function migrateUserDataFromHuginn(): Promise<void> {
+  const newDir = app.getPath('userData')
+  try {
+    await access(newDir)
+    return
+  } catch {}
+
+  const oldDir = join(app.getPath('appData'), 'Huginn')
+  try {
+    await access(oldDir)
+  } catch {
+    return
+  }
+
+  try {
+    await cp(oldDir, newDir, { recursive: true })
+    console.log('[migrate] Copied userData from Huginn to vIDE.')
+  } catch (err) {
+    console.warn('[migrate] Failed to migrate userData from Huginn to vIDE:', err)
+  }
+}
 
 function registerBridgeSettingsHandlers(): void {
   const settingsPath = join(app.getPath('userData'), 'bridge-settings.json')
@@ -246,7 +272,7 @@ async function buildMenu(): Promise<void> {
   const recents = await readRecents()
   const template: Electron.MenuItemConstructorOptions[] = [
     {
-      label: 'Huginn',
+      label: 'vIDE',
       submenu: [
         { role: 'about' },
         {
@@ -536,7 +562,9 @@ let commitMessageMgr: CommitMessageManager
 let lspMgr: LanguageServerManager
 let updateChecker: UpdateChecker | null = null
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  await migrateUserDataFromHuginn()
+
   if (process.platform === 'darwin') {
     try {
       app.dock?.setIcon(join(__dirname, '../../icon.png'))

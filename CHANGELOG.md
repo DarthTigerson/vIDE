@@ -1,4 +1,4 @@
-# Huginn 
+# vIDE
 
 ## v0.2.3 (2026-08-22)
 - **First-launch setup wizard**: new installs now walk through theme (including panel style and background image), assistants (Claude/Codex/Bridge, with the CLI check built into this step), git identity, and macOS permissions before landing in the app

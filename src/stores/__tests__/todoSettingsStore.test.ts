@@ -25,6 +25,6 @@ describe('todoSettingsStore', () => {
   it('setEnabled updates state and persists to localStorage', () => {
     useTodoSettingsStore.getState().setEnabled(false)
     expect(useTodoSettingsStore.getState().enabled).toBe(false)
-    expect(localStorageStore['huginn:todo:enabled']).toBe('false')
+    expect(localStorageStore['vide:todo:enabled']).toBe('false')
   })
 })

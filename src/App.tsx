@@ -96,11 +96,11 @@ const GIT_REMOTE_BROWSER_ID = 'git-remote-external'
 const GIT_POLL_INTERVAL_MS = 3000
 const MEMORY_POLL_INTERVAL_MS = 3000
 
-const SIDEBAR_SIZE_KEY = 'huginn:layout:sidebarSize'
+const SIDEBAR_SIZE_KEY = 'vide:layout:sidebarSize'
 const SIDEBAR_DEFAULT_SIZE = 26
 const SIDEBAR_MIN_SIZE = 4
 const SIDEBAR_MAX_SIZE = 40
-const CHAT_SIZE_KEY = 'huginn:layout:chatSize'
+const CHAT_SIZE_KEY = 'vide:layout:chatSize'
 const CHAT_DEFAULT_SIZE = 25
 const CHAT_MIN_SIZE = 15
 const CHAT_MAX_SIZE = 50

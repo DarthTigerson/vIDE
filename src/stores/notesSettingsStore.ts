@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-const ENABLED_KEY = 'huginn:notes:enabled'
+const ENABLED_KEY = 'vide:notes:enabled'
 
 function getBool(key: string, def: boolean): boolean {
   const value = localStorage.getItem(key)

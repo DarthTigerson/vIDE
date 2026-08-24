@@ -32,7 +32,7 @@ describe('gitFavoriteReposStore', () => {
 
   it('persists favorites to localStorage and survives a fresh store creation', () => {
     useGitFavoriteReposStore.getState().toggleFavorite('/proj/repoA')
-    expect(JSON.parse(localStorageStore['huginn:git:favoriteRepos'])).toEqual({ '/proj/repoA': true })
+    expect(JSON.parse(localStorageStore['vide:git:favoriteRepos'])).toEqual({ '/proj/repoA': true })
   })
 
   it('keeps other repos independent when toggling one', () => {

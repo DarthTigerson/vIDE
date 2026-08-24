@@ -1,5 +1,5 @@
 {
-  "name": "huginn",
+  "name": "vide",
   "version": "0.2.3",
   "description": "A Claude-native IDE",
   "author": "Thomas Bonnici",
@@ -59,8 +59,8 @@
     "electron@32.3.3": true
   },
   "build": {
-    "appId": "com.thomasbonnici.huginn",
-    "productName": "Huginn",
+    "appId": "com.thomasbonnici.vide",
+    "productName": "vIDE",
     "icon": "icon.png",
     "directories": {
       "output": "release"
@@ -71,14 +71,14 @@
       "icon.png",
       "CHANGELOG.md"
     ],
-    "artifactName": "Huginn-${arch}.${ext}",
+    "artifactName": "vIDE-${arch}.${ext}",
     "mac": {
       "target": "zip",
       "category": "public.app-category.developer-tools"
     },
     "linux": {
       "target": "tar.gz",
-      "executableName": "huginn",
+      "executableName": "vide",
       "category": "Development"
     }
   }

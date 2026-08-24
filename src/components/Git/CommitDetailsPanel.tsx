@@ -18,7 +18,7 @@ import { RefContextMenu } from './RefContextMenu'
 import { buildGitCommitDiffPath } from './paths'
 import { clampSize, loadPanelSize } from '@/lib/panelSize'
 
-const DETAIL_WIDTH_KEY = 'huginn:git:commitDetailsWidth'
+const DETAIL_WIDTH_KEY = 'vide:git:commitDetailsWidth'
 const MIN_DETAIL_WIDTH = 320 // matches the panel's previous fixed w-80
 const MAX_DETAIL_WIDTH = 720
 

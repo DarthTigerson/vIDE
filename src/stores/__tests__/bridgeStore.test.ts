@@ -39,7 +39,7 @@ describe('bridgeStore', () => {
   it('toggleAgentMode flips and persists agentMode', () => {
     useBridgeStore.getState().toggleAgentMode()
     expect(useBridgeStore.getState().agentMode).toBe(true)
-    expect(store['huginn:bridge:agentMode']).toBe('true')
+    expect(store['vide:bridge:agentMode']).toBe('true')
   })
 
   it('newSession moves current messages to previousMessages and clears the transcript', () => {

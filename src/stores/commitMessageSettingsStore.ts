@@ -1,9 +1,9 @@
 import { create } from 'zustand'
 
 const KEYS = {
-  enabled: 'huginn:commitMessage:enabled',
-  model: 'huginn:commitMessage:model',
-  prompt: 'huginn:commitMessage:prompt',
+  enabled: 'vide:commitMessage:enabled',
+  model: 'vide:commitMessage:model',
+  prompt: 'vide:commitMessage:prompt',
 }
 
 const DEFAULT_MODEL = 'claude-sonnet-5'

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useTodoStore } from '../todoStore'
 import type { TodoProject, Todo } from '@/types/api'
 
-const project: TodoProject = { id: 'p1', name: 'Huginn', key: 'H', nextNumber: 2, createdAt: 1 }
+const project: TodoProject = { id: 'p1', name: 'vIDE', key: 'H', nextNumber: 2, createdAt: 1 }
 
 function makeTodo(overrides: Partial<Todo> = {}): Todo {
   return {

@@ -7,7 +7,7 @@ const { ipcOnHandlers, userDataDir } = vi.hoisted(() => {
   const { join } = require('path')
   return {
     ipcOnHandlers: {} as Record<string, (...args: any[]) => unknown>,
-    userDataDir: mkdtempSync(join(tmpdir(), 'huginn-mobile-test-')) as string,
+    userDataDir: mkdtempSync(join(tmpdir(), 'vide-mobile-test-')) as string,
   }
 })
 

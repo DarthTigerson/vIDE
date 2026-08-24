@@ -25,7 +25,7 @@ describe('jiraSettingsStore', () => {
   it('setExternalUrl updates state and persists to localStorage', () => {
     useJiraSettingsStore.getState().setExternalUrl('https://team.atlassian.net/jira/board')
     expect(useJiraSettingsStore.getState().externalUrl).toBe('https://team.atlassian.net/jira/board')
-    expect(localStorageStore['huginn:jira:externalUrl']).toBe('https://team.atlassian.net/jira/board')
+    expect(localStorageStore['vide:jira:externalUrl']).toBe('https://team.atlassian.net/jira/board')
   })
 
   it('getEffectiveUrl falls back to the global URL when no project override is set', () => {
@@ -38,7 +38,7 @@ describe('jiraSettingsStore', () => {
     useJiraSettingsStore.getState().setProjectUrl('/repo/a', 'https://other-team.atlassian.net/jira/board')
     expect(useJiraSettingsStore.getState().getEffectiveUrl('/repo/a')).toBe('https://other-team.atlassian.net/jira/board')
     expect(useJiraSettingsStore.getState().getEffectiveUrl('/repo/b')).toBe('https://team.atlassian.net/jira/board')
-    expect(localStorageStore['huginn:jira:projectUrls']).toBe(JSON.stringify({ '/repo/a': 'https://other-team.atlassian.net/jira/board' }))
+    expect(localStorageStore['vide:jira:projectUrls']).toBe(JSON.stringify({ '/repo/a': 'https://other-team.atlassian.net/jira/board' }))
   })
 
   it('setProjectUrl with an empty value clears the override, falling back to global again', () => {
@@ -56,7 +56,7 @@ describe('jiraSettingsStore', () => {
   it('setCloseSidePanelOnOpen updates state and persists to localStorage', () => {
     useJiraSettingsStore.getState().setCloseSidePanelOnOpen(true)
     expect(useJiraSettingsStore.getState().closeSidePanelOnOpen).toBe(true)
-    expect(localStorageStore['huginn:jira:closeSidePanel']).toBe('true')
+    expect(localStorageStore['vide:jira:closeSidePanel']).toBe('true')
   })
 
   it('defaults enabled to true', () => {
@@ -66,6 +66,6 @@ describe('jiraSettingsStore', () => {
   it('setEnabled updates state and persists to localStorage', () => {
     useJiraSettingsStore.getState().setEnabled(false)
     expect(useJiraSettingsStore.getState().enabled).toBe(false)
-    expect(localStorageStore['huginn:jira:enabled']).toBe('false')
+    expect(localStorageStore['vide:jira:enabled']).toBe('false')
   })
 })

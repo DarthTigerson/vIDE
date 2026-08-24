@@ -30,22 +30,22 @@ describe('editorSettingsStore', () => {
   it('setChangeAllOccurrencesInMenu persists to localStorage', () => {
     useEditorSettingsStore.getState().setChangeAllOccurrencesInMenu(true)
     expect(useEditorSettingsStore.getState().changeAllOccurrencesInMenu).toBe(true)
-    expect(store['huginn:editor:changeAllOccurrencesInMenu']).toBe('true')
+    expect(store['vide:editor:changeAllOccurrencesInMenu']).toBe('true')
   })
 
   it('setAutoSaveEnabled persists to localStorage', () => {
     useEditorSettingsStore.getState().setAutoSaveEnabled(true)
     expect(useEditorSettingsStore.getState().autoSaveEnabled).toBe(true)
-    expect(store['huginn:editor:autoSaveEnabled']).toBe('true')
+    expect(store['vide:editor:autoSaveEnabled']).toBe('true')
   })
 
   it('toggleWordWrap flips the value and persists it', () => {
     useEditorSettingsStore.getState().toggleWordWrap()
     expect(useEditorSettingsStore.getState().wordWrapEnabled).toBe(true)
-    expect(store['huginn:editor:wordWrapEnabled']).toBe('true')
+    expect(store['vide:editor:wordWrapEnabled']).toBe('true')
 
     useEditorSettingsStore.getState().toggleWordWrap()
     expect(useEditorSettingsStore.getState().wordWrapEnabled).toBe(false)
-    expect(store['huginn:editor:wordWrapEnabled']).toBe('false')
+    expect(store['vide:editor:wordWrapEnabled']).toBe('false')
   })
 })

@@ -3,7 +3,7 @@ import { create } from 'zustand'
 const MIN = 5
 const MAX = 24
 const DEFAULT = 13
-const STORAGE_KEY = 'huginn:fontSize'
+const STORAGE_KEY = 'vide:fontSize'
 
 interface FontSizeStore {
   fontSize: number

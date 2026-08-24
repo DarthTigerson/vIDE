@@ -21,7 +21,7 @@ function fireDrop(el: Element, clientY: number, draggedId: string) {
   fireEvent(el, event)
 }
 
-const project: TodoProject = { id: 'p1', name: 'Huginn', key: 'H', nextNumber: 3, createdAt: 1 }
+const project: TodoProject = { id: 'p1', name: 'vIDE', key: 'H', nextNumber: 3, createdAt: 1 }
 
 function makeTodo(overrides: Partial<Todo> = {}): Todo {
   return {
@@ -85,7 +85,7 @@ describe('TodoBoardPage', () => {
 
   it('shows the project name in the header', () => {
     render(<TodoBoardPage projectId="p1" />)
-    expect(screen.getByText('Huginn')).toBeInTheDocument()
+    expect(screen.getByText('vIDE')).toBeInTheDocument()
   })
 
   it('places each non-archived todo under its status column', () => {

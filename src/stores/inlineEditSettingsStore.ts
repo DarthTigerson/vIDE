@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 
 const KEYS = {
-  enabled: 'huginn:inlineEdit:enabled',
-  model: 'huginn:inlineEdit:model',
+  enabled: 'vide:inlineEdit:enabled',
+  model: 'vide:inlineEdit:model',
 }
 
 const DEFAULT_MODEL = 'claude-sonnet-5'

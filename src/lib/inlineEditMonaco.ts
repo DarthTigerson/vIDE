@@ -261,7 +261,7 @@ export function registerInlineEditCommands(
     // of the gap the spacer zone above just reserved.
     clearWidget()
     const contentWidget: Monaco.editor.IContentWidget = {
-      getId: () => 'huginn.inlineEdit.panel',
+      getId: () => 'vide.inlineEdit.panel',
       getDomNode: () => domNode,
       getPosition: () => ({
         position: { lineNumber: target.endLineNumber, column: 1 },

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="DarthTigerson/Huginn"
+REPO="DarthTigerson/vIDE"
 
 os="$(uname -s)"
 arch="$(uname -m)"
@@ -9,41 +9,41 @@ arch="$(uname -m)"
 case "$os" in
   Darwin)
     if [ "$arch" != "arm64" ]; then
-      echo "Huginn only ships an Apple Silicon (arm64) build right now — Intel Macs aren't supported yet." >&2
+      echo "vIDE only ships an Apple Silicon (arm64) build right now — Intel Macs aren't supported yet." >&2
       echo "Track it at https://github.com/$REPO/issues" >&2
       exit 1
     fi
 
-    url="https://github.com/$REPO/releases/latest/download/Huginn-arm64.zip"
+    url="https://github.com/$REPO/releases/latest/download/vIDE-arm64.zip"
     tmp="$(mktemp -d)"
     trap 'rm -rf "$tmp"' EXIT
 
-    echo "Downloading Huginn..."
-    curl -fsSL "$url" -o "$tmp/Huginn.zip"
+    echo "Downloading vIDE..."
+    curl -fsSL "$url" -o "$tmp/vIDE.zip"
 
     echo "Installing to /Applications..."
-    unzip -q "$tmp/Huginn.zip" -d "$tmp"
+    unzip -q "$tmp/vIDE.zip" -d "$tmp"
 
     # Swap the new app into place without ever leaving /Applications without
-    # a working Huginn.app: the old bundle is renamed aside first and only
+    # a working vIDE.app: the old bundle is renamed aside first and only
     # deleted once the new one is successfully in place, restoring it if the
     # move fails partway through (e.g. disk full).
     cat > "$tmp/swap.sh" <<'SWAP'
 #!/usr/bin/env bash
 set -euo pipefail
 new_app="$1"
-backup="/Applications/.Huginn.app.bak"
+backup="/Applications/.vIDE.app.bak"
 rm -rf "$backup"
-if [ -e /Applications/Huginn.app ]; then
-  mv /Applications/Huginn.app "$backup"
+if [ -e /Applications/vIDE.app ]; then
+  mv /Applications/vIDE.app "$backup"
 fi
-if mv "$new_app" /Applications/Huginn.app; then
-  xattr -cr /Applications/Huginn.app
+if mv "$new_app" /Applications/vIDE.app; then
+  xattr -cr /Applications/vIDE.app
   rm -rf "$backup"
 else
-  rm -rf /Applications/Huginn.app
+  rm -rf /Applications/vIDE.app
   if [ -e "$backup" ]; then
-    mv "$backup" /Applications/Huginn.app
+    mv "$backup" /Applications/vIDE.app
   fi
   exit 1
 fi
@@ -58,10 +58,10 @@ SWAP
     # this fails and exits before anything is touched, so the existing
     # install is left intact and they can retry after re-requesting admin.
     if [ -w /Applications ]; then
-      "$tmp/swap.sh" "$tmp/Huginn.app"
+      "$tmp/swap.sh" "$tmp/vIDE.app"
     else
-      echo "Administrator rights are required to update Huginn in /Applications."
-      shell_cmd="$(printf '%q %q' "$tmp/swap.sh" "$tmp/Huginn.app")"
+      echo "Administrator rights are required to update vIDE in /Applications."
+      shell_cmd="$(printf '%q %q' "$tmp/swap.sh" "$tmp/vIDE.app")"
       # Escape for embedding in an AppleScript double-quoted string literal.
       osa_cmd="${shell_cmd//\\/\\\\}"
       osa_cmd="${osa_cmd//\"/\\\"}"
@@ -72,49 +72,49 @@ SWAP
       fi
     fi
 
-    if [ -z "${HUGINN_NO_LAUNCH:-}" ]; then
-      echo "Huginn installed. Launching..."
-      open /Applications/Huginn.app
+    if [ -z "${VIDE_NO_LAUNCH:-}" ]; then
+      echo "vIDE installed. Launching..."
+      open /Applications/vIDE.app
     else
-      echo "Huginn installed."
+      echo "vIDE installed."
     fi
     ;;
 
   Linux)
     if [ "$arch" != "x86_64" ]; then
-      echo "Huginn only ships an x86_64 Linux build right now." >&2
+      echo "vIDE only ships an x86_64 Linux build right now." >&2
       echo "Track it at https://github.com/$REPO/issues" >&2
       exit 1
     fi
 
-    url="https://github.com/$REPO/releases/latest/download/Huginn-x64.tar.gz"
-    install_dir="$HOME/.local/share/huginn"
+    url="https://github.com/$REPO/releases/latest/download/vIDE-x64.tar.gz"
+    install_dir="$HOME/.local/share/vide"
     bin_dir="$HOME/.local/bin"
     tmp="$(mktemp -d)"
     trap 'rm -rf "$tmp"' EXIT
 
-    echo "Downloading Huginn..."
-    curl -fsSL "$url" -o "$tmp/Huginn.tar.gz"
+    echo "Downloading vIDE..."
+    curl -fsSL "$url" -o "$tmp/vIDE.tar.gz"
 
     echo "Installing to $install_dir..."
     rm -rf "$install_dir"
     mkdir -p "$install_dir" "$bin_dir" "$HOME/.local/share/applications"
-    tar -xzf "$tmp/Huginn.tar.gz" -C "$install_dir"
-    ln -sf "$install_dir/huginn" "$bin_dir/huginn"
+    tar -xzf "$tmp/vIDE.tar.gz" -C "$install_dir"
+    ln -sf "$install_dir/vide" "$bin_dir/vide"
 
-    cat > "$HOME/.local/share/applications/huginn.desktop" <<EOF
+    cat > "$HOME/.local/share/applications/vide.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=Huginn
-Exec=$install_dir/huginn
+Name=vIDE
+Exec=$install_dir/vide
 Icon=$install_dir/resources/icon.png
 Categories=Development;
 EOF
 
-    echo "Huginn installed to $install_dir"
+    echo "vIDE installed to $install_dir"
     case ":$PATH:" in
-      *":$bin_dir:"*) echo "Run 'huginn' to launch it, or find it in your application menu." ;;
-      *) echo "$bin_dir isn't on your PATH — launch Huginn from your application menu, or add $bin_dir to PATH to run 'huginn' directly." ;;
+      *":$bin_dir:"*) echo "Run 'vide' to launch it, or find it in your application menu." ;;
+      *) echo "$bin_dir isn't on your PATH — launch vIDE from your application menu, or add $bin_dir to PATH to run 'vide' directly." ;;
     esac
     ;;
 

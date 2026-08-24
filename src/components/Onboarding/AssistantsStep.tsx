@@ -50,7 +50,7 @@ export function AssistantsStep() {
       <div>
         <h2 className="text-sm font-semibold text-fg">Which LLM model?</h2>
         <p className="text-xs text-fg-muted mt-0.5">
-          Controls what shows up in the assistant dropdown. Huginn launches Claude/Codex as terminal
+          Controls what shows up in the assistant dropdown. vIDE launches Claude/Codex as terminal
           processes rather than bundling them, so they need to be installed and on your PATH
           separately — checked below. Change any of this anytime in Settings → Models.
         </p>

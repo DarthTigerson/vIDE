@@ -10,9 +10,9 @@ import type { LspServerModule } from '../types'
 // rust-analyzer has no npm/go-style installer, but does publish prebuilt
 // per-platform binaries on its GitHub releases — download+extract that
 // directly rather than requiring the user to have Rust/cargo installed just
-// to get the language server. Only the two platforms Huginn itself ships for
+// to get the language server. Only the two platforms vIDE itself ships for
 // (see CLAUDE.md: macOS Apple Silicon, Linux x86_64) are supported here.
-const MANAGED_DIR = join(homedir(), '.huginn', 'lsp', 'bin')
+const MANAGED_DIR = join(homedir(), '.vide', 'lsp', 'bin')
 const MANAGED_PATH = join(MANAGED_DIR, 'rust-analyzer')
 
 function releaseAssetName(): string | null {
@@ -30,7 +30,7 @@ async function resolvedPath(): Promise<string | null> {
 function download(url: string, redirectsLeft = 5): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     https
-      .get(url, { headers: { 'User-Agent': 'huginn' } }, (res) => {
+      .get(url, { headers: { 'User-Agent': 'vide' } }, (res) => {
         if (
           res.statusCode &&
           res.statusCode >= 300 &&

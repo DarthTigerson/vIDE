@@ -13,7 +13,7 @@ const IGNORED_SEGMENTS = [
 ]
 
 // The sidebar tree only refreshes when the app itself causes the change
-// (save, create, rename, delete via the UI). Edits made outside Huginn —
+// (save, create, rename, delete via the UI). Edits made outside vIDE —
 // a file created in Finder, `git checkout` in an external terminal, a build
 // script writing output — never trigger a refresh, so the tree silently goes
 // stale. Watching the project root and pushing a debounced "something

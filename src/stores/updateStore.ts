@@ -5,9 +5,9 @@ import { pendingTerminalCommands } from '@/components/Terminal/TerminalTab'
 import { PENDING_CHANGELOG_KEY } from './changelogStore'
 import type { UpdateInfo } from '@/types/api'
 
-const SENTINEL_PREFIX = '__HUGINN_UPDATE_EXIT_'
+const SENTINEL_PREFIX = '__VIDE_UPDATE_EXIT_'
 const UPDATE_COMMAND =
-  `HUGINN_NO_LAUNCH=1 curl -fsSL https://raw.githubusercontent.com/DarthTigerson/Huginn/main/install.sh | bash; ` +
+  `VIDE_NO_LAUNCH=1 curl -fsSL https://raw.githubusercontent.com/DarthTigerson/vIDE/main/install.sh | bash; ` +
   `echo "${SENTINEL_PREFIX}$?__"\n`
 
 export type UpdateStatus = 'idle' | 'updating' | 'ready' | 'failed'

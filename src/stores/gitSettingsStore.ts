@@ -1,16 +1,16 @@
 import { create } from 'zustand'
 
 const KEYS = {
-  forceSafetyEnabled:        'huginn:git:forceSafetyEnabled',
-  countdownEnabled:          'huginn:git:countdownEnabled',
-  countdownSeconds:          'huginn:git:countdownSeconds',
-  autoContinueOnCountdownEnd:'huginn:git:autoContinueOnCountdownEnd',
-  listDiffTargetBranches:    'huginn:git:listDiffTargetBranches',
-  periodicFetchEnabled:      'huginn:git:periodicFetchEnabled',
-  periodicFetchIntervalMinutes: 'huginn:git:periodicFetchIntervalMinutes',
-  gitLogAutoShow:            'huginn:git:gitLogAutoShow',
-  repoScanDepth:             'huginn:git:repoScanDepth',
-  refsColumnWidth:           'huginn:git:refsColumnWidth',
+  forceSafetyEnabled:        'vide:git:forceSafetyEnabled',
+  countdownEnabled:          'vide:git:countdownEnabled',
+  countdownSeconds:          'vide:git:countdownSeconds',
+  autoContinueOnCountdownEnd:'vide:git:autoContinueOnCountdownEnd',
+  listDiffTargetBranches:    'vide:git:listDiffTargetBranches',
+  periodicFetchEnabled:      'vide:git:periodicFetchEnabled',
+  periodicFetchIntervalMinutes: 'vide:git:periodicFetchIntervalMinutes',
+  gitLogAutoShow:            'vide:git:gitLogAutoShow',
+  repoScanDepth:             'vide:git:repoScanDepth',
+  refsColumnWidth:           'vide:git:refsColumnWidth',
 }
 
 export const DEFAULT_REPO_SCAN_DEPTH = 4

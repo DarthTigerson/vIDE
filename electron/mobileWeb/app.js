@@ -20,7 +20,7 @@ function showDisconnectedOverlay() {
   overlay.innerHTML =
     '<div style="text-align:center">'
     + '<h1 style="font-size:20px;font-weight:700">Disconnected</h1>'
-    + '<p class="muted" style="margin-top:8px;font-size:14px">This device was disconnected from Huginn.</p>'
+    + '<p class="muted" style="margin-top:8px;font-size:14px">This device was disconnected from vIDE.</p>'
     + '<a href="/" class="btn" style="margin-top:20px;display:inline-block;text-decoration:none">Enter PIN</a>'
     + '</div>'
   document.body.appendChild(overlay)

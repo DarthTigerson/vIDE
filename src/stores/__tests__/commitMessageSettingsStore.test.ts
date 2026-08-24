@@ -26,18 +26,18 @@ describe('commitMessageSettingsStore', () => {
   it('setEnabled persists to localStorage', () => {
     useCommitMessageSettingsStore.getState().setEnabled(true)
     expect(useCommitMessageSettingsStore.getState().enabled).toBe(true)
-    expect(store['huginn:commitMessage:enabled']).toBe('true')
+    expect(store['vide:commitMessage:enabled']).toBe('true')
   })
 
   it('setModel persists to localStorage', () => {
     useCommitMessageSettingsStore.getState().setModel('claude-opus-5')
     expect(useCommitMessageSettingsStore.getState().model).toBe('claude-opus-5')
-    expect(store['huginn:commitMessage:model']).toBe('claude-opus-5')
+    expect(store['vide:commitMessage:model']).toBe('claude-opus-5')
   })
 
   it('setPrompt persists to localStorage', () => {
     useCommitMessageSettingsStore.getState().setPrompt('Always mention the ticket number')
     expect(useCommitMessageSettingsStore.getState().prompt).toBe('Always mention the ticket number')
-    expect(store['huginn:commitMessage:prompt']).toBe('Always mention the ticket number')
+    expect(store['vide:commitMessage:prompt']).toBe('Always mention the ticket number')
   })
 })

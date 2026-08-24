@@ -18,8 +18,8 @@ describe('FILE_PATH_REGEX', () => {
   })
 
   it('matches an absolute path', () => {
-    expect(match('open /Users/thomasbonnici/Documents/Huginn/src/App.tsx now')).toBe(
-      '/Users/thomasbonnici/Documents/Huginn/src/App.tsx'
+    expect(match('open /Users/thomasbonnici/Documents/vIDE/src/App.tsx now')).toBe(
+      '/Users/thomasbonnici/Documents/vIDE/src/App.tsx'
     )
   })
 

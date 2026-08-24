@@ -31,7 +31,7 @@ describe('lspSettingsStore', () => {
     useLspSettingsStore.getState().setEnabled('go', true)
 
     expect(useLspSettingsStore.getState().enabled.go).toBe(true)
-    expect(store['huginn:lsp:enabled:go']).toBe('true')
+    expect(store['vide:lsp:enabled:go']).toBe('true')
     expect(apiMock.lspSetEnabled).toHaveBeenCalledWith('go', true)
   })
 

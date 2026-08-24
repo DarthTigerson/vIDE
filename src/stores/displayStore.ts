@@ -1,11 +1,11 @@
 import { create } from 'zustand'
 
-const FONT_KEY = 'huginn:font'
-const PANEL_STYLE_KEY = 'huginn:panelStyle'
-const FOOTER_CONTENT_KEY = 'huginn:footerContent'
-const MEMORY_USAGE_VISIBLE_KEY = 'huginn:memoryUsageVisible'
-const BACKGROUND_IMAGE_VISIBLE_KEY = 'huginn:backgroundImageVisible'
-const NAVBAR_POSITION_KEY = 'huginn:navbarPosition'
+const FONT_KEY = 'vide:font'
+const PANEL_STYLE_KEY = 'vide:panelStyle'
+const FOOTER_CONTENT_KEY = 'vide:footerContent'
+const MEMORY_USAGE_VISIBLE_KEY = 'vide:memoryUsageVisible'
+const BACKGROUND_IMAGE_VISIBLE_KEY = 'vide:backgroundImageVisible'
+const NAVBAR_POSITION_KEY = 'vide:navbarPosition'
 
 // Presets are limited to monospace fonts that ship preinstalled with a
 // major OS (macOS: Menlo/Monaco, Windows: Consolas, both: Courier New).

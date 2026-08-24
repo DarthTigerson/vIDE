@@ -27,16 +27,16 @@ describe('bridgeSettingsStore', () => {
   it('setEndpoint persists to localStorage', () => {
     useBridgeSettingsStore.getState().setEndpoint('http://169.254.238.138:8002/v1')
     expect(useBridgeSettingsStore.getState().endpoint).toBe('http://169.254.238.138:8002/v1')
-    expect(store['huginn:bridge:endpoint']).toBe('http://169.254.238.138:8002/v1')
+    expect(store['vide:bridge:endpoint']).toBe('http://169.254.238.138:8002/v1')
   })
 
   it('setApiKey persists to localStorage', () => {
     useBridgeSettingsStore.getState().setApiKey('local')
-    expect(store['huginn:bridge:apiKey']).toBe('local')
+    expect(store['vide:bridge:apiKey']).toBe('local')
   })
 
   it('setModelId persists to localStorage', () => {
     useBridgeSettingsStore.getState().setModelId('mlx-community/Qwen2.5-Coder-32B')
-    expect(store['huginn:bridge:modelId']).toBe('mlx-community/Qwen2.5-Coder-32B')
+    expect(store['vide:bridge:modelId']).toBe('mlx-community/Qwen2.5-Coder-32B')
   })
 })

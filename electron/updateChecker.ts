@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 
-const REPO = 'DarthTigerson/Huginn'
+const REPO = 'DarthTigerson/vIDE'
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
 
 export interface UpdateInfo {

@@ -40,7 +40,7 @@ beforeEach(() => {
   saveAttachmentMock.mockReset().mockResolvedValue('att-1')
   useTodoStore.setState({
     todosByProject: { p1: [makeTodo()] },
-    projects: [{ id: 'p1', name: 'Huginn', key: 'HG', nextNumber: 2, createdAt: 1 }],
+    projects: [{ id: 'p1', name: 'vIDE', key: 'HG', nextNumber: 2, createdAt: 1 }],
     updateTodo: updateTodoMock,
     archiveTodo: archiveTodoMock,
     addComment: addCommentMock,
@@ -130,7 +130,7 @@ describe('TodoDetailPage', () => {
 
   it('shows the project name before the todo id in the breadcrumb', () => {
     render(<TodoDetailPage projectId="p1" todoId="H-1" />)
-    expect(screen.getByText('Huginn')).toBeInTheDocument()
+    expect(screen.getByText('vIDE')).toBeInTheDocument()
     expect(screen.getByText('H-1')).toBeInTheDocument()
   })
 
