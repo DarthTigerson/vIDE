@@ -53,10 +53,10 @@ export function FooterMessage() {
       status === 'ready'
         ? 'Update installed — click to restart'
         : status === 'updating'
-          ? 'Updating Huginn… (see terminal)'
+          ? 'Updating vIDE… (see terminal)'
           : status === 'failed'
             ? `Update failed — click to retry (v${available.version} available)`
-            : `Huginn v${available.version} is available — click to update`
+            : `vIDE v${available.version} is available — click to update`
 
     const onClick = status === 'ready' ? restart : status === 'updating' ? undefined : startUpdate
 

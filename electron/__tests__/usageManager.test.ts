@@ -38,7 +38,7 @@ describe('UsageManager', () => {
   let dir: string
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'huginn-usage-manager-test-'))
+    dir = mkdtempSync(join(tmpdir(), 'vide-usage-manager-test-'))
     pollerInstances.length = 0
     for (const key of Object.keys(ipcHandlers)) delete ipcHandlers[key]
   })

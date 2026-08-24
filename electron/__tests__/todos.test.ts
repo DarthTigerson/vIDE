@@ -45,24 +45,24 @@ describe('todos', () => {
     })
 
     it('createProject adds a project that listProjects returns', async () => {
-      const project = (await handlers['todos:createProject']({}, 'Huginn', 'H')) as any
-      expect(project).toMatchObject({ name: 'Huginn', key: 'H', nextNumber: 1 })
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
+      expect(project).toMatchObject({ name: 'vIDE', key: 'H', nextNumber: 1 })
       expect(await handlers['todos:listProjects']()).toEqual([project])
     })
 
     it('rejects a key that collides case-insensitively with an existing project', async () => {
-      await handlers['todos:createProject']({}, 'Huginn', 'H')
+      await handlers['todos:createProject']({}, 'vIDE', 'H')
       await expect(handlers['todos:createProject']({}, 'Harness', 'h')).rejects.toThrow()
     })
 
     it('rejects an empty key', async () => {
-      await expect(handlers['todos:createProject']({}, 'Huginn', '   ')).rejects.toThrow()
+      await expect(handlers['todos:createProject']({}, 'vIDE', '   ')).rejects.toThrow()
     })
   })
 
   describe('todos', () => {
     it('createTodo builds the id from the project key and an incrementing counter', async () => {
-      const project = (await handlers['todos:createProject']({}, 'Huginn', 'H')) as any
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
       const first = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
       const second = (await handlers['todos:createTodo']({}, project.id, 'Second')) as any
       expect(first.id).toBe('H-1')
@@ -74,7 +74,7 @@ describe('todos', () => {
     })
 
     it('createTodo starts a todo with the expected defaults', async () => {
-      const project = (await handlers['todos:createProject']({}, 'Huginn', 'H')) as any
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
       const todo = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
       expect(todo).toMatchObject({
         projectId: project.id,
@@ -91,7 +91,7 @@ describe('todos', () => {
     })
 
     it('updateTodo can set tags', async () => {
-      const project = (await handlers['todos:createProject']({}, 'Huginn', 'H')) as any
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
       const todo = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
       const updated = (await handlers['todos:updateTodo']({}, todo.id, { tags: ['frontend', 'urgent'] })) as any
 
@@ -99,7 +99,7 @@ describe('todos', () => {
     })
 
     it('updateTodo can set and clear the label', async () => {
-      const project = (await handlers['todos:createProject']({}, 'Huginn', 'H')) as any
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
       const todo = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
 
       const labeled = (await handlers['todos:updateTodo']({}, todo.id, { label: 'bug' })) as any
@@ -110,7 +110,7 @@ describe('todos', () => {
     })
 
     it('listTodos returns only todos for the given project', async () => {
-      const p1 = (await handlers['todos:createProject']({}, 'Huginn', 'H')) as any
+      const p1 = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
       const p2 = (await handlers['todos:createProject']({}, 'Harness', 'A')) as any
       const t1 = await handlers['todos:createTodo']({}, p1.id, 'In p1')
       await handlers['todos:createTodo']({}, p2.id, 'In p2')
@@ -119,7 +119,7 @@ describe('todos', () => {
     })
 
     it('updateTodo merges the patch and bumps updatedAt', async () => {
-      const project = (await handlers['todos:createProject']({}, 'Huginn', 'H')) as any
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
       const todo = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
       const updated = (await handlers['todos:updateTodo']({}, todo.id, { status: 'in_progress' })) as any
 
@@ -132,7 +132,7 @@ describe('todos', () => {
     })
 
     it('reorderTodo moves the todo before the given id and updates its status', async () => {
-      const project = (await handlers['todos:createProject']({}, 'Huginn', 'H')) as any
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
       const t1 = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
       const t2 = (await handlers['todos:createTodo']({}, project.id, 'Second')) as any
       const t3 = (await handlers['todos:createTodo']({}, project.id, 'Third')) as any
@@ -145,7 +145,7 @@ describe('todos', () => {
     })
 
     it('reorderTodo appends to the end when beforeId is null', async () => {
-      const project = (await handlers['todos:createProject']({}, 'Huginn', 'H')) as any
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
       const t1 = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
       const t2 = (await handlers['todos:createTodo']({}, project.id, 'Second')) as any
 
@@ -161,14 +161,14 @@ describe('todos', () => {
     })
 
     it('archiveTodo sets the archived flag', async () => {
-      const project = (await handlers['todos:createProject']({}, 'Huginn', 'H')) as any
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
       const todo = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
       const archived = (await handlers['todos:archiveTodo']({}, todo.id, true)) as any
       expect(archived.archived).toBe(true)
     })
 
     it('deleteTodo removes the todo and is idempotent', async () => {
-      const project = (await handlers['todos:createProject']({}, 'Huginn', 'H')) as any
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
       const todo = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
 
       await handlers['todos:deleteTodo']({}, todo.id)
@@ -177,7 +177,7 @@ describe('todos', () => {
     })
 
     it('addComment appends a comment and returns the updated todo', async () => {
-      const project = (await handlers['todos:createProject']({}, 'Huginn', 'H')) as any
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
       const todo = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
       const updated = (await handlers['todos:addComment']({}, todo.id, 'Looks good', ['att-1'])) as any
 
@@ -186,7 +186,7 @@ describe('todos', () => {
     })
 
     it('addComment defaults attachments to an empty array', async () => {
-      const project = (await handlers['todos:createProject']({}, 'Huginn', 'H')) as any
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
       const todo = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
       const updated = (await handlers['todos:addComment']({}, todo.id, 'Looks good')) as any
 
@@ -215,7 +215,7 @@ describe('todos', () => {
       fsState.files.set(
         '/fake/userData/todos.json',
         JSON.stringify({
-          projects: [{ id: 'p1', name: 'Huginn', key: 'H', nextNumber: 2, createdAt: 1 }],
+          projects: [{ id: 'p1', name: 'vIDE', key: 'H', nextNumber: 2, createdAt: 1 }],
           todos: [legacyTodo],
         })
       )

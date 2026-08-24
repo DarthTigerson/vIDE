@@ -107,7 +107,7 @@ export function createFilePathActivateHandler() {
   }
 }
 
-// Opens the URL in a new tab of Huginn's own Browser panel — never an
+// Opens the URL in a new tab of vIDE's own Browser panel — never an
 // external/OS browser — mirroring how App.tsx's openTodo() seeds a specific
 // URL into a fresh browser tab.
 export function openUrlInBrowserTab(uri: string): void {

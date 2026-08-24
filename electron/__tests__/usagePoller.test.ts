@@ -171,7 +171,7 @@ describe('UsagePoller', () => {
   })
 
   function newPoller() {
-    dir = mkdtempSync(join(tmpdir(), 'huginn-usage-test-'))
+    dir = mkdtempSync(join(tmpdir(), 'vide-usage-test-'))
     return new UsagePoller(join(dir, 'history.jsonl'), join(dir, 'settings.json'))
   }
 
@@ -243,7 +243,7 @@ describe('UsagePoller.poll', () => {
   })
 
   function newPoller() {
-    dir = mkdtempSync(join(tmpdir(), 'huginn-usage-poll-test-'))
+    dir = mkdtempSync(join(tmpdir(), 'vide-usage-poll-test-'))
     return new UsagePoller(join(dir, 'history.jsonl'), join(dir, 'settings.json'))
   }
 

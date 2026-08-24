@@ -41,7 +41,7 @@ function createXTerm(themeId: ThemeId, panelStyle: PanelStyle, fontSize: number)
     // hyperlinks (real clickable links the CLI itself renders — e.g. an
     // artifact-publish banner — distinct from WebLinksAddon's plain-URL-text
     // regex matching below) by falling back to window.open(), which bypasses
-    // Huginn's in-app Browser tab entirely.
+    // vIDE's in-app Browser tab entirely.
     linkHandler: { activate: (_event, uri) => openUrlInBrowserTab(uri) },
   })
 }

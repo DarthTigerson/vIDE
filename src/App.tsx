@@ -59,6 +59,7 @@ import { useGitSettingsStore } from './stores/gitSettingsStore'
 import { useMobileStore } from './stores/mobileStore'
 import { useThemeStore } from './stores/themeStore'
 import { useDisplayStore } from './stores/displayStore'
+import { EMPTY_EDITOR_BACKGROUNDS } from './assets/emptyEditorBackgrounds'
 import { useEditorStore } from './stores/editorStore'
 import { useSearchStore } from './stores/searchStore'
 import { useFontSizeStore } from './stores/fontSizeStore'
@@ -96,11 +97,11 @@ const GIT_REMOTE_BROWSER_ID = 'git-remote-external'
 const GIT_POLL_INTERVAL_MS = 3000
 const MEMORY_POLL_INTERVAL_MS = 3000
 
-const SIDEBAR_SIZE_KEY = 'huginn:layout:sidebarSize'
+const SIDEBAR_SIZE_KEY = 'vide:layout:sidebarSize'
 const SIDEBAR_DEFAULT_SIZE = 26
 const SIDEBAR_MIN_SIZE = 4
 const SIDEBAR_MAX_SIZE = 40
-const CHAT_SIZE_KEY = 'huginn:layout:chatSize'
+const CHAT_SIZE_KEY = 'vide:layout:chatSize'
 const CHAT_DEFAULT_SIZE = 25
 const CHAT_MIN_SIZE = 15
 const CHAT_MAX_SIZE = 50
@@ -152,7 +153,7 @@ export default function App() {
   const theme = useThemeStore((s) => s.theme)
   const font = useDisplayStore((s) => s.font)
   const memoryUsageVisible = useDisplayStore((s) => s.memoryUsageVisible)
-  const backgroundImageVisible = useDisplayStore((s) => s.backgroundImageVisible)
+  const backgroundImage = useDisplayStore((s) => s.backgroundImage)
   const navbarPosition = useDisplayStore((s) => s.navbarPosition)
   const mirrored = navbarPosition === 'right'
   const periodicFetchEnabled = useGitSettingsStore((s) => s.periodicFetchEnabled)
@@ -589,7 +590,13 @@ export default function App() {
 
   return (
     <div className="w-screen h-screen overflow-hidden bg-panel flex flex-col relative isolate">
-      {backgroundImageVisible && <div className="app-bg-badge" aria-hidden="true" />}
+      {backgroundImage !== 'none' && (
+        <div
+          className="app-bg-badge"
+          style={{ backgroundImage: `url(${EMPTY_EDITOR_BACKGROUNDS[backgroundImage]})` }}
+          aria-hidden="true"
+        />
+      )}
       <EasterEgg />
       <div
         className="relative z-50 h-8 shrink-0 flex items-center justify-center bg-tab-bar border-b border-border"

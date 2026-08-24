@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 
 const KEYS = {
-  enabled: 'huginn:autocomplete:enabled',
-  model: 'huginn:autocomplete:model',
+  enabled: 'vide:autocomplete:enabled',
+  model: 'vide:autocomplete:model',
 }
 
 const DEFAULT_MODEL = 'claude-haiku-4-5-20251001'

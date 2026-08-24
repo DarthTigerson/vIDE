@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Huginn is an Electron desktop app ("a Claude-native IDE"): a Monaco editor,
+vIDE is an Electron desktop app ("a Claude-native IDE"): a Monaco editor,
 a real terminal (`node-pty`), and git tooling built around one or more AI
 coding agent panels (Claude Code CLI, OpenAI Codex CLI, and "Bridge" for any
-OpenAI-compatible local LLM endpoint) running side-by-side. Huginn launches
+OpenAI-compatible local LLM endpoint) running side-by-side. vIDE launches
 these CLIs as terminal processes — it does not reimplement agent logic.
 
 ## Commands

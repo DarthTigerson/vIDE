@@ -19,7 +19,7 @@ function setNodeChildren(
   })
 }
 
-const LAST_ROOT_KEY = 'huginn:lastProjectRoot'
+const LAST_ROOT_KEY = 'vide:lastProjectRoot'
 
 interface FileState {
   projectRoot: string | null

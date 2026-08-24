@@ -25,6 +25,6 @@ describe('dockerSettingsStore', () => {
   it('setEnabled updates state and persists to localStorage', () => {
     useDockerSettingsStore.getState().setEnabled(true)
     expect(useDockerSettingsStore.getState().enabled).toBe(true)
-    expect(localStorageStore['huginn:docker:enabled']).toBe('true')
+    expect(localStorageStore['vide:docker:enabled']).toBe('true')
   })
 })

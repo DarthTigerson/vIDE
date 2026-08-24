@@ -25,12 +25,12 @@ describe('inlineEditSettingsStore', () => {
   it('setEnabled persists to localStorage', () => {
     useInlineEditSettingsStore.getState().setEnabled(false)
     expect(useInlineEditSettingsStore.getState().enabled).toBe(false)
-    expect(store['huginn:inlineEdit:enabled']).toBe('false')
+    expect(store['vide:inlineEdit:enabled']).toBe('false')
   })
 
   it('setModel persists to localStorage', () => {
     useInlineEditSettingsStore.getState().setModel('claude-opus-5')
     expect(useInlineEditSettingsStore.getState().model).toBe('claude-opus-5')
-    expect(store['huginn:inlineEdit:model']).toBe('claude-opus-5')
+    expect(store['vide:inlineEdit:model']).toBe('claude-opus-5')
   })
 })

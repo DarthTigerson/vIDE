@@ -45,7 +45,7 @@ describe('FooterMessage — footer content setting', () => {
     useDisplayStore.setState({ footerContent: 'clock' })
     useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com' }, status: 'idle' })
     render(<FooterMessage />)
-    expect(screen.getByRole('button', { name: /Huginn v0\.2\.0 is available/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /vIDE v0\.2\.0 is available/ })).toBeInTheDocument()
     expect(screen.queryByText('2:32 PM')).toBeNull()
   })
 })
@@ -55,7 +55,7 @@ describe('FooterMessage — update override', () => {
     const startUpdate = vi.fn()
     useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com' }, status: 'idle', startUpdate })
     render(<FooterMessage />)
-    const button = screen.getByRole('button', { name: /Huginn v0\.2\.0 is available/ })
+    const button = screen.getByRole('button', { name: /vIDE v0\.2\.0 is available/ })
     fireEvent.click(button)
     expect(startUpdate).toHaveBeenCalled()
   })
@@ -63,7 +63,7 @@ describe('FooterMessage — update override', () => {
   it('shows an updating message that is not clickable', () => {
     useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com' }, status: 'updating' })
     render(<FooterMessage />)
-    const button = screen.getByRole('button', { name: /Updating Huginn/ })
+    const button = screen.getByRole('button', { name: /Updating vIDE/ })
     expect(button).toBeDisabled()
   })
 

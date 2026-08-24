@@ -45,6 +45,6 @@ describe('modelSettingsStore', () => {
 
   it('persists changes to localStorage', () => {
     useModelSettingsStore.getState().setEnabled('bridge', false)
-    expect(JSON.parse(localStorage.getItem('huginn:enabledModels')!)).toMatchObject({ bridge: false })
+    expect(JSON.parse(localStorage.getItem('vide:enabledModels')!)).toMatchObject({ bridge: false })
   })
 })

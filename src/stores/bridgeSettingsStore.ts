@@ -1,9 +1,9 @@
 import { create } from 'zustand'
 
 const KEYS = {
-  endpoint: 'huginn:bridge:endpoint',
-  apiKey:   'huginn:bridge:apiKey',
-  modelId:  'huginn:bridge:modelId',
+  endpoint: 'vide:bridge:endpoint',
+  apiKey:   'vide:bridge:apiKey',
+  modelId:  'vide:bridge:modelId',
 }
 
 function getString(key: string, def: string): string {

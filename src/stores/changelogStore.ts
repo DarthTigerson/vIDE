@@ -4,7 +4,7 @@ import { create } from 'zustand'
 // survives the process restart via localStorage. Read and cleared exactly
 // once on the next startup — clearing happens immediately on read, before
 // the fetch below, so a failed fetch can never cause a second attempt.
-export const PENDING_CHANGELOG_KEY = 'huginn:pendingChangelogVersion'
+export const PENDING_CHANGELOG_KEY = 'vide:pendingChangelogVersion'
 
 interface ChangelogState {
   version: string | null

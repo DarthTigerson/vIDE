@@ -1,15 +1,15 @@
-# Huginn
+# vIDE
 
 A Claude-native IDE — an Electron desktop app built around terminal AI
 coding agents, with a full editor, git tooling, and a mobile companion
 display.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![GitHub release](https://img.shields.io/github/v/release/DarthTigerson/Huginn)
+![GitHub release](https://img.shields.io/github/v/release/DarthTigerson/vIDE)
 
-![Huginn main window](docs/screenshots/hero.png)
+![vIDE main window](docs/screenshots/hero.png)
 
-> **Not affiliated with Anthropic or OpenAI.** Huginn integrates the Claude
+> **Not affiliated with Anthropic or OpenAI.** vIDE integrates the Claude
 > Code CLI and the OpenAI Codex CLI as terminal agents, and includes a panel
 > for connecting to any OpenAI-compatible local LLM endpoint ("Bridge"). It
 > is an independent, unofficial project — "Claude" and "Codex" are
@@ -17,7 +17,7 @@ display.
 
 ## What it is
 
-Huginn wraps a Monaco-based code editor, a real terminal, and git tooling
+vIDE wraps a Monaco-based code editor, a real terminal, and git tooling
 around one or more AI coding agents running side-by-side, so you can drive
 an agent and review/edit its changes in the same window instead of
 switching between a browser, a terminal, and an editor.
@@ -47,43 +47,43 @@ switching between a browser, a terminal, and an editor.
   and other Linux distros aren't supported yet
 - [Claude Code CLI](https://docs.claude.com/en/docs/claude-code) and/or the
   [OpenAI Codex CLI](https://github.com/openai/codex) installed separately,
-  for the agent panels you want to use — Huginn launches them, it doesn't
+  for the agent panels you want to use — vIDE launches them, it doesn't
   bundle them
 
 ## Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/DarthTigerson/Huginn/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/DarthTigerson/vIDE/main/install.sh | bash
 ```
 
 This downloads the latest release and installs it — to `/Applications` on
-macOS, or `~/.local/share/huginn` (with a `huginn` command symlinked into
+macOS, or `~/.local/share/vide` (with a `vide` command symlinked into
 `~/.local/bin`) on Linux.
 
 ### Manual installation
 
 Download the latest archive for your platform from the
-[Releases page](https://github.com/DarthTigerson/Huginn/releases):
+[Releases page](https://github.com/DarthTigerson/vIDE/releases):
 
-- **macOS**: download `Huginn-arm64.zip`, unzip it, and drag `Huginn.app` to
+- **macOS**: download `vIDE-arm64.zip`, unzip it, and drag `vIDE.app` to
   Applications. If macOS reports the app as "damaged" (a Gatekeeper quirk
   for unsigned, browser-downloaded apps — the app isn't actually damaged),
   run:
   ```bash
-  xattr -cr /Applications/Huginn.app
+  xattr -cr /Applications/vIDE.app
   ```
-- **Linux**: download `Huginn-x64.tar.gz` and extract it wherever you like:
+- **Linux**: download `vIDE-x64.tar.gz` and extract it wherever you like:
   ```bash
-  mkdir -p ~/.local/share/huginn
-  tar -xzf Huginn-x64.tar.gz -C ~/.local/share/huginn
-  ~/.local/share/huginn/huginn
+  mkdir -p ~/.local/share/vide
+  tar -xzf vIDE-x64.tar.gz -C ~/.local/share/vide
+  ~/.local/share/vide/vide
   ```
 
 ### Build from source
 
 ```bash
-git clone https://github.com/DarthTigerson/Huginn.git
-cd Huginn
+git clone https://github.com/DarthTigerson/vIDE.git
+cd vIDE
 npm install
 npm run dev
 ```
@@ -91,8 +91,8 @@ npm run dev
 To build your own archive:
 
 ```bash
-npm run dist:mac    # produces Huginn-arm64.zip under release/
-npm run dist:linux  # produces Huginn-x64.tar.gz under release/
+npm run dist:mac    # produces vIDE-arm64.zip under release/
+npm run dist:linux  # produces vIDE-x64.tar.gz under release/
 ```
 
 ## Contributing

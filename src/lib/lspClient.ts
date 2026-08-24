@@ -13,7 +13,7 @@ const SUPPORTED_LANGUAGES: Record<string, LspServerId> = {
 
 let registered = false
 
-// Registers Monaco's go-to-definition provider for the four languages Huginn
+// Registers Monaco's go-to-definition provider for the four languages vIDE
 // can back with a real language server. The Cmd+click gesture itself is
 // Monaco/VS Code's built-in behavior — it appears automatically for any
 // language with a DefinitionProvider registered, nothing custom needed for
@@ -53,7 +53,7 @@ export function registerLspDefinitionProvider(monaco: typeof import('monaco-edit
 
       // Monaco's standalone editor (as opposed to the full VS Code
       // workbench) doesn't reliably jump across models on its own — rather
-      // than fight that, hand cross-file jumps to Huginn's own tab-opening
+      // than fight that, hand cross-file jumps to vIDE's own tab-opening
       // machinery (the same one Search-in-files uses) and tell Monaco
       // there's nothing more for it to do.
       if (otherFile && sameFile.length === 0) {

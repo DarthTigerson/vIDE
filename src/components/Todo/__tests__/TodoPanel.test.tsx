@@ -37,12 +37,12 @@ describe('TodoPanel', () => {
   it('lists loaded projects by name and key', async () => {
     mockApi({
       todosListProjects: vi.fn().mockResolvedValue([
-        { id: 'p1', name: 'Huginn', key: 'H', nextNumber: 1, createdAt: 1 },
+        { id: 'p1', name: 'vIDE', key: 'H', nextNumber: 1, createdAt: 1 },
       ]),
     })
     render(<TodoPanel />)
     await waitFor(() => {
-      expect(screen.getByText('Huginn')).toBeInTheDocument()
+      expect(screen.getByText('vIDE')).toBeInTheDocument()
       expect(screen.getByText('H')).toBeInTheDocument()
     })
   })
@@ -50,12 +50,12 @@ describe('TodoPanel', () => {
   it('clicking a project opens its Kanban board tab', async () => {
     mockApi({
       todosListProjects: vi.fn().mockResolvedValue([
-        { id: 'p1', name: 'Huginn', key: 'H', nextNumber: 1, createdAt: 1 },
+        { id: 'p1', name: 'vIDE', key: 'H', nextNumber: 1, createdAt: 1 },
       ]),
     })
     render(<TodoPanel />)
-    await waitFor(() => screen.getByText('Huginn'))
-    fireEvent.click(screen.getByText('Huginn'))
+    await waitFor(() => screen.getByText('vIDE'))
+    fireEvent.click(screen.getByText('vIDE'))
 
     expect(openTabMock).toHaveBeenCalledWith({ path: buildTodoBoardPath('p1'), content: '', dirty: false })
   })

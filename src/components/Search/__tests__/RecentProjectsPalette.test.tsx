@@ -6,7 +6,7 @@ import { useFileStore } from '@/stores/fileStore'
 vi.mock('@/lib/platform', () => ({ isMac: true }))
 
 const RECENTS = [
-  { path: '/Users/thomas/huginn', lastOpened: 3 },
+  { path: '/Users/thomas/vide', lastOpened: 3 },
   { path: '/Users/thomas/other-project', lastOpened: 2 },
   { path: '/Users/thomas/dotfiles', lastOpened: 1 },
 ]
@@ -28,8 +28,8 @@ afterEach(() => {
 describe('RecentProjectsPalette', () => {
   it('lists recent projects with name and full path', async () => {
     render(<RecentProjectsPalette onClose={() => {}} />)
-    expect(await screen.findByText('huginn')).toBeTruthy()
-    expect(screen.getByText('/Users/thomas/huginn')).toBeTruthy()
+    expect(await screen.findByText('vide')).toBeTruthy()
+    expect(screen.getByText('/Users/thomas/vide')).toBeTruthy()
     expect(screen.getByText('other-project')).toBeTruthy()
     expect(screen.getByText('dotfiles')).toBeTruthy()
   })
@@ -42,44 +42,44 @@ describe('RecentProjectsPalette', () => {
 
   it('filters by typed query', async () => {
     render(<RecentProjectsPalette onClose={() => {}} />)
-    await screen.findByText('huginn')
+    await screen.findByText('vide')
     fireEvent.change(screen.getByPlaceholderText('Switch project…'), { target: { value: 'dot' } })
     expect(screen.getByText('dotfiles')).toBeTruthy()
-    expect(screen.queryByText('huginn')).toBeNull()
+    expect(screen.queryByText('vide')).toBeNull()
   })
 
   it('Enter opens the selected project in the current window and closes', async () => {
     const onClose = vi.fn()
     render(<RecentProjectsPalette onClose={onClose} />)
-    await screen.findByText('huginn')
+    await screen.findByText('vide')
     fireEvent.keyDown(screen.getByPlaceholderText('Switch project…'), { key: 'Enter' })
     await vi.waitFor(() => expect(onClose).toHaveBeenCalled())
-    expect(useFileStore.getState().openRecentProject).toHaveBeenCalledWith('/Users/thomas/huginn')
+    expect(useFileStore.getState().openRecentProject).toHaveBeenCalledWith('/Users/thomas/vide')
     expect(window.api.openProjectInNewWindow).not.toHaveBeenCalled()
   })
 
   it('Cmd+Enter opens the selected project in a new window and closes', async () => {
     const onClose = vi.fn()
     render(<RecentProjectsPalette onClose={onClose} />)
-    await screen.findByText('huginn')
+    await screen.findByText('vide')
     fireEvent.keyDown(screen.getByPlaceholderText('Switch project…'), { key: 'Enter', metaKey: true })
     await vi.waitFor(() => expect(onClose).toHaveBeenCalled())
-    expect(window.api.openProjectInNewWindow).toHaveBeenCalledWith('/Users/thomas/huginn')
+    expect(window.api.openProjectInNewWindow).toHaveBeenCalledWith('/Users/thomas/vide')
     expect(useFileStore.getState().openRecentProject).not.toHaveBeenCalled()
   })
 
   it('Ctrl+Enter alone does not trigger new-window opening on mac', async () => {
     render(<RecentProjectsPalette onClose={() => {}} />)
-    await screen.findByText('huginn')
+    await screen.findByText('vide')
     fireEvent.keyDown(screen.getByPlaceholderText('Switch project…'), { key: 'Enter', ctrlKey: true })
     await vi.waitFor(() => expect(useFileStore.getState().openRecentProject).toHaveBeenCalled())
     expect(window.api.openProjectInNewWindow).not.toHaveBeenCalled()
-    expect(useFileStore.getState().openRecentProject).toHaveBeenCalledWith('/Users/thomas/huginn')
+    expect(useFileStore.getState().openRecentProject).toHaveBeenCalledWith('/Users/thomas/vide')
   })
 
   it('ArrowDown moves selection to the next project before Enter', async () => {
     render(<RecentProjectsPalette onClose={() => {}} />)
-    await screen.findByText('huginn')
+    await screen.findByText('vide')
     const input = screen.getByPlaceholderText('Switch project…')
     fireEvent.keyDown(input, { key: 'ArrowDown' })
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -91,10 +91,10 @@ describe('RecentProjectsPalette', () => {
     vi.mocked(window.api.focusProjectIfOpen).mockResolvedValueOnce(true)
     const onClose = vi.fn()
     render(<RecentProjectsPalette onClose={onClose} />)
-    await screen.findByText('huginn')
+    await screen.findByText('vide')
     fireEvent.keyDown(screen.getByPlaceholderText('Switch project…'), { key: 'Enter' })
     await vi.waitFor(() => expect(onClose).toHaveBeenCalled())
-    expect(window.api.focusProjectIfOpen).toHaveBeenCalledWith('/Users/thomas/huginn')
+    expect(window.api.focusProjectIfOpen).toHaveBeenCalledWith('/Users/thomas/vide')
     expect(useFileStore.getState().openRecentProject).not.toHaveBeenCalled()
     expect(window.api.openProjectInNewWindow).not.toHaveBeenCalled()
   })
@@ -103,7 +103,7 @@ describe('RecentProjectsPalette', () => {
     vi.mocked(window.api.focusProjectIfOpen).mockResolvedValueOnce(true)
     const onClose = vi.fn()
     render(<RecentProjectsPalette onClose={onClose} />)
-    await screen.findByText('huginn')
+    await screen.findByText('vide')
     fireEvent.keyDown(screen.getByPlaceholderText('Switch project…'), { key: 'Enter', metaKey: true })
     await vi.waitFor(() => expect(onClose).toHaveBeenCalled())
     expect(window.api.openProjectInNewWindow).not.toHaveBeenCalled()
@@ -113,7 +113,7 @@ describe('RecentProjectsPalette', () => {
   it('Escape closes without opening anything', async () => {
     const onClose = vi.fn()
     render(<RecentProjectsPalette onClose={onClose} />)
-    await screen.findByText('huginn')
+    await screen.findByText('vide')
     fireEvent.keyDown(screen.getByPlaceholderText('Switch project…'), { key: 'Escape' })
     expect(onClose).toHaveBeenCalled()
     expect(useFileStore.getState().openRecentProject).not.toHaveBeenCalled()

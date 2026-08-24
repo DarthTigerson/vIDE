@@ -2,12 +2,12 @@ import { create } from 'zustand'
 import { useBridgeSettingsStore } from './bridgeSettingsStore'
 import type { BridgeEvent, BridgeMessage } from '@/types/api'
 
-const AGENT_MODE_KEY = 'huginn:bridge:agentMode'
-const CURRENT_SESSION_KEY = 'huginn:bridge:current'
-const SESSIONS_KEY = 'huginn:bridge:sessions'
+const AGENT_MODE_KEY = 'vide:bridge:agentMode'
+const CURRENT_SESSION_KEY = 'vide:bridge:current'
+const SESSIONS_KEY = 'vide:bridge:sessions'
 
 function newSessionId(): string {
-  return `huginn-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
+  return `vide-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
 }
 
 export interface StoredSession {

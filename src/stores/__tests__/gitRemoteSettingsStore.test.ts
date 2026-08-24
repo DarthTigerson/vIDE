@@ -25,7 +25,7 @@ describe('gitRemoteSettingsStore', () => {
   it('setExternalUrl updates state and persists to localStorage', () => {
     useGitRemoteSettingsStore.getState().setExternalUrl('https://github.com/acme/widgets')
     expect(useGitRemoteSettingsStore.getState().externalUrl).toBe('https://github.com/acme/widgets')
-    expect(localStorageStore['huginn:gitRemote:externalUrl']).toBe('https://github.com/acme/widgets')
+    expect(localStorageStore['vide:gitRemote:externalUrl']).toBe('https://github.com/acme/widgets')
   })
 
   it('getEffectiveUrl falls back to the global URL when no project override is set', () => {
@@ -43,7 +43,7 @@ describe('gitRemoteSettingsStore', () => {
     useGitRemoteSettingsStore.getState().setProjectUrl('/repo/a', 'https://gitlab.com/acme/widgets-fork')
     expect(useGitRemoteSettingsStore.getState().getEffectiveUrl('/repo/a')).toBe('https://gitlab.com/acme/widgets-fork')
     expect(useGitRemoteSettingsStore.getState().getEffectiveUrl('/repo/b')).toBe('https://github.com/acme/widgets')
-    expect(localStorageStore['huginn:gitRemote:projectUrls']).toBe(JSON.stringify({ '/repo/a': 'https://gitlab.com/acme/widgets-fork' }))
+    expect(localStorageStore['vide:gitRemote:projectUrls']).toBe(JSON.stringify({ '/repo/a': 'https://gitlab.com/acme/widgets-fork' }))
   })
 
   it('setProjectUrl with an empty value clears the override, falling back to global again', () => {
@@ -61,6 +61,6 @@ describe('gitRemoteSettingsStore', () => {
   it('setCloseSidePanelOnOpen updates state and persists to localStorage', () => {
     useGitRemoteSettingsStore.getState().setCloseSidePanelOnOpen(true)
     expect(useGitRemoteSettingsStore.getState().closeSidePanelOnOpen).toBe(true)
-    expect(localStorageStore['huginn:gitRemote:closeSidePanel']).toBe('true')
+    expect(localStorageStore['vide:gitRemote:closeSidePanel']).toBe('true')
   })
 })

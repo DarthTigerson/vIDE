@@ -101,7 +101,7 @@ export function TabBar({ paneId }: { paneId: string }) {
             onDragStart={(e) => {
               e.dataTransfer.effectAllowed = 'move'
               e.dataTransfer.setData('text/plain', tab.path)
-              e.dataTransfer.setData('application/x-huginn-pane', paneId)
+              e.dataTransfer.setData('application/x-vide-pane', paneId)
               startDrag(tab.path, paneId)
             }}
             onDragOver={(e) => {
@@ -119,7 +119,7 @@ export function TabBar({ paneId }: { paneId: string }) {
             onDrop={(e) => {
               e.preventDefault()
               const sourcePath = e.dataTransfer.getData('text/plain')
-              const sourcePaneId = e.dataTransfer.getData('application/x-huginn-pane')
+              const sourcePaneId = e.dataTransfer.getData('application/x-vide-pane')
               const placement =
                 dropTarget?.path === tab.path ? dropTarget.placement : getDropPlacement(e)
               if (sourcePath && sourcePath !== tab.path) {

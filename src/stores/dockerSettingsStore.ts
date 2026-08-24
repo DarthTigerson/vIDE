@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-const ENABLED_KEY = 'huginn:docker:enabled'
+const ENABLED_KEY = 'vide:docker:enabled'
 
 function getBool(key: string, def: boolean): boolean {
   const value = localStorage.getItem(key)

@@ -25,6 +25,6 @@ describe('notesSettingsStore', () => {
   it('setEnabled updates state and persists to localStorage', () => {
     useNotesSettingsStore.getState().setEnabled(false)
     expect(useNotesSettingsStore.getState().enabled).toBe(false)
-    expect(localStorageStore['huginn:notes:enabled']).toBe('false')
+    expect(localStorageStore['vide:notes:enabled']).toBe('false')
   })
 })

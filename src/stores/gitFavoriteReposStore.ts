@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-const KEY = 'huginn:git:favoriteRepos'
+const KEY = 'vide:git:favoriteRepos'
 
 function getFavorites(): Record<string, true> {
   // Guard against a missing global rather than throw at module-load time —

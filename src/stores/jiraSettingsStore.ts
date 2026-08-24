@@ -1,9 +1,9 @@
 import { create } from 'zustand'
 
-const URL_KEY = 'huginn:jira:externalUrl'
-const PROJECT_URLS_KEY = 'huginn:jira:projectUrls'
-const CLOSE_SIDE_PANEL_KEY = 'huginn:jira:closeSidePanel'
-const ENABLED_KEY = 'huginn:jira:enabled'
+const URL_KEY = 'vide:jira:externalUrl'
+const PROJECT_URLS_KEY = 'vide:jira:projectUrls'
+const CLOSE_SIDE_PANEL_KEY = 'vide:jira:closeSidePanel'
+const ENABLED_KEY = 'vide:jira:enabled'
 
 function getBool(key: string, def: boolean): boolean {
   const value = localStorage.getItem(key)

@@ -27,13 +27,13 @@ describe('SetupWizard', () => {
 
   it('renders nothing when the store says the wizard is closed', () => {
     render(<SetupWizard />)
-    expect(screen.queryByText('Welcome to Huginn')).not.toBeInTheDocument()
+    expect(screen.queryByText('Welcome to vIDE')).not.toBeInTheDocument()
   })
 
   it('shows the welcome step first when open', () => {
     useOnboardingStore.setState({ open: true, stepIndex: 0 })
     render(<SetupWizard />)
-    expect(screen.getByText('Welcome to Huginn')).toBeInTheDocument()
+    expect(screen.getByText('Welcome to vIDE')).toBeInTheDocument()
   })
 
   it('"Skip setup" closes the wizard and marks onboarding complete', () => {

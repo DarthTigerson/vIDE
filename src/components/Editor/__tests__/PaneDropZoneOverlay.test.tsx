@@ -13,8 +13,8 @@ function stubRect() {
   Element.prototype.getBoundingClientRect = () => RECT as DOMRect
 }
 
-function huginnDataTransfer() {
-  return { types: ['text/plain', 'application/x-huginn-pane'], dropEffect: 'none' } as unknown as DataTransfer
+function videDataTransfer() {
+  return { types: ['text/plain', 'application/x-vide-pane'], dropEffect: 'none' } as unknown as DataTransfer
 }
 
 // jsdom doesn't implement DragEvent, so fireEvent.dragOver/.drop silently
@@ -22,7 +22,7 @@ function huginnDataTransfer() {
 // assign the MouseEvent-ish properties directly instead.
 function dragEventAt(type: 'dragover' | 'drop', clientX: number, clientY: number): Event {
   const event = new Event(type, { bubbles: true, cancelable: true })
-  Object.assign(event, { clientX, clientY, dataTransfer: huginnDataTransfer() })
+  Object.assign(event, { clientX, clientY, dataTransfer: videDataTransfer() })
   return event
 }
 

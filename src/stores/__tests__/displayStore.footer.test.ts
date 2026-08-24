@@ -30,7 +30,7 @@ describe('displayStore — footer content + memory usage visibility', () => {
   it('setFooterContent updates state and persists to localStorage', () => {
     useDisplayStore.getState().setFooterContent('clock')
     expect(useDisplayStore.getState().footerContent).toBe('clock')
-    expect(localStorageStore['huginn:footerContent']).toBe('clock')
+    expect(localStorageStore['vide:footerContent']).toBe('clock')
   })
 
   it('defaults memoryUsageVisible to true', () => {
@@ -40,6 +40,6 @@ describe('displayStore — footer content + memory usage visibility', () => {
   it('setMemoryUsageVisible updates state and persists to localStorage', () => {
     useDisplayStore.getState().setMemoryUsageVisible(false)
     expect(useDisplayStore.getState().memoryUsageVisible).toBe(false)
-    expect(localStorageStore['huginn:memoryUsageVisible']).toBe('false')
+    expect(localStorageStore['vide:memoryUsageVisible']).toBe('false')
   })
 })

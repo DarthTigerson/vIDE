@@ -4,7 +4,7 @@ export type LspServerId = 'typescript' | 'python' | 'go' | 'rust'
 
 export const LSP_SERVER_IDS: LspServerId[] = ['go', 'python', 'rust', 'typescript']
 
-const KEY_PREFIX = 'huginn:lsp:enabled:'
+const KEY_PREFIX = 'vide:lsp:enabled:'
 
 function getBool(key: string, def: boolean): boolean {
   const value = localStorage.getItem(key)

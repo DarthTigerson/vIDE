@@ -244,7 +244,7 @@ describe('fileStore', () => {
   it('openProjectAt does not write to localStorage (each window keeps its own project)', async () => {
     vi.mocked(window.api.readDir).mockResolvedValueOnce(mockTree)
     await useFileStore.getState().openProjectAt('/other-proj')
-    expect(localStorage.getItem('huginn:lastProjectRoot')).toBeNull()
+    expect(localStorage.getItem('vide:lastProjectRoot')).toBeNull()
   })
 
   it('closeProject drops back to the no-project state', async () => {
@@ -270,6 +270,6 @@ describe('fileStore', () => {
   it('closeProject leaves the persisted last-project preference alone (soft reset only)', async () => {
     await useFileStore.getState().openFolder()
     useFileStore.getState().closeProject()
-    expect(localStorage.getItem('huginn:lastProjectRoot')).toBe('/proj')
+    expect(localStorage.getItem('vide:lastProjectRoot')).toBe('/proj')
   })
 })

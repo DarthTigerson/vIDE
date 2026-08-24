@@ -17,8 +17,8 @@ interface ThemeStore {
   setVariant: (dark: boolean) => void
 }
 
-const STORAGE_KEY = 'huginn:theme'
-const MATCH_SYSTEM_STORAGE_KEY = 'huginn:themeMatchSystem'
+const STORAGE_KEY = 'vide:theme'
+const MATCH_SYSTEM_STORAGE_KEY = 'vide:themeMatchSystem'
 
 function applyTheme(theme: ThemeId) {
   document.documentElement.setAttribute('data-theme', theme)

@@ -39,25 +39,25 @@ describe('gitSettingsStore', () => {
   it('setForceSafetyEnabled persists to localStorage', () => {
     useGitSettingsStore.getState().setForceSafetyEnabled(false)
     expect(useGitSettingsStore.getState().forceSafetyEnabled).toBe(false)
-    expect(store['huginn:git:forceSafetyEnabled']).toBe('false')
+    expect(store['vide:git:forceSafetyEnabled']).toBe('false')
   })
 
   it('setCountdownEnabled persists to localStorage', () => {
     useGitSettingsStore.getState().setCountdownEnabled(true)
     expect(useGitSettingsStore.getState().countdownEnabled).toBe(true)
-    expect(store['huginn:git:countdownEnabled']).toBe('true')
+    expect(store['vide:git:countdownEnabled']).toBe('true')
   })
 
   it('setCountdownSeconds persists to localStorage', () => {
     useGitSettingsStore.getState().setCountdownSeconds(10)
     expect(useGitSettingsStore.getState().countdownSeconds).toBe(10)
-    expect(store['huginn:git:countdownSeconds']).toBe('10')
+    expect(store['vide:git:countdownSeconds']).toBe('10')
   })
 
   it('setAutoContinueOnCountdownEnd persists to localStorage', () => {
     useGitSettingsStore.getState().setAutoContinueOnCountdownEnd(true)
     expect(useGitSettingsStore.getState().autoContinueOnCountdownEnd).toBe(true)
-    expect(store['huginn:git:autoContinueOnCountdownEnd']).toBe('true')
+    expect(store['vide:git:autoContinueOnCountdownEnd']).toBe('true')
   })
 
   it('getListDiffTargetBranch defaults to empty string for an unconfigured repo', () => {
@@ -71,7 +71,7 @@ describe('gitSettingsStore', () => {
 
     expect(getListDiffTargetBranch('/repo/a')).toBe('develop')
     expect(getListDiffTargetBranch('/repo/b')).toBe('main')
-    expect(JSON.parse(store['huginn:git:listDiffTargetBranches'])).toEqual({
+    expect(JSON.parse(store['vide:git:listDiffTargetBranches'])).toEqual({
       '/repo/a': 'develop',
       '/repo/b': 'main',
     })
@@ -83,7 +83,7 @@ describe('gitSettingsStore', () => {
     setListDiffTargetBranch('/repo/a', '')
 
     expect(getListDiffTargetBranch('/repo/a')).toBe('')
-    expect(JSON.parse(store['huginn:git:listDiffTargetBranches'])).toEqual({})
+    expect(JSON.parse(store['vide:git:listDiffTargetBranches'])).toEqual({})
   })
 
   it('periodic fetch defaults to enabled at 5 minutes', () => {
@@ -95,13 +95,13 @@ describe('gitSettingsStore', () => {
   it('setPeriodicFetchEnabled persists to localStorage', () => {
     useGitSettingsStore.getState().setPeriodicFetchEnabled(false)
     expect(useGitSettingsStore.getState().periodicFetchEnabled).toBe(false)
-    expect(store['huginn:git:periodicFetchEnabled']).toBe('false')
+    expect(store['vide:git:periodicFetchEnabled']).toBe('false')
   })
 
   it('setPeriodicFetchIntervalMinutes persists to localStorage', () => {
     useGitSettingsStore.getState().setPeriodicFetchIntervalMinutes(15)
     expect(useGitSettingsStore.getState().periodicFetchIntervalMinutes).toBe(15)
-    expect(store['huginn:git:periodicFetchIntervalMinutes']).toBe('15')
+    expect(store['vide:git:periodicFetchIntervalMinutes']).toBe('15')
   })
 
   it('setPeriodicFetchIntervalMinutes clamps to [1, 120]', () => {
@@ -119,7 +119,7 @@ describe('gitSettingsStore', () => {
   it('setRefsColumnWidth persists to localStorage', () => {
     useGitSettingsStore.getState().setRefsColumnWidth(150)
     expect(useGitSettingsStore.getState().refsColumnWidth).toBe(150)
-    expect(store['huginn:git:refsColumnWidth']).toBe('150')
+    expect(store['vide:git:refsColumnWidth']).toBe('150')
   })
 
   it('setRefsColumnWidth clamps to [60, 640] and rounds', () => {

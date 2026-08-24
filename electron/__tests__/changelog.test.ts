@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { extractVersionSection } from '../changelog'
 
-const CHANGELOG = `# Huginn
+const CHANGELOG = `# vIDE
 
 ## v0.1.2 (2026-08-10)
 - Improved autocomplete logic and ui

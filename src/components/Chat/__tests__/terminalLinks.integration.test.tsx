@@ -118,7 +118,7 @@ describe('Chat terminal link provider (integration)', () => {
   // option, consumed by its built-in OscLinkProvider) from the WebLinksAddon
   // regex matching the tests above exercise. Reported bug: clicking one of
   // these opened via xterm's default window.open() fallback instead of
-  // Huginn's in-app Browser tab, because createXTerm() never set linkHandler.
+  // vIDE's in-app Browser tab, because createXTerm() never set linkHandler.
   it('routes OSC 8 terminal hyperlink activation (Claude\'s own banner links) through the in-app Browser tab', async () => {
     let capturedXterm: any = null
     const spy = vi.spyOn(XTerm.prototype, 'registerLinkProvider').mockImplementation(function (

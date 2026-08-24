@@ -1,9 +1,9 @@
 import { create } from 'zustand'
 
 const KEYS = {
-  autoSaveEnabled: 'huginn:editor:autoSaveEnabled',
-  wordWrapEnabled: 'huginn:editor:wordWrapEnabled',
-  changeAllOccurrencesInMenu: 'huginn:editor:changeAllOccurrencesInMenu',
+  autoSaveEnabled: 'vide:editor:autoSaveEnabled',
+  wordWrapEnabled: 'vide:editor:wordWrapEnabled',
+  changeAllOccurrencesInMenu: 'vide:editor:changeAllOccurrencesInMenu',
 }
 
 function getBool(key: string, def: boolean): boolean {

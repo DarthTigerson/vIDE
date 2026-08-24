@@ -348,7 +348,6 @@ body {
    Claude panel just progressively covers it, like wallpaper behind a
    shrinking window. */
 .empty-editor-bg {
-  background-image: url('./assets/emptyEditorBackground.png');
   background-repeat: no-repeat;
   background-position: right center;
   background-size: auto 100%;
@@ -377,7 +376,6 @@ body {
   inset: 0;
   pointer-events: none;
   z-index: -1;
-  background-image: url('./assets/emptyEditorBackground.png');
   background-repeat: no-repeat;
   background-position: right center;
   background-size: auto 100%;
