@@ -67,13 +67,13 @@ import { useUpdateStore } from './stores/updateStore'
 import { useChangelogStore } from './stores/changelogStore'
 import { useOnboardingStore } from './stores/onboardingStore'
 import { useBrowserStore } from './stores/browserStore'
-import { useTodoSettingsStore } from './stores/todoSettingsStore'
 import { useJiraSettingsStore } from './stores/jiraSettingsStore'
 import { useGitRemoteSettingsStore } from './stores/gitRemoteSettingsStore'
 import { useDockerSettingsStore } from './stores/dockerSettingsStore'
 import { detectGitRemoteProvider, gitRemoteIcon, gitRemoteLabel } from './lib/gitRemoteProvider'
 import { evaluateCmdWForPinnedTab, type PendingClose } from './lib/pinnedTabCloseGuard'
-import { buildTerminalPath, buildBrowserPath, TODO_SETTINGS_TAB_PATH, JIRA_SETTINGS_TAB_PATH, GIT_SETTINGS_TAB_PATH, USAGE_GRAPH_TAB_PATH } from './components/Settings/paths'
+import { buildTerminalPath, buildBrowserPath, JIRA_SETTINGS_TAB_PATH, GIT_SETTINGS_TAB_PATH, USAGE_GRAPH_TAB_PATH } from './components/Settings/paths'
+import { TodoPanel } from './components/Todo/TodoPanel'
 import type { AssistantKind } from './types/api'
 
 const ASSISTANT_OPTIONS: Array<{ id: AssistantKind; label: string }> = [
@@ -86,7 +86,6 @@ function assistantIcon(kind: AssistantKind) {
   return kind === 'claude' ? <ClaudeIcon /> : kind === 'codex' ? <CodexIcon /> : <BridgeIcon />
 }
 
-const TODO_BROWSER_ID = 'todo-external'
 const JIRA_BROWSER_ID = 'jira-external'
 const GIT_REMOTE_BROWSER_ID = 'git-remote-external'
 const GIT_POLL_INTERVAL_MS = 3000
@@ -121,8 +120,8 @@ export default function App() {
   const enabledModels = useModelSettingsStore((s) => s.enabled)
   const visibleAssistantOptions = ASSISTANT_OPTIONS.filter((option) => enabledModels[option.id])
   const repoName = projectRoot ? projectRoot.split('/').pop() : null
-  const [leftPanel, setLeftPanel] = useState<'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'settings' | null>('files')
-  const lastLeftPanelRef = useRef<'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'settings'>('files')
+  const [leftPanel, setLeftPanel] = useState<'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'settings' | null>('files')
+  const lastLeftPanelRef = useRef<'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'settings'>('files')
   const [sidebarSize, setSidebarSize] = useState(loadSidebarSize)
   const [chatSize, setChatSize] = useState(loadChatSize)
   const [assistantMenuOpen, setAssistantMenuOpen] = useState(false)
@@ -154,7 +153,6 @@ export default function App() {
   const periodicFetchEnabled = useGitSettingsStore((s) => s.periodicFetchEnabled)
   const periodicFetchIntervalMinutes = useGitSettingsStore((s) => s.periodicFetchIntervalMinutes)
   const activeTabPath = useEditorStore((s) => s.activeTabPath)
-  const todoEnabled = useTodoSettingsStore((s) => s.enabled)
   const jiraEnabled = useJiraSettingsStore((s) => s.enabled)
   // Re-derives whenever externalUrl or projectUrls changes, since getEffectiveUrl
   // itself isn't reactive state — subscribing to those two directly (rather than
@@ -180,24 +178,9 @@ export default function App() {
     useEditorStore.getState().openTab({ path: buildBrowserPath(id), content: '', dirty: false })
   }
 
-  // Uses a fixed browser-tab id (rather than one generated per click, like
-  // openNewBrowser above) so that clicking the To Do icon again while it's
-  // already open just focuses the existing tab — openTab already does this
-  // for any tab path that's open in some pane — instead of piling up
-  // duplicate tabs pointed at the same tracker.
-  function openTodo() {
-    const url = useTodoSettingsStore.getState().externalUrl
-    if (!url) {
-      useEditorStore.getState().openTab({ path: TODO_SETTINGS_TAB_PATH, content: '', dirty: false })
-      return
-    }
-    useBrowserStore.getState().ensureTab(TODO_BROWSER_ID, url)
-    useEditorStore.getState().openTab({ path: buildBrowserPath(TODO_BROWSER_ID), content: '', dirty: false })
-    if (useTodoSettingsStore.getState().closeSidePanelOnOpen) setLeftPanel(null)
-  }
-
-  // Mirrors openTodo() above — same fixed-tab-id, empty-URL-falls-back-to-
-  // settings, closeSidePanelOnOpen behavior.
+  // Mirrors the git-remote/Jira external-link pattern below — same
+  // fixed-tab-id, empty-URL-falls-back-to-settings, closeSidePanelOnOpen
+  // behavior.
   function openJira() {
     const url = useJiraSettingsStore.getState().getEffectiveUrl(projectRoot)
     if (!url) {
@@ -209,9 +192,9 @@ export default function App() {
     if (useJiraSettingsStore.getState().closeSidePanelOnOpen) setLeftPanel(null)
   }
 
-  // Mirrors openTodo()/openJira() above. Its Settings config lives inside
-  // the Git settings page (a dedicated section) rather than its own tab, so
-  // the empty-URL fallback opens that instead of a page of its own.
+  // Mirrors openJira() above. Its Settings config lives inside the Git
+  // settings page (a dedicated section) rather than its own tab, so the
+  // empty-URL fallback opens that instead of a page of its own.
   function openGitRemote() {
     const url = useGitRemoteSettingsStore.getState().getEffectiveUrl(projectRoot)
     if (!url) {
@@ -702,20 +685,20 @@ export default function App() {
               active: leftPanel === 'graphify',
               onClick: () => setLeftPanel((p) => (p === 'graphify' ? null : 'graphify')),
             },
-          ], ...(gitRemoteReady || todoEnabled || jiraReady ? [[
+            {
+              id: 'todos',
+              icon: <TodoIcon />,
+              title: 'To Do',
+              active: leftPanel === 'todos',
+              onClick: () => setLeftPanel((p) => (p === 'todos' ? null : 'todos')),
+            },
+          ], ...(gitRemoteReady || jiraReady ? [[
             ...(gitRemoteReady ? [{
               id: 'git-remote',
               icon: gitRemoteIcon(gitRemoteProvider),
               title: gitRemoteLabel(gitRemoteProvider),
               active: activeTabPath === buildBrowserPath(GIT_REMOTE_BROWSER_ID),
               onClick: openGitRemote,
-            }] : []),
-            ...(todoEnabled ? [{
-              id: 'todos',
-              icon: <TodoIcon />,
-              title: 'To Do',
-              active: activeTabPath === buildBrowserPath(TODO_BROWSER_ID),
-              onClick: openTodo,
             }] : []),
             ...(jiraReady ? [{
               id: 'jira',
@@ -770,7 +753,7 @@ export default function App() {
           >
             {(() => {
               const activeLeftPanel = leftPanel ?? lastLeftPanelRef.current
-              return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'docker' ? <DockerPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : <SettingsPanel />
+              return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'docker' ? <DockerPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : activeLeftPanel === 'todos' ? <TodoPanel /> : <SettingsPanel />
             })()}
           </Panel>
           )

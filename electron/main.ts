@@ -22,6 +22,7 @@ import { LanguageServerManager } from './lsp/manager'
 import { listAllFiles, searchText, buildTree, readImageDataUrl } from './fsOps'
 import { registerSessionHandlers } from './session'
 import { registerRecentProjectsHandlers, readRecents, addRecentProject, clearRecentProjects } from './recentProjects'
+import { registerTodoHandlers } from './todos'
 import { UpdateChecker } from './updateChecker'
 import { getChangelogForVersion } from './changelog'
 import { getSystemMemoryUsage } from './systemMemory'
@@ -548,6 +549,7 @@ app.whenReady().then(() => {
   registerDevtoolsHandlers()
   registerSessionHandlers()
   registerRecentProjectsHandlers()
+  registerTodoHandlers()
   registerWindowHandlers()
   registerSystemHandlers()
   registerOnboardingHandlers()

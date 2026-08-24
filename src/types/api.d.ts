@@ -71,6 +71,50 @@ export interface RecentProject {
   lastOpened: number
 }
 
+export type TodoStatus = 'backlog' | 'todo' | 'in_progress' | 'done'
+export type TodoLabel = 'bug' | 'feature' | 'nice-to-have'
+
+export interface TodoProject {
+  id: string
+  name: string
+  key: string
+  nextNumber: number
+  createdAt: number
+}
+
+export interface TodoComment {
+  id: string
+  body: string
+  attachments: string[]
+  createdAt: number
+}
+
+export interface Todo {
+  id: string
+  projectId: string
+  title: string
+  description: string
+  attachments: string[]
+  status: TodoStatus
+  archived: boolean
+  label: TodoLabel | null
+  tags: string[]
+  prUrl: string | null
+  comments: TodoComment[]
+  createdAt: number
+  updatedAt: number
+}
+
+export interface TodoUpdatePatch {
+  title?: string
+  description?: string
+  attachments?: string[]
+  status?: TodoStatus
+  label?: TodoLabel | null
+  tags?: string[]
+  prUrl?: string | null
+}
+
 export type BridgeEvent =
   | { type: 'text-delta'; delta: string }
   | { type: 'content-replace'; content: string }
@@ -241,6 +285,18 @@ declare global {
       recentProjectsList: () => Promise<RecentProject[]>
       recentProjectsAdd: (path: string) => Promise<void>
       recentProjectsClear: () => Promise<void>
+
+      todosListProjects: () => Promise<TodoProject[]>
+      todosCreateProject: (name: string, key: string) => Promise<TodoProject>
+      todosListTodos: (projectId: string) => Promise<Todo[]>
+      todosCreateTodo: (projectId: string, title: string) => Promise<Todo>
+      todosUpdateTodo: (id: string, patch: TodoUpdatePatch) => Promise<Todo>
+      todosReorderTodo: (id: string, status: TodoStatus, beforeId: string | null) => Promise<Todo>
+      todosArchiveTodo: (id: string, archived: boolean) => Promise<Todo>
+      todosDeleteTodo: (id: string) => Promise<void>
+      todosAddComment: (todoId: string, body: string, attachments?: string[]) => Promise<Todo>
+      todosSaveAttachment: (dataUrl: string) => Promise<string>
+      todosReadAttachmentDataUrl: (id: string) => Promise<string>
 
       setWindowTitle: (root: string) => void
 

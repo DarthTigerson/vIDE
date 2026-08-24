@@ -15,7 +15,6 @@ export const GIT_SETTINGS_TAB_PATH = 'settings://Git'
 export const BROWSER_SETTINGS_TAB_PATH = 'settings://Browser'
 export const MODELS_SETTINGS_TAB_PATH = 'settings://Models'
 export const GRAPHIFY_SETTINGS_TAB_PATH = 'settings://Graphify'
-export const TODO_SETTINGS_TAB_PATH = 'settings://To Do'
 export const JIRA_SETTINGS_TAB_PATH = 'settings://Jira'
 export const DOCKER_SETTINGS_TAB_PATH = 'settings://Docker'
 export const GIT_LOG_TAB_PATH = 'git-log://Git Log'
@@ -50,5 +49,20 @@ export const USAGE_GRAPH_TAB_PATH = 'usage-graph://Usage Graph'
 
 export function isUsageGraphTab(path: string): boolean {
   return path === USAGE_GRAPH_TAB_PATH
+}
+
+const TODO_BOARD_PREFIX = 'todo-board://'
+export function isTodoBoardTab(path: string): boolean { return path.startsWith(TODO_BOARD_PREFIX) }
+export function buildTodoBoardPath(projectId: string): string { return TODO_BOARD_PREFIX + projectId }
+export function getTodoBoardProjectId(path: string): string { return path.slice(TODO_BOARD_PREFIX.length) }
+
+const TODO_DETAIL_PREFIX = 'todo-detail://'
+export function isTodoDetailTab(path: string): boolean { return path.startsWith(TODO_DETAIL_PREFIX) }
+export function buildTodoDetailPath(projectId: string, todoId: string): string {
+  return TODO_DETAIL_PREFIX + projectId + '/' + todoId
+}
+export function getTodoDetailIds(path: string): { projectId: string; todoId: string } {
+  const [projectId, todoId] = path.slice(TODO_DETAIL_PREFIX.length).split('/')
+  return { projectId, todoId }
 }
 
