@@ -3,8 +3,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { TodoDetailPage } from '../TodoDetailPage'
 import { useTodoStore } from '@/stores/todoStore'
-import { useEditorStore } from '@/stores/editorStore'
-import { buildTodoBoardPath, buildTodoDetailPath } from '@/components/Settings/paths'
 import type { Todo } from '@/types/api'
 
 afterEach(() => {
@@ -32,29 +30,22 @@ function makeTodo(overrides: Partial<Todo> = {}): Todo {
 
 const updateTodoMock = vi.fn()
 const archiveTodoMock = vi.fn()
-const deleteTodoMock = vi.fn()
 const addCommentMock = vi.fn()
 const saveAttachmentMock = vi.fn()
-const closeTabMock = vi.fn()
-const openTabMock = vi.fn()
 
 beforeEach(() => {
   updateTodoMock.mockReset().mockResolvedValue(makeTodo())
   archiveTodoMock.mockReset().mockResolvedValue(makeTodo({ archived: true }))
-  deleteTodoMock.mockReset().mockResolvedValue(undefined)
   addCommentMock.mockReset().mockResolvedValue(makeTodo())
   saveAttachmentMock.mockReset().mockResolvedValue('att-1')
-  closeTabMock.mockReset()
-  openTabMock.mockReset()
   useTodoStore.setState({
     todosByProject: { p1: [makeTodo()] },
+    projects: [{ id: 'p1', name: 'Huginn', key: 'HG', nextNumber: 2, createdAt: 1 }],
     updateTodo: updateTodoMock,
     archiveTodo: archiveTodoMock,
-    deleteTodo: deleteTodoMock,
     addComment: addCommentMock,
     saveAttachment: saveAttachmentMock,
   })
-  useEditorStore.setState({ closeTab: closeTabMock, openTab: openTabMock })
   ;(global as any).window.api = {
     todosReadAttachmentDataUrl: vi.fn().mockResolvedValue('data:image/png;base64,AAA'),
   }
@@ -137,29 +128,22 @@ describe('TodoDetailPage', () => {
     expect(archiveTodoMock).toHaveBeenCalledWith('H-1', false)
   })
 
-  it('requires a second click to confirm delete, then returns to the board', async () => {
+  it('shows the project name before the todo id in the breadcrumb', () => {
     render(<TodoDetailPage projectId="p1" todoId="H-1" />)
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
-    expect(deleteTodoMock).not.toHaveBeenCalled()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete?' }))
-    await waitFor(() => {
-      expect(deleteTodoMock).toHaveBeenCalledWith('H-1')
-      expect(closeTabMock).toHaveBeenCalledWith(buildTodoDetailPath('p1', 'H-1'))
-      expect(openTabMock).toHaveBeenCalledWith({
-        path: buildTodoBoardPath('p1'),
-        content: '',
-        dirty: false,
-      })
-    })
+    expect(screen.getByText('Huginn')).toBeInTheDocument()
+    expect(screen.getByText('H-1')).toBeInTheDocument()
   })
 
-  it('closing the page returns to the board', () => {
+  it('falls back to "Todo" in the breadcrumb when the project cannot be found', () => {
+    useTodoStore.setState({ projects: [] })
     render(<TodoDetailPage projectId="p1" todoId="H-1" />)
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.getByText('Todo', { selector: 'span' })).toBeInTheDocument()
+  })
 
-    expect(closeTabMock).toHaveBeenCalledWith(buildTodoDetailPath('p1', 'H-1'))
-    expect(openTabMock).toHaveBeenCalledWith({ path: buildTodoBoardPath('p1'), content: '', dirty: false })
+  it('does not render Delete or Close controls', () => {
+    render(<TodoDetailPage projectId="p1" todoId="H-1" />)
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument()
   })
 
   it('adding a tag calls updateTodo with the new tags array', () => {
