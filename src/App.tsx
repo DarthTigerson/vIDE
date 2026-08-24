@@ -71,6 +71,8 @@ import { useBrowserStore } from './stores/browserStore'
 import { useJiraSettingsStore } from './stores/jiraSettingsStore'
 import { useGitRemoteSettingsStore } from './stores/gitRemoteSettingsStore'
 import { useDockerSettingsStore } from './stores/dockerSettingsStore'
+import { useTodoSettingsStore } from './stores/todoSettingsStore'
+import { useNotesSettingsStore } from './stores/notesSettingsStore'
 import { detectGitRemoteProvider, gitRemoteIcon, gitRemoteLabel } from './lib/gitRemoteProvider'
 import { evaluateCmdWForPinnedTab, type PendingClose } from './lib/pinnedTabCloseGuard'
 import { buildTerminalPath, buildBrowserPath, JIRA_SETTINGS_TAB_PATH, GIT_SETTINGS_TAB_PATH, USAGE_GRAPH_TAB_PATH } from './components/Settings/paths'
@@ -169,6 +171,8 @@ export default function App() {
   const gitRemoteReady = gitRemoteUrl.trim() !== ''
   const gitRemoteProvider = detectGitRemoteProvider(gitRemoteUrl)
   const dockerEnabled = useDockerSettingsStore((s) => s.enabled)
+  const todoEnabled = useTodoSettingsStore((s) => s.enabled)
+  const notesEnabled = useNotesSettingsStore((s) => s.enabled)
 
   function openNewTerminal() {
     const id = Date.now().toString(36)
@@ -687,20 +691,20 @@ export default function App() {
               active: leftPanel === 'graphify',
               onClick: () => setLeftPanel((p) => (p === 'graphify' ? null : 'graphify')),
             },
-            {
+            ...(todoEnabled ? [{
               id: 'todos',
               icon: <TodoIcon />,
               title: 'To Do',
               active: leftPanel === 'todos',
               onClick: () => setLeftPanel((p) => (p === 'todos' ? null : 'todos')),
-            },
-            {
+            }] : []),
+            ...(notesEnabled ? [{
               id: 'notes',
               icon: <NotesIcon />,
               title: 'Notes',
               active: leftPanel === 'notes',
               onClick: () => setLeftPanel((p) => (p === 'notes' ? null : 'notes')),
-            },
+            }] : []),
           ], ...(gitRemoteReady || jiraReady ? [[
             ...(gitRemoteReady ? [{
               id: 'git-remote',

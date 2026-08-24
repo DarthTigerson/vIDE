@@ -26,7 +26,7 @@ import { useFileStore } from '../fileStore'
 
 describe('ONBOARDING_STEPS', () => {
   it('includes the macOS-only permissions step when isMac is true', () => {
-    expect(ONBOARDING_STEPS).toEqual(['welcome', 'theme', 'assistants', 'git', 'permissions', 'done'])
+    expect(ONBOARDING_STEPS).toEqual(['welcome', 'theme', 'assistants', 'features', 'git', 'permissions', 'done'])
   })
 })
 
