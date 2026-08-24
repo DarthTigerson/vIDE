@@ -23,6 +23,7 @@ import { listAllFiles, searchText, buildTree, readImageDataUrl } from './fsOps'
 import { registerSessionHandlers } from './session'
 import { registerRecentProjectsHandlers, readRecents, addRecentProject, clearRecentProjects } from './recentProjects'
 import { registerTodoHandlers } from './todos'
+import { registerNotesHandlers } from './notes'
 import { UpdateChecker } from './updateChecker'
 import { getChangelogForVersion } from './changelog'
 import { getSystemMemoryUsage } from './systemMemory'
@@ -550,6 +551,7 @@ app.whenReady().then(() => {
   registerSessionHandlers()
   registerRecentProjectsHandlers()
   registerTodoHandlers()
+  registerNotesHandlers()
   registerWindowHandlers()
   registerSystemHandlers()
   registerOnboardingHandlers()

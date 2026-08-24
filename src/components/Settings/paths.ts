@@ -66,3 +66,8 @@ export function getTodoDetailIds(path: string): { projectId: string; todoId: str
   return { projectId, todoId }
 }
 
+const NOTES_BOARD_PREFIX = 'notes-board://'
+export function isNotesBoardTab(path: string): boolean { return path.startsWith(NOTES_BOARD_PREFIX) }
+export function buildNotesBoardPath(projectId: string): string { return NOTES_BOARD_PREFIX + projectId }
+export function getNotesBoardProjectId(path: string): string { return path.slice(NOTES_BOARD_PREFIX.length) }
+

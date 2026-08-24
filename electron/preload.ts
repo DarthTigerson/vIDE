@@ -339,6 +339,15 @@ contextBridge.exposeInMainWorld('api', {
   todosSaveAttachment: (dataUrl: string) => ipcRenderer.invoke('todos:saveAttachment', dataUrl),
   todosReadAttachmentDataUrl: (id: string) => ipcRenderer.invoke('todos:readAttachmentDataUrl', id),
 
+  notesListProjects: () => ipcRenderer.invoke('notes:listProjects'),
+  notesCreateProject: (name: string) => ipcRenderer.invoke('notes:createProject', name),
+  notesRenameProject: (id: string, name: string) => ipcRenderer.invoke('notes:renameProject', id, name),
+  notesDeleteProject: (id: string) => ipcRenderer.invoke('notes:deleteProject', id),
+  notesCreateNote: (dirPath: string, name: string) => ipcRenderer.invoke('notes:createNote', dirPath, name),
+  notesCreateFolder: (dirPath: string, name: string) => ipcRenderer.invoke('notes:createFolder', dirPath, name),
+  notesRenameEntry: (oldPath: string, newName: string, isNote: boolean) =>
+    ipcRenderer.invoke('notes:renameEntry', oldPath, newName, isNote),
+
   setWindowTitle: (root: string) => ipcRenderer.send('window:setTitle', root),
 
   autocompleteComplete: (prefix: string, suffix: string, language: string, model: string) =>

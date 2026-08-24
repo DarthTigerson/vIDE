@@ -105,6 +105,18 @@ export interface Todo {
   updatedAt: number
 }
 
+export interface NotesProject {
+  id: string
+  name: string
+  createdAt: number
+  rootPath: string
+}
+
+export interface NotesEntryResult {
+  path: string
+  name: string
+}
+
 export interface TodoUpdatePatch {
   title?: string
   description?: string
@@ -297,6 +309,14 @@ declare global {
       todosAddComment: (todoId: string, body: string, attachments?: string[]) => Promise<Todo>
       todosSaveAttachment: (dataUrl: string) => Promise<string>
       todosReadAttachmentDataUrl: (id: string) => Promise<string>
+
+      notesListProjects: () => Promise<NotesProject[]>
+      notesCreateProject: (name: string) => Promise<NotesProject>
+      notesRenameProject: (id: string, name: string) => Promise<NotesProject>
+      notesDeleteProject: (id: string) => Promise<void>
+      notesCreateNote: (dirPath: string, name: string) => Promise<NotesEntryResult>
+      notesCreateFolder: (dirPath: string, name: string) => Promise<NotesEntryResult>
+      notesRenameEntry: (oldPath: string, newName: string, isNote: boolean) => Promise<NotesEntryResult>
 
       setWindowTitle: (root: string) => void
 
