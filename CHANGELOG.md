@@ -1,5 +1,13 @@
 # vIDE
 
+## v0.2.4 (2026-08-24)
+- **Renamed Huginn to vIDE** (Vibecoding IDE) — app name, window title, menus, install script, and update checker all updated; existing settings, usage history, and language-server binaries carry over automatically on first launch
+- **Background Image picker**: Settings > Display and the setup wizard now offer a choice of None, the vIDE badge, or Clawd, in place of the old on/off toggle
+- **Internal To Do**: a built-in Kanban board (projects, drag-and-drop columns, attachments, single label + free-form tags) replaces the old external Jira-style To Do link, with a tab-based detail page and inline "+ Add issue" composers on each column
+- **Notes**: a new Notes panel with a single fixed root of notes and folders, Book/Chapter icons with depth-aware labels, and drag-and-drop moving (with an undo toast) shared with the file Sidebar
+- To Do and Notes can each be toggled on/off from Settings
+
+
 ## v0.2.3 (2026-08-22)
 - **First-launch setup wizard**: new installs now walk through theme (including panel style and background image), assistants (Claude/Codex/Bridge, with the CLI check built into this step), git identity, and macOS permissions before landing in the app
 - Renamed the "Cosmos" assistant to "Bridge" throughout the app, matching its existing name in docs
