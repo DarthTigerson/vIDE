@@ -34,6 +34,7 @@ import {
   UsageGraphIcon,
   ModelIcon,
   FastIcon,
+  NotesIcon,
 } from './components/ActivityBar/ActivityBar'
 import { ClaudeStatusIcon } from './components/ActivityBar/ClaudeStatusIcon'
 import { SettingsPanel } from './components/Settings/SettingsPanel'
@@ -70,10 +71,14 @@ import { useBrowserStore } from './stores/browserStore'
 import { useJiraSettingsStore } from './stores/jiraSettingsStore'
 import { useGitRemoteSettingsStore } from './stores/gitRemoteSettingsStore'
 import { useDockerSettingsStore } from './stores/dockerSettingsStore'
+import { useTodoSettingsStore } from './stores/todoSettingsStore'
+import { useNotesSettingsStore } from './stores/notesSettingsStore'
+import { useNotesStore } from './stores/notesStore'
 import { detectGitRemoteProvider, gitRemoteIcon, gitRemoteLabel } from './lib/gitRemoteProvider'
 import { evaluateCmdWForPinnedTab, type PendingClose } from './lib/pinnedTabCloseGuard'
 import { buildTerminalPath, buildBrowserPath, JIRA_SETTINGS_TAB_PATH, GIT_SETTINGS_TAB_PATH, USAGE_GRAPH_TAB_PATH } from './components/Settings/paths'
 import { TodoPanel } from './components/Todo/TodoPanel'
+import { NotesPanel } from './components/Notes/NotesPanel'
 import type { AssistantKind } from './types/api'
 
 const ASSISTANT_OPTIONS: Array<{ id: AssistantKind; label: string }> = [
@@ -120,8 +125,8 @@ export default function App() {
   const enabledModels = useModelSettingsStore((s) => s.enabled)
   const visibleAssistantOptions = ASSISTANT_OPTIONS.filter((option) => enabledModels[option.id])
   const repoName = projectRoot ? projectRoot.split('/').pop() : null
-  const [leftPanel, setLeftPanel] = useState<'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'settings' | null>('files')
-  const lastLeftPanelRef = useRef<'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'settings'>('files')
+  const [leftPanel, setLeftPanel] = useState<'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'settings' | null>('files')
+  const lastLeftPanelRef = useRef<'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'settings'>('files')
   const [sidebarSize, setSidebarSize] = useState(loadSidebarSize)
   const [chatSize, setChatSize] = useState(loadChatSize)
   const [assistantMenuOpen, setAssistantMenuOpen] = useState(false)
@@ -167,6 +172,8 @@ export default function App() {
   const gitRemoteReady = gitRemoteUrl.trim() !== ''
   const gitRemoteProvider = detectGitRemoteProvider(gitRemoteUrl)
   const dockerEnabled = useDockerSettingsStore((s) => s.enabled)
+  const todoEnabled = useTodoSettingsStore((s) => s.enabled)
+  const notesEnabled = useNotesSettingsStore((s) => s.enabled)
 
   function openNewTerminal() {
     const id = Date.now().toString(36)
@@ -221,6 +228,7 @@ export default function App() {
   useEffect(() => {
     useBridgeSettingsStore.getState().init()
     useMobileStore.getState().init()
+    useNotesStore.getState().loadRoot()
   }, [])
 
   useEffect(() => {
@@ -685,13 +693,20 @@ export default function App() {
               active: leftPanel === 'graphify',
               onClick: () => setLeftPanel((p) => (p === 'graphify' ? null : 'graphify')),
             },
-            {
+            ...(todoEnabled ? [{
               id: 'todos',
               icon: <TodoIcon />,
               title: 'To Do',
               active: leftPanel === 'todos',
               onClick: () => setLeftPanel((p) => (p === 'todos' ? null : 'todos')),
-            },
+            }] : []),
+            ...(notesEnabled ? [{
+              id: 'notes',
+              icon: <NotesIcon />,
+              title: 'Notes',
+              active: leftPanel === 'notes',
+              onClick: () => setLeftPanel((p) => (p === 'notes' ? null : 'notes')),
+            }] : []),
           ], ...(gitRemoteReady || jiraReady ? [[
             ...(gitRemoteReady ? [{
               id: 'git-remote',
@@ -753,7 +768,7 @@ export default function App() {
           >
             {(() => {
               const activeLeftPanel = leftPanel ?? lastLeftPanelRef.current
-              return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'docker' ? <DockerPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : activeLeftPanel === 'todos' ? <TodoPanel /> : <SettingsPanel />
+              return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'docker' ? <DockerPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : activeLeftPanel === 'todos' ? <TodoPanel /> : activeLeftPanel === 'notes' ? <NotesPanel /> : <SettingsPanel />
             })()}
           </Panel>
           )

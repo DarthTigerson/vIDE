@@ -10,6 +10,7 @@ import { useFontSizeStore } from '@/stores/fontSizeStore'
 import { useInstanceFontSizeStore } from '@/stores/instanceFontSizeStore'
 import { useDisplayStore } from '@/stores/displayStore'
 import { useFileStore } from '@/stores/fileStore'
+import { useNotesStore } from '@/stores/notesStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitStore } from '@/stores/gitStore'
 import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
@@ -51,6 +52,8 @@ import {
   JIRA_SETTINGS_TAB_PATH,
   DOCKER_SETTINGS_TAB_PATH,
   GENERAL_SETTINGS_TAB_PATH,
+  TODO_SETTINGS_TAB_PATH,
+  NOTES_SETTINGS_TAB_PATH,
 } from '@/components/Settings/paths'
 import { TerminalTab } from '@/components/Terminal/TerminalTab'
 import { BrowserTab } from '@/components/Browser/BrowserTab'
@@ -63,6 +66,8 @@ import { GraphifySettingsPage } from '@/components/Settings/GraphifySettingsPage
 import { JiraSettingsPage } from '@/components/Settings/JiraSettingsPage'
 import { DockerSettingsPage } from '@/components/Settings/DockerSettingsPage'
 import { GeneralSettingsPage } from '@/components/Settings/GeneralSettingsPage'
+import { TodoSettingsPage } from '@/components/Settings/TodoSettingsPage'
+import { NotesSettingsPage } from '@/components/Settings/NotesSettingsPage'
 import { DockerLogsPage } from '@/components/Docker/DockerLogsPage'
 import { isDockerLogsTab } from '@/components/Docker/paths'
 import { isGitDiffTab, parseGitDiffPath, isGitCommitDiffTab, parseGitCommitDiffPath } from '@/components/Git/paths'
@@ -209,6 +214,7 @@ function EditorPane({ paneId }: { paneId: string }) {
   const font = useDisplayStore((s) => s.font)
   const wordWrapEnabled = useEditorSettingsStore((s) => s.wordWrapEnabled)
   const projectRoot = useFileStore((s) => s.projectRoot)
+  const notesRoot = useNotesStore((s) => s.root)
   const selectedRepo = useGitReposStore((s) => s.selectedRepo)
   const [diffContent, setDiffContent] = useState<GitDiffContent | null>(null)
   const [editorContextMenu, setEditorContextMenu] = useState<{ x: number; y: number } | null>(null)
@@ -251,7 +257,8 @@ function EditorPane({ paneId }: { paneId: string }) {
     !!activeTab &&
     !isVirtual && !isTerminal && !isBrowser &&
     !isDiff && !isCommitDiff && !isGitLog && !isGitGraph && !isGitBranchDiff &&
-    !isGraphifyGraph && !isUsageGraph && !isTodoBoard && !isTodoDetail && !isDockerLogs && !isImagePreview && !isMarkdownPreview
+    !isGraphifyGraph && !isUsageGraph && !isTodoBoard && !isTodoDetail &&
+    !isDockerLogs && !isImagePreview && !isMarkdownPreview
 
   function activatePane() {
     setActivePane(paneId)
@@ -362,7 +369,10 @@ function EditorPane({ paneId }: { paneId: string }) {
       onMouseDown={activatePane}
     >
       <TabBar paneId={paneId} />
-      {isPlainFileTab && activeTab && <EditorBreadcrumb path={activeTab.path} projectRoot={projectRoot} />}
+      {isPlainFileTab && activeTab &&
+        !(notesRoot && activeTab.path.startsWith(notesRoot + '/')) && (
+          <EditorBreadcrumb path={activeTab.path} projectRoot={projectRoot} />
+        )}
       <div className="relative flex-1 min-h-0 overflow-hidden">
       <PaneDropZoneOverlay paneId={paneId} />
       {editorContextMenu && editorRef.current && (
@@ -393,6 +403,10 @@ function EditorPane({ paneId }: { paneId: string }) {
             <JiraSettingsPage />
           ) : activeTab.path === DOCKER_SETTINGS_TAB_PATH ? (
             <DockerSettingsPage />
+          ) : activeTab.path === TODO_SETTINGS_TAB_PATH ? (
+            <TodoSettingsPage />
+          ) : activeTab.path === NOTES_SETTINGS_TAB_PATH ? (
+            <NotesSettingsPage />
           ) : activeTab.path === GENERAL_SETTINGS_TAB_PATH ? (
             <GeneralSettingsPage />
           ) : activeTab.path === DISPLAY_TAB_PATH ? (

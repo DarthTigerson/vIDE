@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useEditorStore } from '@/stores/editorStore'
 import { useBrowserStore } from '@/stores/browserStore'
 import { useTodoStore } from '@/stores/todoStore'
+import { useNotesStore } from '@/stores/notesStore'
 import { FileIcon } from '@/components/Sidebar/FileIcon'
 import { isTerminalTab, isBrowserTab, getBrowserId, isTodoBoardTab, getTodoBoardProjectId, isTodoDetailTab, getTodoDetailIds } from '@/components/Settings/paths'
 import { orderTabsForDisplay, truncateTabLabel } from './tabDisplay'
@@ -14,6 +15,7 @@ export function TabBar({ paneId }: { paneId: string }) {
   const browserTabs = useBrowserStore((s) => s.tabs)
   const todoProjects = useTodoStore((s) => s.projects)
   const todosByProject = useTodoStore((s) => s.todosByProject)
+  const notesRoot = useNotesStore((s) => s.root)
   const paneTabs = useEditorStore((s) => s.paneTabs)
   const paneTabLists = useEditorStore((s) => s.paneTabLists)
   const pinnedPaths = useEditorStore((s) => s.pinnedPaths)
@@ -70,7 +72,11 @@ export function TabBar({ paneId }: { paneId: string }) {
                     const { projectId, todoId } = getTodoDetailIds(tab.path)
                     return todosByProject[projectId]?.find((t) => t.id === todoId)?.title || 'To Do'
                   })()
-                : (tab.path.split('/').pop() ?? tab.path)
+                : (() => {
+                    const base = tab.path.split('/').pop() ?? tab.path
+                    const inNotesRoot = !!notesRoot && tab.path.startsWith(notesRoot + '/')
+                    return inNotesRoot && base.endsWith('.md') ? base.slice(0, -3) : base
+                  })()
         const isActive = activePath === tab.path
         const isDragging = draggedPath === tab.path
         const isDropTarget = dropTarget?.path === tab.path && draggedPath !== tab.path

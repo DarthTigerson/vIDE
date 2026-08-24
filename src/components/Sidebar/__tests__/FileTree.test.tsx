@@ -37,6 +37,9 @@ function renderTree(activeTabPath: string | null) {
       setPromptValue={noop}
       commitPrompt={noop}
       cancelPrompt={noop}
+      dragOverPath={null}
+      setDragOverPath={noop}
+      onMoveNode={noop}
     />
   )
 }

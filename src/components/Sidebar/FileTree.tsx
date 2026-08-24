@@ -34,6 +34,9 @@ interface FileTreeProps {
   setPromptValue: (value: string) => void
   commitPrompt: () => void
   cancelPrompt: () => void
+  dragOverPath: string | null
+  setDragOverPath: (path: string | null) => void
+  onMoveNode: (sourcePath: string, targetDir: string) => void
 }
 
 function InlineNameInput({ prompt, depth, setPromptValue, commitPrompt, cancelPrompt }: {
@@ -81,6 +84,9 @@ export function FileTree({
   setPromptValue,
   commitPrompt,
   cancelPrompt,
+  dragOverPath,
+  setDragOverPath,
+  onMoveNode,
 }: FileTreeProps) {
   const { select, expandDir, collapseDir } = useFileStore()
   const expandedPaths = useFileStore((s) => s.expandedPaths)
@@ -154,14 +160,34 @@ export function FileTree({
             ) : (
               <button
                 id={`file-tree-node:${node.path}`}
+                draggable
                 className={`flex items-center gap-1 w-full text-left py-0.5 text-sm hover:bg-white/5 rounded truncate ${
                   activeFilePath === node.path ? 'bg-accent/20 text-fg' : 'text-fg'
                 } ${ignored ? 'opacity-45' : ''} ${
                   revealedPath === node.path ? 'ring-1 ring-inset ring-accent/70' : ''
-                }`}
+                } ${dragOverPath === node.path ? 'ring-1 ring-inset ring-accent bg-accent/10' : ''}`}
                 style={{ paddingLeft: `${8 + depth * 12}px`, paddingRight: '8px' }}
                 onClick={() => handleClick(node)}
                 onContextMenu={(event) => onContextMenu(event, node)}
+                onDragStart={(event) => {
+                  event.dataTransfer.effectAllowed = 'move'
+                  event.dataTransfer.setData('text/plain', node.path)
+                }}
+                onDragOver={(event) => {
+                  if (!node.isDirectory) return
+                  event.preventDefault()
+                  event.stopPropagation()
+                  event.dataTransfer.dropEffect = 'move'
+                  if (dragOverPath !== node.path) setDragOverPath(node.path)
+                }}
+                onDrop={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  setDragOverPath(null)
+                  if (!node.isDirectory) return
+                  const sourcePath = event.dataTransfer.getData('text/plain')
+                  if (sourcePath) onMoveNode(sourcePath, node.path)
+                }}
               >
                 <span className="shrink-0 text-xs w-3 text-fg-subtle">
                   {node.isDirectory
@@ -190,6 +216,9 @@ export function FileTree({
                 setPromptValue={setPromptValue}
                 commitPrompt={commitPrompt}
                 cancelPrompt={cancelPrompt}
+                dragOverPath={dragOverPath}
+                setDragOverPath={setDragOverPath}
+                onMoveNode={onMoveNode}
               />
             )}
           </li>

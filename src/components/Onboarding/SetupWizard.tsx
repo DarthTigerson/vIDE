@@ -2,6 +2,7 @@ import { useOnboardingStore, ONBOARDING_STEPS } from '@/stores/onboardingStore'
 import { WelcomeStep } from './WelcomeStep'
 import { ThemeStep } from './ThemeStep'
 import { AssistantsStep } from './AssistantsStep'
+import { FeaturesStep } from './FeaturesStep'
 import { GitIdentityStep } from './GitIdentityStep'
 import { PermissionsStep } from './PermissionsStep'
 import { DoneStep } from './DoneStep'
@@ -10,6 +11,7 @@ const STEP_COMPONENTS = {
   welcome: WelcomeStep,
   theme: ThemeStep,
   assistants: AssistantsStep,
+  features: FeaturesStep,
   git: GitIdentityStep,
   permissions: PermissionsStep,
   done: DoneStep,
