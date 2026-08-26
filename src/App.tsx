@@ -54,6 +54,7 @@ import { useBridgeStore } from './stores/bridgeStore'
 import { useBridgeSettingsStore } from './stores/bridgeSettingsStore'
 import { useModelSettingsStore } from './stores/modelSettingsStore'
 import { useGitStore, useRepoGitState } from './stores/gitStore'
+import { useTodoStore } from './stores/todoStore'
 import { useGitReposStore } from './stores/gitReposStore'
 import { useGitSettingsStore } from './stores/gitSettingsStore'
 import { useMobileStore } from './stores/mobileStore'
@@ -345,6 +346,16 @@ export default function App() {
       if (cwd === useGitReposStore.getState().selectedRepo) {
         useGitStore.getState().refresh(cwd)
       }
+    })
+  }, [])
+
+  useEffect(() => {
+    // Todos aren't scoped to a repo/window the way git state is — most
+    // notably, the Todo MCP server can rewrite todos.json from a separate
+    // process while a board is open, with no other signal reaching this
+    // window's own IPC-driven state.
+    return window.api.onTodosChanged(() => {
+      useTodoStore.getState().refreshAll()
     })
   }, [])
 

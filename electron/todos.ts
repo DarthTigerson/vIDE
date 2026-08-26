@@ -4,10 +4,13 @@ import { mkdir, writeFile } from 'fs/promises'
 import { readImageDataUrl } from './fsOps'
 import * as store from './todosStore'
 import type { TodoPatch, TodoStatus } from './todosStore'
+import { TodosWatcher } from './todosWatcher'
 
 function dataDir(): string {
   return app.getPath('userData')
 }
+
+const todosWatcher = new TodosWatcher()
 
 async function saveAttachment(dataUrl: string): Promise<string> {
   const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1)
@@ -44,4 +47,6 @@ export function registerTodoHandlers(): void {
   )
   ipcMain.handle('todos:saveAttachment', (_e, dataUrl: string) => saveAttachment(dataUrl))
   ipcMain.handle('todos:readAttachmentDataUrl', (_e, id: string) => readAttachmentDataUrl(id))
+
+  todosWatcher.start(store.todosPath(dataDir()))
 }

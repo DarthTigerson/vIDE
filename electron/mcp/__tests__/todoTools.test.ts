@@ -90,7 +90,7 @@ describe('buildTodoTools', () => {
     const project = await createProject(DATA_DIR, 'vIDE', 'H')
     await createTodo(DATA_DIR, project.id, 'Open one')
     const tools = buildTodoTools(DATA_DIR)
-    await findTool(tools, 'update_todo_status').handler({ id: 'H-1', status: 'done' })
+    await findTool(tools, 'update_todo').handler({ id: 'H-1', status: 'done' })
     await findTool(tools, 'create_todo').handler({ projectKey: 'H', title: 'Still open' })
 
     const result = await findTool(tools, 'list_open_todos').handler({})
@@ -138,25 +138,89 @@ describe('buildTodoTools', () => {
     await expect(findTool(tools, 'get_todo').handler({ id: 'NOPE-1' })).rejects.toThrow(/no such todo/i)
   })
 
-  it('update_todo_status changes the status and is reflected in get_todo', async () => {
+  it('update_todo changes the status and is reflected in get_todo', async () => {
     const project = await createProject(DATA_DIR, 'vIDE', 'H')
     await createTodo(DATA_DIR, project.id, 'Something')
     const tools = buildTodoTools(DATA_DIR)
 
-    await findTool(tools, 'update_todo_status').handler({ id: 'H-1', status: 'in_progress' })
+    await findTool(tools, 'update_todo').handler({ id: 'H-1', status: 'in_progress' })
     const result = await findTool(tools, 'get_todo').handler({ id: 'H-1' })
 
     expect(result).toContain('in_progress')
   })
 
-  it('update_todo_status rejects an invalid status', async () => {
+  it('update_todo rejects an invalid status', async () => {
     const project = await createProject(DATA_DIR, 'vIDE', 'H')
     await createTodo(DATA_DIR, project.id, 'Something')
     const tools = buildTodoTools(DATA_DIR)
 
-    await expect(findTool(tools, 'update_todo_status').handler({ id: 'H-1', status: 'yolo' })).rejects.toThrow(
+    await expect(findTool(tools, 'update_todo').handler({ id: 'H-1', status: 'yolo' })).rejects.toThrow(
       /invalid status/i
     )
+  })
+
+  it('update_todo sets a label and it is reflected in get_todo', async () => {
+    const project = await createProject(DATA_DIR, 'vIDE', 'H')
+    await createTodo(DATA_DIR, project.id, 'Something')
+    const tools = buildTodoTools(DATA_DIR)
+
+    await findTool(tools, 'update_todo').handler({ id: 'H-1', label: 'bug' })
+    const result = await findTool(tools, 'get_todo').handler({ id: 'H-1' })
+
+    expect(result).toContain('Label: bug')
+  })
+
+  it('update_todo clears a label when given null', async () => {
+    const project = await createProject(DATA_DIR, 'vIDE', 'H')
+    await createTodo(DATA_DIR, project.id, 'Something')
+    const tools = buildTodoTools(DATA_DIR)
+
+    await findTool(tools, 'update_todo').handler({ id: 'H-1', label: 'bug' })
+    await findTool(tools, 'update_todo').handler({ id: 'H-1', label: null })
+    const result = await findTool(tools, 'get_todo').handler({ id: 'H-1' })
+
+    expect(result).toContain('Label: none')
+  })
+
+  it('update_todo rejects an invalid label', async () => {
+    const project = await createProject(DATA_DIR, 'vIDE', 'H')
+    await createTodo(DATA_DIR, project.id, 'Something')
+    const tools = buildTodoTools(DATA_DIR)
+
+    await expect(findTool(tools, 'update_todo').handler({ id: 'H-1', label: 'urgent' })).rejects.toThrow(
+      /invalid label/i
+    )
+  })
+
+  it('update_todo sets tags and they are reflected in get_todo and search_todos', async () => {
+    const project = await createProject(DATA_DIR, 'vIDE', 'H')
+    await createTodo(DATA_DIR, project.id, 'Something')
+    const tools = buildTodoTools(DATA_DIR)
+
+    await findTool(tools, 'update_todo').handler({ id: 'H-1', tags: ['frontend', 'urgent'] })
+    const result = await findTool(tools, 'get_todo').handler({ id: 'H-1' })
+    expect(result).toContain('Tags: frontend, urgent')
+
+    const search = await findTool(tools, 'search_todos').handler({ query: 'urgent' })
+    expect(search).toContain('H-1')
+  })
+
+  it('update_todo can set status, label, and tags together in one call', async () => {
+    const project = await createProject(DATA_DIR, 'vIDE', 'H')
+    await createTodo(DATA_DIR, project.id, 'Something')
+    const tools = buildTodoTools(DATA_DIR)
+
+    await findTool(tools, 'update_todo').handler({
+      id: 'H-1',
+      status: 'done',
+      label: 'feature',
+      tags: ['shipped'],
+    })
+    const result = await findTool(tools, 'get_todo').handler({ id: 'H-1' })
+
+    expect(result).toContain('Status: done')
+    expect(result).toContain('Label: feature')
+    expect(result).toContain('Tags: shipped')
   })
 
   it('add_todo_comment appends a comment visible from get_todo', async () => {

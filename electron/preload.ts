@@ -340,6 +340,11 @@ contextBridge.exposeInMainWorld('api', {
   todosReadAttachmentDataUrl: (id: string) => ipcRenderer.invoke('todos:readAttachmentDataUrl', id),
   todosMcpEnable: () => ipcRenderer.invoke('todos:mcp:enable'),
   todosMcpDisable: () => ipcRenderer.invoke('todos:mcp:disable'),
+  onTodosChanged: (cb: () => void) => {
+    const handler = () => cb()
+    ipcRenderer.on('todos:changed', handler)
+    return () => ipcRenderer.removeListener('todos:changed', handler)
+  },
 
   notesGetRoot: () => ipcRenderer.invoke('notes:getRoot'),
   notesCreateNote: (dirPath: string, name: string) => ipcRenderer.invoke('notes:createNote', dirPath, name),

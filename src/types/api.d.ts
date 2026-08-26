@@ -304,6 +304,7 @@ declare global {
       todosReadAttachmentDataUrl: (id: string) => Promise<string>
       todosMcpEnable: () => Promise<void>
       todosMcpDisable: () => Promise<void>
+      onTodosChanged: (cb: () => void) => () => void
 
       notesGetRoot: () => Promise<string>
       notesCreateNote: (dirPath: string, name: string) => Promise<NotesEntryResult>

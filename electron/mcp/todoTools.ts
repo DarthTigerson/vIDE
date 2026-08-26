@@ -7,9 +7,12 @@ import {
   type Todo,
   type TodoProject,
   type TodoStatus,
+  type TodoLabel,
+  type TodoPatch,
 } from '../todosStore'
 
 const STATUSES: TodoStatus[] = ['backlog', 'todo', 'in_progress', 'done']
+const LABELS: TodoLabel[] = ['bug', 'feature', 'nice-to-have']
 
 function summarize(todo: Todo): string {
   return `${todo.id} [${todo.status}] ${todo.title}`
@@ -121,18 +124,45 @@ export function buildTodoTools(dataDir: string): McpToolDef[] {
       },
     },
     {
-      name: 'update_todo_status',
-      description: `Move a todo to a different status. Valid statuses: ${STATUSES.join(', ')}.`,
+      name: 'update_todo',
+      description:
+        `Update a todo's status, label, and/or tags — pass only the fields you want to change. ` +
+        `Valid statuses: ${STATUSES.join(', ')}. Valid labels: ${LABELS.join(', ')}, or null to clear.`,
       inputSchema: {
         type: 'object',
-        properties: { id: { type: 'string' }, status: { type: 'string', enum: STATUSES } },
-        required: ['id', 'status'],
+        properties: {
+          id: { type: 'string' },
+          status: { type: 'string', enum: STATUSES },
+          label: { type: ['string', 'null'], enum: [...LABELS, null] },
+          tags: { type: 'array', items: { type: 'string' } },
+        },
+        required: ['id'],
       },
       handler: async (args) => {
-        const status = String(args.status) as TodoStatus
-        if (!STATUSES.includes(status)) throw new Error(`Invalid status: ${args.status}`)
-        const todo = await updateTodo(dataDir, String(args.id), { status })
-        return `${todo.id} is now ${todo.status}`
+        const patch: TodoPatch = {}
+
+        if (args.status !== undefined) {
+          const status = String(args.status) as TodoStatus
+          if (!STATUSES.includes(status)) throw new Error(`Invalid status: ${args.status}`)
+          patch.status = status
+        }
+
+        if (args.label !== undefined) {
+          if (args.label !== null && !LABELS.includes(args.label as TodoLabel)) {
+            throw new Error(`Invalid label: ${args.label}`)
+          }
+          patch.label = args.label as TodoLabel | null
+        }
+
+        if (args.tags !== undefined) {
+          if (!Array.isArray(args.tags)) throw new Error('tags must be an array of strings')
+          patch.tags = args.tags.map(String)
+        }
+
+        const todo = await updateTodo(dataDir, String(args.id), patch)
+        return `Updated ${todo.id}: status=${todo.status}, label=${todo.label ?? 'none'}, tags=${
+          todo.tags.join(', ') || 'none'
+        }`
       },
     },
     {
