@@ -1,9 +1,15 @@
 import { useNotesSettingsStore } from '@/stores/notesSettingsStore'
+import { useNotesMcpStore } from '@/stores/notesMcpStore'
 import { Toggle } from '@/components/ui/Toggle'
 
 export function NotesSettingsPage() {
   const enabled = useNotesSettingsStore((s) => s.enabled)
   const setEnabled = useNotesSettingsStore((s) => s.setEnabled)
+
+  const mcpEnabled = useNotesMcpStore((s) => s.enabled)
+  const mcpPending = useNotesMcpStore((s) => s.pending)
+  const mcpError = useNotesMcpStore((s) => s.error)
+  const setMcpEnabled = useNotesMcpStore((s) => s.setEnabled)
 
   return (
     <div className="h-full overflow-auto p-6 bg-panel">
@@ -25,6 +31,21 @@ export function NotesSettingsPage() {
             checked={enabled}
             onChange={setEnabled}
           />
+        </section>
+
+        <section className="rounded-xl border border-border/60 p-4 flex flex-col gap-3">
+          <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
+            Claude Code
+          </h2>
+
+          <Toggle
+            label="Let Claude read & write your notes"
+            description="Registers an MCP server (claude mcp, user scope) so Claude Code can list, search, read, and write your markdown notes from any session."
+            checked={mcpEnabled}
+            onChange={(value) => void setMcpEnabled(value)}
+            disabled={mcpPending}
+          />
+          {mcpError && <p className="text-xs text-red-500">{mcpError}</p>}
         </section>
       </div>
     </div>

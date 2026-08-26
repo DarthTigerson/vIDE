@@ -23,7 +23,7 @@ import { listAllFiles, searchText, buildTree, readImageDataUrl } from './fsOps'
 import { registerSessionHandlers } from './session'
 import { registerRecentProjectsHandlers, readRecents, addRecentProject, clearRecentProjects } from './recentProjects'
 import { registerTodoHandlers } from './todos'
-import { registerTodoMcpHandlers } from './mcp/mcpRegistration'
+import { registerTodoMcpHandlers, registerNotesMcpHandlers } from './mcp/mcpRegistration'
 import { registerNotesHandlers } from './notes'
 import { UpdateChecker } from './updateChecker'
 import { getChangelogForVersion } from './changelog'
@@ -582,6 +582,7 @@ app.whenReady().then(async () => {
   registerTodoHandlers()
   registerTodoMcpHandlers()
   registerNotesHandlers()
+  registerNotesMcpHandlers()
   registerWindowHandlers()
   registerSystemHandlers()
   registerOnboardingHandlers()

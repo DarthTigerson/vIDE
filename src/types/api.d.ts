@@ -310,6 +310,8 @@ declare global {
       notesCreateNote: (dirPath: string, name: string) => Promise<NotesEntryResult>
       notesCreateFolder: (dirPath: string, name: string) => Promise<NotesEntryResult>
       notesRenameEntry: (oldPath: string, newName: string, isNote: boolean) => Promise<NotesEntryResult>
+      notesMcpEnable: () => Promise<void>
+      notesMcpDisable: () => Promise<void>
 
       setWindowTitle: (root: string) => void
 
