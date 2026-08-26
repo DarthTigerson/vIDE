@@ -312,6 +312,7 @@ declare global {
       notesRenameEntry: (oldPath: string, newName: string, isNote: boolean) => Promise<NotesEntryResult>
       notesMcpEnable: () => Promise<void>
       notesMcpDisable: () => Promise<void>
+      onNotesChanged: (cb: () => void) => () => void
 
       setWindowTitle: (root: string) => void
 

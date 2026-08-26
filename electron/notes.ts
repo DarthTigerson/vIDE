@@ -1,6 +1,7 @@
-import { app, ipcMain } from 'electron'
+import { app, ipcMain, BrowserWindow } from 'electron'
 import { join, dirname } from 'path'
 import { access, mkdir, rename, writeFile } from 'fs/promises'
+import { watch, type FSWatcher } from 'chokidar'
 
 function notesRoot(): string {
   return join(app.getPath('userData'), 'notes')
@@ -67,8 +68,29 @@ async function renameEntry(
   return { path: newPath, name: finalName }
 }
 
+let notesWatcher: FSWatcher | null = null
+let notesDebounce: ReturnType<typeof setTimeout> | null = null
+
+function startNotesWatcher(root: string): void {
+  if (notesWatcher) return
+  notesWatcher = watch(root, { ignoreInitial: true })
+  notesWatcher.on('all', () => {
+    if (notesDebounce) clearTimeout(notesDebounce)
+    notesDebounce = setTimeout(() => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) win.webContents.send('notes:changed')
+      }
+    }, 300)
+  })
+  notesWatcher.on('error', (err) => console.error('NotesWatcher error:', err))
+}
+
 export function registerNotesHandlers(): void {
-  ipcMain.handle('notes:getRoot', () => ensureNotesRoot())
+  ipcMain.handle('notes:getRoot', async () => {
+    const root = await ensureNotesRoot()
+    startNotesWatcher(root)
+    return root
+  })
   ipcMain.handle('notes:createNote', (_e, dirPath: string, name: string) => createNote(dirPath, name))
   ipcMain.handle('notes:createFolder', (_e, dirPath: string, name: string) => createFolder(dirPath, name))
   ipcMain.handle('notes:renameEntry', (_e, oldPath: string, newName: string, isNote: boolean) =>

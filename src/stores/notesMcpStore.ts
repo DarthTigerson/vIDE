@@ -31,3 +31,12 @@ export const useNotesMcpStore = create<NotesMcpStore>((set) => ({
     }
   },
 }))
+
+// Sync Claude's user config with the stored toggle state on every app start.
+// Prevents the MCP server from remaining registered across sessions when the
+// toggle is off (e.g. after a crash or first-run before the user ever toggled).
+Promise.resolve().then(() => {
+  const { enabled } = useNotesMcpStore.getState()
+  if (enabled) window.api.notesMcpEnable().catch(() => {})
+  else window.api.notesMcpDisable().catch(() => {})
+})
