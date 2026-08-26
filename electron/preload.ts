@@ -351,6 +351,13 @@ contextBridge.exposeInMainWorld('api', {
   notesCreateFolder: (dirPath: string, name: string) => ipcRenderer.invoke('notes:createFolder', dirPath, name),
   notesRenameEntry: (oldPath: string, newName: string, isNote: boolean) =>
     ipcRenderer.invoke('notes:renameEntry', oldPath, newName, isNote),
+  notesMcpEnable: () => ipcRenderer.invoke('notes:mcp:enable'),
+  notesMcpDisable: () => ipcRenderer.invoke('notes:mcp:disable'),
+  onNotesChanged: (cb: () => void) => {
+    const handler = () => cb()
+    ipcRenderer.on('notes:changed', handler)
+    return () => ipcRenderer.removeListener('notes:changed', handler)
+  },
 
   setWindowTitle: (root: string) => ipcRenderer.send('window:setTitle', root),
 

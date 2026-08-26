@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import type { MouseEvent, ReactNode } from 'react'
 import type { FileNode } from '@/types/index'
@@ -80,6 +80,7 @@ export function NotesPanel() {
   const [dragOverPath, setDragOverPath] = useState<string | null>(null)
   const [undoMove, setUndoMove] = useState<{ from: string; to: string } | null>(null)
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const expandedPathsRef = useRef(expandedPaths)
 
   useEffect(() => {
     const clear = () => setDragOverPath(null)
@@ -95,10 +96,12 @@ export function NotesPanel() {
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
   }, [])
 
-  async function refreshDir(dirPath: string) {
+  useEffect(() => { expandedPathsRef.current = expandedPaths }, [expandedPaths])
+
+  const refreshDir = useCallback(async (dirPath: string) => {
     const nodes = await window.api.readDir(dirPath)
     setChildrenByDir((current) => ({ ...current, [dirPath]: nodes }))
-  }
+  }, [])
 
   useEffect(() => {
     loadRoot()
@@ -106,9 +109,16 @@ export function NotesPanel() {
   }, [])
 
   useEffect(() => {
-    if (root) refreshDir(root)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [root])
+    if (root) void refreshDir(root)
+  }, [root, refreshDir])
+
+  useEffect(() => {
+    if (!root) return
+    return window.api.onNotesChanged(() => {
+      void refreshDir(root)
+      for (const path of expandedPathsRef.current) void refreshDir(path)
+    })
+  }, [root, refreshDir])
 
   useEffect(() => {
     if (!menu) return

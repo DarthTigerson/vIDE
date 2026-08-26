@@ -3,6 +3,7 @@ import { execFile } from 'child_process'
 import { join } from 'path'
 
 export const MCP_SERVER_NAME = 'vide-todos'
+export const NOTES_MCP_SERVER_NAME = 'vide-notes'
 
 function run(command: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
@@ -38,6 +39,8 @@ function scriptPath(): string {
 // necessarily installed, and can still read the script out of app.asar.
 export async function enableTodoMcp(): Promise<void> {
   const claudeBin = await resolveClaudeBinary()
+  // Remove first so re-enabling always works even if already registered
+  try { await run(claudeBin, ['mcp', 'remove', MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
   await run(claudeBin, [
     'mcp',
     'add',
@@ -68,4 +71,42 @@ export async function disableTodoMcp(): Promise<void> {
 export function registerTodoMcpHandlers(): void {
   ipcMain.handle('todos:mcp:enable', () => enableTodoMcp())
   ipcMain.handle('todos:mcp:disable', () => disableTodoMcp())
+}
+
+function notesMcpScriptPath(): string {
+  return join(__dirname, 'notesMcpServer.js')
+}
+
+export async function enableNotesMcp(): Promise<void> {
+  const claudeBin = await resolveClaudeBinary()
+  // Remove first so re-enabling always works even if already registered
+  try { await run(claudeBin, ['mcp', 'remove', NOTES_MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
+  await run(claudeBin, [
+    'mcp',
+    'add',
+    NOTES_MCP_SERVER_NAME,
+    '--scope',
+    'user',
+    '-e',
+    `VIDE_NOTES_DATA_DIR=${app.getPath('userData')}`,
+    '-e',
+    'ELECTRON_RUN_AS_NODE=1',
+    '--',
+    process.execPath,
+    notesMcpScriptPath(),
+  ])
+}
+
+export async function disableNotesMcp(): Promise<void> {
+  try {
+    const claudeBin = await resolveClaudeBinary()
+    await run(claudeBin, ['mcp', 'remove', NOTES_MCP_SERVER_NAME, '--scope', 'user'])
+  } catch {
+    // ignore
+  }
+}
+
+export function registerNotesMcpHandlers(): void {
+  ipcMain.handle('notes:mcp:enable', () => enableNotesMcp())
+  ipcMain.handle('notes:mcp:disable', () => disableNotesMcp())
 }

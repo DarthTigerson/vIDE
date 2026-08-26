@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# Re-exec through a login shell so PATH includes nvm/homebrew/etc.
+if [ -z "$VIDE_LOGIN_SHELL" ]; then
+  export VIDE_LOGIN_SHELL=1
+  exec "${SHELL:-/bin/zsh}" -l "$0" "$@"
+fi
+
 cd "$(dirname "$0")"
 
 if [ ! -d "node_modules" ]; then
