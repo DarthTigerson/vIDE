@@ -40,7 +40,7 @@ export function NotesSettingsPage() {
 
           <Toggle
             label="Let Claude read & write your notes"
-            description="Registers an MCP server (claude mcp, user scope) so Claude Code can list, search, read, and write your markdown notes from any session."
+            description="Registers an MCP server (claude mcp, user scope) so Claude Code can list, search, read, and write your markdown notes from any session. Disabling removes the MCP tools — note files on disk remain accessible to any process with filesystem access."
             checked={mcpEnabled}
             onChange={(value) => void setMcpEnabled(value)}
             disabled={mcpPending}
