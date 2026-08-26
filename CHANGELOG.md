@@ -1,5 +1,11 @@
 # vIDE
 
+## v0.2.5 (2026-08-26)
+- **Claude Code MCP for To Do**: a new toggle in Settings > To Do lets Claude Code list, search, create, and update todos by ticket ID — no more pasting ticket details into the chat. Registers a user-scoped MCP server so it's available in every Claude session regardless of which project is open
+- **Claude Code MCP for Notes**: a matching toggle in Settings > Notes gives Claude Code access to your notes library — it can list all notes, read any note by path, search content across all notes, and create or overwrite notes. Same user-scoped MCP approach as To Do
+- Notes panel and To Do data now auto-refresh when files are changed externally (e.g. by Claude writing via MCP), so the UI stays in sync without a manual reload
+
+
 ## v0.2.4 (2026-08-24)
 - **Renamed Huginn to vIDE** (Vibecoding IDE) — app name, window title, menus, install script, and update checker all updated; existing settings, usage history, and language-server binaries carry over automatically on first launch
 - **Background Image picker**: Settings > Display and the setup wizard now offer a choice of None, the vIDE badge, or Clawd, in place of the old on/off toggle
