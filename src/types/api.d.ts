@@ -302,6 +302,9 @@ declare global {
       todosAddComment: (todoId: string, body: string, attachments?: string[]) => Promise<Todo>
       todosSaveAttachment: (dataUrl: string) => Promise<string>
       todosReadAttachmentDataUrl: (id: string) => Promise<string>
+      todosMcpEnable: () => Promise<void>
+      todosMcpDisable: () => Promise<void>
+      onTodosChanged: (cb: () => void) => () => void
 
       notesGetRoot: () => Promise<string>
       notesCreateNote: (dirPath: string, name: string) => Promise<NotesEntryResult>

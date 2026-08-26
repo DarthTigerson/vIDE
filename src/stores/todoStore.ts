@@ -37,6 +37,7 @@ interface TodoStore {
   deleteTodo: (id: string) => Promise<void>
   addComment: (todoId: string, body: string, attachments?: string[]) => Promise<Todo>
   saveAttachment: (dataUrl: string) => Promise<string>
+  refreshAll: () => Promise<void>
 }
 
 export const useTodoStore = create<TodoStore>((set, get) => ({
@@ -110,4 +111,14 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
   },
 
   saveAttachment: async (dataUrl) => window.api.todosSaveAttachment(dataUrl),
+
+  // Picks up changes made outside this window's own IPC calls — most
+  // notably the Todo MCP server, which writes todos.json from a separate
+  // process Claude Code spawns (see electron/todosWatcher.ts). Only
+  // refetches boards already loaded into state, since those are the only
+  // ones any open UI could be showing.
+  refreshAll: async () => {
+    await get().loadProjects()
+    await Promise.all(Object.keys(get().todosByProject).map((projectId) => get().loadTodos(projectId)))
+  },
 }))

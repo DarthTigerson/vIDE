@@ -1,9 +1,15 @@
 import { useTodoSettingsStore } from '@/stores/todoSettingsStore'
+import { useTodoMcpStore } from '@/stores/todoMcpStore'
 import { Toggle } from '@/components/ui/Toggle'
 
 export function TodoSettingsPage() {
   const enabled = useTodoSettingsStore((s) => s.enabled)
   const setEnabled = useTodoSettingsStore((s) => s.setEnabled)
+
+  const mcpEnabled = useTodoMcpStore((s) => s.enabled)
+  const mcpPending = useTodoMcpStore((s) => s.pending)
+  const mcpError = useTodoMcpStore((s) => s.error)
+  const setMcpEnabled = useTodoMcpStore((s) => s.setEnabled)
 
   return (
     <div className="h-full overflow-auto p-6 bg-panel">
@@ -24,6 +30,21 @@ export function TodoSettingsPage() {
             checked={enabled}
             onChange={setEnabled}
           />
+        </section>
+
+        <section className="rounded-xl border border-border/60 p-4 flex flex-col gap-3">
+          <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
+            Claude Code
+          </h2>
+
+          <Toggle
+            label="Let Claude see & manage your todos"
+            description="Registers an MCP server (claude mcp, user scope) so Claude Code can list, search, create, and update your todos by ticket id — no more pasting ticket details in."
+            checked={mcpEnabled}
+            onChange={(value) => void setMcpEnabled(value)}
+            disabled={mcpPending}
+          />
+          {mcpError && <p className="text-xs text-red-500">{mcpError}</p>}
         </section>
       </div>
     </div>

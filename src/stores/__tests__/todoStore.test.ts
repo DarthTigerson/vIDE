@@ -156,4 +156,26 @@ describe('todoStore', () => {
     expect(window.api.todosAddComment).toHaveBeenCalledWith('H-1', 'looks good', undefined)
     expect(useTodoStore.getState().todosByProject.p1).toEqual([withComment])
   })
+
+  it('refreshAll reloads projects and every project whose todos are already loaded', async () => {
+    useTodoStore.setState({ todosByProject: { p1: [makeTodo()], p2: [] } })
+    ;(window.api.todosListTodos as ReturnType<typeof vi.fn>).mockImplementation((projectId: string) =>
+      Promise.resolve(projectId === 'p1' ? [makeTodo({ status: 'done' })] : [])
+    )
+
+    await useTodoStore.getState().refreshAll()
+
+    expect(window.api.todosListProjects).toHaveBeenCalled()
+    expect(window.api.todosListTodos).toHaveBeenCalledWith('p1')
+    expect(window.api.todosListTodos).toHaveBeenCalledWith('p2')
+    expect(useTodoStore.getState().todosByProject.p1[0].status).toBe('done')
+  })
+
+  it("refreshAll doesn't fetch todos for a project that was never loaded", async () => {
+    useTodoStore.setState({ todosByProject: {} })
+
+    await useTodoStore.getState().refreshAll()
+
+    expect(window.api.todosListTodos).not.toHaveBeenCalled()
+  })
 })
