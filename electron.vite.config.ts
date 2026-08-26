@@ -6,7 +6,7 @@ export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
     build: {
-      lib: { entry: { index: 'electron/main.ts' } }
+      lib: { entry: { index: 'electron/main.ts', todoMcpServer: 'electron/mcp/todoMcpServer.ts' } }
     }
   },
   preload: {

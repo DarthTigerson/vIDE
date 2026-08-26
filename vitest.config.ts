@@ -21,7 +21,8 @@ export default defineConfig({
       'src/components/**/__tests__/**/*.test.tsx',
       'src/__tests__/**/*.test.ts',
       'src/__tests__/**/*.test.tsx',
-      'electron/__tests__/**/*.test.ts'
+      'electron/__tests__/**/*.test.ts',
+      'electron/**/__tests__/**/*.test.ts'
     ],
     setupFiles: ['./vitest.setup.ts']
   }
