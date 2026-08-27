@@ -108,13 +108,13 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
       </div>
 
       {view === 'board' ? (
-        <div className="flex-1 overflow-x-auto flex divide-x divide-border">
+        <div className="flex-1 min-h-0 overflow-x-auto flex divide-x divide-border">
           {TODO_COLUMNS.map((col) => (
             <div
               key={col.status}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => handleColumnDrop(e, col.status)}
-              className="flex-1 min-w-[240px] flex flex-col bg-sidebar/30"
+              className="flex-1 min-w-[240px] min-h-0 flex flex-col bg-sidebar/30"
             >
               <div className="px-3 py-2 flex items-center justify-between shrink-0 border-b border-border/60">
                 <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
@@ -124,7 +124,7 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
                   {groups[col.status].length}
                 </span>
               </div>
-              <div className="flex-1 flex flex-col gap-2 overflow-y-auto p-3">
+              <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-y-auto p-3">
                 {groups[col.status].map((todo) => (
                   <TodoCard
                     key={todo.id}

@@ -27,7 +27,7 @@ export function TodoCard({
       onDragStart={(e) => e.dataTransfer.setData('text/plain', todo.id)}
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDrop}
-      className="relative overflow-hidden rounded border border-border bg-sidebar p-2 pl-3 flex flex-col gap-1.5 cursor-pointer hover:border-accent/60"
+      className="relative shrink-0 overflow-hidden rounded border border-border bg-sidebar p-2 pl-3 flex flex-col gap-1.5 cursor-pointer hover:border-accent/60"
     >
       {todo.label && (
         <span
