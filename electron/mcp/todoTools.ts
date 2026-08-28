@@ -4,6 +4,7 @@ import {
   createTodo,
   updateTodo,
   addComment,
+  startTodo,
   type Todo,
   type TodoProject,
   type TodoStatus,
@@ -164,6 +165,17 @@ export function buildTodoTools(dataDir: string): McpToolDef[] {
         return `Updated ${todo.id}: status=${todo.status}, label=${todo.label ?? 'none'}, tags=${
           todo.tags.join(', ') || 'none'
         }`
+      },
+    },
+    {
+      name: 'start_todo',
+      description:
+        'Mark a todo as the one you are actively working on: moves it to in_progress and starts tracking ' +
+        'that you should log progress via add_todo_comment before you finish this turn.',
+      inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+      handler: async (args) => {
+        const todo = await startTodo(dataDir, String(args.id))
+        return `Started ${todo.id} (status now in_progress)`
       },
     },
     {

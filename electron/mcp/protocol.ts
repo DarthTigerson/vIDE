@@ -16,6 +16,7 @@ export interface McpStdioServerOptions {
   name: string
   version: string
   tools: McpToolDef[]
+  instructions?: string
   input: NodeJS.ReadableStream
   output: NodeJS.WritableStream
 }
@@ -72,6 +73,7 @@ export class McpStdioServer {
           protocolVersion: params?.protocolVersion ?? '2024-11-05',
           capabilities: { tools: {} },
           serverInfo: { name: this.opts.name, version: this.opts.version },
+          ...(this.opts.instructions ? { instructions: this.opts.instructions } : {}),
         },
       })
       return

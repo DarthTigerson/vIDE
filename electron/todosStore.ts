@@ -1,5 +1,5 @@
 import { join } from 'path'
-import { mkdir, readFile, writeFile } from 'fs/promises'
+import { mkdir, readFile, writeFile, rm } from 'fs/promises'
 
 export type TodoStatus = 'backlog' | 'todo' | 'in_progress' | 'done'
 export type TodoLabel = 'bug' | 'feature' | 'nice-to-have'
@@ -51,6 +51,41 @@ export function todosPath(dataDir: string): string {
 
 export function attachmentsDir(dataDir: string): string {
   return join(dataDir, 'todos-attachments')
+}
+
+export interface ActiveTodoMarker {
+  id: string
+  startedAt: number
+  commentLogged: boolean
+}
+
+function activeTodoPath(dataDir: string): string {
+  return join(dataDir, 'active-todo.json')
+}
+
+export async function readActiveTodo(dataDir: string): Promise<ActiveTodoMarker | null> {
+  try {
+    const data = await readFile(activeTodoPath(dataDir), 'utf-8')
+    const parsed = JSON.parse(data) as Partial<ActiveTodoMarker>
+    if (typeof parsed?.id !== 'string') return null
+    return parsed as ActiveTodoMarker
+  } catch {
+    return null
+  }
+}
+
+async function writeActiveTodo(dataDir: string, marker: ActiveTodoMarker | null): Promise<void> {
+  if (marker === null) {
+    await rm(activeTodoPath(dataDir), { force: true })
+    return
+  }
+  await mkdir(dataDir, { recursive: true })
+  await writeFile(activeTodoPath(dataDir), JSON.stringify(marker), 'utf-8')
+}
+
+async function clearActiveTodoIfMatches(dataDir: string, id: string): Promise<void> {
+  const active = await readActiveTodo(dataDir)
+  if (active && active.id === id) await writeActiveTodo(dataDir, null)
 }
 
 export async function readTodosData(dataDir: string): Promise<TodosData> {
@@ -145,6 +180,15 @@ export async function createTodo(
   return todo
 }
 
+// Marks a ticket as the one Claude is actively working, for the
+// vide-todo-enforcer plugin's Stop hook to key its enforcement off of. See
+// docs/superpowers/specs/2026-08-28-todo-enforcement-plugin-design.md.
+export async function startTodo(dataDir: string, id: string): Promise<Todo> {
+  const todo = await updateTodo(dataDir, id, { status: 'in_progress' })
+  await writeActiveTodo(dataDir, { id, startedAt: Date.now(), commentLogged: false })
+  return todo
+}
+
 export type TodoPatch = Partial<
   Pick<Todo, 'title' | 'description' | 'attachments' | 'status' | 'label' | 'tags' | 'prUrl'>
 >
@@ -156,6 +200,11 @@ export async function updateTodo(dataDir: string, id: string, patch: TodoPatch):
 
   Object.assign(todo, patch, { updatedAt: Date.now() })
   await writeTodosData(dataDir, data)
+
+  if (patch.status !== undefined && patch.status !== 'in_progress') {
+    await clearActiveTodoIfMatches(dataDir, id)
+  }
+
   return todo
 }
 
@@ -181,6 +230,7 @@ export async function reorderTodo(
   }
 
   await writeTodosData(dataDir, data)
+  if (status !== 'in_progress') await clearActiveTodoIfMatches(dataDir, id)
   return todo
 }
 
@@ -192,6 +242,7 @@ export async function archiveTodo(dataDir: string, id: string, archived: boolean
   todo.archived = archived
   todo.updatedAt = Date.now()
   await writeTodosData(dataDir, data)
+  if (archived) await clearActiveTodoIfMatches(dataDir, id)
   return todo
 }
 
@@ -199,6 +250,7 @@ export async function deleteTodo(dataDir: string, id: string): Promise<void> {
   const data = await readTodosData(dataDir)
   data.todos = data.todos.filter((t) => t.id !== id)
   await writeTodosData(dataDir, data)
+  await clearActiveTodoIfMatches(dataDir, id)
 }
 
 export async function addComment(
@@ -215,5 +267,11 @@ export async function addComment(
   todo.comments.push({ id: crypto.randomUUID(), body, attachments, author, createdAt: Date.now() })
   todo.updatedAt = Date.now()
   await writeTodosData(dataDir, data)
+
+  const active = await readActiveTodo(dataDir)
+  if (active && active.id === todoId && !active.commentLogged) {
+    await writeActiveTodo(dataDir, { ...active, commentLogged: true })
+  }
+
   return todo
 }

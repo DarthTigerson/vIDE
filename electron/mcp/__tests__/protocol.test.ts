@@ -54,6 +54,31 @@ describe('McpStdioServer', () => {
     ])
   })
 
+  it('includes instructions in the initialize result when provided', async () => {
+    const input = new PassThrough()
+    const output = new PassThrough()
+    const written: any[] = []
+    output.on('data', (chunk: Buffer) => {
+      for (const line of chunk.toString('utf8').split('\n')) {
+        if (line.trim()) written.push(JSON.parse(line))
+      }
+    })
+    const server = new McpStdioServer({
+      name: 'vide-todos',
+      version: '1.0.0',
+      tools: [echoTool],
+      input,
+      output,
+      instructions: 'Use start_todo before you begin, then add_todo_comment as you go.',
+    })
+    server.start()
+    await send(input, { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05' } })
+
+    expect(written[0].result.instructions).toBe(
+      'Use start_todo before you begin, then add_todo_comment as you go.'
+    )
+  })
+
   it('does not write anything for the initialized notification', async () => {
     const { input, written } = makeServer([echoTool])
     await send(input, { jsonrpc: '2.0', method: 'notifications/initialized' })
