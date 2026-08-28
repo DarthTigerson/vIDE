@@ -188,6 +188,18 @@ function createWindow(projectRoot?: string): BrowserWindow {
     win.webContents.setZoomFactor(1)
   })
 
+  // dom-ready fires on the initial load AND on every Reload/Force Reload —
+  // those menu roles only reload win.webContents, not the whole BrowserWindow,
+  // so any WebContentsView guests browserViewMgr previously attached to
+  // win.contentView (see browserViews.ts) survive the reload as orphans: the
+  // fresh renderer that comes up has no id to reach them, but they're still
+  // attached and visible on top of it. Flushing them here (a no-op on first
+  // load, when there's nothing to flush yet) keeps a reload from ever leaving
+  // a stale webview floating over the UI.
+  win.webContents.on('dom-ready', () => {
+    browserViewMgr.disposeWindow(win.id)
+  })
+
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
