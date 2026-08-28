@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useTodoStore, EMPTY_TODOS } from '@/stores/todoStore'
+import { useEditorStore } from '@/stores/editorStore'
 import { getProjectTags } from '@/lib/todoTags'
 import { TODO_COLUMNS } from '@/lib/todoBoard'
+import { buildTodoDetailPath } from '@/components/Settings/paths'
 import { ArchiveIcon } from './ArchiveIcon'
 import { AttachmentThumbnails } from './AttachmentThumbnails'
 import { TODO_LABELS, TODO_LABEL_META } from './labels'
@@ -14,6 +16,7 @@ export function TodoDetailPage({ projectId, todoId }: { projectId: string; todoI
   const project = useTodoStore((s) => s.projects.find((p) => p.id === projectId))
   const updateTodo = useTodoStore((s) => s.updateTodo)
   const archiveTodo = useTodoStore((s) => s.archiveTodo)
+  const closeTabEverywhere = useEditorStore((s) => s.closeTabEverywhere)
   const addComment = useTodoStore((s) => s.addComment)
   const saveAttachment = useTodoStore((s) => s.saveAttachment)
   const projectTodos = useTodoStore((s) => s.todosByProject[projectId] ?? EMPTY_TODOS)
@@ -54,6 +57,12 @@ export function TodoDetailPage({ projectId, todoId }: { projectId: string; todoI
     setCommentAttachments([])
   }
 
+  async function handleArchiveToggle() {
+    const archiving = !todo!.archived
+    await archiveTodo(todo!.id, archiving)
+    if (archiving) closeTabEverywhere(buildTodoDetailPath(projectId, todo!.id))
+  }
+
   return (
     <div className="h-full overflow-y-auto bg-panel p-8">
       <div className="flex flex-col gap-4 max-w-6xl mx-auto">
@@ -61,6 +70,7 @@ export function TodoDetailPage({ projectId, todoId }: { projectId: string; todoI
           <span>{project?.name ?? 'Todo'}</span>
           <span className="text-fg-subtle/50"> &gt; </span>
           <span>{todo.id}</span>
+          {todo.archived && <span className="text-fg-subtle/50"> (Archived)</span>}
         </span>
 
         <div className="flex gap-10 items-start">
@@ -190,10 +200,14 @@ export function TodoDetailPage({ projectId, todoId }: { projectId: string; todoI
             <div className="pt-2 border-t border-border/60">
               <button
                 type="button"
-                onClick={() => archiveTodo(todo.id, !todo.archived)}
+                onClick={handleArchiveToggle}
                 aria-label={todo.archived ? 'Unarchive' : 'Archive'}
+                aria-pressed={todo.archived}
                 title={todo.archived ? 'Unarchive' : 'Archive'}
-                className="text-fg-muted hover:text-fg"
+                className={[
+                  'p-1 rounded transition-colors',
+                  todo.archived ? 'text-accent' : 'text-fg-muted hover:text-fg',
+                ].join(' ')}
               >
                 <ArchiveIcon />
               </button>
