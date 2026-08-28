@@ -22,6 +22,7 @@ function makeTodo(overrides: Partial<Todo> = {}): Todo {
     tags: [],
     prUrl: null,
     comments: [],
+    author: 'developer',
     createdAt: 1,
     updatedAt: 1,
     ...overrides,
@@ -108,11 +109,31 @@ describe('TodoDetailPage', () => {
   it('renders existing comments', () => {
     useTodoStore.setState({
       todosByProject: {
-        p1: [makeTodo({ comments: [{ id: 'c1', body: 'already here', attachments: [], createdAt: 2 }] })],
+        p1: [
+          makeTodo({
+            comments: [{ id: 'c1', body: 'already here', attachments: [], author: 'developer', createdAt: 2 }],
+          }),
+        ],
       },
     })
     render(<TodoDetailPage projectId="p1" todoId="H-1" />)
     expect(screen.getByText('already here')).toBeInTheDocument()
+  })
+
+  it('shows the author badge for the todo and each comment', () => {
+    useTodoStore.setState({
+      todosByProject: {
+        p1: [
+          makeTodo({
+            author: 'claude',
+            comments: [{ id: 'c1', body: 'already here', attachments: [], author: 'developer', createdAt: 2 }],
+          }),
+        ],
+      },
+    })
+    render(<TodoDetailPage projectId="p1" todoId="H-1" />)
+    expect(screen.getByText('Claude')).toBeInTheDocument()
+    expect(screen.getByText('Developer')).toBeInTheDocument()
   })
 
   it('archives the todo', () => {

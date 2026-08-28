@@ -36,6 +36,7 @@ function makeTodo(overrides: Partial<Todo> = {}): Todo {
     tags: [],
     prUrl: null,
     comments: [],
+    author: 'developer',
     createdAt: 1,
     updatedAt: 1,
     ...overrides,
@@ -103,6 +104,57 @@ describe('TodoBoardPage', () => {
     render(<TodoBoardPage projectId="p1" />)
     expect(screen.getByText('frontend')).toBeInTheDocument()
     expect(screen.getByText('urgent')).toBeInTheDocument()
+  })
+
+  it('search filters board cards by title, but keeps drop targets computed from the full column', () => {
+    render(<TodoBoardPage projectId="p1" />)
+    fireEvent.change(screen.getByLabelText('Search todos'), { target: { value: 'ship' } })
+
+    expect(screen.getByText('Ship feature')).toBeInTheDocument()
+    expect(screen.queryByText('Fix bug')).not.toBeInTheDocument()
+  })
+
+  it('search also filters the archive list', () => {
+    render(<TodoBoardPage projectId="p1" />)
+    fireEvent.click(screen.getByLabelText('Archive'))
+    expect(screen.getByText('Old and done')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Search todos'), { target: { value: 'nonexistent' } })
+    expect(screen.queryByText('Old and done')).not.toBeInTheDocument()
+  })
+
+  it('the clear button only appears while searching, and empties the query when clicked', () => {
+    render(<TodoBoardPage projectId="p1" />)
+    expect(screen.queryByLabelText('Clear search')).not.toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Search todos'), { target: { value: 'ship' } })
+    expect(screen.queryByText('Fix bug')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByLabelText('Clear search'))
+    expect(screen.getByLabelText('Search todos')).toHaveValue('')
+    expect(screen.getByText('Fix bug')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Clear search')).not.toBeInTheDocument()
+  })
+
+  it('pressing / focuses the search box', () => {
+    const { container } = render(<TodoBoardPage projectId="p1" />)
+    expect(screen.getByLabelText('Search todos')).not.toHaveFocus()
+
+    fireEvent.keyDown(container.firstChild as Element, { key: '/' })
+
+    expect(screen.getByLabelText('Search todos')).toHaveFocus()
+  })
+
+  it('does not hijack / while already typing in a text field', () => {
+    render(<TodoBoardPage projectId="p1" />)
+    fireEvent.click(screen.getAllByText('+ Add issue')[0])
+    const titleInput = screen.getByPlaceholderText('What needs to be done?')
+    titleInput.focus()
+
+    fireEvent.keyDown(titleInput, { key: '/' })
+
+    expect(titleInput).toHaveFocus()
+    expect(screen.getByLabelText('Search todos')).not.toHaveFocus()
   })
 
   it('clicking a card opens its detail page as a tab', () => {

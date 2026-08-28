@@ -22,6 +22,7 @@ function formatDetail(todo: Todo, project: TodoProject | undefined): string {
   const lines = [
     `${todo.id}: ${todo.title}`,
     `Project: ${project ? `${project.name} (${project.key})` : todo.projectId}`,
+    `Author: ${todo.author}`,
     `Status: ${todo.status}`,
     `Label: ${todo.label ?? 'none'}`,
     `Tags: ${todo.tags.length ? todo.tags.join(', ') : 'none'}`,
@@ -31,7 +32,7 @@ function formatDetail(todo: Todo, project: TodoProject | undefined): string {
   if (todo.prUrl) lines.push(`PR: ${todo.prUrl}`)
   if (todo.comments.length) {
     lines.push('Comments:')
-    for (const c of todo.comments) lines.push(`- ${c.body}`)
+    for (const c of todo.comments) lines.push(`- [${c.author}] ${c.body}`)
   }
   return lines.join('\n')
 }
@@ -118,7 +119,7 @@ export function buildTodoTools(dataDir: string): McpToolDef[] {
         const project = findProjectByKey(projects, projectKey)
         if (!project) throw new Error(`No such project key: ${projectKey}`)
 
-        const todo = await createTodo(dataDir, project.id, String(args.title))
+        const todo = await createTodo(dataDir, project.id, String(args.title), 'claude')
         if (args.description) await updateTodo(dataDir, todo.id, { description: String(args.description) })
         return `Created ${todo.id}`
       },
@@ -174,7 +175,7 @@ export function buildTodoTools(dataDir: string): McpToolDef[] {
         required: ['id', 'body'],
       },
       handler: async (args) => {
-        const todo = await addComment(dataDir, String(args.id), String(args.body))
+        const todo = await addComment(dataDir, String(args.id), String(args.body), [], 'claude')
         return `Added comment to ${todo.id}`
       },
     },

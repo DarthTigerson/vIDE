@@ -71,6 +71,15 @@ describe('buildTodoTools', () => {
     expect(detail).toContain('Steps to repro')
   })
 
+  it('create_todo stamps the todo as claude-authored', async () => {
+    const project = await createProject(DATA_DIR, 'vIDE', 'H')
+    const tools = buildTodoTools(DATA_DIR)
+    await findTool(tools, 'create_todo').handler({ projectKey: project.key, title: 'Fix it' })
+
+    const detail = await findTool(tools, 'get_todo').handler({ id: 'H-1' })
+    expect(detail).toContain('Author: claude')
+  })
+
   it('create_todo is case-insensitive about the project key', async () => {
     await createProject(DATA_DIR, 'vIDE', 'H')
     const tools = buildTodoTools(DATA_DIR)
@@ -232,5 +241,16 @@ describe('buildTodoTools', () => {
     const result = await findTool(tools, 'get_todo').handler({ id: 'H-1' })
 
     expect(result).toContain('Looks good')
+  })
+
+  it('add_todo_comment stamps the comment as claude-authored', async () => {
+    const project = await createProject(DATA_DIR, 'vIDE', 'H')
+    await createTodo(DATA_DIR, project.id, 'Something')
+    const tools = buildTodoTools(DATA_DIR)
+
+    await findTool(tools, 'add_todo_comment').handler({ id: 'H-1', body: 'Looks good' })
+    const result = await findTool(tools, 'get_todo').handler({ id: 'H-1' })
+
+    expect(result).toContain('[claude] Looks good')
   })
 })

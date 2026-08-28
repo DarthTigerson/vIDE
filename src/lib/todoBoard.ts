@@ -16,6 +16,20 @@ export function groupTodosByStatus(todos: Todo[]): Record<TodoStatus, Todo[]> {
   return groups
 }
 
+// Case-insensitive substring match against title/description/tags. Used to
+// power the board's search box without touching stored order — like
+// sortTodos, it's purely a render-time filter.
+export function filterTodos(todos: Todo[], query: string): Todo[] {
+  const needle = query.trim().toLowerCase()
+  if (!needle) return todos
+  return todos.filter(
+    (todo) =>
+      todo.title.toLowerCase().includes(needle) ||
+      todo.description.toLowerCase().includes(needle) ||
+      todo.tags.some((tag) => tag.toLowerCase().includes(needle))
+  )
+}
+
 export type TodoSortMode = 'manual' | 'id' | 'label' | 'tag'
 
 export const TODO_SORT_MODES: { mode: TodoSortMode; title: string }[] = [

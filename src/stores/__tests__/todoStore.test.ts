@@ -17,6 +17,7 @@ function makeTodo(overrides: Partial<Todo> = {}): Todo {
     tags: [],
     prUrl: null,
     comments: [],
+    author: 'developer',
     createdAt: 1,
     updatedAt: 1,
     ...overrides,
@@ -147,7 +148,7 @@ describe('todoStore', () => {
   it('addComment replaces the todo with the server-returned version (including the new comment)', async () => {
     useTodoStore.setState({ todosByProject: { p1: [makeTodo()] } })
     const withComment = makeTodo({
-      comments: [{ id: 'c1', body: 'looks good', attachments: [], createdAt: 5 }],
+      comments: [{ id: 'c1', body: 'looks good', attachments: [], author: 'developer', createdAt: 5 }],
     })
     ;(window.api.todosAddComment as ReturnType<typeof vi.fn>).mockResolvedValue(withComment)
 

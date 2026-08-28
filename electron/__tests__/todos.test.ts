@@ -87,6 +87,7 @@ describe('todos', () => {
         tags: [],
         prUrl: null,
         comments: [],
+        author: 'developer',
       })
     })
 
@@ -182,7 +183,7 @@ describe('todos', () => {
       const updated = (await handlers['todos:addComment']({}, todo.id, 'Looks good', ['att-1'])) as any
 
       expect(updated.comments).toHaveLength(1)
-      expect(updated.comments[0]).toMatchObject({ body: 'Looks good', attachments: ['att-1'] })
+      expect(updated.comments[0]).toMatchObject({ body: 'Looks good', attachments: ['att-1'], author: 'developer' })
     })
 
     it('addComment defaults attachments to an empty array', async () => {
@@ -238,6 +239,18 @@ describe('todos', () => {
       seedLegacyTodo({ labels: [] })
       const todos = (await handlers['todos:listTodos']({}, 'p1')) as any[]
       expect(todos[0].label).toBeNull()
+    })
+
+    it('defaults a legacy todo with no author field to developer', async () => {
+      seedLegacyTodo()
+      const todos = (await handlers['todos:listTodos']({}, 'p1')) as any[]
+      expect(todos[0].author).toBe('developer')
+    })
+
+    it('defaults a legacy comment with no author field to developer', async () => {
+      seedLegacyTodo({ comments: [{ id: 'c1', body: 'old comment', attachments: [], createdAt: 1 }] })
+      const todos = (await handlers['todos:listTodos']({}, 'p1')) as any[]
+      expect(todos[0].comments[0].author).toBe('developer')
     })
   })
 

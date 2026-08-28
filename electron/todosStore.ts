@@ -3,6 +3,9 @@ import { mkdir, readFile, writeFile } from 'fs/promises'
 
 export type TodoStatus = 'backlog' | 'todo' | 'in_progress' | 'done'
 export type TodoLabel = 'bug' | 'feature' | 'nice-to-have'
+// Who created this todo/comment — stamped structurally by the path that
+// created it (UI vs. the MCP server), never a free-text/self-reported value.
+export type TodoAuthor = 'developer' | 'claude'
 
 export interface TodoProject {
   id: string
@@ -16,6 +19,7 @@ export interface TodoComment {
   id: string
   body: string
   attachments: string[]
+  author: TodoAuthor
   createdAt: number
 }
 
@@ -31,6 +35,7 @@ export interface Todo {
   tags: string[]
   prUrl: string | null
   comments: TodoComment[]
+  author: TodoAuthor
   createdAt: number
   updatedAt: number
 }
@@ -66,6 +71,8 @@ function normalizeTodo(raw: unknown): Todo {
     ...todo,
     tags: todo.tags ?? [],
     label: todo.label !== undefined ? todo.label : (labels?.[0] ?? null),
+    author: todo.author ?? 'developer',
+    comments: (todo.comments ?? []).map((c) => ({ ...c, author: c.author ?? 'developer' })),
   }
 }
 
@@ -105,7 +112,12 @@ export async function listTodos(dataDir: string, projectId: string): Promise<Tod
   return data.todos.filter((t) => t.projectId === projectId)
 }
 
-export async function createTodo(dataDir: string, projectId: string, title: string): Promise<Todo> {
+export async function createTodo(
+  dataDir: string,
+  projectId: string,
+  title: string,
+  author: TodoAuthor = 'developer'
+): Promise<Todo> {
   const data = await readTodosData(dataDir)
   const project = data.projects.find((p) => p.id === projectId)
   if (!project) throw new Error(`No such project: ${projectId}`)
@@ -123,6 +135,7 @@ export async function createTodo(dataDir: string, projectId: string, title: stri
     tags: [],
     prUrl: null,
     comments: [],
+    author,
     createdAt: now,
     updatedAt: now,
   }
@@ -192,13 +205,14 @@ export async function addComment(
   dataDir: string,
   todoId: string,
   body: string,
-  attachments: string[] = []
+  attachments: string[] = [],
+  author: TodoAuthor = 'developer'
 ): Promise<Todo> {
   const data = await readTodosData(dataDir)
   const todo = data.todos.find((t) => t.id === todoId)
   if (!todo) throw new Error(`No such todo: ${todoId}`)
 
-  todo.comments.push({ id: crypto.randomUUID(), body, attachments, createdAt: Date.now() })
+  todo.comments.push({ id: crypto.randomUUID(), body, attachments, author, createdAt: Date.now() })
   todo.updatedAt = Date.now()
   await writeTodosData(dataDir, data)
   return todo
