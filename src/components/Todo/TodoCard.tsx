@@ -5,10 +5,12 @@ export function TodoCard({
   todo,
   onOpen,
   onDropOn,
+  onContextMenu,
 }: {
   todo: Todo
   onOpen: () => void
   onDropOn: (draggedId: string, placement: 'before' | 'after') => void
+  onContextMenu: (e: React.MouseEvent) => void
 }) {
   function handleDrop(e: React.DragEvent) {
     e.preventDefault()
@@ -23,6 +25,11 @@ export function TodoCard({
   return (
     <div
       onClick={onOpen}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onContextMenu(e)
+      }}
       draggable
       onDragStart={(e) => e.dataTransfer.setData('text/plain', todo.id)}
       onDragOver={(e) => e.preventDefault()}

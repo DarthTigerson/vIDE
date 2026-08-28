@@ -2,12 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { useTodoStore, EMPTY_TODOS } from '@/stores/todoStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { buildTodoDetailPath } from '@/components/Settings/paths'
-import { TODO_COLUMNS, groupTodosByStatus } from '@/lib/todoBoard'
+import { TODO_COLUMNS, groupTodosByStatus, sortTodos } from '@/lib/todoBoard'
+import type { TodoSortDirection, TodoSortMode } from '@/lib/todoBoard'
 import { ArchiveIcon } from './ArchiveIcon'
 import { BoardIcon } from './BoardIcon'
 import { TodoCard } from './TodoCard'
 import { TodoArchiveList } from './TodoArchiveList'
-import type { TodoStatus } from '@/types/api'
+import { TodoCardMenu, TodoSortMenu } from './TodoContextMenu'
+import type { Todo, TodoStatus } from '@/types/api'
 
 function autoGrow(el: HTMLTextAreaElement) {
   el.style.height = 'auto'
@@ -28,6 +30,22 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
   const [addingStatus, setAddingStatus] = useState<TodoStatus | null>(null)
   const [newTitle, setNewTitle] = useState('')
   const newTitleInputRef = useRef<HTMLTextAreaElement>(null)
+  const [sortModes, setSortModes] = useState<Record<TodoStatus, TodoSortMode>>({
+    backlog: 'manual',
+    todo: 'manual',
+    in_progress: 'manual',
+    done: 'manual',
+  })
+  const [sortDirections, setSortDirections] = useState<Record<TodoStatus, TodoSortDirection>>({
+    backlog: 'asc',
+    todo: 'asc',
+    in_progress: 'asc',
+    done: 'asc',
+  })
+  type BoardMenu =
+    | { type: 'card'; x: number; y: number; todo: Todo }
+    | { type: 'sort'; x: number; y: number; status: TodoStatus }
+  const [menu, setMenu] = useState<BoardMenu | null>(null)
 
   useEffect(() => {
     loadTodos(projectId)
@@ -61,6 +79,25 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
   function closeComposer() {
     setAddingStatus(null)
     setNewTitle('')
+  }
+
+  function openCardMenu(e: React.MouseEvent, todo: Todo) {
+    setMenu({ type: 'card', x: e.clientX, y: e.clientY, todo })
+  }
+
+  function openSortMenu(e: React.MouseEvent, status: TodoStatus) {
+    e.preventDefault()
+    setMenu({ type: 'sort', x: e.clientX, y: e.clientY, status })
+  }
+
+  async function duplicateTodo(todo: Todo) {
+    const copy = await createTodo(projectId, `${todo.title} (copy)`)
+    await updateTodo(copy.id, {
+      description: todo.description,
+      status: todo.status,
+      label: todo.label,
+      tags: todo.tags,
+    })
   }
 
   async function handleCreate(status: TodoStatus) {
@@ -114,6 +151,7 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
               key={col.status}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => handleColumnDrop(e, col.status)}
+              onContextMenu={(e) => openSortMenu(e, col.status)}
               className="flex-1 min-w-[240px] min-h-0 flex flex-col bg-sidebar/30"
             >
               <div className="px-3 py-2 flex items-center justify-between shrink-0 border-b border-border/60">
@@ -125,7 +163,7 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
                 </span>
               </div>
               <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-y-auto p-3">
-                {groups[col.status].map((todo) => (
+                {sortTodos(groups[col.status], sortModes[col.status], sortDirections[col.status]).map((todo) => (
                   <TodoCard
                     key={todo.id}
                     todo={todo}
@@ -133,6 +171,7 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
                     onDropOn={(draggedId, placement) =>
                       handleCardDrop(col.status, todo.id, placement, draggedId)
                     }
+                    onContextMenu={(e) => openCardMenu(e, todo)}
                   />
                 ))}
                 {addingStatus === col.status ? (
@@ -177,6 +216,62 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
           todos={archived}
           onOpen={openDetail}
           onUnarchive={(id) => archiveTodo(id, false)}
+        />
+      )}
+
+      {menu?.type === 'card' && (
+        <TodoCardMenu
+          x={menu.x}
+          y={menu.y}
+          todo={menu.todo}
+          columnSortMode={sortModes[menu.todo.status]}
+          columnSortDirection={sortDirections[menu.todo.status]}
+          onClose={() => setMenu(null)}
+          onDuplicate={() => duplicateTodo(menu.todo)}
+          onMoveTo={(status) => updateTodo(menu.todo.id, { status })}
+          onArchive={() => archiveTodo(menu.todo.id, true)}
+          onSortColumnMode={(mode) =>
+            setSortModes((prev) => ({ ...prev, [menu.todo.status]: mode }))
+          }
+          onSortAllMode={(mode) =>
+            setSortModes({ backlog: mode, todo: mode, in_progress: mode, done: mode })
+          }
+          onSortColumnDirection={(direction) =>
+            setSortDirections((prev) => ({ ...prev, [menu.todo.status]: direction }))
+          }
+          onSortAllDirection={(direction) =>
+            setSortDirections({
+              backlog: direction,
+              todo: direction,
+              in_progress: direction,
+              done: direction,
+            })
+          }
+        />
+      )}
+
+      {menu?.type === 'sort' && (
+        <TodoSortMenu
+          x={menu.x}
+          y={menu.y}
+          columnSortMode={sortModes[menu.status]}
+          columnSortDirection={sortDirections[menu.status]}
+          onClose={() => setMenu(null)}
+          onSelectColumnMode={(mode) => setSortModes((prev) => ({ ...prev, [menu.status]: mode }))}
+          onSelectAllMode={(mode) =>
+            setSortModes({ backlog: mode, todo: mode, in_progress: mode, done: mode })
+          }
+          onSelectColumnDirection={(direction) =>
+            setSortDirections((prev) => ({ ...prev, [menu.status]: direction }))
+          }
+          onSelectAllDirection={(direction) =>
+            setSortDirections({
+              backlog: direction,
+              todo: direction,
+              in_progress: direction,
+              done: direction,
+            })
+          }
         />
       )}
     </div>

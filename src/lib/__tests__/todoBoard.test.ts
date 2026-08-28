@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { groupTodosByStatus, TODO_COLUMNS } from '../todoBoard'
+import { groupTodosByStatus, sortTodos, TODO_COLUMNS } from '../todoBoard'
 import type { Todo } from '@/types/api'
 
 function makeTodo(overrides: Partial<Todo> = {}): Todo {
@@ -49,5 +49,61 @@ describe('groupTodosByStatus', () => {
     const groups = groupTodosByStatus(todos)
 
     expect(groups.done).toEqual([])
+  })
+})
+
+describe('sortTodos', () => {
+  it('leaves order untouched in manual mode', () => {
+    const todos = [makeTodo({ id: 'H-3' }), makeTodo({ id: 'H-1' }), makeTodo({ id: 'H-2' })]
+
+    expect(sortTodos(todos, 'manual')).toEqual(todos)
+  })
+
+  it('sorts by the numeric id suffix ascending', () => {
+    const todos = [makeTodo({ id: 'H-10' }), makeTodo({ id: 'H-2' }), makeTodo({ id: 'H-1' })]
+
+    expect(sortTodos(todos, 'id').map((t) => t.id)).toEqual(['H-1', 'H-2', 'H-10'])
+  })
+
+  it('sorts by label in bug, feature, nice-to-have order, unlabeled last', () => {
+    const todos = [
+      makeTodo({ id: 'H-1', label: null }),
+      makeTodo({ id: 'H-2', label: 'nice-to-have' }),
+      makeTodo({ id: 'H-3', label: 'bug' }),
+      makeTodo({ id: 'H-4', label: 'feature' }),
+    ]
+
+    expect(sortTodos(todos, 'label').map((t) => t.id)).toEqual(['H-3', 'H-4', 'H-2', 'H-1'])
+  })
+
+  it('sorts by first tag alphabetically, untagged last', () => {
+    const todos = [
+      makeTodo({ id: 'H-1', tags: [] }),
+      makeTodo({ id: 'H-2', tags: ['zeta'] }),
+      makeTodo({ id: 'H-3', tags: ['alpha', 'other'] }),
+    ]
+
+    expect(sortTodos(todos, 'tag').map((t) => t.id)).toEqual(['H-3', 'H-2', 'H-1'])
+  })
+
+  it('keeps equal-key todos in their original relative order (stable sort)', () => {
+    const todos = [
+      makeTodo({ id: 'H-1', label: 'bug' }),
+      makeTodo({ id: 'H-2', label: 'bug' }),
+    ]
+
+    expect(sortTodos(todos, 'label').map((t) => t.id)).toEqual(['H-1', 'H-2'])
+  })
+
+  it('reverses the sorted result when direction is desc', () => {
+    const todos = [makeTodo({ id: 'H-1' }), makeTodo({ id: 'H-2' }), makeTodo({ id: 'H-3' })]
+
+    expect(sortTodos(todos, 'id', 'desc').map((t) => t.id)).toEqual(['H-3', 'H-2', 'H-1'])
+  })
+
+  it('reverses manual order too when direction is desc', () => {
+    const todos = [makeTodo({ id: 'H-1' }), makeTodo({ id: 'H-2' }), makeTodo({ id: 'H-3' })]
+
+    expect(sortTodos(todos, 'manual', 'desc').map((t) => t.id)).toEqual(['H-3', 'H-2', 'H-1'])
   })
 })
