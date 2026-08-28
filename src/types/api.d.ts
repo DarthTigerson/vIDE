@@ -73,6 +73,7 @@ export interface RecentProject {
 
 export type TodoStatus = 'backlog' | 'todo' | 'in_progress' | 'done'
 export type TodoLabel = 'bug' | 'feature' | 'nice-to-have'
+export type TodoAuthor = 'developer' | 'claude'
 
 export interface TodoProject {
   id: string
@@ -86,6 +87,7 @@ export interface TodoComment {
   id: string
   body: string
   attachments: string[]
+  author: TodoAuthor
   createdAt: number
 }
 
@@ -101,6 +103,7 @@ export interface Todo {
   tags: string[]
   prUrl: string | null
   comments: TodoComment[]
+  author: TodoAuthor
   createdAt: number
   updatedAt: number
 }

@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { useTodoStore, EMPTY_TODOS } from '@/stores/todoStore'
+import { useEditorStore } from '@/stores/editorStore'
 import { getProjectTags } from '@/lib/todoTags'
 import { TODO_COLUMNS } from '@/lib/todoBoard'
+import { buildTodoDetailPath } from '@/components/Settings/paths'
 import { ArchiveIcon } from './ArchiveIcon'
 import { AttachmentThumbnails } from './AttachmentThumbnails'
+import { TODO_AUTHOR_META } from './authors'
 import { TODO_LABELS, TODO_LABEL_META } from './labels'
 import { TodoTagInput } from './TodoTagInput'
 import { inputClass, uploadPastedImages } from './todoFormShared'
@@ -14,6 +17,7 @@ export function TodoDetailPage({ projectId, todoId }: { projectId: string; todoI
   const project = useTodoStore((s) => s.projects.find((p) => p.id === projectId))
   const updateTodo = useTodoStore((s) => s.updateTodo)
   const archiveTodo = useTodoStore((s) => s.archiveTodo)
+  const closeTabEverywhere = useEditorStore((s) => s.closeTabEverywhere)
   const addComment = useTodoStore((s) => s.addComment)
   const saveAttachment = useTodoStore((s) => s.saveAttachment)
   const projectTodos = useTodoStore((s) => s.todosByProject[projectId] ?? EMPTY_TODOS)
@@ -54,14 +58,28 @@ export function TodoDetailPage({ projectId, todoId }: { projectId: string; todoI
     setCommentAttachments([])
   }
 
+  async function handleArchiveToggle() {
+    const archiving = !todo!.archived
+    await archiveTodo(todo!.id, archiving)
+    if (archiving) closeTabEverywhere(buildTodoDetailPath(projectId, todo!.id))
+  }
+
   return (
     <div className="h-full overflow-y-auto bg-panel p-8">
       <div className="flex flex-col gap-4 max-w-6xl mx-auto">
-        <span className="text-xs font-mono text-fg-subtle">
-          <span>{project?.name ?? 'Todo'}</span>
-          <span className="text-fg-subtle/50"> &gt; </span>
-          <span>{todo.id}</span>
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono text-fg-subtle">
+            <span>{project?.name ?? 'Todo'}</span>
+            <span className="text-fg-subtle/50"> &gt; </span>
+            <span>{todo.id}</span>
+            {todo.archived && <span className="text-fg-subtle/50"> (Archived)</span>}
+          </span>
+          <span
+            className={`text-[0.65rem] px-1.5 py-0.5 rounded border leading-none ${TODO_AUTHOR_META[todo.author].className}`}
+          >
+            {TODO_AUTHOR_META[todo.author].text}
+          </span>
+        </div>
 
         <div className="flex gap-10 items-start">
           <div className="flex-1 min-w-0 max-w-3xl flex flex-col gap-4">
@@ -103,6 +121,11 @@ export function TodoDetailPage({ projectId, todoId }: { projectId: string; todoI
               <h3 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">Comments</h3>
               {todo.comments.map((comment) => (
                 <div key={comment.id} className="flex flex-col gap-1 rounded border border-border/60 p-2">
+                  <span
+                    className={`self-start text-[0.6rem] px-1 py-0.5 rounded border leading-none ${TODO_AUTHOR_META[comment.author].className}`}
+                  >
+                    {TODO_AUTHOR_META[comment.author].text}
+                  </span>
                   <p className="text-sm text-fg whitespace-pre-wrap">{comment.body}</p>
                   <AttachmentThumbnails attachments={comment.attachments} />
                 </div>
@@ -190,10 +213,14 @@ export function TodoDetailPage({ projectId, todoId }: { projectId: string; todoI
             <div className="pt-2 border-t border-border/60">
               <button
                 type="button"
-                onClick={() => archiveTodo(todo.id, !todo.archived)}
+                onClick={handleArchiveToggle}
                 aria-label={todo.archived ? 'Unarchive' : 'Archive'}
+                aria-pressed={todo.archived}
                 title={todo.archived ? 'Unarchive' : 'Archive'}
-                className="text-fg-muted hover:text-fg"
+                className={[
+                  'p-1 rounded transition-colors',
+                  todo.archived ? 'text-accent' : 'text-fg-muted hover:text-fg',
+                ].join(' ')}
               >
                 <ArchiveIcon />
               </button>

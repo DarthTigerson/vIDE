@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { readActiveTodo, startTodo } from '../todosStore'
 
 const { handlers, fsState } = vi.hoisted(() => ({
   handlers: {} as Record<string, (...args: any[]) => unknown>,
@@ -23,6 +24,9 @@ vi.mock('fs/promises', () => ({
     fsState.files.set(path, data)
   },
   mkdir: async () => {},
+  rm: async (path: string) => {
+    fsState.files.delete(path)
+  },
 }))
 
 let uuidCounter = 0
@@ -87,6 +91,7 @@ describe('todos', () => {
         tags: [],
         prUrl: null,
         comments: [],
+        author: 'developer',
       })
     })
 
@@ -182,7 +187,7 @@ describe('todos', () => {
       const updated = (await handlers['todos:addComment']({}, todo.id, 'Looks good', ['att-1'])) as any
 
       expect(updated.comments).toHaveLength(1)
-      expect(updated.comments[0]).toMatchObject({ body: 'Looks good', attachments: ['att-1'] })
+      expect(updated.comments[0]).toMatchObject({ body: 'Looks good', attachments: ['att-1'], author: 'developer' })
     })
 
     it('addComment defaults attachments to an empty array', async () => {
@@ -191,6 +196,128 @@ describe('todos', () => {
       const updated = (await handlers['todos:addComment']({}, todo.id, 'Looks good')) as any
 
       expect(updated.comments[0].attachments).toEqual([])
+    })
+  })
+
+  describe('active todo marker', () => {
+    it('startTodo moves the ticket to in_progress and creates the marker', async () => {
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
+      const todo = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
+
+      const updated = await startTodo('/fake/userData', todo.id)
+      expect(updated.status).toBe('in_progress')
+
+      const marker = await readActiveTodo('/fake/userData')
+      expect(marker).toMatchObject({ id: todo.id, commentLogged: false })
+    })
+
+    it('readActiveTodo returns null when no ticket has been started', async () => {
+      expect(await readActiveTodo('/fake/userData')).toBeNull()
+    })
+
+    it('addComment on the active ticket flips commentLogged to true', async () => {
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
+      const todo = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
+      await startTodo('/fake/userData', todo.id)
+
+      await handlers['todos:addComment']({}, todo.id, 'progress note')
+
+      const marker = await readActiveTodo('/fake/userData')
+      expect(marker?.commentLogged).toBe(true)
+    })
+
+    it('addComment on a different ticket does not affect the active marker', async () => {
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
+      const active = (await handlers['todos:createTodo']({}, project.id, 'Active one')) as any
+      const other = (await handlers['todos:createTodo']({}, project.id, 'Other one')) as any
+      await startTodo('/fake/userData', active.id)
+
+      await handlers['todos:addComment']({}, other.id, 'unrelated comment')
+
+      const marker = await readActiveTodo('/fake/userData')
+      expect(marker?.commentLogged).toBe(false)
+    })
+
+    it('updateTodo moving the active ticket off in_progress clears the marker', async () => {
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
+      const todo = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
+      await startTodo('/fake/userData', todo.id)
+
+      await handlers['todos:updateTodo']({}, todo.id, { status: 'done' })
+
+      expect(await readActiveTodo('/fake/userData')).toBeNull()
+    })
+
+    it('updateTodo on a different ticket does not clear the active marker', async () => {
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
+      const active = (await handlers['todos:createTodo']({}, project.id, 'Active one')) as any
+      const other = (await handlers['todos:createTodo']({}, project.id, 'Other one')) as any
+      await startTodo('/fake/userData', active.id)
+
+      await handlers['todos:updateTodo']({}, other.id, { status: 'done' })
+
+      expect(await readActiveTodo('/fake/userData')).toMatchObject({ id: active.id })
+    })
+
+    it('updateTodo re-affirming in_progress on the active ticket leaves the marker in place', async () => {
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
+      const todo = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
+      await startTodo('/fake/userData', todo.id)
+      await handlers['todos:addComment']({}, todo.id, 'note')
+
+      await handlers['todos:updateTodo']({}, todo.id, { status: 'in_progress' })
+
+      const marker = await readActiveTodo('/fake/userData')
+      expect(marker).toMatchObject({ id: todo.id, commentLogged: true })
+    })
+
+    it('startTodo throws for an unknown id', async () => {
+      await expect(startTodo('/fake/userData', 'missing')).rejects.toThrow()
+    })
+
+    it('reorderTodo moving the active ticket to a different status clears the marker', async () => {
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
+      const todo = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
+      await startTodo('/fake/userData', todo.id)
+
+      await handlers['todos:reorderTodo']({}, todo.id, 'done', null)
+
+      expect(await readActiveTodo('/fake/userData')).toBeNull()
+    })
+
+    it('reorderTodo re-affirming in_progress on the active ticket leaves the marker in place', async () => {
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
+      const todo = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
+      await startTodo('/fake/userData', todo.id)
+
+      await handlers['todos:reorderTodo']({}, todo.id, 'in_progress', null)
+
+      expect(await readActiveTodo('/fake/userData')).toMatchObject({ id: todo.id })
+    })
+
+    it('archiveTodo archiving the active ticket clears the marker', async () => {
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
+      const todo = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
+      await startTodo('/fake/userData', todo.id)
+
+      await handlers['todos:archiveTodo']({}, todo.id, true)
+
+      expect(await readActiveTodo('/fake/userData')).toBeNull()
+    })
+
+    it('deleteTodo deleting the active ticket clears the marker', async () => {
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
+      const todo = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
+      await startTodo('/fake/userData', todo.id)
+
+      await handlers['todos:deleteTodo']({}, todo.id)
+
+      expect(await readActiveTodo('/fake/userData')).toBeNull()
+    })
+
+    it('readActiveTodo ignores a marker file with no valid id', async () => {
+      fsState.files.set('/fake/userData/active-todo.json', JSON.stringify({ startedAt: 1, commentLogged: false }))
+      expect(await readActiveTodo('/fake/userData')).toBeNull()
     })
   })
 
@@ -238,6 +365,18 @@ describe('todos', () => {
       seedLegacyTodo({ labels: [] })
       const todos = (await handlers['todos:listTodos']({}, 'p1')) as any[]
       expect(todos[0].label).toBeNull()
+    })
+
+    it('defaults a legacy todo with no author field to developer', async () => {
+      seedLegacyTodo()
+      const todos = (await handlers['todos:listTodos']({}, 'p1')) as any[]
+      expect(todos[0].author).toBe('developer')
+    })
+
+    it('defaults a legacy comment with no author field to developer', async () => {
+      seedLegacyTodo({ comments: [{ id: 'c1', body: 'old comment', attachments: [], createdAt: 1 }] })
+      const todos = (await handlers['todos:listTodos']({}, 'p1')) as any[]
+      expect(todos[0].comments[0].author).toBe('developer')
     })
   })
 

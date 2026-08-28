@@ -15,6 +15,7 @@ function makeTodo(overrides: Partial<Todo> = {}): Todo {
     tags: [],
     prUrl: null,
     comments: [],
+    author: 'developer',
     createdAt: 1,
     updatedAt: 1,
     ...overrides,

@@ -1,14 +1,17 @@
 import { TODO_LABEL_META } from './labels'
+import { TODO_AUTHOR_META } from './authors'
 import type { Todo } from '@/types/api'
 
 export function TodoCard({
   todo,
   onOpen,
   onDropOn,
+  onContextMenu,
 }: {
   todo: Todo
   onOpen: () => void
   onDropOn: (draggedId: string, placement: 'before' | 'after') => void
+  onContextMenu: (e: React.MouseEvent) => void
 }) {
   function handleDrop(e: React.DragEvent) {
     e.preventDefault()
@@ -23,11 +26,16 @@ export function TodoCard({
   return (
     <div
       onClick={onOpen}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onContextMenu(e)
+      }}
       draggable
       onDragStart={(e) => e.dataTransfer.setData('text/plain', todo.id)}
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDrop}
-      className="relative overflow-hidden rounded border border-border bg-sidebar p-2 pl-3 flex flex-col gap-1.5 cursor-pointer hover:border-accent/60"
+      className="relative shrink-0 overflow-hidden rounded border border-border bg-sidebar p-2 pl-3 flex flex-col gap-1.5 cursor-pointer hover:border-accent/60"
     >
       {todo.label && (
         <span
@@ -35,7 +43,14 @@ export function TodoCard({
           className={`absolute inset-y-0 left-0 w-1 ${TODO_LABEL_META[todo.label].barClassName}`}
         />
       )}
-      <span className="text-[0.65rem] font-mono text-fg-subtle">{todo.id}</span>
+      <div className="flex items-center gap-1.5">
+        <span className="text-[0.65rem] font-mono text-fg-subtle">{todo.id}</span>
+        <span
+          className={`text-[0.6rem] px-1 py-0.5 rounded border leading-none ${TODO_AUTHOR_META[todo.author].className}`}
+        >
+          {TODO_AUTHOR_META[todo.author].text}
+        </span>
+      </div>
       <p className="text-sm text-fg">{todo.title}</p>
       {todo.tags.length > 0 && (
         <div className="flex flex-wrap gap-1">

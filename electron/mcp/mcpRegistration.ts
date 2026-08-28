@@ -1,6 +1,7 @@
 import { app, ipcMain } from 'electron'
 import { execFile } from 'child_process'
 import { join } from 'path'
+import { mkdir, writeFile } from 'fs/promises'
 
 export const MCP_SERVER_NAME = 'vide-todos'
 export const NOTES_MCP_SERVER_NAME = 'vide-notes'
@@ -14,6 +15,10 @@ function run(command: string, args: string[]): Promise<{ stdout: string; stderr:
   })
 }
 
+function shQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`
+}
+
 // `claude` is typically only resolvable through the user's own login shell
 // (nvm, homebrew, etc. modify PATH in shell profiles, not in the environment
 // Electron itself inherits) — same reasoning as the interactive spawn in
@@ -25,6 +30,94 @@ async function resolveClaudeBinary(): Promise<string> {
   const path = stdout.trim().split('\n').pop()
   if (!path) throw new Error("'claude' was not found in PATH — install the Claude Code CLI first")
   return path
+}
+
+export const ENFORCER_PLUGIN_NAME = 'vide-todo-enforcer'
+export const ENFORCER_MARKETPLACE_NAME = 'vide-marketplace'
+
+function enforcerMarketplaceDir(): string {
+  return join(app.getPath('userData'), 'todo-enforcer-plugin', ENFORCER_MARKETPLACE_NAME)
+}
+
+function enforcerPluginDir(): string {
+  return join(enforcerMarketplaceDir(), 'plugins', ENFORCER_PLUGIN_NAME)
+}
+
+function enforcerHookScriptPath(): string {
+  return join(__dirname, 'todoEnforcerHookMain.js')
+}
+
+// Generates the marketplace + plugin + hooks.json files vide-todo-enforcer
+// needs, entirely under userData. Hook command entries can't declare their
+// own env vars, so the ELECTRON_RUN_AS_NODE=1 the hook process needs (same
+// requirement as todoMcpServer.js) is baked directly into the generated
+// shell command string, along with the resolved data directory — both
+// values vIDE already knows at generation time, so there's no need to rely
+// on ${CLAUDE_PLUGIN_ROOT}-style placeholder resolution.
+async function writeEnforcerPluginFiles(): Promise<void> {
+  const description =
+    'Blocks Claude from ending a turn until it has logged a progress comment on the vIDE todo ticket it started working on.'
+
+  const marketplaceClaudePluginDir = join(enforcerMarketplaceDir(), '.claude-plugin')
+  await mkdir(marketplaceClaudePluginDir, { recursive: true })
+  await writeFile(
+    join(marketplaceClaudePluginDir, 'marketplace.json'),
+    JSON.stringify(
+      {
+        name: ENFORCER_MARKETPLACE_NAME,
+        owner: { name: 'vIDE' },
+        plugins: [{ name: ENFORCER_PLUGIN_NAME, source: `./plugins/${ENFORCER_PLUGIN_NAME}`, description }],
+      },
+      null,
+      2
+    )
+  )
+
+  const pluginClaudePluginDir = join(enforcerPluginDir(), '.claude-plugin')
+  await mkdir(pluginClaudePluginDir, { recursive: true })
+  await writeFile(
+    join(pluginClaudePluginDir, 'plugin.json'),
+    JSON.stringify({ name: ENFORCER_PLUGIN_NAME, description, version: '1.0.0' }, null, 2)
+  )
+
+  const hooksDir = join(enforcerPluginDir(), 'hooks')
+  await mkdir(hooksDir, { recursive: true })
+  const execPath = shQuote(process.execPath)
+  const command =
+    `[ -x ${execPath} ] || exit 0; ` +
+    `ELECTRON_RUN_AS_NODE=1 ${execPath} ${shQuote(enforcerHookScriptPath())} ${shQuote(app.getPath('userData'))}`
+  await writeFile(
+    join(hooksDir, 'hooks.json'),
+    JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: 'command', command }] }] } }, null, 2)
+  )
+}
+
+export async function enableTodoEnforcerPlugin(): Promise<void> {
+  await writeEnforcerPluginFiles()
+  const claudeBin = await resolveClaudeBinary()
+  try {
+    await run(claudeBin, ['plugin', 'marketplace', 'add', enforcerMarketplaceDir()])
+  } catch {
+    // already added — fine, installing below still picks up any file changes
+  }
+  await run(claudeBin, [
+    'plugin',
+    'install',
+    `${ENFORCER_PLUGIN_NAME}@${ENFORCER_MARKETPLACE_NAME}`,
+    '--scope',
+    'user',
+  ])
+}
+
+// Best-effort, matching disableTodoMcp's style: turning the toggle off
+// should always succeed locally even if nothing was actually installed.
+export async function disableTodoEnforcerPlugin(): Promise<void> {
+  try {
+    const claudeBin = await resolveClaudeBinary()
+    await run(claudeBin, ['plugin', 'uninstall', `${ENFORCER_PLUGIN_NAME}@${ENFORCER_MARKETPLACE_NAME}`])
+  } catch {
+    // ignore — nothing to clean up, or claude isn't on PATH anymore
+  }
 }
 
 function scriptPath(): string {
@@ -69,8 +162,19 @@ export async function disableTodoMcp(): Promise<void> {
 }
 
 export function registerTodoMcpHandlers(): void {
-  ipcMain.handle('todos:mcp:enable', () => enableTodoMcp())
-  ipcMain.handle('todos:mcp:disable', () => disableTodoMcp())
+  ipcMain.handle('todos:mcp:enable', async () => {
+    await enableTodoMcp()
+    try {
+      await enableTodoEnforcerPlugin()
+    } catch (err) {
+      console.error(
+        'Failed to install the todo-enforcer plugin — Claude can still see and manage todos via MCP, ' +
+          'but the progress-comment enforcement hook is not active:',
+        err
+      )
+    }
+  })
+  ipcMain.handle('todos:mcp:disable', () => Promise.all([disableTodoMcp(), disableTodoEnforcerPlugin()]))
 }
 
 function notesMcpScriptPath(): string {

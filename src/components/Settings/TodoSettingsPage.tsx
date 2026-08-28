@@ -39,7 +39,7 @@ export function TodoSettingsPage() {
 
           <Toggle
             label="Let Claude see & manage your todos"
-            description="Registers an MCP server (claude mcp, user scope) so Claude Code can list, search, create, and update your todos by ticket id — no more pasting ticket details in."
+            description="Registers an MCP server (claude mcp, user scope) so Claude Code can list, search, create, and update your todos by ticket id — no more pasting ticket details in. Also installs a plugin that stops Claude from ending a turn without a progress comment on whichever ticket it started working on."
             checked={mcpEnabled}
             onChange={(value) => void setMcpEnabled(value)}
             disabled={mcpPending}

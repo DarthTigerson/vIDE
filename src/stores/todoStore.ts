@@ -19,9 +19,22 @@ function replaceInBucket(
   }
 }
 
+export type TodoBoardView = 'board' | 'archive'
+
 interface TodoStore {
   projects: TodoProject[]
   todosByProject: Record<string, Todo[]>
+  // Keyed by projectId so it survives TodoBoardPage remounting — the board
+  // is unmounted whenever a todo detail tab becomes active (Editor.tsx only
+  // renders the active tab's page), which would otherwise reset a plain
+  // useState back to 'board' every time.
+  boardViewByProject: Record<string, TodoBoardView>
+  setBoardView: (projectId: string, view: TodoBoardView) => void
+  // Survives TodoPanel remounting (it's unmounted whenever the sidebar
+  // switches to a different activity-bar section) so switching back to the
+  // Todo panel can re-focus the project you were last on.
+  lastOpenedProjectId: string | null
+  setLastOpenedProject: (projectId: string) => void
   loadProjects: () => Promise<void>
   createProject: (name: string, key: string) => Promise<TodoProject>
   loadTodos: (projectId: string) => Promise<void>
@@ -43,6 +56,14 @@ interface TodoStore {
 export const useTodoStore = create<TodoStore>((set, get) => ({
   projects: [],
   todosByProject: {},
+  boardViewByProject: {},
+
+  setBoardView: (projectId, view) => {
+    set({ boardViewByProject: { ...get().boardViewByProject, [projectId]: view } })
+  },
+
+  lastOpenedProjectId: null,
+  setLastOpenedProject: (projectId) => set({ lastOpenedProjectId: projectId }),
 
   loadProjects: async () => {
     const projects = await window.api.todosListProjects()

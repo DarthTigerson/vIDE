@@ -37,6 +37,11 @@ describe('TodoSettingsPage', () => {
     expect(toggle).toHaveAttribute('aria-checked', 'false')
   })
 
+  it('explains that the toggle also blocks Claude from ending a turn without a progress comment', () => {
+    render(<TodoSettingsPage />)
+    expect(screen.getByText(/without.*a progress comment|before it can finish/i)).toBeInTheDocument()
+  })
+
   it('clicking the Claude MCP toggle registers the MCP server and flips it on', async () => {
     render(<TodoSettingsPage />)
     fireEvent.click(screen.getByRole('switch', { name: /let claude/i }))

@@ -74,6 +74,28 @@ describe('editorStore', () => {
     expect(useEditorStore.getState().activeTabPath).toBe('/a.ts')
   })
 
+  it('closeTabEverywhere closes a tab that lives in a non-active pane', () => {
+    const store = useEditorStore.getState()
+    store.openTab({ path: '/a.ts', content: '', dirty: false })
+    store.openTab({ path: '/git-log', content: '', dirty: false })
+    store.splitActivePane('vertical')
+    // splitActivePane moved '/git-log' into a new (now active) pane.
+    store.setActivePane('pane-1')
+    expect(useEditorStore.getState().activePaneId).toBe('pane-1')
+
+    store.closeTabEverywhere('/git-log')
+
+    const state = useEditorStore.getState()
+    expect(state.tabs.map((t) => t.path)).toEqual(['/a.ts'])
+  })
+
+  it('closeTabEverywhere is a no-op when the path is not open anywhere', () => {
+    const store = useEditorStore.getState()
+    store.openTab({ path: '/a.ts', content: '', dirty: false })
+    store.closeTabEverywhere('/missing.ts')
+    expect(useEditorStore.getState().tabs.map((t) => t.path)).toEqual(['/a.ts'])
+  })
+
   it('reopenLastClosed restores the most recently closed tab, including unsaved content', () => {
     const store = useEditorStore.getState()
     store.openTab({ path: '/a.ts', content: '', dirty: false })

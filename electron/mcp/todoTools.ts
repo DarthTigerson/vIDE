@@ -4,6 +4,7 @@ import {
   createTodo,
   updateTodo,
   addComment,
+  startTodo,
   type Todo,
   type TodoProject,
   type TodoStatus,
@@ -22,6 +23,7 @@ function formatDetail(todo: Todo, project: TodoProject | undefined): string {
   const lines = [
     `${todo.id}: ${todo.title}`,
     `Project: ${project ? `${project.name} (${project.key})` : todo.projectId}`,
+    `Author: ${todo.author}`,
     `Status: ${todo.status}`,
     `Label: ${todo.label ?? 'none'}`,
     `Tags: ${todo.tags.length ? todo.tags.join(', ') : 'none'}`,
@@ -31,7 +33,7 @@ function formatDetail(todo: Todo, project: TodoProject | undefined): string {
   if (todo.prUrl) lines.push(`PR: ${todo.prUrl}`)
   if (todo.comments.length) {
     lines.push('Comments:')
-    for (const c of todo.comments) lines.push(`- ${c.body}`)
+    for (const c of todo.comments) lines.push(`- [${c.author}] ${c.body}`)
   }
   return lines.join('\n')
 }
@@ -118,7 +120,7 @@ export function buildTodoTools(dataDir: string): McpToolDef[] {
         const project = findProjectByKey(projects, projectKey)
         if (!project) throw new Error(`No such project key: ${projectKey}`)
 
-        const todo = await createTodo(dataDir, project.id, String(args.title))
+        const todo = await createTodo(dataDir, project.id, String(args.title), 'claude')
         if (args.description) await updateTodo(dataDir, todo.id, { description: String(args.description) })
         return `Created ${todo.id}`
       },
@@ -166,6 +168,17 @@ export function buildTodoTools(dataDir: string): McpToolDef[] {
       },
     },
     {
+      name: 'start_todo',
+      description:
+        'Mark a todo as the one you are actively working on: moves it to in_progress and starts tracking ' +
+        'that you should log progress via add_todo_comment before you finish this turn.',
+      inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+      handler: async (args) => {
+        const todo = await startTodo(dataDir, String(args.id))
+        return `Started ${todo.id} (status now in_progress)`
+      },
+    },
+    {
       name: 'add_todo_comment',
       description: 'Add a comment to a todo — useful for leaving progress notes as you work.',
       inputSchema: {
@@ -174,7 +187,7 @@ export function buildTodoTools(dataDir: string): McpToolDef[] {
         required: ['id', 'body'],
       },
       handler: async (args) => {
-        const todo = await addComment(dataDir, String(args.id), String(args.body))
+        const todo = await addComment(dataDir, String(args.id), String(args.body), [], 'claude')
         return `Added comment to ${todo.id}`
       },
     },

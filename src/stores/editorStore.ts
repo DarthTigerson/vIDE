@@ -188,6 +188,7 @@ interface EditorState {
   openTabAfter: (tab: Tab, afterPath: string) => void
   closeTabInPane: (paneId: string, path: string) => void
   closeTab: (path: string) => void
+  closeTabEverywhere: (path: string) => void
   closeActiveTab: () => void
   closedTabs: { tab: Tab; paneId: string }[]
   pinnedPaths: Set<string>
@@ -373,6 +374,17 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   closeTab: (path: string) => {
     const { activePaneId, closeTabInPane } = get()
     closeTabInPane(activePaneId, path)
+  },
+
+  // Unlike closeTab, doesn't assume the tab lives in the active pane —
+  // for callers reacting to an event (e.g. archiving a todo) rather than a
+  // direct user action on the focused tab strip.
+  closeTabEverywhere: (path: string) => {
+    const state = get()
+    const paneId = collectPaneIds(state.layout).find((pid) =>
+      (state.paneTabLists[pid] ?? []).includes(path)
+    )
+    if (paneId) state.closeTabInPane(paneId, path)
   },
 
   closeActiveTab: () => {
