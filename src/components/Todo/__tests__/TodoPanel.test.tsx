@@ -10,7 +10,7 @@ const openTabMock = vi.fn()
 
 beforeEach(() => {
   openTabMock.mockClear()
-  useTodoStore.setState({ projects: [], todosByProject: {} })
+  useTodoStore.setState({ projects: [], todosByProject: {}, lastOpenedProjectId: null })
   useEditorStore.setState({ openTab: openTabMock })
 })
 
@@ -58,6 +58,29 @@ describe('TodoPanel', () => {
     fireEvent.click(screen.getByText('vIDE'))
 
     expect(openTabMock).toHaveBeenCalledWith({ path: buildTodoBoardPath('p1'), content: '', dirty: false })
+    expect(useTodoStore.getState().lastOpenedProjectId).toBe('p1')
+  })
+
+  it('re-opens the last opened project on mount (e.g. returning from another sidebar panel)', async () => {
+    mockApi({
+      todosListProjects: vi.fn().mockResolvedValue([
+        { id: 'p1', name: 'vIDE', key: 'H', nextNumber: 1, createdAt: 1 },
+      ]),
+    })
+    useTodoStore.setState({ lastOpenedProjectId: 'p1' })
+
+    render(<TodoPanel />)
+
+    await waitFor(() => {
+      expect(openTabMock).toHaveBeenCalledWith({ path: buildTodoBoardPath('p1'), content: '', dirty: false })
+    })
+  })
+
+  it('does not open anything on mount when no project has been opened yet', async () => {
+    mockApi()
+    render(<TodoPanel />)
+    await waitFor(() => screen.getByText('No projects yet.'))
+    expect(openTabMock).not.toHaveBeenCalled()
   })
 
   it('clicking New Project opens the create-project modal', async () => {

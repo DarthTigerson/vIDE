@@ -24,9 +24,10 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
   const updateTodo = useTodoStore((s) => s.updateTodo)
   const reorderTodo = useTodoStore((s) => s.reorderTodo)
   const archiveTodo = useTodoStore((s) => s.archiveTodo)
+  const view = useTodoStore((s) => s.boardViewByProject[projectId] ?? 'board')
+  const setView = useTodoStore((s) => s.setBoardView)
   const openTab = useEditorStore((s) => s.openTab)
 
-  const [view, setView] = useState<'board' | 'archive'>('board')
   const [addingStatus, setAddingStatus] = useState<TodoStatus | null>(null)
   const [newTitle, setNewTitle] = useState('')
   const newTitleInputRef = useRef<HTMLTextAreaElement>(null)
@@ -126,7 +127,7 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
             aria-pressed={view === 'board'}
             aria-label="Board"
             title="Board"
-            onClick={() => setView('board')}
+            onClick={() => setView(projectId, 'board')}
             className={`relative w-7 h-6 flex items-center justify-center rounded ${view === 'board' ? 'text-fg' : 'text-fg-muted'}`}
           >
             <BoardIcon />
@@ -136,7 +137,7 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
             aria-pressed={view === 'archive'}
             aria-label="Archive"
             title="Archive"
-            onClick={() => setView('archive')}
+            onClick={() => setView(projectId, 'archive')}
             className={`relative w-7 h-6 flex items-center justify-center rounded ${view === 'archive' ? 'text-fg' : 'text-fg-muted'}`}
           >
             <ArchiveIcon />

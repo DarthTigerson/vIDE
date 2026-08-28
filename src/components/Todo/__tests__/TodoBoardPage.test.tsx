@@ -58,6 +58,7 @@ beforeEach(() => {
   openTabMock.mockReset()
   useTodoStore.setState({
     projects: [project],
+    boardViewByProject: {},
     todosByProject: {
       p1: [
         makeTodo({ id: 'H-1', title: 'Fix bug', status: 'backlog' }),
@@ -112,6 +113,20 @@ describe('TodoBoardPage', () => {
       content: '',
       dirty: false,
     })
+  })
+
+  it('keeps the archive view selected across a remount of the same project (e.g. returning from a detail tab)', () => {
+    const { unmount } = render(<TodoBoardPage projectId="p1" />)
+    fireEvent.click(screen.getByLabelText('Archive'))
+    expect(screen.getByText('Old and done')).toBeInTheDocument()
+
+    // Editor.tsx only mounts the active tab's page - opening a todo detail
+    // tab unmounts TodoBoardPage entirely, then remounts it on return.
+    unmount()
+    render(<TodoBoardPage projectId="p1" />)
+
+    expect(screen.getByText('Old and done')).toBeInTheDocument()
+    expect(screen.queryByText('Fix bug')).not.toBeInTheDocument()
   })
 
   it('dropping a card onto empty column space appends it to the end of that column', () => {
