@@ -1,24 +1,24 @@
 import { describe, it, expect } from 'vitest'
-import { render } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { AutocompleteIcon } from '@/components/ActivityBar/ActivityBar'
 
 describe('AutocompleteIcon', () => {
-  it('renders an svg', () => {
-    const { container } = render(<AutocompleteIcon crossedOut={false} />)
-    expect(container.querySelector('svg')).toBeTruthy()
+  it('renders the "Abc" label as real text', () => {
+    render(<AutocompleteIcon crossedOut={false} />)
+    expect(screen.getByText('Abc')).toBeInTheDocument()
   })
 
-  it('renders a slash path when crossedOut is true', () => {
+  it('overlays a diagonal slash when crossedOut is true', () => {
     const { container } = render(<AutocompleteIcon crossedOut={true} />)
-    expect(container.querySelectorAll('svg path').length).toBe(3)
+    expect(container.querySelector('svg line')).toBeTruthy()
   })
 
-  it('omits the slash path when crossedOut is false', () => {
+  it('omits the slash when crossedOut is false', () => {
     const { container } = render(<AutocompleteIcon crossedOut={false} />)
-    expect(container.querySelectorAll('svg path').length).toBe(2)
+    expect(container.querySelector('svg line')).toBeFalsy()
   })
 
-  it('applies the spin animation class to the arc when busy', () => {
+  it('applies the spin animation class to the underline when busy', () => {
     const { container } = render(<AutocompleteIcon crossedOut={false} busy={true} />)
     expect(container.querySelector('.autocomplete-busy-arc')).toBeTruthy()
   })

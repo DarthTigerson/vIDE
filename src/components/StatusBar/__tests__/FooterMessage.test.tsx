@@ -2,17 +2,22 @@ import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { FooterMessage } from '../FooterMessage'
 import { useUpdateStore } from '@/stores/updateStore'
+import { useUsageAlertStore } from '@/stores/usageAlertStore'
 import { useDisplayStore } from '@/stores/displayStore'
+import { useEditorStore } from '@/stores/editorStore'
+import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
 import { FOOTER_TIPS } from '@/lib/footerTips'
 
 beforeEach(() => {
   useUpdateStore.setState({ available: null, status: 'idle' })
+  useUsageAlertStore.setState({ alert: null })
   useDisplayStore.setState({ footerContent: 'hints' })
 })
 
 afterEach(() => {
   cleanup()
   useUpdateStore.setState({ available: null, status: 'idle' })
+  useUsageAlertStore.setState({ alert: null })
   useDisplayStore.setState({ footerContent: 'hints' })
 })
 
@@ -47,6 +52,30 @@ describe('FooterMessage — footer content setting', () => {
     render(<FooterMessage />)
     expect(screen.getByRole('button', { name: /vIDE v0\.2\.0 is available/ })).toBeInTheDocument()
     expect(screen.queryByText('2:32 PM')).toBeNull()
+  })
+})
+
+describe('FooterMessage — usage alert', () => {
+  it('shows a session usage alert and opens the Usage Graph tab on click', () => {
+    useUsageAlertStore.setState({ alert: { scope: 'session', cutoffAt: new Date(2026, 0, 1, 16, 0).getTime() } })
+    render(<FooterMessage />)
+    const button = screen.getByRole('button', { name: /Session usage may run out/ })
+    fireEvent.click(button)
+    expect(useEditorStore.getState().activeTabPath).toBe(USAGE_GRAPH_TAB_PATH)
+  })
+
+  it('labels a weekly cutoff as "Weekly usage"', () => {
+    useUsageAlertStore.setState({ alert: { scope: 'week', cutoffAt: new Date(2026, 0, 1, 16, 0).getTime() } })
+    render(<FooterMessage />)
+    expect(screen.getByRole('button', { name: /Weekly usage may run out/ })).toBeInTheDocument()
+  })
+
+  it('takes priority over an available update', () => {
+    useUsageAlertStore.setState({ alert: { scope: 'session', cutoffAt: new Date(2026, 0, 1, 16, 0).getTime() } })
+    useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com' }, status: 'idle' })
+    render(<FooterMessage />)
+    expect(screen.getByRole('button', { name: /Session usage may run out/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /vIDE v0\.2\.0 is available/ })).not.toBeInTheDocument()
   })
 })
 

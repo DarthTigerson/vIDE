@@ -67,6 +67,7 @@ import { useFontSizeStore } from './stores/fontSizeStore'
 import { useInstanceFontSizeStore } from './stores/instanceFontSizeStore'
 import { useSidebarUiStore } from './stores/sidebarUiStore'
 import { useUpdateStore } from './stores/updateStore'
+import { useUsageAlertStore } from './stores/usageAlertStore'
 import { useChangelogStore } from './stores/changelogStore'
 import { useOnboardingStore } from './stores/onboardingStore'
 import { useBrowserStore } from './stores/browserStore'
@@ -273,6 +274,19 @@ export default function App() {
     hadProjectRef.current = !!projectRoot
   }, [projectRoot])
 
+  // Git/Docker/Mobile Display/Graphify only make sense with a project open
+  // (their ActivityBar icons disappear entirely when projectRoot is null,
+  // see primaryActivityBar below) — fall back to Explorer so a project
+  // closing mid-session doesn't strand the sidebar (or a later Cmd+B
+  // reopen, which restores lastLeftPanelRef) on a now-icon-less panel.
+  useEffect(() => {
+    if (projectRoot) return
+    const isProjectOnly = (p: typeof leftPanel) =>
+      p === 'git' || p === 'docker' || p === 'mobile' || p === 'graphify'
+    if (isProjectOnly(lastLeftPanelRef.current)) lastLeftPanelRef.current = 'files'
+    setLeftPanel((p) => (isProjectOnly(p) ? 'files' : p))
+  }, [projectRoot])
+
   // Mirrors the chat panel above: driven imperatively rather than
   // conditionally unmounted (see the sidebar Panel's own comment for why —
   // unmounting it here would re-trigger the exact desync this pattern
@@ -439,6 +453,16 @@ export default function App() {
     return window.api.onUpdateUpToDate((version) => useUpdateStore.getState().showUpToDate(version))
   }, [])
 
+  // Deliberately a passive listener only — no usageAcquire() call here, so
+  // this doesn't itself become a fourth reason the shared poller keeps
+  // running (see UsageManager). It just forwards whatever usage:update
+  // pushes already happen to arrive, from whichever of desktop/mobile/
+  // passive is actually driving the poller, into the footer's alert store.
+  useEffect(() => {
+    window.api.usageGetLatest().then((latest) => useUsageAlertStore.getState().handleUpdate(latest))
+    return window.api.onUsageUpdate((latest) => useUsageAlertStore.getState().handleUpdate(latest))
+  }, [])
+
   useEffect(() => {
     useChangelogStore.getState().checkPending()
   }, [])
@@ -511,7 +535,6 @@ export default function App() {
 
   useEffect(() => {
     return window.api.onMenuNewTerminal(() => {
-      if (!useFileStore.getState().projectRoot) return
       openNewTerminal()
     })
   }, [])
@@ -681,36 +704,36 @@ export default function App() {
               active: leftPanel === 'files',
               onClick: () => setLeftPanel((p) => (p === 'files' ? null : 'files')),
             },
-            {
+            ...(projectRoot ? [{
               id: 'git',
               icon: <GitIcon />,
               title: 'Git',
               active: leftPanel === 'git',
               badge: gitBadge,
               onClick: () => setLeftPanel((p) => (p === 'git' ? null : 'git')),
-            },
-            ...(dockerEnabled ? [{
+            }] : []),
+            ...(dockerEnabled && projectRoot ? [{
               id: 'docker',
               icon: <DockerIcon />,
               title: 'Docker',
               active: leftPanel === 'docker',
               onClick: () => setLeftPanel((p) => (p === 'docker' ? null : 'docker')),
             }] : []),
-            {
+            ...(projectRoot ? [{
               id: 'mobile',
               icon: <PhoneIcon />,
               title: 'Mobile Display',
               active: leftPanel === 'mobile',
               badge: mobileBadge,
               onClick: () => setLeftPanel((p) => (p === 'mobile' ? null : 'mobile')),
-            },
-            {
+            }] : []),
+            ...(projectRoot ? [{
               id: 'graphify',
               icon: <GraphIcon />,
               title: 'Graphify',
               active: leftPanel === 'graphify',
               onClick: () => setLeftPanel((p) => (p === 'graphify' ? null : 'graphify')),
-            },
+            }] : []),
             ...(todoEnabled ? [{
               id: 'todos',
               icon: <TodoIcon />,
@@ -747,7 +770,6 @@ export default function App() {
               icon: <BrowserIcon />,
               title: 'New Browser Tab',
               active: false,
-              disabled: !projectRoot,
               onClick: openNewBrowser,
             },
             {
@@ -755,7 +777,6 @@ export default function App() {
               icon: <TerminalIcon />,
               title: 'New Terminal',
               active: false,
-              disabled: !projectRoot,
               onClick: openNewTerminal,
             },
           ], [

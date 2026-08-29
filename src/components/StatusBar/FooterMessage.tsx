@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react'
 import { FOOTER_TIPS } from '@/lib/footerTips'
 import { useUpdateStore } from '@/stores/updateStore'
+import { useUsageAlertStore } from '@/stores/usageAlertStore'
 import { useStatusMessageStore } from '@/stores/statusMessageStore'
 import { useDisplayStore } from '@/stores/displayStore'
+import { useEditorStore } from '@/stores/editorStore'
+import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
+import { formatResetTime } from '@/components/UsagePanel/format'
 import { Clock } from './Clock'
 
 const ROTATE_INTERVAL_MS = 9000
@@ -17,6 +21,7 @@ function randomTipIndex(exclude?: number): number {
 
 export function FooterMessage() {
   const transientMessage = useStatusMessageStore((s) => s.message)
+  const usageAlert = useUsageAlertStore((s) => s.alert)
   const available = useUpdateStore((s) => s.available)
   const status = useUpdateStore((s) => s.status)
   const upToDateVersion = useUpdateStore((s) => s.upToDateVersion)
@@ -45,6 +50,19 @@ export function FooterMessage() {
       <span className={[positionClasses, 'text-accent select-none pointer-events-none'].join(' ')}>
         {transientMessage}
       </span>
+    )
+  }
+
+  if (usageAlert) {
+    const scopeLabel = usageAlert.scope === 'session' ? 'Session' : 'Weekly'
+    return (
+      <button
+        type="button"
+        onClick={() => useEditorStore.getState().openTab({ path: USAGE_GRAPH_TAB_PATH, content: '', dirty: false })}
+        className={[positionClasses, 'text-amber-400 hover:underline cursor-pointer'].join(' ')}
+      >
+        {`${scopeLabel} usage may run out around ${formatResetTime(usageAlert.cutoffAt)} — click to view`}
+      </button>
     )
   }
 

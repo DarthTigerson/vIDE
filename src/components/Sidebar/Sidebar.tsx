@@ -496,24 +496,28 @@ function RecentProjectsList() {
     useFileStore.getState().openRecentProject(path)
   }
 
-  if (recents.length === 0) return null
-
+  // Always render this flex-1 sibling, even with nothing to list yet (the
+  // fetch hasn't resolved) or ever (no recents at all) — otherwise the
+  // "Select a project" block above becomes the *only* flex-1 child and its
+  // justify-end sinks it to the very bottom instead of roughly centered.
   return (
     <div className="w-full flex-1 min-h-0 flex flex-col gap-1">
-      <ul className="flex-1 min-h-0 flex flex-col gap-0.5 overflow-y-auto">
-        {recents.map((recent) => (
-          <li key={recent.path}>
-            <button
-              type="button"
-              onClick={() => open(recent.path)}
-              className="w-full text-left px-2.5 py-1.5 rounded hover:bg-white/5 transition-colors"
-            >
-              <div className="text-sm text-fg truncate">{recentProjectName(recent.path)}</div>
-              <div className="text-xs text-fg-subtle truncate">{recent.path}</div>
-            </button>
-          </li>
-        ))}
-      </ul>
+      {recents.length > 0 && (
+        <ul className="flex-1 min-h-0 flex flex-col gap-0.5 overflow-y-auto">
+          {recents.map((recent) => (
+            <li key={recent.path}>
+              <button
+                type="button"
+                onClick={() => open(recent.path)}
+                className="w-full text-left px-2.5 py-1.5 rounded hover:bg-white/5 transition-colors"
+              >
+                <div className="text-sm text-fg truncate">{recentProjectName(recent.path)}</div>
+                <div className="text-xs text-fg-subtle truncate">{recent.path}</div>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
