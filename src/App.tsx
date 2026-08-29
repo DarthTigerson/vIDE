@@ -273,6 +273,19 @@ export default function App() {
     hadProjectRef.current = !!projectRoot
   }, [projectRoot])
 
+  // Git/Docker/Mobile Display/Graphify only make sense with a project open
+  // (their ActivityBar icons disappear entirely when projectRoot is null,
+  // see primaryActivityBar below) — fall back to Explorer so a project
+  // closing mid-session doesn't strand the sidebar (or a later Cmd+B
+  // reopen, which restores lastLeftPanelRef) on a now-icon-less panel.
+  useEffect(() => {
+    if (projectRoot) return
+    const isProjectOnly = (p: typeof leftPanel) =>
+      p === 'git' || p === 'docker' || p === 'mobile' || p === 'graphify'
+    if (isProjectOnly(lastLeftPanelRef.current)) lastLeftPanelRef.current = 'files'
+    setLeftPanel((p) => (isProjectOnly(p) ? 'files' : p))
+  }, [projectRoot])
+
   // Mirrors the chat panel above: driven imperatively rather than
   // conditionally unmounted (see the sidebar Panel's own comment for why —
   // unmounting it here would re-trigger the exact desync this pattern
@@ -511,7 +524,6 @@ export default function App() {
 
   useEffect(() => {
     return window.api.onMenuNewTerminal(() => {
-      if (!useFileStore.getState().projectRoot) return
       openNewTerminal()
     })
   }, [])
@@ -681,36 +693,36 @@ export default function App() {
               active: leftPanel === 'files',
               onClick: () => setLeftPanel((p) => (p === 'files' ? null : 'files')),
             },
-            {
+            ...(projectRoot ? [{
               id: 'git',
               icon: <GitIcon />,
               title: 'Git',
               active: leftPanel === 'git',
               badge: gitBadge,
               onClick: () => setLeftPanel((p) => (p === 'git' ? null : 'git')),
-            },
-            ...(dockerEnabled ? [{
+            }] : []),
+            ...(dockerEnabled && projectRoot ? [{
               id: 'docker',
               icon: <DockerIcon />,
               title: 'Docker',
               active: leftPanel === 'docker',
               onClick: () => setLeftPanel((p) => (p === 'docker' ? null : 'docker')),
             }] : []),
-            {
+            ...(projectRoot ? [{
               id: 'mobile',
               icon: <PhoneIcon />,
               title: 'Mobile Display',
               active: leftPanel === 'mobile',
               badge: mobileBadge,
               onClick: () => setLeftPanel((p) => (p === 'mobile' ? null : 'mobile')),
-            },
-            {
+            }] : []),
+            ...(projectRoot ? [{
               id: 'graphify',
               icon: <GraphIcon />,
               title: 'Graphify',
               active: leftPanel === 'graphify',
               onClick: () => setLeftPanel((p) => (p === 'graphify' ? null : 'graphify')),
-            },
+            }] : []),
             ...(todoEnabled ? [{
               id: 'todos',
               icon: <TodoIcon />,
@@ -747,7 +759,6 @@ export default function App() {
               icon: <BrowserIcon />,
               title: 'New Browser Tab',
               active: false,
-              disabled: !projectRoot,
               onClick: openNewBrowser,
             },
             {
@@ -755,7 +766,6 @@ export default function App() {
               icon: <TerminalIcon />,
               title: 'New Terminal',
               active: false,
-              disabled: !projectRoot,
               onClick: openNewTerminal,
             },
           ], [
