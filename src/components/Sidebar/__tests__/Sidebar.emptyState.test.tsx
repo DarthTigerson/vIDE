@@ -49,6 +49,22 @@ describe('Sidebar — empty state (no folder open)', () => {
     expect(screen.queryByText('Recent Projects')).not.toBeInTheDocument()
   })
 
+  it('keeps the "Select a project" prompt in the same flex layout regardless of whether there are recent projects (regression: it used to sink to the bottom when the recents list was empty/still loading, since its flex-1 sibling was unmounted instead of just left empty)', async () => {
+    mockApi()
+    useFileStore.setState({ projectRoot: null, tree: [] })
+    render(<Sidebar />)
+
+    // Before the recents fetch resolves, and after it resolves with zero
+    // recents, the outer flex column must still have both flex-1 children
+    // — the prompt's own wrapper and the (empty) recents-list wrapper —
+    // otherwise the prompt's justify-end sinks it to the very bottom.
+    const outer = screen.getByText('Select a project').closest('div')?.parentElement
+    expect(outer?.children.length).toBe(2)
+
+    await waitFor(() => expect(window.api.recentProjectsList).toHaveBeenCalled())
+    expect(outer?.children.length).toBe(2)
+  })
+
   it('clicking a recent project opens it in the current window', async () => {
     mockApi({
       recentProjectsList: vi.fn().mockResolvedValue([{ path: '/Users/thomas/repo-a', lastOpened: 1 }]),
