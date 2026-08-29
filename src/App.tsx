@@ -67,6 +67,7 @@ import { useFontSizeStore } from './stores/fontSizeStore'
 import { useInstanceFontSizeStore } from './stores/instanceFontSizeStore'
 import { useSidebarUiStore } from './stores/sidebarUiStore'
 import { useUpdateStore } from './stores/updateStore'
+import { useUsageAlertStore } from './stores/usageAlertStore'
 import { useChangelogStore } from './stores/changelogStore'
 import { useOnboardingStore } from './stores/onboardingStore'
 import { useBrowserStore } from './stores/browserStore'
@@ -450,6 +451,16 @@ export default function App() {
 
   useEffect(() => {
     return window.api.onUpdateUpToDate((version) => useUpdateStore.getState().showUpToDate(version))
+  }, [])
+
+  // Deliberately a passive listener only — no usageAcquire() call here, so
+  // this doesn't itself become a fourth reason the shared poller keeps
+  // running (see UsageManager). It just forwards whatever usage:update
+  // pushes already happen to arrive, from whichever of desktop/mobile/
+  // passive is actually driving the poller, into the footer's alert store.
+  useEffect(() => {
+    window.api.usageGetLatest().then((latest) => useUsageAlertStore.getState().handleUpdate(latest))
+    return window.api.onUsageUpdate((latest) => useUsageAlertStore.getState().handleUpdate(latest))
   }, [])
 
   useEffect(() => {
