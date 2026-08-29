@@ -14,6 +14,10 @@ vi.mock('electron', () => ({
   },
 }))
 
+function direntFor(name: string, isDirectory: boolean) {
+  return { name, isDirectory: () => isDirectory, isFile: () => !isDirectory }
+}
+
 vi.mock('fs/promises', () => ({
   writeFile: async (path: string, data: string, options?: { flag?: string }) => {
     if (options?.flag === 'wx' && (fsState.files.has(path) || fsState.dirs.has(path))) {
@@ -42,6 +46,21 @@ vi.mock('fs/promises', () => ({
     } else {
       throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
     }
+  },
+  readFile: async (path: string) => {
+    if (!fsState.files.has(path)) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    return fsState.files.get(path)!
+  },
+  readdir: async (dir: string, options?: { withFileTypes?: boolean }) => {
+    if (!fsState.dirs.has(dir)) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    const prefix = dir.endsWith('/') ? dir : `${dir}/`
+    const names = new Set<string>()
+    for (const path of [...fsState.files.keys(), ...fsState.dirs.keys()]) {
+      if (!path.startsWith(prefix) || path === dir) continue
+      names.add(path.slice(prefix.length).split('/')[0])
+    }
+    const entries = [...names].sort().map((name) => direntFor(name, fsState.dirs.has(`${dir}/${name}`)))
+    return options?.withFileTypes ? entries : entries.map((e) => e.name)
   },
 }))
 
@@ -106,6 +125,72 @@ describe('notes', () => {
       const a = (await handlers['notes:createNote']({}, root, 'A')) as any
       await handlers['notes:createNote']({}, root, 'B')
       await expect(handlers['notes:renameEntry']({}, a.path, 'B', true)).rejects.toThrow()
+    })
+  })
+
+  describe('search', () => {
+    it('matches by title even when the content does not match', async () => {
+      const root = (await handlers['notes:getRoot']()) as string
+      await handlers['notes:createNote']({}, root, 'Roadmap')
+      fsState.files.set(`${root}/Roadmap.md`, 'unrelated body text')
+
+      const results = (await handlers['notes:search']({}, 'roadmap')) as any[]
+
+      expect(results).toEqual([{ path: `${root}/Roadmap.md`, name: 'Roadmap.md', snippet: null }])
+    })
+
+    it('matches by content and returns the first matching line as a snippet', async () => {
+      const root = (await handlers['notes:getRoot']()) as string
+      await handlers['notes:createNote']({}, root, 'Meeting')
+      fsState.files.set(`${root}/Meeting.md`, 'intro line\ncontains the secret keyword\nmore text')
+
+      const results = (await handlers['notes:search']({}, 'secret')) as any[]
+
+      expect(results).toEqual([
+        { path: `${root}/Meeting.md`, name: 'Meeting.md', snippet: 'contains the secret keyword' },
+      ])
+    })
+
+    it('searches recursively through folders', async () => {
+      const root = (await handlers['notes:getRoot']()) as string
+      const folder = (await handlers['notes:createFolder']({}, root, 'Work')) as any
+      await handlers['notes:createNote']({}, folder.path, 'Deep')
+      fsState.files.set(`${folder.path}/Deep.md`, 'buried keyword here')
+
+      const results = (await handlers['notes:search']({}, 'keyword')) as any[]
+
+      expect(results).toEqual([
+        { path: `${folder.path}/Deep.md`, name: 'Deep.md', snippet: 'buried keyword here' },
+      ])
+    })
+
+    it('is case-insensitive', async () => {
+      const root = (await handlers['notes:getRoot']()) as string
+      await handlers['notes:createNote']({}, root, 'Note')
+      fsState.files.set(`${root}/Note.md`, 'has Keyword in it')
+
+      const results = (await handlers['notes:search']({}, 'KEYWORD')) as any[]
+
+      expect(results).toHaveLength(1)
+    })
+
+    it('returns nothing for a blank query', async () => {
+      const root = (await handlers['notes:getRoot']()) as string
+      await handlers['notes:createNote']({}, root, 'Note')
+
+      const results = (await handlers['notes:search']({}, '   ')) as any[]
+
+      expect(results).toEqual([])
+    })
+
+    it('returns nothing when no note matches', async () => {
+      const root = (await handlers['notes:getRoot']()) as string
+      await handlers['notes:createNote']({}, root, 'Note')
+      fsState.files.set(`${root}/Note.md`, 'nothing interesting')
+
+      const results = (await handlers['notes:search']({}, 'nope')) as any[]
+
+      expect(results).toEqual([])
     })
   })
 })
