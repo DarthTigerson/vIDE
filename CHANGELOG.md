@@ -1,5 +1,23 @@
 # vIDE
 
+## v0.2.6 (2026-08-29)
+- **Notes search**: a search button in the Notes panel header toggles a search box that matches note titles and content across your whole library, not just expanded folders — press "/" to jump to it, same as the To Do board's search
+- **To Do search and author tracking**: a search box filters the To Do board and archive by title/description, and comments/cards now record which author (you or Claude) made them
+- **To Do right-click menu**: cards and columns get a context menu for duplicate, move, archive, and column sort options
+- **Claude Code To Do enforcer**: enabling the existing "Let Claude see & manage your todos" toggle now also installs a plugin that stops Claude from ending a turn without leaving a progress comment on whichever ticket it started working on
+- **Usage burn-rate footer alert**: when Claude usage is projected to run out before the session or weekly reset, the footer shows an alert linking to the Usage Graph — persists until usage is back on track
+- Redesigned the confusing autocomplete footer icon as a plain "Abc" label, with a diagonal slash when paused
+- Restyled the footer font-size control to match the browser tab's zoom control (rounded pill, +/− icons, click to reset)
+- To Do board now remembers its last view (board/archive) and the last opened project across restarts
+- Sidebar navbar icons for Git/Docker/Mobile Display/Graphify are now hidden when no project is open; Browser and Terminal work without one
+
+**Bug fixes**
+- Fixed the To Do detail tab staying open after archiving its ticket
+- Fixed To Do board columns not scrolling and cards shrinking when a column had many cards
+- Fixed the "Select a project" empty state sinking to the bottom of the sidebar when there were no recent projects yet
+- Fixed browser tabs occasionally surviving as orphaned overlays after reloading the window
+
+
 ## v0.2.5 (2026-08-26)
 - **Claude Code MCP for To Do**: a new toggle in Settings > To Do lets Claude Code list, search, create, and update todos by ticket ID — no more pasting ticket details into the chat. Registers a user-scoped MCP server so it's available in every Claude session regardless of which project is open
 - **Claude Code MCP for Notes**: a matching toggle in Settings > Notes gives Claude Code access to your notes library — it can list all notes, read any note by path, search content across all notes, and create or overwrite notes. Same user-scoped MCP approach as To Do
