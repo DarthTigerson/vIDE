@@ -351,6 +351,7 @@ contextBridge.exposeInMainWorld('api', {
   notesCreateFolder: (dirPath: string, name: string) => ipcRenderer.invoke('notes:createFolder', dirPath, name),
   notesRenameEntry: (oldPath: string, newName: string, isNote: boolean) =>
     ipcRenderer.invoke('notes:renameEntry', oldPath, newName, isNote),
+  notesSearch: (query: string) => ipcRenderer.invoke('notes:search', query),
   notesMcpEnable: () => ipcRenderer.invoke('notes:mcp:enable'),
   notesMcpDisable: () => ipcRenderer.invoke('notes:mcp:disable'),
   onNotesChanged: (cb: () => void) => {

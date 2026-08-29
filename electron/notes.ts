@@ -1,6 +1,6 @@
 import { app, ipcMain, BrowserWindow } from 'electron'
-import { join, dirname } from 'path'
-import { access, mkdir, rename, writeFile } from 'fs/promises'
+import { basename, join, dirname } from 'path'
+import { access, mkdir, readFile, readdir, rename, writeFile } from 'fs/promises'
 import { watch, type FSWatcher } from 'chokidar'
 
 function notesRoot(): string {
@@ -68,6 +68,57 @@ async function renameEntry(
   return { path: newPath, name: finalName }
 }
 
+interface NotesSearchResult {
+  path: string
+  name: string
+  snippet: string | null
+}
+
+const MAX_SEARCH_RESULTS = 200
+
+async function walkNoteFiles(dir: string): Promise<string[]> {
+  let entries
+  try {
+    entries = await readdir(dir, { withFileTypes: true })
+  } catch {
+    return []
+  }
+  const files: string[] = []
+  for (const entry of entries) {
+    const full = join(dir, entry.name)
+    if (entry.isDirectory()) files.push(...(await walkNoteFiles(full)))
+    else if (entry.isFile() && entry.name.endsWith('.md')) files.push(full)
+  }
+  return files
+}
+
+// Matches by note title (filename) or file content, case-insensitive. A
+// title-only match has no snippet; a content match's snippet is its first
+// matching line, so the UI can show why a note showed up.
+async function searchNotes(root: string, query: string): Promise<NotesSearchResult[]> {
+  const needle = query.trim().toLowerCase()
+  if (!needle) return []
+  const files = await walkNoteFiles(root)
+  const results: NotesSearchResult[] = []
+  for (const path of files) {
+    const name = basename(path)
+    const titleMatch = name.slice(0, -3).toLowerCase().includes(needle)
+    let snippet: string | null = null
+    try {
+      const content = await readFile(path, 'utf-8')
+      const line = content.split('\n').find((l) => l.toLowerCase().includes(needle))
+      if (line !== undefined) snippet = line.trim().slice(0, 200)
+    } catch {
+      // Unreadable file — fall back to a title-only match, if any.
+    }
+    if (titleMatch || snippet !== null) {
+      results.push({ path, name, snippet })
+      if (results.length >= MAX_SEARCH_RESULTS) break
+    }
+  }
+  return results
+}
+
 let notesWatcher: FSWatcher | null = null
 let notesDebounce: ReturnType<typeof setTimeout> | null = null
 
@@ -96,4 +147,5 @@ export function registerNotesHandlers(): void {
   ipcMain.handle('notes:renameEntry', (_e, oldPath: string, newName: string, isNote: boolean) =>
     renameEntry(oldPath, newName, isNote)
   )
+  ipcMain.handle('notes:search', (_e, query: string) => searchNotes(notesRoot(), query))
 }

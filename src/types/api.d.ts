@@ -113,6 +113,12 @@ export interface NotesEntryResult {
   name: string
 }
 
+export interface NotesSearchResult {
+  path: string
+  name: string
+  snippet: string | null
+}
+
 export interface TodoUpdatePatch {
   title?: string
   description?: string
@@ -313,6 +319,7 @@ declare global {
       notesCreateNote: (dirPath: string, name: string) => Promise<NotesEntryResult>
       notesCreateFolder: (dirPath: string, name: string) => Promise<NotesEntryResult>
       notesRenameEntry: (oldPath: string, newName: string, isNote: boolean) => Promise<NotesEntryResult>
+      notesSearch: (query: string) => Promise<NotesSearchResult[]>
       notesMcpEnable: () => Promise<void>
       notesMcpDisable: () => Promise<void>
       onNotesChanged: (cb: () => void) => () => void

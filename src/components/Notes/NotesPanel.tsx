@@ -1,14 +1,18 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import type { MouseEvent, ReactNode } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent, ReactNode } from 'react'
 import type { FileNode } from '@/types/index'
+import type { NotesSearchResult } from '@/types/api'
 import { useNotesStore } from '@/stores/notesStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { buildMarkdownPreviewPath } from '@/components/Viewer/paths'
 import { Modal } from '@/components/ui/Modal'
 import { clampToViewport } from '@/components/ui/clampToViewport'
 import { UndoToast } from '@/components/ui/UndoToast'
+import { DiaryPageIcon } from './DiaryPageIcon'
 import { NotesTree, type NotesPromptState } from './NotesTree'
+
+const SEARCH_DEBOUNCE_MS = 250
 
 const UNDO_TIMEOUT_MS = 10000
 
@@ -65,6 +69,72 @@ function ContextMenuDivider() {
   return <div className="my-1 h-px bg-border" />
 }
 
+function SearchIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M11 11L14.5 14.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function relativeDir(path: string, root: string): string {
+  const dir = dirname(path)
+  return dir === root ? '' : dir.slice(root.length + 1)
+}
+
+function NotesSearchResults({
+  results,
+  searching,
+  query,
+  root,
+  activeNotePath,
+  onOpen,
+}: {
+  results: NotesSearchResult[]
+  searching: boolean
+  query: string
+  root: string
+  activeNotePath: string | null
+  onOpen: (result: NotesSearchResult) => void
+}) {
+  if (results.length === 0) {
+    return (
+      <p className="px-3 py-2 text-xs text-fg-subtle">
+        {searching ? 'Searching…' : `No notes match "${query}"`}
+      </p>
+    )
+  }
+  return (
+    <ul>
+      {results.map((result) => (
+        <li key={result.path}>
+          <button
+            type="button"
+            onClick={() => onOpen(result)}
+            className={`flex w-full flex-col items-start gap-0.5 rounded px-3 py-1 text-left hover:bg-white/5 ${
+              activeNotePath === result.path ? 'bg-accent/20' : ''
+            }`}
+          >
+            <span className="flex w-full min-w-0 items-center gap-1">
+              <DiaryPageIcon />
+              <span className="truncate text-sm text-fg">{noteDisplayName(result.name)}</span>
+            </span>
+            {relativeDir(result.path, root) && (
+              <span className="truncate pl-4 text-[0.65rem] text-fg-subtle">
+                {relativeDir(result.path, root)}
+              </span>
+            )}
+            {result.snippet && (
+              <span className="truncate pl-4 text-[0.65rem] text-fg-subtle">{result.snippet}</span>
+            )}
+          </button>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export function NotesPanel() {
   const root = useNotesStore((s) => s.root)
   const loadRoot = useNotesStore((s) => s.loadRoot)
@@ -72,6 +142,11 @@ export function NotesPanel() {
 
   const [childrenByDir, setChildrenByDir] = useState<Record<string, FileNode[]>>({})
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set())
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const [searchResults, setSearchResults] = useState<NotesSearchResult[]>([])
+  const [searching, setSearching] = useState(false)
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const [prompt, setPrompt] = useState<NotesPromptState | null>(null)
@@ -97,6 +172,32 @@ export function NotesPanel() {
   }, [])
 
   useEffect(() => { expandedPathsRef.current = expandedPaths }, [expandedPaths])
+
+  // Searches note titles and content across the whole library (not just
+  // expanded/loaded folders), unlike the tree view — mirrors the Todo
+  // board's inline search, but backed by an IPC walk since notes live on
+  // disk rather than in a preloaded store.
+  useEffect(() => {
+    const query = searchQuery.trim()
+    if (!query) {
+      setSearchResults([])
+      setSearching(false)
+      return
+    }
+    setSearching(true)
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      const results = await window.api.notesSearch(query)
+      if (!cancelled) {
+        setSearchResults(results)
+        setSearching(false)
+      }
+    }, SEARCH_DEBOUNCE_MS)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [searchQuery])
 
   const refreshDir = useCallback(async (dirPath: string) => {
     const nodes = await window.api.readDir(dirPath)
@@ -141,6 +242,34 @@ export function NotesPanel() {
     menuRef.current.style.left = `${clamped.x}px`
     menuRef.current.style.top = `${clamped.y}px`
   }, [menu])
+
+  // "/" opens (if needed) and jumps into the search box without needing to
+  // click first, matching the convention used by the Todo board's search.
+  // Guarded so it doesn't hijack a literal "/" typed into the rename/create
+  // inline input.
+  function handleContainerKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key !== '/') return
+    const active = document.activeElement
+    const isTyping = active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement
+    if (isTyping) return
+    event.preventDefault()
+    setSearchOpen(true)
+  }
+
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus()
+  }, [searchOpen])
+
+  function toggleSearch() {
+    setSearchOpen((open) => {
+      if (open) setSearchQuery('')
+      return !open
+    })
+  }
+
+  async function openSearchResult(result: NotesSearchResult) {
+    await openNote({ path: result.path, name: result.name, isDirectory: false })
+  }
 
   function openContextMenu(event: MouseEvent, node: FileNode | null) {
     event.preventDefault()
@@ -283,7 +412,9 @@ export function NotesPanel() {
   return (
     <div
       className="relative h-full flex flex-col bg-sidebar border-r border-border overflow-hidden"
+      tabIndex={-1}
       onContextMenu={(e) => openContextMenu(e, null)}
+      onKeyDown={handleContainerKeyDown}
     >
       {undoMove && (
         <UndoToast
@@ -293,15 +424,53 @@ export function NotesPanel() {
       )}
       <div className="h-9 px-3 border-b border-border shrink-0 flex items-center justify-between">
         <span className="text-xs font-semibold text-fg-muted uppercase tracking-wider">Notes</span>
-        <button
-          type="button"
-          aria-label="New Note"
-          onClick={() => startCreate('note', null)}
-          className="w-5 h-5 rounded flex items-center justify-center text-fg-muted hover:text-fg hover:bg-white/10"
-        >
-          +
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            aria-pressed={searchOpen}
+            aria-label="Search Notes"
+            onClick={toggleSearch}
+            className={`w-5 h-5 rounded flex items-center justify-center hover:bg-white/10 ${
+              searchOpen ? 'text-fg bg-white/10' : 'text-fg-muted hover:text-fg'
+            }`}
+          >
+            <SearchIcon />
+          </button>
+          <button
+            type="button"
+            aria-label="New Note"
+            onClick={() => startCreate('note', null)}
+            className="w-5 h-5 rounded flex items-center justify-center text-fg-muted hover:text-fg hover:bg-white/10"
+          >
+            +
+          </button>
+        </div>
       </div>
+
+      {searchOpen && (
+        <div className="px-3 py-2 border-b border-border shrink-0">
+          <div className="relative">
+            <input
+              ref={searchInputRef}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Press / to search"
+              aria-label="Search notes"
+              className="w-full h-7 rounded border border-border bg-bg pl-2 pr-6 text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-1 focus:ring-accent/70"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded text-fg-subtle hover:text-fg hover:bg-white/10"
+              >
+                ×
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       <div
         className={`flex-1 overflow-y-auto py-1 ${root && dragOverPath === root ? 'bg-accent/5' : ''}`}
@@ -318,24 +487,37 @@ export function NotesPanel() {
           if (sourcePath && root) moveNode(sourcePath, root)
         }}
       >
-        {root && (
-          <NotesTree
-            nodes={childrenByDir[root] ?? []}
-            directoryPath={root}
-            expandedPaths={expandedPaths}
-            childrenByDir={childrenByDir}
-            activeNotePath={activeTabPath}
-            onToggle={toggleDir}
-            onOpenNote={openNote}
-            onContextMenu={openContextMenu}
-            prompt={prompt}
-            setPromptValue={setPromptValue}
-            commitPrompt={commitPrompt}
-            cancelPrompt={cancelPrompt}
-            dragOverPath={dragOverPath}
-            setDragOverPath={setDragOverPath}
-            onMoveNode={moveNode}
-          />
+        {searchQuery.trim() ? (
+          root && (
+            <NotesSearchResults
+              results={searchResults}
+              searching={searching}
+              query={searchQuery.trim()}
+              root={root}
+              activeNotePath={activeTabPath}
+              onOpen={openSearchResult}
+            />
+          )
+        ) : (
+          root && (
+            <NotesTree
+              nodes={childrenByDir[root] ?? []}
+              directoryPath={root}
+              expandedPaths={expandedPaths}
+              childrenByDir={childrenByDir}
+              activeNotePath={activeTabPath}
+              onToggle={toggleDir}
+              onOpenNote={openNote}
+              onContextMenu={openContextMenu}
+              prompt={prompt}
+              setPromptValue={setPromptValue}
+              commitPrompt={commitPrompt}
+              cancelPrompt={cancelPrompt}
+              dragOverPath={dragOverPath}
+              setDragOverPath={setDragOverPath}
+              onMoveNode={moveNode}
+            />
+          )
         )}
         {promptError && <p className="px-3 pt-1 text-xs text-red-400">{promptError}</p>}
       </div>
