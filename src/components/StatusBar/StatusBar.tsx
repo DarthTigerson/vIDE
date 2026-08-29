@@ -118,7 +118,7 @@ export function StatusBar() {
               onClick={(e) => { e.stopPropagation(); setAutocompleteMenuOpen((o) => !o) }}
               onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setAutocompleteMenuOpen((o) => !o) }}
               className={[
-                'w-5 h-5 flex items-center justify-center transition-colors',
+                'h-5 px-1 flex items-center justify-center transition-colors',
                 autocompleteActive && autocompleteBusy
                   ? 'text-accent'
                   : autocompleteActive
