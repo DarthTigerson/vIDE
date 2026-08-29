@@ -94,29 +94,24 @@ describe('ModelsSettingsPage bridge section', () => {
 })
 
 describe('ModelsSettingsPage autocomplete section', () => {
-  it('reflects the current enabled state', () => {
-    useAutocompleteSettingsStore.setState({ enabled: false })
+  it('is force-disabled regardless of the persisted setting (VIDE-16)', () => {
+    useAutocompleteSettingsStore.setState({ enabled: true })
     render(<ModelsSettingsPage />)
-    expect(screen.getByRole('switch', { name: 'Inline Autocomplete' })).toHaveAttribute('aria-checked', 'false')
+    const toggle = screen.getByRole('switch', { name: 'Inline Autocomplete' })
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+    expect(toggle).toBeDisabled()
   })
 
-  it('toggles autocomplete on click', () => {
+  it('does not change the stored setting on click while force-disabled', () => {
+    useAutocompleteSettingsStore.setState({ enabled: false })
     render(<ModelsSettingsPage />)
     fireEvent.click(screen.getByRole('switch', { name: 'Inline Autocomplete' }))
     expect(useAutocompleteSettingsStore.getState().enabled).toBe(false)
   })
 
-  it('reflects the current model selection', () => {
-    useAutocompleteSettingsStore.setState({ model: 'claude-opus-5' })
+  it('disables the model picker while autocomplete is force-disabled', () => {
     render(<ModelsSettingsPage />)
-    expect(screen.getByLabelText('Model')).toHaveTextContent('Opus 5')
-  })
-
-  it('updates the model when changed', () => {
-    render(<ModelsSettingsPage />)
-    fireEvent.click(screen.getByLabelText('Model'))
-    fireEvent.click(screen.getByRole('option', { name: 'Sonnet 5' }))
-    expect(useAutocompleteSettingsStore.getState().model).toBe('claude-sonnet-5')
+    expect(screen.getByLabelText('Model')).toBeDisabled()
   })
 })
 

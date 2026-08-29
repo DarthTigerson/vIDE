@@ -1,4 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+
+// Autocomplete is force-disabled globally while VIDE-16 is reworked (see
+// autocompleteEffectiveState.ts). This file tests provideInlineCompletion's
+// own mechanics (debounce, IPC call, busy toggle, cancellation) in isolation
+// from that global gate, which has its own dedicated test coverage.
+const isAutocompleteEffectivelyEnabled = vi.fn()
+vi.mock('../autocompleteEffectiveState', () => ({
+  isAutocompleteEffectivelyEnabled: () => isAutocompleteEffectivelyEnabled(),
+}))
+
 import { provideInlineCompletion } from '../monacoAutocomplete'
 import { useAutocompleteSettingsStore } from '@/stores/autocompleteSettingsStore'
 import { useAutocompleteSessionStore } from '@/stores/autocompleteSessionStore'
@@ -20,6 +30,7 @@ function fakeToken(cancelled = false) {
 describe('provideInlineCompletion', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    isAutocompleteEffectivelyEnabled.mockReset().mockReturnValue(true)
     useAutocompleteSettingsStore.setState({ enabled: true, model: 'claude-haiku-4-5-20251001' })
     useAutocompleteSessionStore.setState({ paused: false })
     useAutocompleteStatusStore.setState({ busy: false })
@@ -29,8 +40,8 @@ describe('provideInlineCompletion', () => {
     vi.useRealTimers()
   })
 
-  it('returns no items immediately when disabled in settings', async () => {
-    useAutocompleteSettingsStore.setState({ enabled: false })
+  it('returns no items immediately when the effective-enabled gate is false', async () => {
+    isAutocompleteEffectivelyEnabled.mockReturnValue(false)
     ;(global as any).window = { api: { autocompleteComplete: vi.fn() } }
 
     const result = await provideInlineCompletion(fakeModel(), { lineNumber: 1, column: 1 }, fakeToken())
@@ -39,14 +50,16 @@ describe('provideInlineCompletion', () => {
     expect(window.api.autocompleteComplete).not.toHaveBeenCalled()
   })
 
-  it('returns no items immediately when session-paused', async () => {
-    useAutocompleteSessionStore.setState({ paused: true })
-    ;(global as any).window = { api: { autocompleteComplete: vi.fn() } }
+  it('returns no items if the gate flips to false during the debounce wait', async () => {
+    const apiMock = vi.fn().mockResolvedValue('x')
+    ;(global as any).window = { api: { autocompleteComplete: apiMock } }
 
-    const result = await provideInlineCompletion(fakeModel(), { lineNumber: 1, column: 1 }, fakeToken())
+    const promise = provideInlineCompletion(fakeModel(), { lineNumber: 1, column: 1 }, fakeToken())
+    isAutocompleteEffectivelyEnabled.mockReturnValue(false)
+    await vi.advanceTimersByTimeAsync(700)
 
-    expect(result).toEqual([])
-    expect(window.api.autocompleteComplete).not.toHaveBeenCalled()
+    expect(await promise).toEqual([])
+    expect(apiMock).not.toHaveBeenCalled()
   })
 
   it('returns no items if cancelled during the debounce wait', async () => {
@@ -110,17 +123,5 @@ describe('provideInlineCompletion', () => {
 
     await expect(promise).resolves.toEqual([])
     expect(useAutocompleteStatusStore.getState().busy).toBe(false)
-  })
-
-  it('returns no items if autocomplete is paused during the debounce wait', async () => {
-    const apiMock = vi.fn().mockResolvedValue('x')
-    ;(global as any).window = { api: { autocompleteComplete: apiMock } }
-
-    const promise = provideInlineCompletion(fakeModel(), { lineNumber: 1, column: 1 }, fakeToken())
-    useAutocompleteSessionStore.setState({ paused: true })
-    await vi.advanceTimersByTimeAsync(700)
-
-    expect(await promise).toEqual([])
-    expect(apiMock).not.toHaveBeenCalled()
   })
 })

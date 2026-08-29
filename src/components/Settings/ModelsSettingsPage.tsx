@@ -78,8 +78,6 @@ function BridgeConnectionSection() {
 export function ModelsSettingsPage() {
   const enabledModels = useModelSettingsStore((s) => s.enabled)
   const setModelEnabled = useModelSettingsStore((s) => s.setEnabled)
-  const autocompleteEnabled = useAutocompleteSettingsStore((s) => s.enabled)
-  const setAutocompleteEnabled = useAutocompleteSettingsStore((s) => s.setEnabled)
   const autocompleteModel = useAutocompleteSettingsStore((s) => s.model)
   const setAutocompleteModel = useAutocompleteSettingsStore((s) => s.setModel)
   const inlineEditEnabled = useInlineEditSettingsStore((s) => s.enabled)
@@ -130,9 +128,10 @@ export function ModelsSettingsPage() {
 
           <Toggle
             label="Inline Autocomplete"
-            description="Show ghost-text code suggestions as you type, powered by your claude subscription."
-            checked={autocompleteEnabled}
-            onChange={setAutocompleteEnabled}
+            description="Temporarily disabled while we rework how this feature works (VIDE-16) — the current design has poor latency and burns subscription usage."
+            checked={false}
+            disabled
+            onChange={() => {}}
           />
 
           <div>
@@ -142,6 +141,7 @@ export function ModelsSettingsPage() {
               value={autocompleteModel}
               onChange={setAutocompleteModel}
               options={AUTOCOMPLETE_MODELS.map((m) => ({ value: m.id, label: m.label }))}
+              disabled
             />
           </div>
         </section>
