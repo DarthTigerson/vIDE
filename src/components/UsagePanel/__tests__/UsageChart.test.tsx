@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, waitFor, fireEvent } from '@testing-library/react'
 import { UsageChart } from '../UsageChart'
 import type { LatestUsage, UsageSnapshot } from '@/types/api'
@@ -34,6 +34,41 @@ function mockApi(snapshots: UsageSnapshot[]) {
     configurable: true,
   })
 }
+
+// Every test starts from a clean slate — otherwise the range persistence
+// tests below would leak a stored range into unrelated tests that assume
+// each metric's own default (24h / 7d) is still in effect.
+beforeEach(() => localStorage.clear())
+afterEach(() => localStorage.clear())
+
+describe('UsageChart — range persistence', () => {
+  it('remembers the last range picked per metric across remounts', async () => {
+    mockApi([snap(NOW - 604_800_000, 10), snap(NOW, 50)])
+    const { getByRole, unmount } = render(<UsageChart latest={usage()} metric="session" />)
+    await waitFor(() => expect(window.api.usageGetRange).toHaveBeenCalledTimes(1))
+
+    fireEvent.click(getByRole('button', { name: '7D' }))
+    await waitFor(() => expect(window.api.usageGetRange).toHaveBeenCalledTimes(2))
+    unmount()
+
+    render(<UsageChart latest={usage()} metric="session" />)
+    await waitFor(() => expect(window.api.usageGetRange).toHaveBeenCalledTimes(3))
+    const [from, to] = (window.api.usageGetRange as ReturnType<typeof vi.fn>).mock.calls[2]
+    expect(to - from).toBe(604_800_000)
+  })
+
+  it('keeps session and weekly range preferences independent', async () => {
+    mockApi([snap(NOW - 3_600_000, 10), snap(NOW, 50)])
+    const { getByRole, unmount } = render(<UsageChart latest={usage()} metric="session" />)
+    await waitFor(() => expect(window.api.usageGetRange).toHaveBeenCalledTimes(1))
+    fireEvent.click(getByRole('button', { name: '1H' }))
+    await waitFor(() => expect(window.api.usageGetRange).toHaveBeenCalledTimes(2))
+    unmount()
+
+    const { getByRole: getByRoleWeekly } = render(<UsageChart latest={usage()} metric="weekly" />)
+    await waitFor(() => expect(getByRoleWeekly('button', { name: '7D' }).getAttribute('aria-pressed')).toBe('true'))
+  })
+})
 
 describe('UsageChart (session metric)', () => {
   it('shows a placeholder before there is enough history', async () => {
@@ -81,6 +116,47 @@ describe('UsageChart (session metric)', () => {
     await waitFor(() => expect(window.api.usageGetRange).toHaveBeenCalledTimes(2))
     const [from, to] = (window.api.usageGetRange as ReturnType<typeof vi.fn>).mock.calls[1]
     expect(to - from).toBe(604_800_000)
+  })
+
+  function realPolylines(container: HTMLElement) {
+    return container.querySelectorAll('polyline:not([data-testid="gap-prediction-line"])')
+  }
+
+  it('renders a separate polyline for each side of a real data gap instead of one continuous line', async () => {
+    // Two dense 1min-cadence clusters either side of a 6h gap — proportions
+    // that mirror real polling data, so the gap clearly dominates the
+    // series' mean spacing (see sparkline.test.ts for why this shape
+    // matters: a lopsided cluster/gap ratio can hide a real gap).
+    const before = Array.from({ length: 10 }, (_, i) => snap(NOW - 24 * 3_600_000 + i * 60_000, 10 + i))
+    const gapStart = before[before.length - 1].ts + 6 * 3_600_000
+    const after = Array.from({ length: 10 }, (_, i) => snap(gapStart + i * 60_000, 40 + i))
+    mockApi([...before, ...after])
+    const { container } = render(<UsageChart latest={usage()} metric="session" />)
+
+    await waitFor(() => expect(realPolylines(container).length).toBe(2))
+  })
+
+  it('draws a dashed prediction across a real gap, held flat when the recorded reset deadline has not passed', async () => {
+    const notYetPassed = NOW + 100 * 24 * 3_600_000 // well beyond the gap on both sides
+    const before = Array.from({ length: 10 }, (_, i) => ({ ...snap(NOW - 24 * 3_600_000 + i * 60_000, 10 + i), sessionResetAt: notYetPassed }))
+    const gapStart = before[before.length - 1].ts + 6 * 3_600_000
+    const after = Array.from({ length: 10 }, (_, i) => ({ ...snap(gapStart + i * 60_000, 40 + i), sessionResetAt: notYetPassed }))
+    mockApi([...before, ...after])
+    const { container } = render(<UsageChart latest={usage()} metric="session" />)
+
+    await waitFor(() => expect(container.querySelectorAll('[data-testid="gap-prediction-line"]').length).toBe(1))
+  })
+
+  it('draws two dashed predictions (drop to 0%, then climb) when the recorded reset deadline fell inside the gap', async () => {
+    const before = Array.from({ length: 10 }, (_, i) => snap(NOW - 24 * 3_600_000 + i * 60_000, 10 + i))
+    const gapStart = before[before.length - 1].ts + 6 * 3_600_000
+    const resetAt = before[before.length - 1].ts + 3 * 3_600_000 // 3h into the 6h gap
+    const beforeWithReset = before.map((s) => ({ ...s, sessionResetAt: resetAt }))
+    const after = Array.from({ length: 10 }, (_, i) => ({ ...snap(gapStart + i * 60_000, 40 + i), sessionResetAt: resetAt + 5 * 24 * 3_600_000 }))
+    mockApi([...beforeWithReset, ...after])
+    const { container } = render(<UsageChart latest={usage()} metric="session" />)
+
+    await waitFor(() => expect(container.querySelectorAll('[data-testid="gap-prediction-line"]').length).toBe(2))
   })
 
   it('shows a tooltip with the nearest snapshot on hover', async () => {

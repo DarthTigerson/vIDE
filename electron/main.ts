@@ -5,6 +5,7 @@ import { access, cp, mkdir, readFile, rename, writeFile } from 'fs/promises'
 import { homedir } from 'os'
 import { PtyManager } from './pty'
 import { ClaudeManager } from './claude'
+import { BrowserBridge } from './browserBridge'
 import { GitRunner } from './gitRunner'
 import { GraphifyManager } from './graphify'
 import { GitWatcher } from './gitWatcher'
@@ -23,7 +24,7 @@ import { listAllFiles, searchText, buildTree, readImageDataUrl } from './fsOps'
 import { registerSessionHandlers } from './session'
 import { registerRecentProjectsHandlers, readRecents, addRecentProject, clearRecentProjects } from './recentProjects'
 import { registerTodoHandlers } from './todos'
-import { registerTodoMcpHandlers, registerNotesMcpHandlers } from './mcp/mcpRegistration'
+import { registerTodoMcpHandlers, registerNotesMcpHandlers, registerBrowserMcpHandlers } from './mcp/mcpRegistration'
 import { registerNotesHandlers } from './notes'
 import { UpdateChecker } from './updateChecker'
 import { getChangelogForVersion } from './changelog'
@@ -595,13 +596,18 @@ app.whenReady().then(async () => {
   registerTodoMcpHandlers()
   registerNotesHandlers()
   registerNotesMcpHandlers()
+  registerBrowserMcpHandlers()
   registerWindowHandlers()
   registerSystemHandlers()
   registerOnboardingHandlers()
 
   ptyMgr = new PtyManager()
   ptyMgr.registerHandlers()
-  claudeMgr = new ClaudeManager()
+  browserViewMgr = new BrowserViewManager()
+  browserViewMgr.registerHandlers()
+  const browserBridge = new BrowserBridge(app.getPath('userData'), browserViewMgr)
+  browserBridge.start()
+  claudeMgr = new ClaudeManager(browserBridge)
   claudeMgr.registerHandlers()
   const gitRunner = new GitRunner()
   gitRunner.registerHandlers()
@@ -618,8 +624,6 @@ app.whenReady().then(async () => {
   fileWatcher.registerHandlers()
   bridgeMgr = new BridgeManager()
   bridgeMgr.registerHandlers()
-  browserViewMgr = new BrowserViewManager()
-  browserViewMgr.registerHandlers()
   autocompleteMgr = new AutocompleteManager()
   autocompleteMgr.registerHandlers()
   inlineEditMgr = new InlineEditManager()

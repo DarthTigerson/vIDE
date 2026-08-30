@@ -9,6 +9,7 @@ import { useForcePushConfirm } from '@/components/Git/useForcePushConfirm'
 import { useAutocompleteSettingsStore } from '@/stores/autocompleteSettingsStore'
 import { useAutocompleteSessionStore } from '@/stores/autocompleteSessionStore'
 import { useAutocompleteStatusStore } from '@/stores/autocompleteStatusStore'
+import { AUTOCOMPLETE_FORCE_DISABLED } from '@/lib/autocompleteEffectiveState'
 import { FooterMessage } from './FooterMessage'
 
 export function StatusBar() {
@@ -35,6 +36,7 @@ export function StatusBar() {
   const togglePaused = useAutocompleteSessionStore((s) => s.togglePaused)
   const autocompleteBusy = useAutocompleteStatusStore((s) => s.busy)
   const autocompleteActive = autocompleteEnabled && !autocompletePaused
+  const autocompleteVisible = !AUTOCOMPLETE_FORCE_DISABLED && autocompleteEnabled
   const [autocompleteMenuOpen, setAutocompleteMenuOpen] = useState(false)
 
   useEffect(() => {
@@ -102,7 +104,7 @@ export function StatusBar() {
         <ConfirmForcePushModal action={forceAction} cwd={selectedRepo} onClose={closeForce} />
       )}
       <div className="flex items-center gap-1 text-fg-muted text-xs">
-        {autocompleteEnabled && (
+        {autocompleteVisible && (
           <div className="relative">
             <button
               type="button"
@@ -140,7 +142,7 @@ export function StatusBar() {
         <div
           className={[
             'flex items-center rounded-full border border-border bg-bg overflow-hidden',
-            autocompleteEnabled ? 'ml-2' : '',
+            autocompleteVisible ? 'ml-2' : '',
           ].join(' ')}
         >
           <button

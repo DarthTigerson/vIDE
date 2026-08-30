@@ -27,6 +27,7 @@ interface ClaudeState {
   setAssistant: (assistant: AssistantKind) => void
   newSession: (cwd: string) => void
   previousSession: (cwd: string) => void
+  resumeSession: (cwd: string) => void
   compact: () => void
   clearContext: () => void
   usage: () => void
@@ -83,6 +84,11 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
   previousSession: (cwd: string) => {
     set((s) => ({ restartToken: s.restartToken + 1 }))
     window.api.assistantSpawn(cwd, useClaudeStore.getState().assistant, 'continue')
+  },
+
+  resumeSession: (cwd: string) => {
+    set((s) => ({ restartToken: s.restartToken + 1 }))
+    window.api.assistantSpawn(cwd, useClaudeStore.getState().assistant, 'resume')
   },
 
   compact: () => {

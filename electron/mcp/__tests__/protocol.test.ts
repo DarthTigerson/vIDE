@@ -113,6 +113,43 @@ describe('McpStdioServer', () => {
     ])
   })
 
+  it('wraps an image-result handler as an image content block, with optional text first', async () => {
+    const screenshotTool: McpToolDef = {
+      name: 'screenshot',
+      description: 'Takes a screenshot',
+      inputSchema: { type: 'object', properties: {} },
+      handler: async () => ({ text: 'captured', image: { data: 'aGVsbG8=', mimeType: 'image/png' } }),
+    }
+    const { input, written } = makeServer([screenshotTool])
+    await send(input, { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'screenshot', arguments: {} } })
+
+    expect(written).toEqual([
+      {
+        jsonrpc: '2.0',
+        id: 3,
+        result: {
+          content: [
+            { type: 'text', text: 'captured' },
+            { type: 'image', data: 'aGVsbG8=', mimeType: 'image/png' },
+          ],
+        },
+      },
+    ])
+  })
+
+  it('omits the text block when an image-result handler has no text', async () => {
+    const screenshotTool: McpToolDef = {
+      name: 'screenshot',
+      description: 'Takes a screenshot',
+      inputSchema: { type: 'object', properties: {} },
+      handler: async () => ({ image: { data: 'aGVsbG8=', mimeType: 'image/png' } }),
+    }
+    const { input, written } = makeServer([screenshotTool])
+    await send(input, { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'screenshot', arguments: {} } })
+
+    expect(written[0].result.content).toEqual([{ type: 'image', data: 'aGVsbG8=', mimeType: 'image/png' }])
+  })
+
   it('returns isError for an unknown tool name', async () => {
     const { input, written } = makeServer([echoTool])
     await send(input, { jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'nope', arguments: {} } })

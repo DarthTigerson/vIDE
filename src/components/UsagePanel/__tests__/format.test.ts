@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatBurnRate, formatCountdown, formatResetTime } from '../format'
+import { formatBurnRate, formatCountdown, formatCountdownClock, formatResetTime } from '../format'
 
 describe('formatResetTime', () => {
   it('returns an em dash for no timestamp', () => {
@@ -31,6 +31,28 @@ describe('formatCountdown', () => {
   it('formats minutes only under an hour', () => {
     const resetAt = now + 12 * 60_000
     expect(formatCountdown(resetAt, now)).toBe('12m')
+  })
+})
+
+describe('formatCountdownClock', () => {
+  const now = new Date(2026, 7, 9, 15, 4).getTime()
+
+  it('returns an em dash for no timestamp', () => {
+    expect(formatCountdownClock(null, now)).toBe('—')
+  })
+
+  it('returns 00:00:00 once the reset time has passed', () => {
+    expect(formatCountdownClock(now - 1000, now)).toBe('00:00:00')
+  })
+
+  it('formats hours, minutes, and seconds remaining, zero-padded', () => {
+    const ts = now + (3 * 3600 + 5 * 60 + 9) * 1000
+    expect(formatCountdownClock(ts, now)).toBe('03:05:09')
+  })
+
+  it('formats sub-hour remainders correctly', () => {
+    const ts = now + (12 * 60 + 6) * 1000
+    expect(formatCountdownClock(ts, now)).toBe('00:12:06')
   })
 })
 

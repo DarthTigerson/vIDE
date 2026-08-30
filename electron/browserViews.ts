@@ -43,7 +43,15 @@ interface Entry {
   view: WebContentsView
   attached: boolean
   mobileMode: boolean
+  consoleLogs: string[]
 }
+
+// Reserved browser-view id for the single tab the vide-browser MCP server
+// (VIDE-53) drives on Claude's behalf — never one of the user's own tabs,
+// which are addressed by the path-like ids buildBrowserPath generates.
+const CLAUDE_TAB_ID = 'claude-controlled'
+const MAX_CONSOLE_LOGS = 200
+const CONSOLE_LEVELS = ['verbose', 'info', 'warning', 'error'] as const
 
 // <webview> was dropped in favor of WebContentsView because Electron's <webview>
 // guest never syncs its own window.innerHeight/vh-based layout past the intrinsic
@@ -139,7 +147,7 @@ export class BrowserViewManager {
     this.wireEvents(win, id, view)
 
     win.contentView.addChildView(view)
-    entries.set(id, { view, attached: true, mobileMode: false })
+    entries.set(id, { view, attached: true, mobileMode: false, consoleLogs: [] })
     return view.webContents.id
   }
 
@@ -184,6 +192,16 @@ export class BrowserViewManager {
       })
     )
     wc.on('page-title-updated', (_e, title) => this.sendEvent(win, id, { type: 'page-title-updated', title }))
+    // Buffered per-view rather than forwarded live — only the Claude tab's
+    // buffer actually gets read (via getClaudeTabConsoleLogs), but wiring it
+    // for every view uniformly is simpler than a separate code path just for
+    // that one id.
+    wc.on('console-message', (_e, level, message) => {
+      const entry = this.viewsByWindow.get(win.id)?.get(id)
+      if (!entry) return
+      entry.consoleLogs.push(`[${CONSOLE_LEVELS[level] ?? level}] ${message}`)
+      if (entry.consoleLogs.length > MAX_CONSOLE_LOGS) entry.consoleLogs.shift()
+    })
     wc.on('did-fail-load', (_e, errorCode, errorDescription, _validatedUrl, isMainFrame) => {
       // -3 is ERR_ABORTED, fired on normal navigation interruption (e.g. redirects) — not a real failure
       if (!isMainFrame || errorCode === -3) return
@@ -289,6 +307,100 @@ export class BrowserViewManager {
       entry.view.webContents.close({ waitForBeforeUnload: false })
     }
     this.viewsByWindow.get(win.id)?.delete(id)
+  }
+
+  // --- Claude-controlled tab (VIDE-53) ---
+  //
+  // Called directly from BrowserBridge inside this same main process (not
+  // over IPC — there's no renderer involved in driving this tab), on behalf
+  // of the vide-browser MCP server. One tab per vIDE window, at the reserved
+  // CLAUDE_TAB_ID, separate from anything the user has open manually — but
+  // (unlike two earlier attempts, both of which broke live: a WebContentsView
+  // covering the whole app, then one positioned off-screen that broke
+  // capturePage) a REAL, visible tab using the exact same WebContentsView +
+  // create() path every user-opened browser tab already uses, so it's sized
+  // correctly and definitely has a working compositor surface. The one
+  // difference from a user tab: on first creation this also tells the
+  // renderer to actually open/focus it in the tab strip (browser:open-claude
+  // -tab), since there's no user click driving that here.
+
+  async navigateClaudeTab(winId: number, url: string): Promise<void> {
+    const win = BrowserWindow.fromId(winId)
+    if (!win || win.isDestroyed()) throw new Error(`vIDE window ${winId} not found`)
+
+    const isFirstUse = !this.get(winId, CLAUDE_TAB_ID)
+    if (isFirstUse) {
+      this.create(win, CLAUDE_TAB_ID, url) // create() already loads `url` on first creation
+      win.webContents.send('browser:open-claude-tab')
+    } else {
+      await this.claudeTabWebContents(winId).loadURL(url)
+    }
+  }
+
+  private claudeTabWebContents(winId: number): Electron.WebContents {
+    const wc = this.get(winId, CLAUDE_TAB_ID)?.webContents
+    if (!wc) throw new Error('No Claude-controlled tab open for this window yet — call navigate first')
+    return wc
+  }
+
+  // Diagnostic fields (imageSize/viewBounds, activeElementAfterClick) exist
+  // because a live test reported click+type as tool-level "success" with no
+  // effect. They paid off: confirmed live that capturePage()'s image comes
+  // back at the display's device pixel resolution (2906x2344), exactly 2x
+  // the view's own logical bounds (1453x1172, from getBounds() below) —
+  // getSize() with no scaleFactor arg returns that SAME device-pixel size,
+  // not logical/CSS pixels as first assumed, so the earlier
+  // `image.resize(image.getSize())` was resizing an image to its own
+  // current size — a total no-op. Resizing to the view's actual bounds is
+  // what's needed to make the exported PNG's pixel dimensions match 1:1
+  // with what sendInputEvent's x/y coordinates expect.
+  async captureClaudeTab(winId: number): Promise<{ png: Buffer; imageSize: { width: number; height: number }; viewBounds: { width: number; height: number } }> {
+    const image = await this.claudeTabWebContents(winId).capturePage()
+    const view = this.get(winId, CLAUDE_TAB_ID)
+    const bounds = view ? view.getBounds() : { width: 0, height: 0 }
+    const viewBounds = { width: bounds.width, height: bounds.height }
+    const normalized = viewBounds.width > 0 && viewBounds.height > 0 ? image.resize(viewBounds) : image
+    const png = normalized.toPNG()
+    return { png, imageSize: normalized.getSize(), viewBounds }
+  }
+
+  async clickClaudeTab(winId: number, x: number, y: number): Promise<string> {
+    const wc = this.claudeTabWebContents(winId)
+    wc.sendInputEvent({ type: 'mouseDown', x, y, button: 'left', clickCount: 1 })
+    wc.sendInputEvent({ type: 'mouseUp', x, y, button: 'left', clickCount: 1 })
+    // sendInputEvent's own effects (including a resulting focus change) are
+    // processed asynchronously in the renderer's input pipeline — querying
+    // document.activeElement in the very same tick can race ahead of that.
+    // Observed live: every click reported "nothing (document.body)"
+    // focused regardless of where it landed, including an attempt a
+    // subsequent browser_type call proved HAD actually focused something.
+    // A short delay lets the click's own effects land first.
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    try {
+      return await wc.executeJavaScript(`(() => {
+        const el = document.activeElement
+        if (!el || el === document.body) return 'nothing (document.body)'
+        let desc = el.tagName
+        if (el.id) desc += '#' + el.id
+        const type = el.getAttribute && el.getAttribute('type')
+        if (type) desc += '[type=' + type + ']'
+        return desc
+      })()`)
+    } catch (err) {
+      return `could not inspect: ${err instanceof Error ? err.message : String(err)}`
+    }
+  }
+
+  async typeIntoClaudeTab(winId: number, text: string): Promise<void> {
+    return this.claudeTabWebContents(winId).insertText(text)
+  }
+
+  getClaudeTabConsoleLogs(winId: number): string[] {
+    return this.viewsByWindow.get(winId)?.get(CLAUDE_TAB_ID)?.consoleLogs ?? []
+  }
+
+  async readClaudeTabText(winId: number): Promise<string> {
+    return this.claudeTabWebContents(winId).executeJavaScript('document.body.innerText')
   }
 
   disposeWindow(winId: number): void {

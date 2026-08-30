@@ -50,7 +50,7 @@ describe('buildTodoTools', () => {
     const tools = buildTodoTools(DATA_DIR)
     const result = await findTool(tools, 'list_todo_projects').handler({})
 
-    expect(result.toLowerCase()).toContain('no todo')
+    expect(String(result).toLowerCase()).toContain('no todo')
   })
 
   it('create_todo files a new ticket under the given project key and returns its id', async () => {

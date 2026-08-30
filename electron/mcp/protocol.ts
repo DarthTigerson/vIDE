@@ -1,8 +1,29 @@
+// A tool can return plain text (the common case) or, for tools like a
+// screenshot, an image alongside optional text — the MCP image content
+// block a client can actually render/see, not a base64 string dressed up
+// as text.
+export interface McpToolImageResult {
+  text?: string
+  image: { data: string; mimeType: string }
+}
+
 export interface McpToolDef {
   name: string
   description: string
   inputSchema: Record<string, unknown>
-  handler: (args: Record<string, unknown>) => Promise<string>
+  handler: (args: Record<string, unknown>) => Promise<string | McpToolImageResult>
+}
+
+type ContentBlock =
+  | { type: 'text'; text: string }
+  | { type: 'image'; data: string; mimeType: string }
+
+function toContentBlocks(result: string | McpToolImageResult): ContentBlock[] {
+  if (typeof result === 'string') return [{ type: 'text', text: result }]
+  const blocks: ContentBlock[] = []
+  if (result.text) blocks.push({ type: 'text', text: result.text })
+  blocks.push({ type: 'image', data: result.image.data, mimeType: result.image.mimeType })
+  return blocks
 }
 
 interface JsonRpcMessage {
@@ -105,8 +126,8 @@ export class McpStdioServer {
         return
       }
       try {
-        const text = await tool.handler(params?.arguments ?? {})
-        this.write({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text }] } })
+        const result = await tool.handler(params?.arguments ?? {})
+        this.write({ jsonrpc: '2.0', id, result: { content: [...toContentBlocks(result)] } })
       } catch (err) {
         this.write({
           jsonrpc: '2.0',

@@ -45,7 +45,7 @@ function ActivityBarButton({ item, showAccent, side, dense }: { item: ActivityBa
             ? 'text-fg-subtle opacity-30'
             : item.active
               ? 'text-fg opacity-100'
-              : 'text-fg-muted opacity-50 group-hover:opacity-80 group-hover:text-fg',
+              : 'text-fg-muted opacity-50 group-hover:opacity-100 group-hover:text-accent',
         ].join(' ')}
       >
         {item.icon}
@@ -165,14 +165,27 @@ export function PreviousSessionIcon() {
   )
 }
 
+// A bulleted list, distinct from PreviousSessionIcon's circular-history-arrow —
+// this one opens a list to pick from, rather than just stepping back one.
+export function ResumeSessionIcon() {
+  return (
+    <svg width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="4" cy="6" r="1" fill="currentColor"/>
+      <circle cx="4" cy="12" r="1" fill="currentColor"/>
+      <circle cx="4" cy="18" r="1" fill="currentColor"/>
+      <path d="M9 6H21M9 12H21M9 18H21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+// Two chevrons converging toward the center line reads as "squeeze together"
+// (compact the conversation), rather than the old download-arrow-onto-a-
+// stack glyph, which read more like "save" or "archive".
 export function CompactIcon() {
   return (
     <svg width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 2V13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M8 9L12 13L16 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M4 15C6.5 17 17.5 17 20 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-      <path d="M4 18.3C6.5 19.6 17.5 19.6 20 18.3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-      <path d="M4 21.5H20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M4 5L12 11L20 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M4 19L12 13L20 19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   )
 }

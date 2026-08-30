@@ -18,6 +18,18 @@ export function formatCountdown(ts: number | null, now = Date.now()): string {
   return h > 0 ? `${h}h ${m}m` : `${m}m`
 }
 
+export function formatCountdownClock(ts: number | null, now = Date.now()): string {
+  if (!ts) return '—'
+  const diff = ts - now
+  if (diff <= 0) return '00:00:00'
+  const totalSec = Math.floor(diff / 1000)
+  const h = Math.floor(totalSec / 3600)
+  const m = Math.floor((totalSec % 3600) / 60)
+  const s = totalSec % 60
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${pad(h)}:${pad(m)}:${pad(s)}`
+}
+
 export function formatBurnRate(ratePerHour: number | null): string {
   return ratePerHour == null ? '—' : `≈${ratePerHour.toFixed(2)}%/hr`
 }

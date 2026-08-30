@@ -8,6 +8,7 @@ import { useBridgeSettingsStore } from '@/stores/bridgeSettingsStore'
 import { useInlineEditSettingsStore } from '@/stores/inlineEditSettingsStore'
 import { useUsagePassiveSettingsStore } from '@/stores/usagePassiveSettingsStore'
 import { useCommitMessageSettingsStore } from '@/stores/commitMessageSettingsStore'
+import { useNotificationSoundSettingsStore } from '@/stores/notificationSoundSettingsStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
 
@@ -30,6 +31,7 @@ afterEach(() => {
   useInlineEditSettingsStore.setState({ enabled: true, model: 'claude-sonnet-5' })
   useUsagePassiveSettingsStore.setState({ enabled: false, initialized: false })
   useCommitMessageSettingsStore.setState({ enabled: false, model: 'claude-sonnet-5', prompt: '' })
+  useNotificationSoundSettingsStore.setState({ enabled: false, muted: false, soundId: 'ding' })
 })
 
 describe('ModelsSettingsPage assistants section', () => {
@@ -94,29 +96,24 @@ describe('ModelsSettingsPage bridge section', () => {
 })
 
 describe('ModelsSettingsPage autocomplete section', () => {
-  it('reflects the current enabled state', () => {
-    useAutocompleteSettingsStore.setState({ enabled: false })
+  it('is force-disabled regardless of the persisted setting (VIDE-16)', () => {
+    useAutocompleteSettingsStore.setState({ enabled: true })
     render(<ModelsSettingsPage />)
-    expect(screen.getByRole('switch', { name: 'Inline Autocomplete' })).toHaveAttribute('aria-checked', 'false')
+    const toggle = screen.getByRole('switch', { name: 'Inline Autocomplete' })
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+    expect(toggle).toBeDisabled()
   })
 
-  it('toggles autocomplete on click', () => {
+  it('does not change the stored setting on click while force-disabled', () => {
+    useAutocompleteSettingsStore.setState({ enabled: false })
     render(<ModelsSettingsPage />)
     fireEvent.click(screen.getByRole('switch', { name: 'Inline Autocomplete' }))
     expect(useAutocompleteSettingsStore.getState().enabled).toBe(false)
   })
 
-  it('reflects the current model selection', () => {
-    useAutocompleteSettingsStore.setState({ model: 'claude-opus-5' })
+  it('disables the model picker while autocomplete is force-disabled', () => {
     render(<ModelsSettingsPage />)
-    expect(screen.getByLabelText('Model')).toHaveTextContent('Opus 5')
-  })
-
-  it('updates the model when changed', () => {
-    render(<ModelsSettingsPage />)
-    fireEvent.click(screen.getByLabelText('Model'))
-    fireEvent.click(screen.getByRole('option', { name: 'Sonnet 5' }))
-    expect(useAutocompleteSettingsStore.getState().model).toBe('claude-sonnet-5')
+    expect(screen.getByLabelText('Model')).toBeDisabled()
   })
 })
 
@@ -199,5 +196,70 @@ describe('ModelsSettingsPage usage monitoring section', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open Usage Graph' }))
 
     expect(useEditorStore.getState().tabs.some((t) => t.path === USAGE_GRAPH_TAB_PATH)).toBe(true)
+  })
+})
+
+describe('ModelsSettingsPage notifications section', () => {
+  const { audioInstances, AudioMock } = vi.hoisted(() => {
+    const audioInstances: Array<{ src: string; play: ReturnType<typeof vi.fn> }> = []
+    class AudioMock {
+      src: string
+      play = vi.fn().mockResolvedValue(undefined)
+      constructor(src: string) {
+        this.src = src
+        audioInstances.push(this)
+      }
+    }
+    return { audioInstances, AudioMock }
+  })
+
+  beforeEach(() => {
+    audioInstances.length = 0
+    vi.stubGlobal('Audio', AudioMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('reflects the current enabled state', () => {
+    useNotificationSoundSettingsStore.setState({ enabled: true })
+    render(<ModelsSettingsPage />)
+    expect(screen.getByRole('switch', { name: 'Play sound when Claude is done' })).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('hides the sound picker and test button while disabled', () => {
+    render(<ModelsSettingsPage />)
+    expect(screen.queryByLabelText('Sound')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Test sound' })).toBeNull()
+  })
+
+  it('shows the sound picker and test button once enabled', () => {
+    render(<ModelsSettingsPage />)
+    fireEvent.click(screen.getByRole('switch', { name: 'Play sound when Claude is done' }))
+    expect(screen.getByLabelText('Sound')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Test sound' })).toBeTruthy()
+  })
+
+  it('toggles the setting on click', () => {
+    render(<ModelsSettingsPage />)
+    fireEvent.click(screen.getByRole('switch', { name: 'Play sound when Claude is done' }))
+    expect(useNotificationSoundSettingsStore.getState().enabled).toBe(true)
+  })
+
+  it('updates the selected sound when changed', () => {
+    useNotificationSoundSettingsStore.setState({ enabled: true })
+    render(<ModelsSettingsPage />)
+    fireEvent.click(screen.getByLabelText('Sound'))
+    fireEvent.click(screen.getByRole('option', { name: 'Beep' }))
+    expect(useNotificationSoundSettingsStore.getState().soundId).toBe('beep')
+  })
+
+  it('plays the selected sound when the test button is clicked', () => {
+    useNotificationSoundSettingsStore.setState({ enabled: true, soundId: 'beep' })
+    render(<ModelsSettingsPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Test sound' }))
+    expect(audioInstances).toHaveLength(1)
+    expect(audioInstances[0].play).toHaveBeenCalled()
   })
 })

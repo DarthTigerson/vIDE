@@ -210,11 +210,13 @@ declare global {
       onTermData: (cb: (id: string, data: string) => void) => () => void
       onTermExit: (cb: (id: string) => void) => () => void
 
-      assistantSpawn: (cwd: string, assistant: AssistantKind, mode?: 'new' | 'continue') => Promise<void>
+      assistantSpawn: (cwd: string, assistant: AssistantKind, mode?: 'new' | 'continue' | 'resume') => Promise<void>
       assistantWrite: (assistant: AssistantKind, data: string) => void
       assistantResize: (assistant: AssistantKind, cols: number, rows: number) => void
       onAssistantData: (cb: (assistant: AssistantKind, data: string) => void) => () => void
-      onAssistantBusy: (cb: (assistant: AssistantKind, busy: boolean) => void) => () => void
+      onAssistantBusy: (cb: (assistant: AssistantKind, busy: boolean, chunkCount: number) => void) => () => void
+      onBrowserOpenExternalUrl: (cb: (url: string) => void) => () => void
+      onOpenClaudeBrowserTab: (cb: () => void) => () => void
 
       onMenuOpenProject: (cb: () => void) => () => void
       getInitialProject: () => Promise<string | null>
@@ -322,6 +324,8 @@ declare global {
       notesSearch: (query: string) => Promise<NotesSearchResult[]>
       notesMcpEnable: () => Promise<void>
       notesMcpDisable: () => Promise<void>
+      browserMcpEnable: () => Promise<void>
+      browserMcpDisable: () => Promise<void>
       onNotesChanged: (cb: () => void) => () => void
 
       setWindowTitle: (root: string) => void

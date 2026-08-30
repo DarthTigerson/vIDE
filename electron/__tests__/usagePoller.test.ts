@@ -161,6 +161,36 @@ describe('downsample', () => {
     const result = downsample(snaps, 5)
     expect(result).toHaveLength(5)
   })
+
+  it('does not blend snapshots from opposite sides of a real time gap into one bucket', () => {
+    // Two dense clusters (vIDE running) separated by a long gap (vIDE
+    // closed) — bucketing by array index would land some of each cluster in
+    // the same middle bucket and average a 0%-ish reading with a 100%-ish
+    // one into a fake ~50% point sitting in the middle of the gap.
+    const before = Array.from({ length: 10 }, (_, i): UsageSnapshot => ({
+      ts: i * 1000,
+      sessionPct: 0,
+      weeklyPct: 0,
+      requests24h: 0,
+      requests7d: 0,
+      topSkills: [],
+      sessionResetAt: null,
+      weeklyResetAt: null,
+    }))
+    const gapStart = 9000
+    const after = Array.from({ length: 10 }, (_, i): UsageSnapshot => ({
+      ts: gapStart + 6 * 3_600_000 + i * 1000,
+      sessionPct: 100,
+      weeklyPct: 100,
+      requests24h: 0,
+      requests7d: 0,
+      topSkills: [],
+      sessionResetAt: null,
+      weeklyResetAt: null,
+    }))
+    const result = downsample([...before, ...after], 5)
+    expect(result.every((s) => s.sessionPct === 0 || s.sessionPct === 100)).toBe(true)
+  })
 })
 
 describe('UsagePoller', () => {

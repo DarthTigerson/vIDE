@@ -120,7 +120,7 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('term:exit', handler)
   },
 
-  assistantSpawn: (cwd: string, assistant: 'claude' | 'codex', mode?: 'new' | 'continue') =>
+  assistantSpawn: (cwd: string, assistant: 'claude' | 'codex', mode?: 'new' | 'continue' | 'resume') =>
     ipcRenderer.invoke('assistant:spawn', cwd, assistant, mode),
   assistantWrite: (assistant: 'claude' | 'codex', data: string) =>
     ipcRenderer.send('assistant:write', assistant, data),
@@ -131,10 +131,20 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('assistant:data', handler)
     return () => ipcRenderer.removeListener('assistant:data', handler)
   },
-  onAssistantBusy: (cb: (assistant: 'claude' | 'codex', busy: boolean) => void) => {
-    const handler = (_: Electron.IpcRendererEvent, assistant: 'claude' | 'codex', busy: boolean) => cb(assistant, busy)
+  onAssistantBusy: (cb: (assistant: 'claude' | 'codex', busy: boolean, chunkCount: number) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, assistant: 'claude' | 'codex', busy: boolean, chunkCount: number) => cb(assistant, busy, chunkCount)
     ipcRenderer.on('assistant:busy', handler)
     return () => ipcRenderer.removeListener('assistant:busy', handler)
+  },
+  onBrowserOpenExternalUrl: (cb: (url: string) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, url: string) => cb(url)
+    ipcRenderer.on('browser:open-external-url', handler)
+    return () => ipcRenderer.removeListener('browser:open-external-url', handler)
+  },
+  onOpenClaudeBrowserTab: (cb: () => void) => {
+    const handler = () => cb()
+    ipcRenderer.on('browser:open-claude-tab', handler)
+    return () => ipcRenderer.removeListener('browser:open-claude-tab', handler)
   },
 
   mobileStart: () => ipcRenderer.invoke('mobile:start'),
@@ -354,6 +364,8 @@ contextBridge.exposeInMainWorld('api', {
   notesSearch: (query: string) => ipcRenderer.invoke('notes:search', query),
   notesMcpEnable: () => ipcRenderer.invoke('notes:mcp:enable'),
   notesMcpDisable: () => ipcRenderer.invoke('notes:mcp:disable'),
+  browserMcpEnable: () => ipcRenderer.invoke('browser:mcp:enable'),
+  browserMcpDisable: () => ipcRenderer.invoke('browser:mcp:disable'),
   onNotesChanged: (cb: () => void) => {
     const handler = () => cb()
     ipcRenderer.on('notes:changed', handler)

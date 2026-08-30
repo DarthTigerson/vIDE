@@ -5,6 +5,7 @@ import { useBridgeSettingsStore } from '@/stores/bridgeSettingsStore'
 import { useInlineEditSettingsStore } from '@/stores/inlineEditSettingsStore'
 import { useCommitMessageSettingsStore } from '@/stores/commitMessageSettingsStore'
 import { useUsagePassiveSettingsStore } from '@/stores/usagePassiveSettingsStore'
+import { useNotificationSoundSettingsStore, NOTIFICATION_SOUND_OPTIONS, playNotificationSound } from '@/stores/notificationSoundSettingsStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
 import { Toggle } from '@/components/ui/Toggle'
@@ -16,6 +17,23 @@ const MODEL_TOGGLES: Array<{ id: AssistantKind; label: string; description: stri
   { id: 'codex', label: 'Codex', description: 'Show Codex in the model dropdown.' },
   { id: 'bridge', label: 'Bridge', description: 'Show Bridge in the model dropdown.' },
 ]
+
+function SpeakerIcon() {
+  return (
+    <svg
+      className="shrink-0"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M4 9.5V14.5H8L13 18.5V5.5L8 9.5H4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M16.5 8.5C17.5 9.5 18 10.7 18 12C18 13.3 17.5 14.5 16.5 15.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M19 6C20.7 7.7 21.5 9.8 21.5 12C21.5 14.2 20.7 16.3 19 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  )
+}
 
 function Field({ id, label, value, onChange, type = 'text' }: {
   id: string; label: string; value: string; onChange: (v: string) => void; type?: string
@@ -78,8 +96,6 @@ function BridgeConnectionSection() {
 export function ModelsSettingsPage() {
   const enabledModels = useModelSettingsStore((s) => s.enabled)
   const setModelEnabled = useModelSettingsStore((s) => s.setEnabled)
-  const autocompleteEnabled = useAutocompleteSettingsStore((s) => s.enabled)
-  const setAutocompleteEnabled = useAutocompleteSettingsStore((s) => s.setEnabled)
   const autocompleteModel = useAutocompleteSettingsStore((s) => s.model)
   const setAutocompleteModel = useAutocompleteSettingsStore((s) => s.setModel)
   const inlineEditEnabled = useInlineEditSettingsStore((s) => s.enabled)
@@ -94,6 +110,10 @@ export function ModelsSettingsPage() {
   const setCommitMessageModel = useCommitMessageSettingsStore((s) => s.setModel)
   const commitMessagePrompt = useCommitMessageSettingsStore((s) => s.prompt)
   const setCommitMessagePrompt = useCommitMessageSettingsStore((s) => s.setPrompt)
+  const notificationSoundEnabled = useNotificationSoundSettingsStore((s) => s.enabled)
+  const setNotificationSoundEnabled = useNotificationSoundSettingsStore((s) => s.setEnabled)
+  const notificationSoundId = useNotificationSoundSettingsStore((s) => s.soundId)
+  const setNotificationSoundId = useNotificationSoundSettingsStore((s) => s.setSoundId)
 
   useEffect(() => {
     useUsagePassiveSettingsStore.getState().init()
@@ -121,6 +141,42 @@ export function ModelsSettingsPage() {
           ))}
         </section>
 
+        <section className="rounded-xl border border-border/60 p-4 flex flex-col gap-5">
+          <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
+            Notifications
+          </h2>
+
+          <Toggle
+            label="Play sound when Claude is done"
+            description="Plays a sound when Claude finishes responding. Claude only, for now."
+            checked={notificationSoundEnabled}
+            onChange={setNotificationSoundEnabled}
+          />
+
+          {notificationSoundEnabled && (
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <label htmlFor="notification-sound-select" className="text-xs text-fg-muted mb-1.5 block">Sound</label>
+                <Select
+                  id="notification-sound-select"
+                  value={notificationSoundId}
+                  onChange={setNotificationSoundId}
+                  options={NOTIFICATION_SOUND_OPTIONS.map((s) => ({ value: s.id, label: s.label }))}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => playNotificationSound(notificationSoundId)}
+                aria-label="Test sound"
+                title="Test sound"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border text-fg hover:border-fg-subtle transition-colors"
+              >
+                <SpeakerIcon />
+              </button>
+            </div>
+          )}
+        </section>
+
         {enabledModels.bridge && <BridgeConnectionSection />}
 
         <section className="rounded-xl border border-border/60 p-4 flex flex-col gap-5">
@@ -130,9 +186,10 @@ export function ModelsSettingsPage() {
 
           <Toggle
             label="Inline Autocomplete"
-            description="Show ghost-text code suggestions as you type, powered by your claude subscription."
-            checked={autocompleteEnabled}
-            onChange={setAutocompleteEnabled}
+            description="Temporarily disabled while we rework how this feature works (VIDE-16) — the current design has poor latency and burns subscription usage."
+            checked={false}
+            disabled
+            onChange={() => {}}
           />
 
           <div>
@@ -142,6 +199,7 @@ export function ModelsSettingsPage() {
               value={autocompleteModel}
               onChange={setAutocompleteModel}
               options={AUTOCOMPLETE_MODELS.map((m) => ({ value: m.id, label: m.label }))}
+              disabled
             />
           </div>
         </section>
