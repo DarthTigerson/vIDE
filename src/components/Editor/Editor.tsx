@@ -51,6 +51,7 @@ import {
   GRAPHIFY_SETTINGS_TAB_PATH,
   JIRA_SETTINGS_TAB_PATH,
   DOCKER_SETTINGS_TAB_PATH,
+  MOBILE_SETTINGS_TAB_PATH,
   GENERAL_SETTINGS_TAB_PATH,
   TODO_SETTINGS_TAB_PATH,
   NOTES_SETTINGS_TAB_PATH,
@@ -65,6 +66,7 @@ import { ModelsSettingsPage } from '@/components/Settings/ModelsSettingsPage'
 import { GraphifySettingsPage } from '@/components/Settings/GraphifySettingsPage'
 import { JiraSettingsPage } from '@/components/Settings/JiraSettingsPage'
 import { DockerSettingsPage } from '@/components/Settings/DockerSettingsPage'
+import { MobileSettingsPage } from '@/components/Settings/MobileSettingsPage'
 import { GeneralSettingsPage } from '@/components/Settings/GeneralSettingsPage'
 import { TodoSettingsPage } from '@/components/Settings/TodoSettingsPage'
 import { NotesSettingsPage } from '@/components/Settings/NotesSettingsPage'
@@ -403,6 +405,8 @@ function EditorPane({ paneId }: { paneId: string }) {
             <JiraSettingsPage />
           ) : activeTab.path === DOCKER_SETTINGS_TAB_PATH ? (
             <DockerSettingsPage />
+          ) : activeTab.path === MOBILE_SETTINGS_TAB_PATH ? (
+            <MobileSettingsPage />
           ) : activeTab.path === TODO_SETTINGS_TAB_PATH ? (
             <TodoSettingsPage />
           ) : activeTab.path === NOTES_SETTINGS_TAB_PATH ? (
