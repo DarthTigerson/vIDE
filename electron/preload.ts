@@ -136,6 +136,11 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('assistant:busy', handler)
     return () => ipcRenderer.removeListener('assistant:busy', handler)
   },
+  onBrowserOpenExternalUrl: (cb: (url: string) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, url: string) => cb(url)
+    ipcRenderer.on('browser:open-external-url', handler)
+    return () => ipcRenderer.removeListener('browser:open-external-url', handler)
+  },
 
   mobileStart: () => ipcRenderer.invoke('mobile:start'),
   mobileStop: () => ipcRenderer.invoke('mobile:stop'),

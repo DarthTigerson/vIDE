@@ -5,6 +5,7 @@ import { access, cp, mkdir, readFile, rename, writeFile } from 'fs/promises'
 import { homedir } from 'os'
 import { PtyManager } from './pty'
 import { ClaudeManager } from './claude'
+import { BrowserOpenShim } from './browserOpenShim'
 import { GitRunner } from './gitRunner'
 import { GraphifyManager } from './graphify'
 import { GitWatcher } from './gitWatcher'
@@ -601,7 +602,9 @@ app.whenReady().then(async () => {
 
   ptyMgr = new PtyManager()
   ptyMgr.registerHandlers()
-  claudeMgr = new ClaudeManager()
+  const browserOpenShim = new BrowserOpenShim(app.getPath('userData'))
+  browserOpenShim.start()
+  claudeMgr = new ClaudeManager(browserOpenShim)
   claudeMgr.registerHandlers()
   const gitRunner = new GitRunner()
   gitRunner.registerHandlers()

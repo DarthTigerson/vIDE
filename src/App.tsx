@@ -11,6 +11,7 @@ import { SetupWizard } from './components/Onboarding/SetupWizard'
 import { ShortcutsOverlay } from './components/Shortcuts/ShortcutsOverlay'
 import { useHoldToShowShortcuts } from './components/Shortcuts/useHoldToShowShortcuts'
 import { Chat } from './components/Chat/Chat'
+import { openUrlInBrowserTab } from './components/Chat/terminalLinks'
 import {
   ActivityBar,
   FilesIcon,
@@ -474,6 +475,12 @@ export default function App() {
   useEffect(() => {
     return window.api.onMenuOpenProject(() => {
       useFileStore.getState().openFolder()
+    })
+  }, [])
+
+  useEffect(() => {
+    return window.api.onBrowserOpenExternalUrl((url) => {
+      openUrlInBrowserTab(url)
     })
   }, [])
 

@@ -46,8 +46,14 @@ interface WindowState {
   busyTimers: Partial<Record<AssistantKind, NodeJS.Timeout>>
 }
 
+interface BrowserOpenShimLike {
+  getSpawnEnv(windowId: number): Record<string, string>
+}
+
 export class ClaudeManager {
   private byWindow = new Map<number, WindowState>()
+
+  constructor(private browserOpenShim?: BrowserOpenShimLike) {}
 
   registerHandlers(): void {
     ipcMain.handle('assistant:spawn', (event, cwd: string, assistant: AssistantKind = 'claude', mode: SessionMode = 'attach') => {
@@ -67,13 +73,23 @@ export class ClaudeManager {
 
       try {
         const shell = process.env.SHELL ?? '/bin/zsh'
-        const command = COMMANDS[selectedAssistant][selectedMode === 'attach' ? 'new' : selectedMode]
+        // Only claude gets the browser-open shim env — it lets a login flow's
+        // `open`/`xdg-open` call route into vIDE's own Browser panel (VIDE-7)
+        // instead of escaping to the OS browser.
+        const shimEnv = selectedAssistant === 'claude' ? this.browserOpenShim?.getSpawnEnv(win.id) : undefined
+        // `-lic` makes this a login shell, which re-derives PATH from scratch
+        // via macOS's path_helper — clobbering anything we set in `env`
+        // before the shell body runs, so /usr/bin/open would always win over
+        // our shim dir if we relied on the env var alone. Re-exporting PATH
+        // here, inside the command string, runs after that clobbering.
+        const baseCommand = COMMANDS[selectedAssistant][selectedMode === 'attach' ? 'new' : selectedMode]
+        const command = shimEnv ? `export PATH="${shimEnv.VIDE_BROWSER_SHIM_BIN}:$PATH"; ${baseCommand}` : baseCommand
         const proc = pty.spawn(shell, ['-lic', command], {
           name: 'xterm-color',
           cols: 80,
           rows: 24,
           cwd,
-          env: process.env as Record<string, string>,
+          env: { ...(process.env as Record<string, string>), ...shimEnv },
         })
         state.procs[selectedAssistant] = proc
         state.procCwd[selectedAssistant] = cwd

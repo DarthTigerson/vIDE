@@ -215,6 +215,7 @@ declare global {
       assistantResize: (assistant: AssistantKind, cols: number, rows: number) => void
       onAssistantData: (cb: (assistant: AssistantKind, data: string) => void) => () => void
       onAssistantBusy: (cb: (assistant: AssistantKind, busy: boolean) => void) => () => void
+      onBrowserOpenExternalUrl: (cb: (url: string) => void) => () => void
 
       onMenuOpenProject: (cb: () => void) => () => void
       getInitialProject: () => Promise<string | null>

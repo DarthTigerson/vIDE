@@ -201,3 +201,71 @@ describe('ClaudeManager busy detection', () => {
     ])
   })
 })
+
+describe('ClaudeManager browser-open shim env', () => {
+  beforeEach(() => {
+    spawnMock.mockReset()
+  })
+
+  function fakeShim() {
+    return {
+      getSpawnEnv: vi.fn((windowId: number) => ({
+        VIDE_WINDOW_ID: String(windowId),
+        VIDE_BROWSER_SHIM_SOCK: '/tmp/sock',
+        VIDE_BROWSER_SHIM_BIN: '/shim/bin',
+        PATH: '/shim/bin:/usr/bin',
+      })),
+    }
+  }
+
+  it('merges the browser-open shim env vars into a claude spawn, keyed by that spawn\'s window', () => {
+    const shim = fakeShim()
+    const manager = new ClaudeManager(shim)
+    manager.registerHandlers()
+    const win = fakeWin(9)
+    const proc = fakePty()
+    spawnMock.mockReturnValueOnce(proc)
+
+    handlers['assistant:spawn']({ sender: win }, '/project/a', 'claude', undefined)
+
+    expect(shim.getSpawnEnv).toHaveBeenCalledWith(9)
+    expect(spawnMock.mock.calls[0][2].env).toMatchObject({
+      VIDE_WINDOW_ID: '9',
+      VIDE_BROWSER_SHIM_SOCK: '/tmp/sock',
+      PATH: '/shim/bin:/usr/bin',
+    })
+  })
+
+  it('does not apply the shim env to a codex spawn', () => {
+    const shim = fakeShim()
+    const manager = new ClaudeManager(shim)
+    manager.registerHandlers()
+    const win = fakeWin(9)
+    const proc = fakePty()
+    spawnMock.mockReturnValueOnce(proc)
+
+    handlers['assistant:spawn']({ sender: win }, '/project/a', 'codex', undefined)
+
+    expect(shim.getSpawnEnv).not.toHaveBeenCalled()
+    expect(spawnMock.mock.calls[0][2].env.VIDE_WINDOW_ID).toBeUndefined()
+  })
+
+  // The spawned shell is a login shell (`-lic`), which re-derives PATH from
+  // scratch via macOS's path_helper — clobbering whatever we set in `env`
+  // before the shell body even runs, so /usr/bin/open always wins over our
+  // shim dir if we rely on the env var alone. Re-exporting PATH inside the
+  // command string itself runs after that clobbering, so our shim dir wins.
+  it('re-prepends the shim bin dir to PATH inside the command string, after the login shell would otherwise clobber it', () => {
+    const shim = fakeShim()
+    const manager = new ClaudeManager(shim)
+    manager.registerHandlers()
+    const win = fakeWin(9)
+    const proc = fakePty()
+    spawnMock.mockReturnValueOnce(proc)
+
+    handlers['assistant:spawn']({ sender: win }, '/project/a', 'claude', undefined)
+
+    const command = spawnMock.mock.calls[0][1][1]
+    expect(command).toBe('export PATH="/shim/bin:$PATH"; claude')
+  })
+})
