@@ -17,6 +17,7 @@ interface ClaudeState {
   assistant: AssistantKind
   restartToken: number
   usageOpen: boolean
+  costOpen: boolean
   chatVisible: boolean
   pendingInjection: string | null
   focusToken: number
@@ -31,6 +32,7 @@ interface ClaudeState {
   compact: () => void
   clearContext: () => void
   usage: () => void
+  cost: () => void
   model: () => void
   fast: () => void
   toggleChatVisible: () => void
@@ -45,6 +47,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
   assistant: readStoredAssistant(),
   restartToken: 0,
   usageOpen: false,
+  costOpen: false,
   // Starts closed — App.tsx opens it automatically once a project resolves
   // (on launch restore or a fresh Open Folder), so there's no toggle to
   // click (or flash of an empty chat panel) before there's a project for it
@@ -99,7 +102,19 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
   },
   usage: () => {
     if (get().assistant !== 'claude') return
-    set((s) => ({ usageOpen: !s.usageOpen }))
+    // Usage and Cost are mutually exclusive — opening one closes the other,
+    // so at most one of these bottom panels is ever showing at a time.
+    set((s) => {
+      const usageOpen = !s.usageOpen
+      return { usageOpen, costOpen: usageOpen ? false : s.costOpen }
+    })
+  },
+  cost: () => {
+    if (get().assistant !== 'claude') return
+    set((s) => {
+      const costOpen = !s.costOpen
+      return { costOpen, usageOpen: costOpen ? false : s.usageOpen }
+    })
   },
   model: () => window.api.assistantWrite('codex', '/model\r'),
   fast: () => window.api.assistantWrite('codex', '/fast\r'),

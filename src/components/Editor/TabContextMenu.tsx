@@ -98,6 +98,7 @@ export function TabContextMenu({ x, y, paneId, path, onClose }: {
     pinnedPaths, layout, paneTabLists,
   } = useEditorStore()
   const autoSaveEnabled = useEditorSettingsStore((s) => s.autoSaveEnabled)
+  const fullscreenId = useBrowserStore((s) => s.fullscreenId)
 
   useEffect(() => {
     const close = () => onClose()
@@ -155,6 +156,9 @@ export function TabContextMenu({ x, y, paneId, path, onClose }: {
             })}
           >
             Duplicate
+          </MenuButton>
+          <MenuButton onClick={withClose(() => useBrowserStore.getState().toggleFullscreen(getBrowserId(path)))}>
+            {fullscreenId === getBrowserId(path) ? 'Exit Fullscreen' : 'Enter Fullscreen'}
           </MenuButton>
           <MenuDivider />
         </>

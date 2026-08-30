@@ -5,9 +5,10 @@ import { RadioGroup } from '@/components/ui/RadioGroup'
 
 const FAMILIES = [
   { value: 'claude', label: 'Claude' },
-  { value: 'codex', label: 'Codex' },
   { value: 'thomas', label: 'Thomas' },
   { value: 'luuk', label: 'Luuk' },
+  { value: 'link', label: 'Link' },
+  { value: 'atreus', label: 'Atreus' },
 ]
 
 const VARIANT_OPTIONS: { value: 'light' | 'dark' | 'system'; label: string }[] = [

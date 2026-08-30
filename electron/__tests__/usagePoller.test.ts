@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { mkdtempSync, rmSync, writeFileSync } from 'fs'
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { promisify } from 'util'
@@ -39,6 +39,7 @@ import {
   type UsageSnapshot,
 } from '../usagePoller'
 import { _resetClaudePathCacheForTesting } from '../autocomplete'
+import { SpendTracker } from '../spendEstimator'
 
 const SAMPLE_RESULT = `You are currently using your subscription to power your Claude Code usage
 
@@ -148,7 +149,7 @@ describe('computeCutoff', () => {
 
 describe('downsample', () => {
   function snap(i: number): UsageSnapshot {
-    return { ts: i, sessionPct: i, weeklyPct: i, requests24h: i, requests7d: i, topSkills: [], sessionResetAt: null, weeklyResetAt: null }
+    return { ts: i, sessionPct: i, weeklyPct: i, requests24h: i, requests7d: i, topSkills: [], sessionResetAt: null, weeklyResetAt: null, sessionSpendUsd: 0, weeklySpendUsd: 0 }
   }
 
   it('leaves a series at or under maxPoints unchanged', () => {
@@ -176,6 +177,8 @@ describe('downsample', () => {
       topSkills: [],
       sessionResetAt: null,
       weeklyResetAt: null,
+      sessionSpendUsd: 0,
+      weeklySpendUsd: 0,
     }))
     const gapStart = 9000
     const after = Array.from({ length: 10 }, (_, i): UsageSnapshot => ({
@@ -187,6 +190,8 @@ describe('downsample', () => {
       topSkills: [],
       sessionResetAt: null,
       weeklyResetAt: null,
+      sessionSpendUsd: 0,
+      weeklySpendUsd: 0,
     }))
     const result = downsample([...before, ...after], 5)
     expect(result.every((s) => s.sessionPct === 0 || s.sessionPct === 100)).toBe(true)
@@ -238,6 +243,8 @@ describe('UsagePoller', () => {
       topSkills: [],
       sessionResetAt: null,
       weeklyResetAt: null,
+      sessionSpendUsd: 0,
+      weeklySpendUsd: 0,
     }))
     writeFileSync(historyFile, lines.map((l) => JSON.stringify(l)).join('\n') + '\n')
 
@@ -274,7 +281,11 @@ describe('UsagePoller.poll', () => {
 
   function newPoller() {
     dir = mkdtempSync(join(tmpdir(), 'vide-usage-poll-test-'))
-    return new UsagePoller(join(dir, 'history.jsonl'), join(dir, 'settings.json'))
+    // Points spend-tracking at an empty, real-projects-free directory —
+    // without this, poll() would default to scanning the actual
+    // ~/.claude/projects on whatever machine runs this suite.
+    const spendTracker = new SpendTracker(join(dir, 'empty-projects'))
+    return new UsagePoller(join(dir, 'history.jsonl'), join(dir, 'settings.json'), undefined, spendTracker)
   }
 
   function lastArg(call: unknown[]) {
@@ -323,5 +334,65 @@ describe('UsagePoller.poll', () => {
 
     expect(poller.getLatest()).toBeNull()
     expect(execFileMock).toHaveBeenCalledTimes(1)
+  })
+
+  function formatResetLine(date: Date): string {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const hour24 = date.getHours()
+    const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12
+    const minute = String(date.getMinutes()).padStart(2, '0')
+    const ampm = hour24 >= 12 ? 'pm' : 'am'
+    return `resets ${months[date.getMonth()]} ${date.getDate()} at ${hour12}:${minute}${ampm}`
+  }
+
+  it('wires the SpendTracker into the snapshot and getLatest() burn rate', async () => {
+    const now = Date.now()
+    // 3h remaining of a 5h session window -> 2h elapsed, computed relative
+    // to real wall-clock time so this holds regardless of what day the
+    // suite runs on (unlike SAMPLE_RESULT's fixed calendar dates above).
+    const sessionResetAt = new Date(now + 3 * 3_600_000)
+    const weeklyResetAt = new Date(now + 3 * 24 * 3_600_000)
+    const resultText =
+      `Current session: 50% used · ${formatResetLine(sessionResetAt)} (Europe/Malta)\n` +
+      `Current week (all models): 50% used · ${formatResetLine(weeklyResetAt)} (Europe/Malta)`
+
+    execFileMock.mockImplementation((...call: unknown[]) => {
+      const [file, args] = call as [string, unknown]
+      const cb = lastArg(call)
+      if (Array.isArray(args) && args.includes('command -v claude')) {
+        cb(null, '/Users/thomas/.local/bin/claude', '')
+        return
+      }
+      if (file === '/Users/thomas/.local/bin/claude') {
+        cb(null, JSON.stringify({ result: resultText }), '')
+        return
+      }
+      cb(new Error(`unexpected execFile call: ${JSON.stringify(call.slice(0, 2))}`), '', '')
+    })
+
+    dir = mkdtempSync(join(tmpdir(), 'vide-usage-poll-test-'))
+    const projectsRoot = join(dir, 'projects')
+    const projectDir = join(projectsRoot, 'proj')
+    mkdirSync(projectDir, { recursive: true })
+    writeFileSync(
+      join(projectDir, 'session-a.jsonl'),
+      JSON.stringify({
+        type: 'assistant',
+        timestamp: new Date(now - 3_600_000).toISOString(), // 1h ago, inside the 2h-elapsed session window
+        message: { role: 'assistant', model: 'claude-sonnet-5', usage: { input_tokens: 1_000_000 } }, // $2 at Sonnet 5 rates
+      }) + '\n'
+    )
+
+    const poller = new UsagePoller(join(dir, 'history.jsonl'), join(dir, 'settings.json'), undefined, new SpendTracker(projectsRoot))
+    await poller.poll()
+
+    const latest = poller.getLatest()
+    expect(latest?.sessionSpendUsd).toBeCloseTo(2, 6)
+    expect(latest?.weeklySpendUsd).toBeCloseTo(2, 6)
+    // $2 over ~2h elapsed -> ~$1/hr. Loose precision: the reset line only
+    // carries minute-level granularity (formatResetLine drops seconds, same
+    // as the real CLI's own display), so the reparsed resetAt can be off by
+    // up to a minute relative to the true elapsed time.
+    expect(latest?.sessionSpendRatePerHour).toBeCloseTo(1, 1)
   })
 })

@@ -1,7 +1,10 @@
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'fs'
+import { homedir } from 'os'
+import { join } from 'path'
 import { resolveClaudePath } from './autocomplete'
+import { SpendTracker } from './spendEstimator'
 
 const execFileAsync = promisify(execFile)
 
@@ -14,6 +17,12 @@ export interface UsageSnapshot {
   topSkills: { name: string; pct: number }[]
   sessionResetAt: number | null
   weeklyResetAt: number | null
+  // Estimated, not real billing data — the CLI's own /usage never reports a
+  // $ figure on a subscription plan (see spendEstimator.ts), so these are
+  // computed by replicating Anthropic's published per-model pricing against
+  // token usage logged in local session transcripts.
+  sessionSpendUsd: number
+  weeklySpendUsd: number
 }
 
 export interface LatestUsage extends UsageSnapshot {
@@ -21,6 +30,8 @@ export interface LatestUsage extends UsageSnapshot {
   weeklyAvgRatePerHour: number | null
   sessionCutoffAt: number | null
   weeklyCutoffAt: number | null
+  sessionSpendRatePerHour: number | null
+  weeklySpendRatePerHour: number | null
 }
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
@@ -51,7 +62,7 @@ export function parseResetAt(line: string | undefined, now = new Date()): number
   return date.getTime()
 }
 
-export function parseUsageText(text: string, now = new Date()): Omit<UsageSnapshot, 'ts'> | null {
+export function parseUsageText(text: string, now = new Date()): Omit<UsageSnapshot, 'ts' | 'sessionSpendUsd' | 'weeklySpendUsd'> | null {
   const sessionMatch = text.match(/Current session: (\d+)%/)
   if (!sessionMatch) return null
 
@@ -109,6 +120,8 @@ function averageBucket(bucket: UsageSnapshot[]): UsageSnapshot {
   const last = bucket[bucket.length - 1]
   const avg = (key: 'sessionPct' | 'weeklyPct' | 'requests24h' | 'requests7d') =>
     Math.round(bucket.reduce((s, b) => s + b[key], 0) / bucket.length)
+  const avgSpend = (key: 'sessionSpendUsd' | 'weeklySpendUsd') =>
+    bucket.reduce((s, b) => s + b[key], 0) / bucket.length
   return {
     ts: last.ts,
     sessionPct: avg('sessionPct'),
@@ -118,6 +131,8 @@ function averageBucket(bucket: UsageSnapshot[]): UsageSnapshot {
     topSkills: last.topSkills,
     sessionResetAt: last.sessionResetAt,
     weeklyResetAt: last.weeklyResetAt,
+    sessionSpendUsd: avgSpend('sessionSpendUsd'),
+    weeklySpendUsd: avgSpend('weeklySpendUsd'),
   }
 }
 
@@ -157,7 +172,8 @@ export class UsagePoller {
   constructor(
     private readonly historyFile: string,
     private readonly settingsFile: string,
-    private readonly onSnapshot?: (snapshot: UsageSnapshot) => void
+    private readonly onSnapshot?: (snapshot: UsageSnapshot) => void,
+    private readonly spendTracker: SpendTracker = new SpendTracker(join(homedir(), '.claude', 'projects'))
   ) {
     this.loadSettings()
   }
@@ -204,7 +220,11 @@ export class UsagePoller {
       const json = JSON.parse(jsonLine)
       const parsed = parseUsageText(json.result ?? '')
       if (!parsed) return
-      const snapshot: UsageSnapshot = { ts: Date.now(), ...parsed }
+      const now = Date.now()
+      const sessionWindowStart = parsed.sessionResetAt != null ? parsed.sessionResetAt - SESSION_WINDOW_HOURS * 3_600_000 : null
+      const weeklyWindowStart = parsed.weeklyResetAt != null ? parsed.weeklyResetAt - WEEKLY_WINDOW_HOURS * 3_600_000 : null
+      const { sessionSpendUsd, weeklySpendUsd } = this.spendTracker.computeSpend(sessionWindowStart, weeklyWindowStart, now)
+      const snapshot: UsageSnapshot = { ts: now, ...parsed, sessionSpendUsd, weeklySpendUsd }
       this.latest = snapshot
       try {
         appendFileSync(this.historyFile, JSON.stringify(snapshot) + '\n')
@@ -237,6 +257,10 @@ export class UsagePoller {
       weeklyAvgRatePerHour,
       sessionCutoffAt: computeCutoff(this.latest.sessionPct, this.latest.sessionResetAt, sessionAvgRatePerHour),
       weeklyCutoffAt: computeCutoff(this.latest.weeklyPct, this.latest.weeklyResetAt, weeklyAvgRatePerHour),
+      // computeBurnRate is just amount/elapsedHours with no unit assumption
+      // baked in, so feeding it a $ total instead of a % works unchanged.
+      sessionSpendRatePerHour: computeBurnRate(this.latest.sessionSpendUsd, this.latest.sessionResetAt, SESSION_WINDOW_HOURS),
+      weeklySpendRatePerHour: computeBurnRate(this.latest.weeklySpendUsd, this.latest.weeklyResetAt, WEEKLY_WINDOW_HOURS),
     }
   }
 

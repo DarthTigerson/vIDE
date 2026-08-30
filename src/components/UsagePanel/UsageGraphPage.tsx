@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLatestUsage } from './useLatestUsage'
-import { Gauge, ResetInfo, RequestsStat, BurnRateStat, CutoffStat } from './UsageStats'
+import { Gauge, ResetInfo, RequestsStat, BurnRateStat, CutoffStat, SpendStat } from './UsageStats'
 import { UsageChart } from './UsageChart'
 import { UsageSkills } from './UsageSkills'
 
@@ -53,6 +53,10 @@ export function UsageGraphPage() {
             <CutoffStat label="session" cutoffAt={latest.sessionCutoffAt} now={now} />
             <CutoffStat label="week" cutoffAt={latest.weeklyCutoffAt} now={now} />
           </div>
+          <div className="flex flex-col gap-3 pt-1">
+            <div className="text-[0.625rem] text-fg-muted uppercase tracking-wider font-semibold">Est. spend</div>
+            <SpendStat label="session" spendUsd={latest.sessionSpendUsd} ratePerHour={latest.sessionSpendRatePerHour} />
+          </div>
         </div>
 
         <div className="border border-border rounded-lg p-4 bg-sidebar">
@@ -61,6 +65,14 @@ export function UsageGraphPage() {
 
         <div className="border border-border rounded-lg p-4 bg-sidebar">
           <UsageChart latest={latest} metric="weekly" />
+        </div>
+
+        <div className="border border-border rounded-lg p-4 bg-sidebar">
+          <UsageChart latest={latest} metric="sessionSpend" />
+        </div>
+
+        <div className="border border-border rounded-lg p-4 bg-sidebar">
+          <UsageChart latest={latest} metric="weeklySpend" />
         </div>
 
         <div className="border border-border rounded-lg p-4 bg-sidebar">

@@ -68,6 +68,44 @@ describe('claudeStore.setChatVisible', () => {
   })
 })
 
+describe('claudeStore.usage / cost mutual exclusion', () => {
+  beforeEach(() => {
+    useClaudeStore.setState({ assistant: 'claude', usageOpen: false, costOpen: false })
+  })
+
+  it('opening Usage closes Cost', () => {
+    useClaudeStore.setState({ costOpen: true })
+    useClaudeStore.getState().usage()
+    const state = useClaudeStore.getState()
+    expect(state.usageOpen).toBe(true)
+    expect(state.costOpen).toBe(false)
+  })
+
+  it('opening Cost closes Usage', () => {
+    useClaudeStore.setState({ usageOpen: true })
+    useClaudeStore.getState().cost()
+    const state = useClaudeStore.getState()
+    expect(state.costOpen).toBe(true)
+    expect(state.usageOpen).toBe(false)
+  })
+
+  it('closing Usage leaves Cost as it was', () => {
+    useClaudeStore.setState({ usageOpen: true, costOpen: false })
+    useClaudeStore.getState().usage()
+    const state = useClaudeStore.getState()
+    expect(state.usageOpen).toBe(false)
+    expect(state.costOpen).toBe(false)
+  })
+
+  it('closing Cost leaves Usage as it was', () => {
+    useClaudeStore.setState({ costOpen: true, usageOpen: false })
+    useClaudeStore.getState().cost()
+    const state = useClaudeStore.getState()
+    expect(state.costOpen).toBe(false)
+    expect(state.usageOpen).toBe(false)
+  })
+})
+
 describe('claudeStore.setBusy', () => {
   beforeEach(() => {
     useClaudeStore.setState({ busyByAssistant: {} })

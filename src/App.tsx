@@ -33,6 +33,7 @@ import {
   CompactIcon,
   ClearIcon,
   UsageIcon,
+  CostIcon,
   UsageGraphIcon,
   ModelIcon,
   FastIcon,
@@ -60,6 +61,7 @@ import { useTodoStore } from './stores/todoStore'
 import { useGitReposStore } from './stores/gitReposStore'
 import { useGitSettingsStore } from './stores/gitSettingsStore'
 import { useMobileStore } from './stores/mobileStore'
+import { useMobileSettingsStore } from './stores/mobileSettingsStore'
 import { useThemeStore } from './stores/themeStore'
 import { useDisplayStore } from './stores/displayStore'
 import { EMPTY_EDITOR_BACKGROUNDS } from './assets/emptyEditorBackgrounds'
@@ -129,6 +131,7 @@ export default function App() {
   const refreshGitStatus = useGitStore((s) => s.refreshStatus)
   const assistant = useClaudeStore((s) => s.assistant)
   const usageOpen = useClaudeStore((s) => s.usageOpen)
+  const costOpen = useClaudeStore((s) => s.costOpen)
   const setAssistant = useClaudeStore((s) => s.setAssistant)
   const chatVisible = useClaudeStore((s) => s.chatVisible)
   const enabledModels = useModelSettingsStore((s) => s.enabled)
@@ -185,6 +188,7 @@ export default function App() {
   const gitRemoteReady = gitRemoteUrl.trim() !== ''
   const gitRemoteProvider = detectGitRemoteProvider(gitRemoteUrl)
   const dockerEnabled = useDockerSettingsStore((s) => s.enabled)
+  const mobileEnabled = useMobileSettingsStore((s) => s.enabled)
   const todoEnabled = useTodoSettingsStore((s) => s.enabled)
   const notesEnabled = useNotesSettingsStore((s) => s.enabled)
 
@@ -248,7 +252,7 @@ export default function App() {
 
   useEffect(() => {
     useBridgeSettingsStore.getState().init()
-    useMobileStore.getState().init()
+    if (useMobileSettingsStore.getState().enabled) useMobileStore.getState().init()
     useNotesStore.getState().loadRoot()
   }, [])
 
@@ -763,7 +767,7 @@ export default function App() {
               active: leftPanel === 'docker',
               onClick: () => setLeftPanel((p) => (p === 'docker' ? null : 'docker')),
             }] : []),
-            ...(projectRoot ? [{
+            ...(mobileEnabled && projectRoot ? [{
               id: 'mobile',
               icon: <PhoneIcon />,
               title: 'Mobile Display',
@@ -974,6 +978,14 @@ export default function App() {
                   active: usageOpen,
                   disabled: !projectRoot,
                   onClick: () => useClaudeStore.getState().usage(),
+                },
+                {
+                  id: 'cost',
+                  icon: <CostIcon />,
+                  title: 'Cost',
+                  active: costOpen,
+                  disabled: !projectRoot,
+                  onClick: () => useClaudeStore.getState().cost(),
                 },
                 {
                   id: 'usage-graph',

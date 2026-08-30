@@ -11,6 +11,7 @@ import { useInstanceFontSizeStore } from '@/stores/instanceFontSizeStore'
 import { useDisplayStore, type PanelStyle } from '@/stores/displayStore'
 import { BridgeChat } from './BridgeChat'
 import { UsagePanel } from '@/components/UsagePanel/UsagePanel'
+import { CostPanel } from '@/components/UsagePanel/CostPanel'
 import { isShiftEnterKeydown, SHIFT_ENTER_SEQUENCE } from './shiftEnterSequence'
 import { wrapBracketedPaste } from '@/lib/sendSelectionToAssistant'
 import { createFilePathLinkProvider, createFilePathActivateHandler, createUrlActivateHandler, openUrlInBrowserTab } from './terminalLinks'
@@ -50,6 +51,7 @@ export function Chat() {
   const projectRoot = useFileStore((s) => s.projectRoot)
   const assistant = useClaudeStore((s) => s.assistant)
   const usageOpen = useClaudeStore((s) => s.usageOpen)
+  const costOpen = useClaudeStore((s) => s.costOpen)
   const focusToken = useClaudeStore((s) => s.focusToken)
   const restartToken = useClaudeStore((s) => s.restartToken)
   const theme = useThemeStore((s) => s.theme)
@@ -302,6 +304,7 @@ export function Chat() {
         </div>
       )}
       {assistant === 'claude' && usageOpen && <UsagePanel />}
+      {assistant === 'claude' && costOpen && <CostPanel />}
     </div>
   )
 }

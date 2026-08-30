@@ -16,6 +16,10 @@ const SAMPLE: LatestUsage = {
   weeklyAvgRatePerHour: 0.73,
   sessionCutoffAt: null,
   weeklyCutoffAt: null,
+  sessionSpendUsd: 1.42,
+  weeklySpendUsd: 8.9,
+  sessionSpendRatePerHour: 0.5,
+  weeklySpendRatePerHour: 0.1,
 }
 
 function mockApi(overrides: Partial<typeof window.api> = {}) {

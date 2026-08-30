@@ -244,6 +244,16 @@ export function BrowserTab({ browserId }: Props) {
   const zoomPercent = zoomLevelToPercent(tabState?.zoomLevel ?? 0)
   const mobileMode = tabState?.mobileMode ?? false
   const mobileDevice = getMobileDevice(tabState?.mobileDeviceId)
+  const isFullscreen = useBrowserStore((s) => s.fullscreenId === browserId)
+
+  useEffect(() => {
+    if (!isFullscreen) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') useBrowserStore.getState().exitFullscreen()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isFullscreen])
 
   function toggleMobileMode() {
     const next = !mobileMode
@@ -263,6 +273,8 @@ export function BrowserTab({ browserId }: Props) {
 
   return (
     <div className="h-full w-full flex flex-col bg-bg overflow-hidden">
+      {!isFullscreen && (
+      <>
       <div className="flex items-center gap-1 px-2 h-9 border-b border-border shrink-0 bg-tab-bar">
         <button
           type="button"
@@ -408,8 +420,26 @@ export function BrowserTab({ browserId }: Props) {
               <PlusIcon />
             </button>
           </div>
+          <div className="flex items-center rounded-full border border-border bg-bg overflow-hidden">
+            <button
+              type="button"
+              aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+              aria-pressed={isFullscreen}
+              title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+              onClick={() => useBrowserStore.getState().toggleFullscreen(browserId)}
+              className={
+                isFullscreen
+                  ? 'flex h-6 w-7 items-center justify-center bg-accent/15 text-accent'
+                  : 'flex h-6 w-7 items-center justify-center text-fg-muted hover:text-fg hover:bg-white/5'
+              }
+            >
+              <FullscreenIcon active={isFullscreen} />
+            </button>
+          </div>
           </div>
         </div>
+      )}
+      </>
       )}
       <div className="relative flex-1 min-h-0">
         <div ref={containerRef} className="h-full w-full" />
@@ -482,6 +512,18 @@ function MinusIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function FullscreenIcon({ active }: { active: boolean }) {
+  return active ? (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M9 3v3a2 2 0 0 1-2 2H4M15 3v3a2 2 0 0 0 2 2h3M9 21v-3a2 2 0 0 0-2-2H4M15 21v-3a2 2 0 0 1 2-2h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ) : (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }

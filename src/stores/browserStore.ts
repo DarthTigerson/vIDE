@@ -16,9 +16,12 @@ export interface BrowserTabState {
 
 interface BrowserStore {
   tabs: Record<string, BrowserTabState>
+  fullscreenId: string | null
   ensureTab: (id: string, initialUrl: string) => void
   updateTab: (id: string, patch: Partial<BrowserTabState>) => void
   removeTab: (id: string) => void
+  toggleFullscreen: (id: string) => void
+  exitFullscreen: () => void
 }
 
 const DEFAULT_STATE: BrowserTabState = {
@@ -36,6 +39,7 @@ const DEFAULT_STATE: BrowserTabState = {
 
 export const useBrowserStore = create<BrowserStore>((set, get) => ({
   tabs: {},
+  fullscreenId: null,
 
   ensureTab: (id, initialUrl) => {
     if (get().tabs[id]) return
@@ -54,7 +58,13 @@ export const useBrowserStore = create<BrowserStore>((set, get) => ({
       if (!(id in s.tabs)) return s
       const tabs = { ...s.tabs }
       delete tabs[id]
-      return { tabs }
+      return { tabs, fullscreenId: s.fullscreenId === id ? null : s.fullscreenId }
     })
   },
+
+  toggleFullscreen: (id) => {
+    set((s) => ({ fullscreenId: s.fullscreenId === id ? null : id }))
+  },
+
+  exitFullscreen: () => set({ fullscreenId: null }),
 }))

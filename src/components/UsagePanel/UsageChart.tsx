@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { LatestUsage, UsageSnapshot } from '@/types/api'
+import { formatSpend } from './format'
 import {
   buildLineSegments,
   buildGapPredictions,
@@ -13,42 +14,78 @@ import {
   type UsageRange,
 } from './sparkline'
 
-export type UsageMetric = 'session' | 'weekly'
+export type UsageMetric = 'session' | 'weekly' | 'sessionSpend' | 'weeklySpend'
 
 // Session and weekly resets happen on very different timescales (hours vs.
 // days), so each metric gets its own default range and its own "how far
 // into the future is a projected cutoff still worth drawing" window —
 // a weekly cutoff routinely projects days out, where a session one is
 // usually hours.
+//
+// The two spend metrics share this same plotting pipeline even though a
+// dollar total has no natural 0-100 scale the way a percent does: isPercent
+// tells the component below whether valueOf is already on that scale
+// (session/weekly) or needs normalizing against the visible data's own max
+// before it's handed to sparkline.ts's fixed 0-100 math (the spend
+// metrics) — cutoffOf returns null for spend since a subscription plan
+// has no dollar cap for a "runs out at" projection to project toward.
 const METRIC: Record<
   UsageMetric,
   {
     title: string
     label: string
-    pctOf: (s: UsageSnapshot) => number
+    valueOf: (s: UsageSnapshot) => number
     resetAtOf: (s: UsageSnapshot) => number | null
     cutoffOf: (l: LatestUsage) => number | null
     defaultRange: UsageRange
     futureWindowMs: number
+    formatValue: (v: number) => string
+    isPercent: boolean
   }
 > = {
   session: {
     title: 'Session usage',
     label: 'session',
-    pctOf: (s) => s.sessionPct,
+    valueOf: (s) => s.sessionPct,
     resetAtOf: (s) => s.sessionResetAt,
     cutoffOf: (l) => l.sessionCutoffAt,
     defaultRange: '24h',
     futureWindowMs: 6 * 60 * 60 * 1000,
+    formatValue: (v) => `${Math.round(v)}%`,
+    isPercent: true,
   },
   weekly: {
     title: 'Weekly usage',
     label: 'week',
-    pctOf: (s) => s.weeklyPct,
+    valueOf: (s) => s.weeklyPct,
     resetAtOf: (s) => s.weeklyResetAt,
     cutoffOf: (l) => l.weeklyCutoffAt,
     defaultRange: '7d',
     futureWindowMs: 2 * 24 * 60 * 60 * 1000,
+    formatValue: (v) => `${Math.round(v)}%`,
+    isPercent: true,
+  },
+  sessionSpend: {
+    title: 'Session cost',
+    label: 'session',
+    valueOf: (s) => s.sessionSpendUsd,
+    resetAtOf: (s) => s.sessionResetAt,
+    cutoffOf: () => null,
+    defaultRange: '24h',
+    futureWindowMs: 0,
+    formatValue: formatSpend,
+    isPercent: false,
+  },
+  weeklySpend: {
+    title: 'Weekly cost',
+    label: 'week',
+    valueOf: (s) => s.weeklySpendUsd,
+    resetAtOf: (s) => s.weeklyResetAt,
+    cutoffOf: () => null,
+    defaultRange: '7d',
+    futureWindowMs: 0,
+    formatValue: formatSpend,
+    isPercent: false,
   },
 }
 
@@ -109,9 +146,17 @@ export function UsageChart({ latest, metric }: { latest: LatestUsage; metric: Us
   const cutoffAt = config.cutoffOf(latest)
   const to = cutoffAt != null && cutoffAt <= now + config.futureWindowMs ? Math.max(now, cutoffAt) : now
 
-  const lineSegments = buildLineSegments(snapshots, from, to, config.pctOf)
-  const gapPredictions = buildGapPredictions(snapshots, from, to, config.pctOf, config.resetAtOf)
-  const projection = buildProjectionLine(snapshots[snapshots.length - 1], config.pctOf, cutoffAt, from, to)
+  // sparkline.ts's plotting math (yFor, buildLineSegments, ...) is fixed to
+  // a 0-100 scale — for a percent metric valueOf is already on that scale,
+  // for a spend metric it's normalized here against the visible data's own
+  // max first. Actual dollar values are recovered for grid/tooltip labels
+  // via config.formatValue(config.valueOf(...)), never from this pct space.
+  const plotMax = config.isPercent ? 100 : Math.max(1e-9, ...snapshots.map(config.valueOf))
+  const pctOf = (s: UsageSnapshot) => (config.valueOf(s) / plotMax) * 100
+
+  const lineSegments = buildLineSegments(snapshots, from, to, pctOf)
+  const gapPredictions = buildGapPredictions(snapshots, from, to, pctOf, config.resetAtOf)
+  const projection = buildProjectionLine(snapshots[snapshots.length - 1], pctOf, cutoffAt, from, to)
 
   function handlePointer(clientX: number) {
     const el = plotRef.current
@@ -134,7 +179,7 @@ export function UsageChart({ latest, metric }: { latest: LatestUsage; metric: Us
       setHover(null)
       return
     }
-    setHover({ x: xFor(snapshot.ts, from, to), y: yFor(config.pctOf(snapshot)), snapshot })
+    setHover({ x: xFor(snapshot.ts, from, to), y: yFor(pctOf(snapshot)), snapshot })
   }
 
   return (
@@ -166,7 +211,7 @@ export function UsageChart({ latest, metric }: { latest: LatestUsage; metric: Us
           <div className="flex gap-2 h-72">
             <div className="flex flex-col justify-between text-xs text-fg-subtle text-right leading-none">
               {GRID_PCTS.map((p) => (
-                <span key={p}>{p}%</span>
+                <span key={p}>{config.formatValue((plotMax * p) / 100)}</span>
               ))}
             </div>
             <div
@@ -249,7 +294,7 @@ export function UsageChart({ latest, metric }: { latest: LatestUsage; metric: Us
                   }}
                 >
                   <div className="text-fg-muted">{fmtAxisTime(hover.snapshot.ts, range)}</div>
-                  <div className="text-fg font-semibold">{config.pctOf(hover.snapshot)}% {config.label}</div>
+                  <div className="text-fg font-semibold">{config.formatValue(config.valueOf(hover.snapshot))} {config.label}</div>
                 </div>
               )}
             </div>
