@@ -1,5 +1,22 @@
 # vIDE
 
+## v0.2.7 (2026-08-30)
+- **Cost panel**: estimated Claude spend tracking with a per-model pricing table
+- **Claude-controlled browser tab**: new MCP tools let Claude navigate, screenshot, click, type, and read within its own browser tab, replacing the old "open URL" shim
+- **Resume session**: a picker command lets Claude resume any previous session, not just continue the latest one
+- **Fullscreen toggle** for browser tabs
+- **Mobile Display toggle**: enable/disable Mobile Display from Settings
+- **Themes**: replaced the Codex theme family with Link Dark/Light and Atreus Dark/Light
+- Claude now plays a completion sound when it finishes a real reply
+- Usage alert footer now shows a live HH:MM:SS countdown to the projected cutoff
+- Usage Graph: gaps in usage data are now handled with time-based downsampling and dashed prediction lines across real gaps, and each metric remembers its own selected range
+- Redesigned the compact sidebar icon as converging chevrons, with refreshed activity bar icon hover styling
+
+**Bug fixes**
+- Fixed mouse-wheel scroll speed and scrollbar thumb visibility in the terminal
+- Inline autocomplete is temporarily disabled pending a rework
+
+
 ## v0.2.6 (2026-08-29)
 - **Notes search**: a search button in the Notes panel header toggles a search box that matches note titles and content across your whole library, not just expanded folders — press "/" to jump to it, same as the To Do board's search
 - **To Do search and author tracking**: a search box filters the To Do board and archive by title/description, and comments/cards now record which author (you or Claude) made them
