@@ -124,16 +124,26 @@ function averageBucket(bucket: UsageSnapshot[]): UsageSnapshot {
 // Grafana-style trade-off: raw history is kept forever on disk, but a query
 // only ever gets back a series sized to what a chart can show — keeps
 // responses fast and small no matter how much history has piled up.
+//
+// Buckets by *time*, not array position: if vIDE (or the machine) was off
+// for a stretch, the buckets that fall inside that stretch simply produce no
+// point, instead of blending the last pre-gap reading with the first
+// post-gap one into a single misleading average. The chart then renders
+// that as a real break in the line (see sparkline.ts) rather than a smooth
+// diagonal implying continuous usage change.
 export function downsample(snapshots: UsageSnapshot[], maxPoints: number): UsageSnapshot[] {
   if (snapshots.length <= maxPoints) return snapshots
-  const bucketSize = snapshots.length / maxPoints
-  const result: UsageSnapshot[] = []
-  for (let i = 0; i < maxPoints; i++) {
-    const start = Math.floor(i * bucketSize)
-    const end = Math.max(Math.floor((i + 1) * bucketSize), start + 1)
-    result.push(averageBucket(snapshots.slice(start, end)))
+  const firstTs = snapshots[0].ts
+  const span = snapshots[snapshots.length - 1].ts - firstTs
+  if (span <= 0) return [averageBucket(snapshots)]
+
+  const bucketWidth = span / maxPoints
+  const buckets: UsageSnapshot[][] = []
+  for (const s of snapshots) {
+    const idx = Math.min(maxPoints - 1, Math.floor((s.ts - firstTs) / bucketWidth))
+    ;(buckets[idx] ??= []).push(s)
   }
-  return result
+  return buckets.filter((b) => b?.length).map(averageBucket)
 }
 
 export const ALLOWED_INTERVALS_MS = [15_000, 30_000, 60_000, 300_000, 900_000]

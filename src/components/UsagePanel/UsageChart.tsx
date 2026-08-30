@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import type { LatestUsage, UsageSnapshot } from '@/types/api'
 import {
-  buildLinePoints,
+  buildLineSegments,
+  buildGapPredictions,
   buildProjectionLine,
+  gapThresholdMs,
   nearestSnapshotByTime,
   xFor,
   yFor,
@@ -24,6 +26,7 @@ const METRIC: Record<
     title: string
     label: string
     pctOf: (s: UsageSnapshot) => number
+    resetAtOf: (s: UsageSnapshot) => number | null
     cutoffOf: (l: LatestUsage) => number | null
     defaultRange: UsageRange
     futureWindowMs: number
@@ -33,6 +36,7 @@ const METRIC: Record<
     title: 'Session usage',
     label: 'session',
     pctOf: (s) => s.sessionPct,
+    resetAtOf: (s) => s.sessionResetAt,
     cutoffOf: (l) => l.sessionCutoffAt,
     defaultRange: '24h',
     futureWindowMs: 6 * 60 * 60 * 1000,
@@ -41,6 +45,7 @@ const METRIC: Record<
     title: 'Weekly usage',
     label: 'week',
     pctOf: (s) => s.weeklyPct,
+    resetAtOf: (s) => s.weeklyResetAt,
     cutoffOf: (l) => l.weeklyCutoffAt,
     defaultRange: '7d',
     futureWindowMs: 2 * 24 * 60 * 60 * 1000,
@@ -48,6 +53,18 @@ const METRIC: Record<
 }
 
 const GRID_PCTS = [100, 75, 50, 25, 0]
+
+// Persisted per metric (not shared) since session and weekly already have
+// different natural defaults (24h vs. 7d) — a user zooming the session
+// chart to 1h shouldn't also collapse the weekly chart down to 1h.
+function rangeStorageKey(metric: UsageMetric): string {
+  return `vide.usageChart.range.${metric}`
+}
+
+function loadStoredRange(metric: UsageMetric): UsageRange | null {
+  const stored = localStorage.getItem(rangeStorageKey(metric))
+  return (USAGE_RANGES as readonly string[]).includes(stored ?? '') ? (stored as UsageRange) : null
+}
 
 function fmtAxisTime(ts: number, range: UsageRange): string {
   const d = new Date(ts)
@@ -65,7 +82,12 @@ interface Hover {
 
 export function UsageChart({ latest, metric }: { latest: LatestUsage; metric: UsageMetric }) {
   const config = METRIC[metric]
-  const [range, setRange] = useState<UsageRange>(config.defaultRange)
+  const [range, setRangeState] = useState<UsageRange>(() => loadStoredRange(metric) ?? config.defaultRange)
+
+  function setRange(next: UsageRange) {
+    setRangeState(next)
+    localStorage.setItem(rangeStorageKey(metric), next)
+  }
   const [snapshots, setSnapshots] = useState<UsageSnapshot[]>([])
   const [hover, setHover] = useState<Hover | null>(null)
   const plotRef = useRef<HTMLDivElement>(null)
@@ -87,7 +109,8 @@ export function UsageChart({ latest, metric }: { latest: LatestUsage; metric: Us
   const cutoffAt = config.cutoffOf(latest)
   const to = cutoffAt != null && cutoffAt <= now + config.futureWindowMs ? Math.max(now, cutoffAt) : now
 
-  const linePoints = buildLinePoints(snapshots, from, to, config.pctOf)
+  const lineSegments = buildLineSegments(snapshots, from, to, config.pctOf)
+  const gapPredictions = buildGapPredictions(snapshots, from, to, config.pctOf, config.resetAtOf)
   const projection = buildProjectionLine(snapshots[snapshots.length - 1], config.pctOf, cutoffAt, from, to)
 
   function handlePointer(clientX: number) {
@@ -105,7 +128,12 @@ export function UsageChart({ latest, metric }: { latest: LatestUsage; metric: Us
     }
 
     const snapshot = nearestSnapshotByTime(snapshots, ts)
-    if (!snapshot) return
+    // Don't snap to a point on the other side of a real data gap — the
+    // pointer is over dead time, so there's nothing meaningful to show.
+    if (!snapshot || Math.abs(snapshot.ts - ts) > gapThresholdMs(snapshots)) {
+      setHover(null)
+      return
+    }
     setHover({ x: xFor(snapshot.ts, from, to), y: yFor(config.pctOf(snapshot)), snapshot })
   }
 
@@ -133,7 +161,7 @@ export function UsageChart({ latest, metric }: { latest: LatestUsage; metric: Us
         </div>
       </div>
 
-      {linePoints ? (
+      {lineSegments.length > 0 ? (
         <>
           <div className="flex gap-2 h-72">
             <div className="flex flex-col justify-between text-xs text-fg-subtle text-right leading-none">
@@ -157,15 +185,33 @@ export function UsageChart({ latest, metric }: { latest: LatestUsage; metric: Us
                     <line key={p} x1="0" y1={100 - p} x2="100" y2={100 - p} strokeDasharray="1.5 2" />
                   ))}
                 </g>
-                <polyline
-                  points={linePoints}
-                  fill="none"
-                  stroke="rgb(var(--color-accent))"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  vectorEffect="non-scaling-stroke"
-                />
+                {gapPredictions.map((points, i) => (
+                  <polyline
+                    key={i}
+                    data-testid="gap-prediction-line"
+                    points={points}
+                    fill="none"
+                    stroke="rgb(var(--color-accent))"
+                    strokeOpacity="0.45"
+                    strokeWidth="1.5"
+                    strokeDasharray="4 3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                ))}
+                {lineSegments.map((points, i) => (
+                  <polyline
+                    key={i}
+                    points={points}
+                    fill="none"
+                    stroke="rgb(var(--color-accent))"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                ))}
                 {projection && (
                   <line
                     data-testid="projection-line"
