@@ -207,6 +207,14 @@ export function UsageIcon() {
   )
 }
 
+export function CostIcon() {
+  return (
+    <svg width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 3V21M16.5 6.5C16.5 5 14.9 4 12 4C9 4 7 5.2 7 7.2C7 11.2 17 9.5 17 14C17 16.3 14.8 17.5 12 17.5C9.2 17.5 7 16.5 7 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 export function UsageGraphIcon() {
   return (
     <svg width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

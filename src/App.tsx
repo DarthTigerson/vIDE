@@ -33,6 +33,7 @@ import {
   CompactIcon,
   ClearIcon,
   UsageIcon,
+  CostIcon,
   UsageGraphIcon,
   ModelIcon,
   FastIcon,
@@ -130,6 +131,7 @@ export default function App() {
   const refreshGitStatus = useGitStore((s) => s.refreshStatus)
   const assistant = useClaudeStore((s) => s.assistant)
   const usageOpen = useClaudeStore((s) => s.usageOpen)
+  const costOpen = useClaudeStore((s) => s.costOpen)
   const setAssistant = useClaudeStore((s) => s.setAssistant)
   const chatVisible = useClaudeStore((s) => s.chatVisible)
   const enabledModels = useModelSettingsStore((s) => s.enabled)
@@ -976,6 +978,14 @@ export default function App() {
                   active: usageOpen,
                   disabled: !projectRoot,
                   onClick: () => useClaudeStore.getState().usage(),
+                },
+                {
+                  id: 'cost',
+                  icon: <CostIcon />,
+                  title: 'Cost',
+                  active: costOpen,
+                  disabled: !projectRoot,
+                  onClick: () => useClaudeStore.getState().cost(),
                 },
                 {
                   id: 'usage-graph',

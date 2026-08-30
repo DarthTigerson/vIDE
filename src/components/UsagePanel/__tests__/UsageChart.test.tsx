@@ -19,12 +19,20 @@ function usage(overrides: Partial<LatestUsage> = {}): LatestUsage {
     weeklyAvgRatePerHour: null,
     sessionCutoffAt: null,
     weeklyCutoffAt: null,
+    sessionSpendUsd: 0,
+    weeklySpendUsd: 0,
+    sessionSpendRatePerHour: null,
+    weeklySpendRatePerHour: null,
     ...overrides,
   }
 }
 
 function snap(ts: number, pct: number): UsageSnapshot {
-  return { ts, sessionPct: pct, weeklyPct: pct, requests24h: 0, requests7d: 0, topSkills: [], sessionResetAt: null, weeklyResetAt: null }
+  return { ts, sessionPct: pct, weeklyPct: pct, requests24h: 0, requests7d: 0, topSkills: [], sessionResetAt: null, weeklyResetAt: null, sessionSpendUsd: 0, weeklySpendUsd: 0 }
+}
+
+function snapSpend(ts: number, usd: number): UsageSnapshot {
+  return { ts, sessionPct: 0, weeklyPct: 0, requests24h: 0, requests7d: 0, topSkills: [], sessionResetAt: null, weeklyResetAt: null, sessionSpendUsd: usd, weeklySpendUsd: usd }
 }
 
 function mockApi(snapshots: UsageSnapshot[]) {
@@ -211,5 +219,43 @@ describe('UsageChart (weekly metric)', () => {
 
     await waitFor(() => expect(container.querySelector('[data-testid="chart-tooltip"]')).toBeTruthy())
     expect(container.querySelector('[data-testid="chart-tooltip"]')?.textContent).toMatch(/50% week/)
+  })
+})
+
+describe('UsageChart (sessionSpend metric)', () => {
+  it('shows the "Session cost" title and $-formatted gridlines scaled to the visible data\'s own max', async () => {
+    mockApi([snapSpend(NOW - 3_600_000, 1), snapSpend(NOW, 4)])
+    const { getByText, container } = render(<UsageChart latest={usage()} metric="sessionSpend" />)
+
+    expect(getByText('Session cost')).toBeTruthy()
+    await waitFor(() => expect(container.querySelector('polyline')).toBeTruthy())
+    // Max visible value is $4 -> the 100% gridline reads $4.00, not "100%".
+    expect(getByText('$4.00')).toBeTruthy()
+    expect(getByText('$0.00')).toBeTruthy()
+  })
+
+  it('never draws a projection line, even with a cutoff-shaped latest snapshot', async () => {
+    mockApi([snapSpend(NOW - 3_600_000, 1), snapSpend(NOW, 4)])
+    const { container } = render(
+      <UsageChart latest={usage({ sessionCutoffAt: NOW + 3_600_000 })} metric="sessionSpend" />
+    )
+
+    await waitFor(() => expect(container.querySelector('polyline')).toBeTruthy())
+    expect(container.querySelector('[data-testid="projection-line"]')).toBeNull()
+  })
+
+  it('shows a tooltip with the dollar amount, not a raw percent', async () => {
+    mockApi([snapSpend(NOW - 3_600_000, 1), snapSpend(NOW, 4)])
+    const { container } = render(<UsageChart latest={usage()} metric="sessionSpend" />)
+    await waitFor(() => expect(container.querySelector('polyline')).toBeTruthy())
+
+    const plot = container.querySelector('[data-testid="chart-plot"]') as HTMLElement
+    vi.spyOn(plot, 'getBoundingClientRect').mockReturnValue({
+      left: 0, right: 200, width: 200, top: 0, bottom: 100, height: 100, x: 0, y: 0, toJSON: () => {},
+    })
+    fireEvent.pointerDown(plot, { clientX: 198 })
+
+    await waitFor(() => expect(container.querySelector('[data-testid="chart-tooltip"]')).toBeTruthy())
+    expect(container.querySelector('[data-testid="chart-tooltip"]')?.textContent).toMatch(/\$4\.00 session/)
   })
 })

@@ -1,4 +1,4 @@
-import { formatBurnRate, formatCountdown, formatResetTime } from './format'
+import { formatBurnRate, formatCountdown, formatResetTime, formatSpend, formatSpendRate } from './format'
 
 const RADIUS = 38
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
@@ -56,6 +56,16 @@ export function RequestsStat({ label, value }: { label: string; value: number })
   return (
     <div>
       <div className="text-2xl text-fg font-bold font-mono">{value.toLocaleString()}</div>
+      <div className="text-[0.625rem] text-fg-muted uppercase tracking-wider">{label}</div>
+    </div>
+  )
+}
+
+export function SpendStat({ label, spendUsd, ratePerHour }: { label: string; spendUsd: number; ratePerHour: number | null }) {
+  return (
+    <div>
+      <div className="text-2xl text-fg font-bold font-mono">{formatSpend(spendUsd)}</div>
+      <div className="text-xs text-accent font-mono">{formatSpendRate(ratePerHour)}</div>
       <div className="text-[0.625rem] text-fg-muted uppercase tracking-wider">{label}</div>
     </div>
   )

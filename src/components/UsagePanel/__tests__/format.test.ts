@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatBurnRate, formatCountdown, formatCountdownClock, formatResetTime } from '../format'
+import { formatBurnRate, formatCountdown, formatCountdownClock, formatResetTime, formatSpend, formatSpendRate } from '../format'
 
 describe('formatResetTime', () => {
   it('returns an em dash for no timestamp', () => {
@@ -63,5 +63,25 @@ describe('formatBurnRate', () => {
 
   it('formats a rate to two decimal places with a percent-per-hour suffix', () => {
     expect(formatBurnRate(30.5512)).toBe('≈30.55%/hr')
+  })
+})
+
+describe('formatSpend', () => {
+  it('returns an em dash for no amount', () => {
+    expect(formatSpend(null)).toBe('—')
+  })
+
+  it('formats a dollar amount to two decimal places', () => {
+    expect(formatSpend(3.8012)).toBe('$3.80')
+  })
+})
+
+describe('formatSpendRate', () => {
+  it('returns an em dash for no rate', () => {
+    expect(formatSpendRate(null)).toBe('—')
+  })
+
+  it('formats a rate to two decimal places with a dollars-per-hour suffix', () => {
+    expect(formatSpendRate(1.005)).toBe('≈$1.00/hr')
   })
 })

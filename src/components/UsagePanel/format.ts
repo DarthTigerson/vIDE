@@ -33,3 +33,11 @@ export function formatCountdownClock(ts: number | null, now = Date.now()): strin
 export function formatBurnRate(ratePerHour: number | null): string {
   return ratePerHour == null ? '—' : `≈${ratePerHour.toFixed(2)}%/hr`
 }
+
+export function formatSpend(usd: number | null): string {
+  return usd == null ? '—' : `$${usd.toFixed(2)}`
+}
+
+export function formatSpendRate(usdPerHour: number | null): string {
+  return usdPerHour == null ? '—' : `≈$${usdPerHour.toFixed(2)}/hr`
+}
