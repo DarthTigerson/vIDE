@@ -120,7 +120,7 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('term:exit', handler)
   },
 
-  assistantSpawn: (cwd: string, assistant: 'claude' | 'codex', mode?: 'new' | 'continue') =>
+  assistantSpawn: (cwd: string, assistant: 'claude' | 'codex', mode?: 'new' | 'continue' | 'resume') =>
     ipcRenderer.invoke('assistant:spawn', cwd, assistant, mode),
   assistantWrite: (assistant: 'claude' | 'codex', data: string) =>
     ipcRenderer.send('assistant:write', assistant, data),

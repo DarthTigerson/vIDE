@@ -210,7 +210,7 @@ declare global {
       onTermData: (cb: (id: string, data: string) => void) => () => void
       onTermExit: (cb: (id: string) => void) => () => void
 
-      assistantSpawn: (cwd: string, assistant: AssistantKind, mode?: 'new' | 'continue') => Promise<void>
+      assistantSpawn: (cwd: string, assistant: AssistantKind, mode?: 'new' | 'continue' | 'resume') => Promise<void>
       assistantWrite: (assistant: AssistantKind, data: string) => void
       assistantResize: (assistant: AssistantKind, cols: number, rows: number) => void
       onAssistantData: (cb: (assistant: AssistantKind, data: string) => void) => () => void

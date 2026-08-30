@@ -2,16 +2,18 @@ import { BrowserWindow, ipcMain } from 'electron'
 import * as pty from 'node-pty'
 
 type AssistantKind = 'claude' | 'codex'
-type SessionMode = 'attach' | 'new' | 'continue'
+type SessionMode = 'attach' | 'new' | 'continue' | 'resume'
 
 const COMMANDS: Record<AssistantKind, Record<Exclude<SessionMode, 'attach'>, string>> = {
   claude: {
     new: 'claude',
     continue: 'claude --continue',
+    resume: 'claude --resume',
   },
   codex: {
     new: 'codex',
     continue: 'codex resume --last',
+    resume: 'codex resume',
   },
 }
 
@@ -61,7 +63,7 @@ export class ClaudeManager {
       if (!win) return
       const state = this.stateFor(win.id)
       const selectedAssistant = assistant === 'codex' ? 'codex' : 'claude'
-      const selectedMode = mode === 'continue' || mode === 'new' ? mode : 'attach'
+      const selectedMode = mode === 'continue' || mode === 'new' || mode === 'resume' ? mode : 'attach'
       state.activeAssistant = selectedAssistant
 
       const attachingToSameCwd = state.procs[selectedAssistant] && state.procCwd[selectedAssistant] === cwd

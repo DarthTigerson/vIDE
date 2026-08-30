@@ -88,6 +88,17 @@ describe('ClaudeManager assistant:spawn (attach mode)', () => {
     expect(procA.kill).toHaveBeenCalled()
   })
 
+  it('spawns claude --resume for resume mode', () => {
+    const { spawnHandler } = setup()
+    const win = fakeWin(1)
+    const proc = fakePty()
+    spawnMock.mockReturnValueOnce(proc)
+
+    spawnHandler({ sender: win }, '/project/a', 'claude', 'resume')
+
+    expect(spawnMock.mock.calls[0][1][1]).toBe('claude --resume')
+  })
+
   it('keeps window A\'s assistant process running independent of window B', () => {
     const { spawnHandler } = setup()
     const winA = fakeWin(1)

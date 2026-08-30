@@ -29,6 +29,7 @@ import {
   BridgeIcon,
   NewSessionIcon,
   PreviousSessionIcon,
+  ResumeSessionIcon,
   CompactIcon,
   ClearIcon,
   UsageIcon,
@@ -146,6 +147,7 @@ export default function App() {
   const assistantLabel = assistant === 'claude' ? 'Claude Code' : assistant === 'codex' ? 'Codex' : 'Bridge'
   const newSessionTitle = assistant === 'claude' ? 'New Claude Session' : assistant === 'codex' ? 'New Codex Session' : 'New Bridge Session'
   const previousSessionTitle = assistant === 'claude' ? 'Continue Claude Session' : assistant === 'codex' ? 'Resume Latest Codex Session' : 'Restore Previous Bridge Session'
+  const resumeSessionTitle = 'Resume Session…'
   const uncommittedChangeCount = new Set([
     ...gitStatus.staged.map((file) => file.path),
     ...gitStatus.unstaged.map((file) => file.path),
@@ -886,6 +888,17 @@ export default function App() {
                   else useClaudeStore.getState().previousSession(projectRoot)
                 },
               },
+              ...(assistant === 'claude' ? [{
+                id: 'resume-session',
+                icon: <ResumeSessionIcon />,
+                title: resumeSessionTitle,
+                active: false,
+                disabled: !projectRoot,
+                onClick: () => {
+                  if (!projectRoot) return
+                  useClaudeStore.getState().resumeSession(projectRoot)
+                },
+              }] : []),
             ],
             ...(assistant === 'claude' ? [[
               {

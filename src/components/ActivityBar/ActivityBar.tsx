@@ -165,6 +165,19 @@ export function PreviousSessionIcon() {
   )
 }
 
+// A bulleted list, distinct from PreviousSessionIcon's circular-history-arrow —
+// this one opens a list to pick from, rather than just stepping back one.
+export function ResumeSessionIcon() {
+  return (
+    <svg width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="4" cy="6" r="1" fill="currentColor"/>
+      <circle cx="4" cy="12" r="1" fill="currentColor"/>
+      <circle cx="4" cy="18" r="1" fill="currentColor"/>
+      <path d="M9 6H21M9 12H21M9 18H21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
 // Two chevrons converging toward the center line reads as "squeeze together"
 // (compact the conversation), rather than the old download-arrow-onto-a-
 // stack glyph, which read more like "save" or "archive".
