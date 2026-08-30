@@ -144,7 +144,7 @@ describe('ClaudeManager busy detection', () => {
   it('output with no recent input write marks busy immediately', () => {
     const { win, proc } = spawnClaude()
     proc.emitData('generating a response...')
-    expect(busyCalls(win)).toEqual([['assistant:busy', 'claude', true]])
+    expect(busyCalls(win)).toEqual([['assistant:busy', 'claude', true, 1]])
   })
 
   it('output arriving within ECHO_WINDOW_MS of our own write is treated as an echo, not busy', () => {
@@ -162,7 +162,7 @@ describe('ClaudeManager busy detection', () => {
     vi.advanceTimersByTime(ECHO_WINDOW_MS + 50)
     proc.emitData('some real output')
 
-    expect(busyCalls(win)).toEqual([['assistant:busy', 'claude', true]])
+    expect(busyCalls(win)).toEqual([['assistant:busy', 'claude', true, 1]])
   })
 
   it('busy clears itself IDLE_TIMEOUT_MS after the last non-echo output', () => {
@@ -171,8 +171,8 @@ describe('ClaudeManager busy detection', () => {
     vi.advanceTimersByTime(IDLE_TIMEOUT_MS)
 
     expect(busyCalls(win)).toEqual([
-      ['assistant:busy', 'claude', true],
-      ['assistant:busy', 'claude', false],
+      ['assistant:busy', 'claude', true, 1],
+      ['assistant:busy', 'claude', false, 1],
     ])
   })
 
@@ -183,12 +183,12 @@ describe('ClaudeManager busy detection', () => {
     proc.emitData('chunk 2') // resets the countdown
     vi.advanceTimersByTime(300) // past chunk 1's original deadline, not chunk 2's
 
-    expect(busyCalls(win)).toEqual([['assistant:busy', 'claude', true]])
+    expect(busyCalls(win)).toEqual([['assistant:busy', 'claude', true, 1]])
 
     vi.advanceTimersByTime(IDLE_TIMEOUT_MS)
     expect(busyCalls(win)).toEqual([
-      ['assistant:busy', 'claude', true],
-      ['assistant:busy', 'claude', false],
+      ['assistant:busy', 'claude', true, 1],
+      ['assistant:busy', 'claude', false, 2],
     ])
   })
 
@@ -198,7 +198,7 @@ describe('ClaudeManager busy detection', () => {
     vi.advanceTimersByTime(100)
     proc.emitData('chunk 2')
 
-    expect(busyCalls(win)).toEqual([['assistant:busy', 'claude', true]])
+    expect(busyCalls(win)).toEqual([['assistant:busy', 'claude', true, 1]])
   })
 
   it('process exit clears busy', () => {
@@ -207,8 +207,40 @@ describe('ClaudeManager busy detection', () => {
     proc.emitExit()
 
     expect(busyCalls(win)).toEqual([
-      ['assistant:busy', 'claude', true],
-      ['assistant:busy', 'claude', false],
+      ['assistant:busy', 'claude', true, 1],
+      ['assistant:busy', 'claude', false, 1],
+    ])
+  })
+
+  it('reports how many non-echo chunks arrived over the whole episode on the busy=false event', () => {
+    const { win, proc } = spawnClaude()
+    proc.emitData('chunk 1')
+    vi.advanceTimersByTime(200)
+    proc.emitData('chunk 2')
+    vi.advanceTimersByTime(200)
+    proc.emitData('chunk 3')
+    vi.advanceTimersByTime(IDLE_TIMEOUT_MS)
+
+    expect(busyCalls(win)).toEqual([
+      ['assistant:busy', 'claude', true, 1],
+      ['assistant:busy', 'claude', false, 3],
+    ])
+  })
+
+  it('resets the chunk count for a fresh episode after going idle', () => {
+    const { win, proc } = spawnClaude()
+    proc.emitData('chunk 1')
+    proc.emitData('chunk 2')
+    vi.advanceTimersByTime(IDLE_TIMEOUT_MS) // first episode goes idle: 2 chunks
+
+    proc.emitData('chunk 3') // second episode starts fresh
+    vi.advanceTimersByTime(IDLE_TIMEOUT_MS)
+
+    expect(busyCalls(win)).toEqual([
+      ['assistant:busy', 'claude', true, 1],
+      ['assistant:busy', 'claude', false, 2],
+      ['assistant:busy', 'claude', true, 1],
+      ['assistant:busy', 'claude', false, 1],
     ])
   })
 })

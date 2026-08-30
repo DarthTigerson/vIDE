@@ -214,7 +214,7 @@ declare global {
       assistantWrite: (assistant: AssistantKind, data: string) => void
       assistantResize: (assistant: AssistantKind, cols: number, rows: number) => void
       onAssistantData: (cb: (assistant: AssistantKind, data: string) => void) => () => void
-      onAssistantBusy: (cb: (assistant: AssistantKind, busy: boolean) => void) => () => void
+      onAssistantBusy: (cb: (assistant: AssistantKind, busy: boolean, chunkCount: number) => void) => () => void
       onBrowserOpenExternalUrl: (cb: (url: string) => void) => () => void
       onOpenClaudeBrowserTab: (cb: () => void) => () => void
 

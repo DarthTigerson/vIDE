@@ -84,6 +84,7 @@ import { evaluateCmdWForPinnedTab, type PendingClose } from './lib/pinnedTabClos
 import { buildTerminalPath, buildBrowserPath, JIRA_SETTINGS_TAB_PATH, GIT_SETTINGS_TAB_PATH, USAGE_GRAPH_TAB_PATH } from './components/Settings/paths'
 import { TodoPanel } from './components/Todo/TodoPanel'
 import { NotesPanel } from './components/Notes/NotesPanel'
+import { useNotificationSoundSettingsStore, playNotificationSound } from './stores/notificationSoundSettingsStore'
 import type { AssistantKind } from './types/api'
 
 const ASSISTANT_OPTIONS: Array<{ id: AssistantKind; label: string }> = [
@@ -104,7 +105,6 @@ const GIT_REMOTE_BROWSER_ID = 'git-remote-external'
 const CLAUDE_BROWSER_ID = 'claude-controlled'
 const GIT_POLL_INTERVAL_MS = 3000
 const MEMORY_POLL_INTERVAL_MS = 3000
-
 const SIDEBAR_SIZE_KEY = 'vide:layout:sidebarSize'
 const SIDEBAR_DEFAULT_SIZE = 26
 const SIDEBAR_MIN_SIZE = 4
@@ -162,6 +162,9 @@ export default function App() {
   const theme = useThemeStore((s) => s.theme)
   const font = useDisplayStore((s) => s.font)
   const memoryUsageVisible = useDisplayStore((s) => s.memoryUsageVisible)
+  const notificationSoundEnabled = useNotificationSoundSettingsStore((s) => s.enabled)
+  const notificationSoundMuted = useNotificationSoundSettingsStore((s) => s.muted)
+  const setNotificationSoundMuted = useNotificationSoundSettingsStore((s) => s.setMuted)
   const backgroundImage = useDisplayStore((s) => s.backgroundImage)
   const navbarPosition = useDisplayStore((s) => s.navbarPosition)
   const mirrored = navbarPosition === 'right'
@@ -389,8 +392,22 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    return window.api.onAssistantBusy((assistant, busy) => {
+    return window.api.onAssistantBusy((assistant, busy, chunkCount) => {
+      const wasBusy = useClaudeStore.getState().busyByAssistant[assistant] ?? false
       useClaudeStore.getState().setBusy(assistant, busy)
+      // Falling edge only (busy -> idle) — that's "Claude finished a turn".
+      // Claude only, for now (VIDE-59). Gated on chunkCount rather than how
+      // long the episode ran: electron/claude.ts's busy signal fires on any
+      // non-echo PTY output, so a single incidental redraw (e.g. a resize
+      // repaint) is indistinguishable from a short real reply by *duration*
+      // alone — both settle idle after the same fixed timeout. Chunk count
+      // isn't: a one-off redraw is ~1 output write, while even a brief
+      // streamed reply is several, so requiring more than one reliably
+      // separates the two without risking silence on genuinely fast replies.
+      if (assistant === 'claude' && wasBusy && !busy && chunkCount > 1) {
+        const { enabled, muted, soundId } = useNotificationSoundSettingsStore.getState()
+        if (enabled && !muted) playNotificationSound(soundId)
+      }
     })
   }, [])
 
@@ -938,24 +955,36 @@ export default function App() {
             ]] : []),
           ]}
           bottomGroups={assistant === 'claude'
-            ? [[
-              {
-                id: 'usage',
-                icon: <UsageIcon />,
-                title: 'Usage',
-                active: usageOpen,
-                disabled: !projectRoot,
-                onClick: () => useClaudeStore.getState().usage(),
-              },
-              {
-                id: 'usage-graph',
-                icon: <UsageGraphIcon />,
-                title: 'Usage Graph',
-                active: activeTabPath === USAGE_GRAPH_TAB_PATH,
-                disabled: !projectRoot,
-                onClick: () => useEditorStore.getState().openTab({ path: USAGE_GRAPH_TAB_PATH, content: '', dirty: false }),
-              },
-            ]]
+            ? [
+              [
+                ...(notificationSoundEnabled ? [{
+                  id: 'mute-notification-sound',
+                  icon: notificationSoundMuted
+                    ? <span className="text-accent"><MutedSpeakerIcon /></span>
+                    : <SpeakerIcon />,
+                  title: notificationSoundMuted ? 'Unmute completion sound' : 'Mute completion sound',
+                  active: false,
+                  disabled: !projectRoot,
+                  onClick: () => setNotificationSoundMuted(!notificationSoundMuted),
+                }] : []),
+                {
+                  id: 'usage',
+                  icon: <UsageIcon />,
+                  title: 'Usage',
+                  active: usageOpen,
+                  disabled: !projectRoot,
+                  onClick: () => useClaudeStore.getState().usage(),
+                },
+                {
+                  id: 'usage-graph',
+                  icon: <UsageGraphIcon />,
+                  title: 'Usage Graph',
+                  active: activeTabPath === USAGE_GRAPH_TAB_PATH,
+                  disabled: !projectRoot,
+                  onClick: () => useEditorStore.getState().openTab({ path: USAGE_GRAPH_TAB_PATH, content: '', dirty: false }),
+                },
+              ],
+            ]
             : assistant === 'codex'
             ? [[
               {
@@ -1060,6 +1089,39 @@ function RamIcon() {
     >
       <rect x="3" y="7" width="18" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
       <path d="M7 7V4.5M11 7V4.5M13 7V4.5M17 7V4.5M7 17V19.5M11 17V19.5M13 17V19.5M17 17V19.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function SpeakerIcon() {
+  return (
+    <svg
+      className="shrink-0"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M4 9.5V14.5H8L13 18.5V5.5L8 9.5H4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M16.5 8.5C17.5 9.5 18 10.7 18 12C18 13.3 17.5 14.5 16.5 15.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M19 6C20.7 7.7 21.5 9.8 21.5 12C21.5 14.2 20.7 16.3 19 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function MutedSpeakerIcon() {
+  return (
+    <svg
+      className="shrink-0"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M4 9.5V14.5H8L13 18.5V5.5L8 9.5H4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M16.5 9.5L21 14M21 9.5L16.5 14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   )
 }

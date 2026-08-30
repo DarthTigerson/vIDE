@@ -46,6 +46,13 @@ interface WindowState {
   lastInputAt: Partial<Record<AssistantKind, number>>
   busy: Partial<Record<AssistantKind, boolean>>
   busyTimers: Partial<Record<AssistantKind, NodeJS.Timeout>>
+  // Non-echo output chunks seen since this assistant went busy — reset each
+  // time a fresh episode starts. A single incidental redraw (a resize
+  // repaint, say) is ~1 chunk; real generation streams many. Reported
+  // alongside the busy=false event so consumers (the completion-sound
+  // wiring in App.tsx) can tell genuine turns from output blips without
+  // relying on timing, which can't reliably distinguish the two (VIDE-59).
+  busyChunkCounts: Partial<Record<AssistantKind, number>>
 }
 
 interface BrowserBridgeLike {
@@ -102,6 +109,9 @@ export class ClaudeManager {
           const sinceInput = now - (state.lastInputAt[selectedAssistant] ?? 0)
           if (sinceInput <= ECHO_WINDOW_MS) return // likely an echo of our own input, not real activity
 
+          if (!state.busy[selectedAssistant]) state.busyChunkCounts[selectedAssistant] = 0
+          state.busyChunkCounts[selectedAssistant] = (state.busyChunkCounts[selectedAssistant] ?? 0) + 1
+
           this.setBusy(win, state, selectedAssistant, true)
           clearTimeout(state.busyTimers[selectedAssistant])
           state.busyTimers[selectedAssistant] = setTimeout(() => {
@@ -149,13 +159,14 @@ export class ClaudeManager {
   private setBusy(win: BrowserWindow, state: WindowState, assistant: AssistantKind, busy: boolean): void {
     if (state.busy[assistant] === busy) return
     state.busy[assistant] = busy
-    if (!win.isDestroyed()) win.webContents.send('assistant:busy', assistant, busy)
+    const chunkCount = state.busyChunkCounts[assistant] ?? 0
+    if (!win.isDestroyed()) win.webContents.send('assistant:busy', assistant, busy, chunkCount)
   }
 
   private stateFor(winId: number): WindowState {
     let state = this.byWindow.get(winId)
     if (!state) {
-      state = { procs: {}, procCwd: {}, activeAssistant: 'claude', lastInputAt: {}, busy: {}, busyTimers: {} }
+      state = { procs: {}, procCwd: {}, activeAssistant: 'claude', lastInputAt: {}, busy: {}, busyTimers: {}, busyChunkCounts: {} }
       this.byWindow.set(winId, state)
     }
     return state
