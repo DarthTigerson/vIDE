@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import { FooterMessage } from '../FooterMessage'
 import { useUpdateStore } from '@/stores/updateStore'
 import { useUsageAlertStore } from '@/stores/usageAlertStore'
@@ -56,22 +56,41 @@ describe('FooterMessage — footer content setting', () => {
 })
 
 describe('FooterMessage — usage alert', () => {
-  it('shows a session usage alert and opens the Usage Graph tab on click', () => {
-    useUsageAlertStore.setState({ alert: { scope: 'session', cutoffAt: new Date(2026, 0, 1, 16, 0).getTime() } })
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 0, 1, 14, 0, 0))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('shows a session usage alert with a live HH:MM:SS countdown and opens the Usage Graph tab on click', () => {
+    useUsageAlertStore.setState({ alert: { scope: 'session', cutoffAt: new Date(2026, 0, 1, 16, 0, 0).getTime() } })
     render(<FooterMessage />)
-    const button = screen.getByRole('button', { name: /Session usage may run out/ })
+    const button = screen.getByRole('button', { name: /Session usage may run out in 02:00:00/ })
     fireEvent.click(button)
     expect(useEditorStore.getState().activeTabPath).toBe(USAGE_GRAPH_TAB_PATH)
   })
 
+  it('ticks the countdown down every second', () => {
+    useUsageAlertStore.setState({ alert: { scope: 'session', cutoffAt: new Date(2026, 0, 1, 16, 0, 0).getTime() } })
+    render(<FooterMessage />)
+    expect(screen.getByRole('button', { name: /run out in 02:00:00/ })).toBeInTheDocument()
+    act(() => {
+      vi.advanceTimersByTime(3000)
+    })
+    expect(screen.getByRole('button', { name: /run out in 01:59:57/ })).toBeInTheDocument()
+  })
+
   it('labels a weekly cutoff as "Weekly usage"', () => {
-    useUsageAlertStore.setState({ alert: { scope: 'week', cutoffAt: new Date(2026, 0, 1, 16, 0).getTime() } })
+    useUsageAlertStore.setState({ alert: { scope: 'week', cutoffAt: new Date(2026, 0, 1, 16, 0, 0).getTime() } })
     render(<FooterMessage />)
     expect(screen.getByRole('button', { name: /Weekly usage may run out/ })).toBeInTheDocument()
   })
 
   it('takes priority over an available update', () => {
-    useUsageAlertStore.setState({ alert: { scope: 'session', cutoffAt: new Date(2026, 0, 1, 16, 0).getTime() } })
+    useUsageAlertStore.setState({ alert: { scope: 'session', cutoffAt: new Date(2026, 0, 1, 16, 0, 0).getTime() } })
     useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com' }, status: 'idle' })
     render(<FooterMessage />)
     expect(screen.getByRole('button', { name: /Session usage may run out/ })).toBeInTheDocument()

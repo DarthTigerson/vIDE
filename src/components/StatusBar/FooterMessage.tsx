@@ -6,7 +6,7 @@ import { useStatusMessageStore } from '@/stores/statusMessageStore'
 import { useDisplayStore } from '@/stores/displayStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
-import { formatResetTime } from '@/components/UsagePanel/format'
+import { formatCountdownClock } from '@/components/UsagePanel/format'
 import { Clock } from './Clock'
 
 const ROTATE_INTERVAL_MS = 9000
@@ -31,6 +31,7 @@ export function FooterMessage() {
 
   const [tipIndex, setTipIndex] = useState(() => randomTipIndex())
   const [fading, setFading] = useState(false)
+  const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -42,6 +43,12 @@ export function FooterMessage() {
     }, ROTATE_INTERVAL_MS)
     return () => clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    if (!usageAlert) return
+    const interval = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(interval)
+  }, [usageAlert])
 
   const positionClasses = 'absolute left-1/2 -translate-x-1/2 max-w-[45%] truncate text-xs'
 
@@ -61,7 +68,7 @@ export function FooterMessage() {
         onClick={() => useEditorStore.getState().openTab({ path: USAGE_GRAPH_TAB_PATH, content: '', dirty: false })}
         className={[positionClasses, 'text-amber-400 hover:underline cursor-pointer'].join(' ')}
       >
-        {`${scopeLabel} usage may run out around ${formatResetTime(usageAlert.cutoffAt)} — click to view`}
+        {`${scopeLabel} usage may run out in ${formatCountdownClock(usageAlert.cutoffAt, now)} — click to view`}
       </button>
     )
   }
