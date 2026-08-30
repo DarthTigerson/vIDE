@@ -156,7 +156,6 @@ function createWindow(projectRoot?: string): BrowserWindow {
   })
 
   windows.set(win.id, win)
-  console.log(`[browser-test] window id: ${win.id}`)
   win.once('ready-to-show', () => win.show())
   win.on('focus', () => buildMenu())
   // index.html declares <title>vIDE</title>, and Electron lets the loaded
