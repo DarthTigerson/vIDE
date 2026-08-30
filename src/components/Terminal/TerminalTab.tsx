@@ -67,6 +67,13 @@ export function TerminalTab({ terminalId }: Props) {
         fontSize: useInstanceFontSizeStore.getState().overrides[terminalId] ?? useFontSizeStore.getState().fontSize,
         cursorBlink: true,
         convertEol: true,
+        // xterm.js's default (1) maps physical mouse-wheel notches almost
+        // 1:1 to pixels before converting to rows, so a notched USB/Bluetooth
+        // mouse (which reports far coarser, less frequent deltaY than a
+        // trackpad's continuous small deltas) needs many notches to move a
+        // single line. Trackpad scrolling stays smooth at this value since
+        // its deltas are already fine-grained.
+        scrollSensitivity: 3,
       })
       const fit = new FitAddon()
       xterm.loadAddon(fit)
