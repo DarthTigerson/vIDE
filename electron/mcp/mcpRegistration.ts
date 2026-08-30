@@ -5,6 +5,7 @@ import { mkdir, writeFile } from 'fs/promises'
 
 export const MCP_SERVER_NAME = 'vide-todos'
 export const NOTES_MCP_SERVER_NAME = 'vide-notes'
+export const BROWSER_MCP_SERVER_NAME = 'vide-browser'
 
 function run(command: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
@@ -213,4 +214,44 @@ export async function disableNotesMcp(): Promise<void> {
 export function registerNotesMcpHandlers(): void {
   ipcMain.handle('notes:mcp:enable', () => enableNotesMcp())
   ipcMain.handle('notes:mcp:disable', () => disableNotesMcp())
+}
+
+function browserMcpScriptPath(): string {
+  return join(__dirname, 'browserMcpServer.js')
+}
+
+// No `-e`-registered data dir here, unlike todos/notes — this server's
+// per-window state (VIDE_WINDOW_ID / VIDE_BROWSER_SHIM_SOCK) comes from
+// inheriting the `claude` CLI process's own environment at spawn time
+// (see browserMcpServer.ts), not from anything fixed at registration time.
+export async function enableBrowserMcp(): Promise<void> {
+  const claudeBin = await resolveClaudeBinary()
+  // Remove first so re-enabling always works even if already registered
+  try { await run(claudeBin, ['mcp', 'remove', BROWSER_MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
+  await run(claudeBin, [
+    'mcp',
+    'add',
+    BROWSER_MCP_SERVER_NAME,
+    '--scope',
+    'user',
+    '-e',
+    'ELECTRON_RUN_AS_NODE=1',
+    '--',
+    process.execPath,
+    browserMcpScriptPath(),
+  ])
+}
+
+export async function disableBrowserMcp(): Promise<void> {
+  try {
+    const claudeBin = await resolveClaudeBinary()
+    await run(claudeBin, ['mcp', 'remove', BROWSER_MCP_SERVER_NAME, '--scope', 'user'])
+  } catch {
+    // ignore
+  }
+}
+
+export function registerBrowserMcpHandlers(): void {
+  ipcMain.handle('browser:mcp:enable', () => enableBrowserMcp())
+  ipcMain.handle('browser:mcp:disable', () => disableBrowserMcp())
 }

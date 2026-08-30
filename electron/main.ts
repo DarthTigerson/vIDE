@@ -5,7 +5,7 @@ import { access, cp, mkdir, readFile, rename, writeFile } from 'fs/promises'
 import { homedir } from 'os'
 import { PtyManager } from './pty'
 import { ClaudeManager } from './claude'
-import { BrowserOpenShim } from './browserOpenShim'
+import { BrowserBridge } from './browserBridge'
 import { GitRunner } from './gitRunner'
 import { GraphifyManager } from './graphify'
 import { GitWatcher } from './gitWatcher'
@@ -24,7 +24,7 @@ import { listAllFiles, searchText, buildTree, readImageDataUrl } from './fsOps'
 import { registerSessionHandlers } from './session'
 import { registerRecentProjectsHandlers, readRecents, addRecentProject, clearRecentProjects } from './recentProjects'
 import { registerTodoHandlers } from './todos'
-import { registerTodoMcpHandlers, registerNotesMcpHandlers } from './mcp/mcpRegistration'
+import { registerTodoMcpHandlers, registerNotesMcpHandlers, registerBrowserMcpHandlers } from './mcp/mcpRegistration'
 import { registerNotesHandlers } from './notes'
 import { UpdateChecker } from './updateChecker'
 import { getChangelogForVersion } from './changelog'
@@ -156,6 +156,7 @@ function createWindow(projectRoot?: string): BrowserWindow {
   })
 
   windows.set(win.id, win)
+  console.log(`[browser-test] window id: ${win.id}`)
   win.once('ready-to-show', () => win.show())
   win.on('focus', () => buildMenu())
   // index.html declares <title>vIDE</title>, and Electron lets the loaded
@@ -596,15 +597,18 @@ app.whenReady().then(async () => {
   registerTodoMcpHandlers()
   registerNotesHandlers()
   registerNotesMcpHandlers()
+  registerBrowserMcpHandlers()
   registerWindowHandlers()
   registerSystemHandlers()
   registerOnboardingHandlers()
 
   ptyMgr = new PtyManager()
   ptyMgr.registerHandlers()
-  const browserOpenShim = new BrowserOpenShim(app.getPath('userData'))
-  browserOpenShim.start()
-  claudeMgr = new ClaudeManager(browserOpenShim)
+  browserViewMgr = new BrowserViewManager()
+  browserViewMgr.registerHandlers()
+  const browserBridge = new BrowserBridge(app.getPath('userData'), browserViewMgr)
+  browserBridge.start()
+  claudeMgr = new ClaudeManager(browserBridge)
   claudeMgr.registerHandlers()
   const gitRunner = new GitRunner()
   gitRunner.registerHandlers()
@@ -621,8 +625,6 @@ app.whenReady().then(async () => {
   fileWatcher.registerHandlers()
   bridgeMgr = new BridgeManager()
   bridgeMgr.registerHandlers()
-  browserViewMgr = new BrowserViewManager()
-  browserViewMgr.registerHandlers()
   autocompleteMgr = new AutocompleteManager()
   autocompleteMgr.registerHandlers()
   inlineEditMgr = new InlineEditManager()

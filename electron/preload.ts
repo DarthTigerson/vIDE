@@ -141,6 +141,11 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('browser:open-external-url', handler)
     return () => ipcRenderer.removeListener('browser:open-external-url', handler)
   },
+  onOpenClaudeBrowserTab: (cb: () => void) => {
+    const handler = () => cb()
+    ipcRenderer.on('browser:open-claude-tab', handler)
+    return () => ipcRenderer.removeListener('browser:open-claude-tab', handler)
+  },
 
   mobileStart: () => ipcRenderer.invoke('mobile:start'),
   mobileStop: () => ipcRenderer.invoke('mobile:stop'),
@@ -359,6 +364,8 @@ contextBridge.exposeInMainWorld('api', {
   notesSearch: (query: string) => ipcRenderer.invoke('notes:search', query),
   notesMcpEnable: () => ipcRenderer.invoke('notes:mcp:enable'),
   notesMcpDisable: () => ipcRenderer.invoke('notes:mcp:disable'),
+  browserMcpEnable: () => ipcRenderer.invoke('browser:mcp:enable'),
+  browserMcpDisable: () => ipcRenderer.invoke('browser:mcp:disable'),
   onNotesChanged: (cb: () => void) => {
     const handler = () => cb()
     ipcRenderer.on('notes:changed', handler)

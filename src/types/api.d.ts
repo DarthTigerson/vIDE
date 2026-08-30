@@ -216,6 +216,7 @@ declare global {
       onAssistantData: (cb: (assistant: AssistantKind, data: string) => void) => () => void
       onAssistantBusy: (cb: (assistant: AssistantKind, busy: boolean) => void) => () => void
       onBrowserOpenExternalUrl: (cb: (url: string) => void) => () => void
+      onOpenClaudeBrowserTab: (cb: () => void) => () => void
 
       onMenuOpenProject: (cb: () => void) => () => void
       getInitialProject: () => Promise<string | null>
@@ -323,6 +324,8 @@ declare global {
       notesSearch: (query: string) => Promise<NotesSearchResult[]>
       notesMcpEnable: () => Promise<void>
       notesMcpDisable: () => Promise<void>
+      browserMcpEnable: () => Promise<void>
+      browserMcpDisable: () => Promise<void>
       onNotesChanged: (cb: () => void) => () => void
 
       setWindowTitle: (root: string) => void

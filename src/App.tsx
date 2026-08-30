@@ -98,6 +98,10 @@ function assistantIcon(kind: AssistantKind) {
 
 const JIRA_BROWSER_ID = 'jira-external'
 const GIT_REMOTE_BROWSER_ID = 'git-remote-external'
+// Must match CLAUDE_TAB_ID in electron/browserViews.ts — same reserved id,
+// addressed independently by both sides (main creates/navigates the view,
+// renderer opens/focuses its tab-strip entry for it).
+const CLAUDE_BROWSER_ID = 'claude-controlled'
 const GIT_POLL_INTERVAL_MS = 3000
 const MEMORY_POLL_INTERVAL_MS = 3000
 
@@ -189,6 +193,14 @@ export default function App() {
   function openNewBrowser() {
     const id = Date.now().toString(36)
     useEditorStore.getState().openTab({ path: buildBrowserPath(id), content: '', dirty: false })
+  }
+
+  // Opens (or focuses, if already open) the tab the vide-browser MCP server
+  // drives on Claude's behalf (VIDE-53) — main process already created and
+  // navigated the underlying view by the time this fires; this just surfaces
+  // it in the tab strip, same as any other tab, so the user can watch.
+  function openClaudeBrowserTab() {
+    useEditorStore.getState().openTab({ path: buildBrowserPath(CLAUDE_BROWSER_ID), content: '', dirty: false })
   }
 
   // Mirrors the git-remote/Jira external-link pattern below — same
@@ -483,6 +495,12 @@ export default function App() {
   useEffect(() => {
     return window.api.onBrowserOpenExternalUrl((url) => {
       openUrlInBrowserTab(url)
+    })
+  }, [])
+
+  useEffect(() => {
+    return window.api.onOpenClaudeBrowserTab(() => {
+      openClaudeBrowserTab()
     })
   }, [])
 

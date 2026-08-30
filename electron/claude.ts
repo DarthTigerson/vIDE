@@ -48,14 +48,14 @@ interface WindowState {
   busyTimers: Partial<Record<AssistantKind, NodeJS.Timeout>>
 }
 
-interface BrowserOpenShimLike {
+interface BrowserBridgeLike {
   getSpawnEnv(windowId: number): Record<string, string>
 }
 
 export class ClaudeManager {
   private byWindow = new Map<number, WindowState>()
 
-  constructor(private browserOpenShim?: BrowserOpenShimLike) {}
+  constructor(private browserBridge?: BrowserBridgeLike) {}
 
   registerHandlers(): void {
     ipcMain.handle('assistant:spawn', (event, cwd: string, assistant: AssistantKind = 'claude', mode: SessionMode = 'attach') => {
@@ -78,7 +78,7 @@ export class ClaudeManager {
         // Only claude gets the browser-open shim env — it lets a login flow's
         // `open`/`xdg-open` call route into vIDE's own Browser panel (VIDE-7)
         // instead of escaping to the OS browser.
-        const shimEnv = selectedAssistant === 'claude' ? this.browserOpenShim?.getSpawnEnv(win.id) : undefined
+        const shimEnv = selectedAssistant === 'claude' ? this.browserBridge?.getSpawnEnv(win.id) : undefined
         // `-lic` makes this a login shell, which re-derives PATH from scratch
         // via macOS's path_helper — clobbering anything we set in `env`
         // before the shell body runs, so /usr/bin/open would always win over

@@ -24,7 +24,11 @@ import {
   enableTodoEnforcerPlugin,
   disableTodoEnforcerPlugin,
   registerTodoMcpHandlers,
+  enableBrowserMcp,
+  disableBrowserMcp,
+  registerBrowserMcpHandlers,
   MCP_SERVER_NAME,
+  BROWSER_MCP_SERVER_NAME,
   ENFORCER_PLUGIN_NAME,
   ENFORCER_MARKETPLACE_NAME,
 } from '../mcpRegistration'
@@ -197,5 +201,47 @@ describe('mcpRegistration', () => {
     await expect(handler()).resolves.toBeUndefined()
     expect(consoleErrorSpy).toHaveBeenCalled()
     consoleErrorSpy.mockRestore()
+  })
+
+  it('enableBrowserMcp registers the server at user scope with no data-dir env var (window-scoping is inherited at spawn time, not baked in here)', async () => {
+    const calls = mockClaudeResolvable()
+    await enableBrowserMcp()
+
+    // calls[0] = resolving `claude` on PATH, calls[1] = the leading `mcp remove`
+    // (best-effort, so re-enabling always works even if already registered)
+    const addCall = calls[2]
+    expect(addCall.args.slice(0, 3)).toEqual(['mcp', 'add', BROWSER_MCP_SERVER_NAME])
+    expect(addCall.args).toContain('--scope')
+    expect(addCall.args).toContain('user')
+    expect(addCall.args).toContain('ELECTRON_RUN_AS_NODE=1')
+    expect(addCall.args.filter((a) => a === '-e')).toHaveLength(1)
+    expect(addCall.args.at(-1)).toMatch(/browserMcpServer\.js$/)
+  })
+
+  it('disableBrowserMcp removes the server at user scope', async () => {
+    const calls = mockClaudeResolvable()
+    await disableBrowserMcp()
+    const removeCall = calls[1]
+    expect(removeCall.args).toEqual(['mcp', 'remove', BROWSER_MCP_SERVER_NAME, '--scope', 'user'])
+  })
+
+  it('disableBrowserMcp never throws, even if the underlying command fails', async () => {
+    execFileMock.mockImplementation((_cmd: string, _args: string[], cb: (...a: any[]) => void) => {
+      cb(new Error('boom'))
+    })
+    await expect(disableBrowserMcp()).resolves.toBeUndefined()
+  })
+
+  it('registerBrowserMcpHandlers wires browser:mcp:enable and browser:mcp:disable', async () => {
+    mockClaudeResolvable()
+    registerBrowserMcpHandlers()
+
+    const enableCall = vi.mocked(ipcMain.handle).mock.calls.find(([channel]) => channel === 'browser:mcp:enable')
+    const disableCall = vi.mocked(ipcMain.handle).mock.calls.find(([channel]) => channel === 'browser:mcp:disable')
+    expect(enableCall).toBeDefined()
+    expect(disableCall).toBeDefined()
+
+    await expect((enableCall![1] as () => Promise<unknown>)()).resolves.toBeUndefined()
+    await expect((disableCall![1] as () => Promise<unknown>)()).resolves.toBeUndefined()
   })
 })
