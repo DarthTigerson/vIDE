@@ -45,7 +45,7 @@ function ActivityBarButton({ item, showAccent, side, dense }: { item: ActivityBa
             ? 'text-fg-subtle opacity-30'
             : item.active
               ? 'text-fg opacity-100'
-              : 'text-fg-muted opacity-50 group-hover:opacity-80 group-hover:text-fg',
+              : 'text-fg-muted opacity-50 group-hover:opacity-100 group-hover:text-accent',
         ].join(' ')}
       >
         {item.icon}
