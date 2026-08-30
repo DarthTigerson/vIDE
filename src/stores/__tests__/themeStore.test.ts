@@ -53,9 +53,9 @@ describe('themeStore', () => {
     it('does not touch matchSystem — a family switch while following system stays following system', () => {
       mediaState.matches = true
       useThemeStore.setState({ theme: 'claude-dark', matchSystem: true })
-      useThemeStore.getState().setFamily('codex')
+      useThemeStore.getState().setFamily('link')
       expect(useThemeStore.getState().matchSystem).toBe(true)
-      expect(useThemeStore.getState().theme).toBe('codex-dark')
+      expect(useThemeStore.getState().theme).toBe('link-dark')
     })
   })
 

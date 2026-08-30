@@ -46,34 +46,6 @@
   --color-on-accent: #f3f3f3;
 }
 
-[data-theme="codex-dark"] {
-  --color-bg:        #1a1a1a;
-  --color-panel:     #202020;
-  --color-sidebar:   #1a1a1a;
-  --color-popover:   #1a1a1a;
-  --color-tab-bar:   #202020;
-  --color-border:    #333333;
-  --color-accent:    255 255 255;  /* #ffffff */
-  --color-fg:        #cccccc;
-  --color-fg-muted:  #8a8a8a;
-  --color-fg-subtle: #555555;
-  --color-on-accent: #1a1a1a;
-}
-
-[data-theme="codex-light"] {
-  --color-bg:        #fafafa;
-  --color-panel:     #ffffff;
-  --color-sidebar:   #fafafa;
-  --color-popover:   #fafafa;
-  --color-tab-bar:   #f6f6f6;
-  --color-border:    #d0d7de;
-  --color-accent:    9 105 218;    /* #0969da */
-  --color-fg:        #24292f;
-  --color-fg-muted:  #6e7781;
-  --color-fg-subtle: #aaaaaa;
-  --color-on-accent: #fafafa;
-}
-
 [data-theme="thomas-dark"] {
   --color-bg:        #1c1712;
   --color-panel:     #221c15;
@@ -130,6 +102,62 @@
   --color-fg-muted:  #8a8a8a;
   --color-fg-subtle: #525252;
   --color-on-accent: #0d0d0d;
+}
+
+[data-theme="link-dark"] {
+  --color-bg:        #12160f;
+  --color-panel:     #171c13;
+  --color-sidebar:   #1c2216;
+  --color-popover:   #1c2216;
+  --color-tab-bar:   #212a19;
+  --color-border:    #3a4a2c;
+  --color-accent:    154 194 106; /* #9ac26a */
+  --color-fg:        #eef0d5;
+  --color-fg-muted:  #9aa084;
+  --color-fg-subtle: #5f6650;
+  --color-on-accent: #12160f;
+}
+
+[data-theme="link-light"] {
+  --color-bg:        #fdfee8;
+  --color-panel:     #fffef2;
+  --color-sidebar:   #eef0cf;
+  --color-popover:   #eef0cf;
+  --color-tab-bar:   #e6e6bd;
+  --color-border:    #c9c093;
+  --color-accent:    107 138 61;  /* #6b8a3d */
+  --color-fg:        #3a2f1e;
+  --color-fg-muted:  #7a6b4f;
+  --color-fg-subtle: #a89b78;
+  --color-on-accent: #fdfee8;
+}
+
+[data-theme="atreus-dark"] {
+  --color-bg:        #12151f;
+  --color-panel:     #171b28;
+  --color-sidebar:   #1c2233;
+  --color-popover:   #1c2233;
+  --color-tab-bar:   #232a3d;
+  --color-border:    #3a4460;
+  --color-accent:    84 104 196;  /* #5468c4 */
+  --color-fg:        #e4e7f2;
+  --color-fg-muted:  #8b93b0;
+  --color-fg-subtle: #4f5670;
+  --color-on-accent: #12151f;
+}
+
+[data-theme="atreus-light"] {
+  --color-bg:        #eef0f5;
+  --color-panel:     #f8f9fc;
+  --color-sidebar:   #e2e5ee;
+  --color-popover:   #e2e5ee;
+  --color-tab-bar:   #d8dce8;
+  --color-border:    #c2c8dc;
+  --color-accent:    44 58 110;   /* #2c3a6e */
+  --color-fg:        #1c2233;
+  --color-fg-muted:  #5c6480;
+  --color-fg-subtle: #8b93b0;
+  --color-on-accent: #eef0f5;
 }
 
 /* Ref/branch badge text — the -200/-300-ish pastel shades read fine on a
@@ -215,12 +243,14 @@ body {
    deliberate hard lines instead of Matt's soft, low-contrast ones. */
 [data-theme="claude-dark"][data-panel-style="solid"]  { --color-border: #5a5a5a; }
 [data-theme="claude-light"][data-panel-style="solid"] { --color-border: #b0b0b0; }
-[data-theme="codex-dark"][data-panel-style="solid"]   { --color-border: #4d4d4d; }
-[data-theme="codex-light"][data-panel-style="solid"]  { --color-border: #9aa5b1; }
 [data-theme="thomas-dark"][data-panel-style="solid"]  { --color-border: #6b5738; }
 [data-theme="thomas-light"][data-panel-style="solid"] { --color-border: #c2ab72; }
 [data-theme="luuk-dark"][data-panel-style="solid"],
 [data-theme="luuk-light"][data-panel-style="solid"]   { --color-border: #484848; }
+[data-theme="link-dark"][data-panel-style="solid"]    { --color-border: #55703c; }
+[data-theme="link-light"][data-panel-style="solid"]   { --color-border: #a3925c; }
+[data-theme="atreus-dark"][data-panel-style="solid"]  { --color-border: #4a5580; }
+[data-theme="atreus-light"][data-panel-style="solid"] { --color-border: #9aa2c2; }
 
 /* Glossy panel opacity — rgba overrides let native vibrancy show through */
 [data-theme="claude-dark"][data-panel-style="glossy"] {
@@ -234,18 +264,6 @@ body {
   --color-panel:   rgba(255, 255, 255, 0.7);
   --color-sidebar: rgba(236, 236, 236, 0.6);
   --color-tab-bar: rgba(232, 232, 232, 0.65);
-}
-[data-theme="codex-dark"][data-panel-style="glossy"] {
-  --color-bg:      rgba(26,  26,  26,  0.5);
-  --color-panel:   rgba(32,  32,  32,  0.6);
-  --color-sidebar: rgba(26,  26,  26,  0.5);
-  --color-tab-bar: rgba(32,  32,  32,  0.65);
-}
-[data-theme="codex-light"][data-panel-style="glossy"] {
-  --color-bg:      rgba(250, 250, 250, 0.55);
-  --color-panel:   rgba(255, 255, 255, 0.7);
-  --color-sidebar: rgba(250, 250, 250, 0.6);
-  --color-tab-bar: rgba(246, 246, 246, 0.65);
 }
 [data-theme="thomas-dark"][data-panel-style="glossy"] {
   --color-bg:      rgba(28,  23,  18,  0.5);
@@ -266,6 +284,30 @@ body {
   --color-sidebar: rgba(17,  17,  17,  0.5);
   --color-tab-bar: rgba(24,  24,  24,  0.65);
 }
+[data-theme="link-dark"][data-panel-style="glossy"] {
+  --color-bg:      rgba(18,  22,  15,  0.5);
+  --color-panel:   rgba(23,  28,  19,  0.6);
+  --color-sidebar: rgba(28,  34,  22,  0.5);
+  --color-tab-bar: rgba(33,  42,  25,  0.65);
+}
+[data-theme="link-light"][data-panel-style="glossy"] {
+  --color-bg:      rgba(253, 254, 232, 0.55);
+  --color-panel:   rgba(255, 254, 242, 0.7);
+  --color-sidebar: rgba(238, 240, 207, 0.6);
+  --color-tab-bar: rgba(230, 230, 189, 0.65);
+}
+[data-theme="atreus-dark"][data-panel-style="glossy"] {
+  --color-bg:      rgba(18,  21,  31,  0.5);
+  --color-panel:   rgba(23,  27,  40,  0.6);
+  --color-sidebar: rgba(28,  34,  51,  0.5);
+  --color-tab-bar: rgba(35,  42,  61,  0.65);
+}
+[data-theme="atreus-light"][data-panel-style="glossy"] {
+  --color-bg:      rgba(238, 240, 245, 0.55);
+  --color-panel:   rgba(248, 249, 252, 0.7);
+  --color-sidebar: rgba(226, 229, 238, 0.6);
+  --color-tab-bar: rgba(216, 220, 232, 0.65);
+}
 
 /* Glass panel opacity. Unlike glossy, this deliberately only touches
    --color-bg and --color-panel (the editor and every terminal panel's own
@@ -283,14 +325,6 @@ body {
   --color-bg:    rgba(243, 243, 243, 0.25);
   --color-panel: rgba(255, 255, 255, 0.3);
 }
-[data-theme="codex-dark"][data-panel-style="glass"] {
-  --color-bg:    rgba(26, 26, 26, 0.2);
-  --color-panel: rgba(32, 32, 32, 0.25);
-}
-[data-theme="codex-light"][data-panel-style="glass"] {
-  --color-bg:    rgba(250, 250, 250, 0.25);
-  --color-panel: rgba(255, 255, 255, 0.3);
-}
 [data-theme="thomas-dark"][data-panel-style="glass"] {
   --color-bg:    rgba(28, 23, 18, 0.2);
   --color-panel: rgba(34, 28, 21, 0.25);
@@ -303,6 +337,22 @@ body {
 [data-theme="luuk-light"][data-panel-style="glass"] {
   --color-bg:    rgba(13, 13, 13, 0.2);
   --color-panel: rgba(20, 20, 20, 0.25);
+}
+[data-theme="link-dark"][data-panel-style="glass"] {
+  --color-bg:    rgba(18, 22, 15, 0.2);
+  --color-panel: rgba(23, 28, 19, 0.25);
+}
+[data-theme="link-light"][data-panel-style="glass"] {
+  --color-bg:    rgba(253, 254, 232, 0.25);
+  --color-panel: rgba(255, 254, 242, 0.3);
+}
+[data-theme="atreus-dark"][data-panel-style="glass"] {
+  --color-bg:    rgba(18, 21, 31, 0.2);
+  --color-panel: rgba(23, 27, 40, 0.25);
+}
+[data-theme="atreus-light"][data-panel-style="glass"] {
+  --color-bg:    rgba(238, 240, 245, 0.25);
+  --color-panel: rgba(248, 249, 252, 0.3);
 }
 
 [data-panel-style="glossy"] .bg-bg,

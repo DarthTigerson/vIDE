@@ -154,9 +154,9 @@ describe('MobileServer display sync', () => {
     server.registerHandlers()
     await server.start()
     const cookie = await authenticate(server['port'], server['pin'])
-    ipcOnHandlers['mobile:setDisplay'](null, 'codex-dark', 'Monaco, monospace')
+    ipcOnHandlers['mobile:setDisplay'](null, 'link-dark', 'Monaco, monospace')
     const state = await fetchJson(server['port'], '/api/state', cookie)
-    expect(state.theme).toBe('codex-dark')
+    expect(state.theme).toBe('link-dark')
     expect(state.font).toBe('Monaco, monospace')
   })
 

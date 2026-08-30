@@ -17,14 +17,16 @@ interface ThemePalette {
 const THEME_PALETTES: Record<ThemeId, ThemePalette> = {
   'claude-dark':  { base: 'vs-dark', background: '#1e1e1e', foreground: '#cccccc', accent: '#d97757', border: '#3c3c3c', fgMuted: '#858585', fgSubtle: '#555555' },
   'claude-light': { base: 'vs',      background: '#ffffff', foreground: '#1e1e1e', accent: '#c4613d', border: '#e0e0e0', fgMuted: '#717171', fgSubtle: '#999999' },
-  'codex-dark':   { base: 'vs-dark', background: '#202020', foreground: '#cccccc', accent: '#ffffff', border: '#333333', fgMuted: '#8a8a8a', fgSubtle: '#555555' },
-  'codex-light':  { base: 'vs',      background: '#ffffff', foreground: '#24292f', accent: '#0969da', border: '#d0d7de', fgMuted: '#6e7781', fgSubtle: '#aaaaaa' },
   'thomas-dark':  { base: 'vs-dark', background: '#221c15', foreground: '#e8e0d0', accent: '#f5c242', border: '#4a3d29', fgMuted: '#9c9080', fgSubtle: '#665c4a' },
   'thomas-light': { base: 'vs',      background: '#fffcf2', foreground: '#2a2013', accent: '#ad7b00', border: '#d8c89a', fgMuted: '#74684f', fgSubtle: '#a89876' },
   // Both "dark" — Luuk hates light mode, so "Luuk Light" is a gag entry
   // identical to "Luuk Dark", base 'vs-dark' included.
   'luuk-dark':    { base: 'vs-dark', background: '#141414', foreground: '#d4d4d4', accent: '#9e9e9e', border: '#2e2e2e', fgMuted: '#8a8a8a', fgSubtle: '#525252' },
   'luuk-light':   { base: 'vs-dark', background: '#141414', foreground: '#d4d4d4', accent: '#9e9e9e', border: '#2e2e2e', fgMuted: '#8a8a8a', fgSubtle: '#525252' },
+  'link-dark':    { base: 'vs-dark', background: '#171c13', foreground: '#eef0d5', accent: '#9ac26a', border: '#3a4a2c', fgMuted: '#9aa084', fgSubtle: '#5f6650' },
+  'link-light':   { base: 'vs',      background: '#fffef2', foreground: '#3a2f1e', accent: '#6b8a3d', border: '#c9c093', fgMuted: '#7a6b4f', fgSubtle: '#a89b78' },
+  'atreus-dark':  { base: 'vs-dark', background: '#171b28', foreground: '#e4e7f2', accent: '#5468c4', border: '#3a4460', fgMuted: '#8b93b0', fgSubtle: '#4f5670' },
+  'atreus-light': { base: 'vs',      background: '#f8f9fc', foreground: '#1c2233', accent: '#2c3a6e', border: '#c2c8dc', fgMuted: '#5c6480', fgSubtle: '#8b93b0' },
 }
 
 // "glass" panel style needs the editor surface itself to be see-through, not
