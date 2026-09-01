@@ -8,6 +8,8 @@ import {
   stopContainer,
   restartContainer,
   removeContainer,
+  stopContainers,
+  removeContainers,
   openDockerApp,
 } from './docker'
 import { resolveBinaryPath } from './lsp/shellPath'
@@ -24,6 +26,8 @@ export class DockerRunner {
     ipcMain.handle('docker:stopContainer', (_e, id: string) => stopContainer(id))
     ipcMain.handle('docker:restartContainer', (_e, id: string) => restartContainer(id))
     ipcMain.handle('docker:removeContainer', (_e, id: string) => removeContainer(id))
+    ipcMain.handle('docker:stopContainers', (_e, ids: string[]) => stopContainers(ids))
+    ipcMain.handle('docker:removeContainers', (_e, ids: string[]) => removeContainers(ids))
     ipcMain.handle('docker:openApp', () => openDockerApp())
 
     ipcMain.handle('docker:runLogs', async (event, streamId: string, containerId: string) => {

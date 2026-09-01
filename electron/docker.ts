@@ -23,11 +23,29 @@ export interface DockerContainer {
   status: string
   state: string
   ports: string
+  // Set from the `com.docker.compose.project` label Compose stamps on every
+  // container in a stack, so the panel can group them the same way Docker
+  // Desktop does. Undefined for containers started outside Compose (plain
+  // `docker run`), which render as standalone rows instead of a group.
+  project?: string
 }
 
 export interface DockerActionResult {
   ok: boolean
   error?: string
+}
+
+const COMPOSE_PROJECT_LABEL = 'com.docker.compose.project'
+
+// `docker ps`'s Labels field is a flat "key=value,key=value" string, not JSON.
+function parseComposeProject(labels: string | undefined): string | undefined {
+  if (!labels) return undefined
+  for (const pair of labels.split(',')) {
+    const eq = pair.indexOf('=')
+    if (eq === -1) continue
+    if (pair.slice(0, eq) === COMPOSE_PROJECT_LABEL) return pair.slice(eq + 1)
+  }
+  return undefined
 }
 
 // `docker info` succeeds only when both the CLI is on PATH and the daemon
@@ -63,6 +81,7 @@ export async function listContainers(): Promise<DockerContainer[]> {
           status: raw.Status,
           state: raw.State,
           ports: raw.Ports,
+          project: parseComposeProject(raw.Labels),
         }
       })
   } catch {
@@ -90,6 +109,17 @@ export async function stopContainer(id: string): Promise<DockerActionResult> {
 
 export async function restartContainer(id: string): Promise<DockerActionResult> {
   return runAction(['restart', id])
+}
+
+// Batched equivalents of start/stop/remove for the panel's group and
+// "all containers" controls — one docker invocation for the whole scope
+// (`docker stop id1 id2 …`) rather than one round-trip per container.
+export async function stopContainers(ids: string[]): Promise<DockerActionResult> {
+  return runAction(['stop', ...ids])
+}
+
+export async function removeContainers(ids: string[]): Promise<DockerActionResult> {
+  return runAction(['rm', '-f', ...ids])
 }
 
 // -f so a running container can be removed in one step instead of failing

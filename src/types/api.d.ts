@@ -194,6 +194,8 @@ declare global {
       dockerStopContainer: (id: string) => Promise<DockerActionResult>
       dockerRestartContainer: (id: string) => Promise<DockerActionResult>
       dockerRemoveContainer: (id: string) => Promise<DockerActionResult>
+      dockerStopContainers: (ids: string[]) => Promise<DockerActionResult>
+      dockerRemoveContainers: (ids: string[]) => Promise<DockerActionResult>
       dockerOpenApp: () => Promise<DockerActionResult>
       dockerRunLogs: (streamId: string, containerId: string) => Promise<void>
       dockerStopLogs: (streamId: string) => void

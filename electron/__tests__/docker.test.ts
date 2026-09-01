@@ -40,6 +40,8 @@ import {
   stopContainer,
   restartContainer,
   removeContainer,
+  stopContainers,
+  removeContainers,
   openDockerApp,
 } from '../docker'
 import { _resetShellPathCacheForTesting } from '../lsp/shellPath'
@@ -92,6 +94,32 @@ describe('listContainers', () => {
     execFileMock.mockReturnValue(new Error('daemon not running'))
     expect(await listContainers()).toEqual([])
   })
+
+  it('extracts the compose project from the Labels field', async () => {
+    const row = JSON.stringify({
+      ID: 'a1',
+      Names: 'gpt-webapp-caddy-1',
+      Image: 'caddy',
+      Status: 'Up',
+      State: 'running',
+      Ports: '',
+      Labels: 'com.docker.compose.service=caddy,com.docker.compose.project=gpt-webapp,com.docker.compose.version=2.20',
+    })
+    execFileMock.mockReturnValue({ stdout: `${row}\n`, stderr: '' })
+
+    const [container] = await listContainers()
+    expect(container.project).toBe('gpt-webapp')
+  })
+
+  it('leaves project undefined for containers with no compose label', async () => {
+    const row = JSON.stringify({
+      ID: 'a1', Names: 'web', Image: 'nginx', Status: 'Up', State: 'running', Ports: '', Labels: '',
+    })
+    execFileMock.mockReturnValue({ stdout: `${row}\n`, stderr: '' })
+
+    const [container] = await listContainers()
+    expect(container.project).toBeUndefined()
+  })
 })
 
 describe('container action commands', () => {
@@ -123,6 +151,18 @@ describe('container action commands', () => {
     execFileMock.mockReturnValue({ stdout: '', stderr: '' })
     await removeContainer('a1')
     expect(execFileMock).toHaveBeenCalledWith('docker', ['rm', '-f', 'a1'])
+  })
+
+  it('stopContainers stops every id in a single call', async () => {
+    execFileMock.mockReturnValue({ stdout: '', stderr: '' })
+    expect(await stopContainers(['a1', 'b2'])).toEqual({ ok: true })
+    expect(execFileMock).toHaveBeenCalledWith('docker', ['stop', 'a1', 'b2'])
+  })
+
+  it('removeContainers force-removes every id in a single call', async () => {
+    execFileMock.mockReturnValue({ stdout: '', stderr: '' })
+    expect(await removeContainers(['a1', 'b2'])).toEqual({ ok: true })
+    expect(execFileMock).toHaveBeenCalledWith('docker', ['rm', '-f', 'a1', 'b2'])
   })
 })
 
