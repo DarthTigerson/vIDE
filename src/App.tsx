@@ -190,9 +190,19 @@ export default function App() {
   const gitRemoteReady = gitRemoteUrl.trim() !== ''
   const gitRemoteProvider = detectGitRemoteProvider(gitRemoteUrl)
   const dockerEnabled = useDockerSettingsStore((s) => s.enabled)
+  const dockerShowBadge = useDockerSettingsStore((s) => s.showBadge)
+  const dockerBadgeMode = useDockerSettingsStore((s) => s.badgeMode)
   useDockerLiveUpdates(dockerEnabled && !!projectRoot)
-  const runningContainerCount = useDockerStore((s) => s.containers).filter((c) => c.state === 'running').length
-  const dockerBadge = runningContainerCount > 99 ? '99+' : runningContainerCount || undefined
+  const dockerContainers = useDockerStore((s) => s.containers)
+  const runningDockerCount =
+    dockerBadgeMode === 'projects'
+      ? new Set(
+          dockerContainers.filter((c) => c.state === 'running' && c.project).map((c) => c.project)
+        ).size
+      : dockerContainers.filter((c) => c.state === 'running').length
+  const dockerBadge = !dockerShowBadge
+    ? undefined
+    : runningDockerCount > 99 ? '99+' : runningDockerCount || undefined
   const mobileEnabled = useMobileSettingsStore((s) => s.enabled)
   const todoEnabled = useTodoSettingsStore((s) => s.enabled)
   const notesEnabled = useNotesSettingsStore((s) => s.enabled)
