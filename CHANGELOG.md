@@ -1,5 +1,14 @@
 # vIDE
 
+## v0.2.8 (2026-09-02)
+- **Docker panel overhaul**: containers are now grouped by compose project with batch Start All/Stop All/Remove All controls, right-click context menus on both groups and individual containers (replacing the old kebab menus), and an "Open in Docker" action to jump to a container in Docker Desktop
+- Docker panel header gained a Close Docker action (with confirmation) and an actions menu in place of the standalone Refresh button
+- A footer alert now appears when Docker is enabled but the Docker daemon isn't running
+- Docker status indicator moved into a chip beside the panel title, with an optional memory usage display on container rows and group memory aggregation
+- Docker activity bar icon now shows a running-container badge, configurable to count containers or projects
+- Redesigned the Docker panel empty state with a new icon and Launch Docker button, plus loading spinners and disabled states on container actions while requests are in flight
+
+
 ## v0.2.7 (2026-08-30)
 - **Cost panel**: estimated Claude spend tracking with a per-model pricing table
 - **Claude-controlled browser tab**: new MCP tools let Claude navigate, screenshot, click, type, and read within its own browser tab, replacing the old "open URL" shim
