@@ -78,30 +78,46 @@ describe('DockerPanel — grouping and global controls', () => {
     expect(await screen.findByText('gpt-webapp-caddy-1')).toBeTruthy()
   })
 
-  it('Stop All is disabled when nothing is running', async () => {
+  it('Stop All is disabled when nothing is running, Clean Slate is disabled with no containers', async () => {
     setup([{ ...standalone }])
     render(<DockerPanel />)
     await screen.findByText('standalone')
-    expect(screen.getByRole('button', { name: 'Stop All' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Stop All Containers' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Clean Slate/ })).not.toBeDisabled()
   })
 
-  it('Remove All opens a confirmation before calling the batch remove action', async () => {
+  it('Stop All opens a confirmation before calling the batch stop action', async () => {
     setup([webappCaddy, otherApi])
     render(<DockerPanel />)
     await screen.findByText('gpt-webapp')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove All Containers' }))
-    expect(screen.getByText('Remove All Containers')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Stop All Containers' }))
+    expect(screen.getByText('Stop All Containers')).toBeTruthy()
+    expect(window.api.dockerStopContainers).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Stop All', exact: true }))
+    await waitFor(() =>
+      expect(window.api.dockerStopContainers).toHaveBeenCalledWith(['a1', 'b1'])
+    )
+  })
+
+  it('Clean Slate opens a confirmation before calling the batch remove action', async () => {
+    setup([webappCaddy, otherApi])
+    render(<DockerPanel />)
+    await screen.findByText('gpt-webapp')
+
+    fireEvent.click(screen.getByRole('button', { name: /Clean Slate/ }))
+    expect(screen.getByText('Clean Slate', { selector: 'h2' })).toBeTruthy()
     expect(window.api.dockerRemoveContainers).not.toHaveBeenCalled()
   })
 
-  it('confirming Remove All calls removeContainers with every container id', async () => {
+  it('confirming Clean Slate calls removeContainers with every container id', async () => {
     setup([webappCaddy, otherApi])
     render(<DockerPanel />)
     await screen.findByText('gpt-webapp')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove All Containers' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Remove All', exact: true }))
+    fireEvent.click(screen.getByRole('button', { name: /Clean Slate/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Clean Slate', exact: true }))
 
     await waitFor(() =>
       expect(window.api.dockerRemoveContainers).toHaveBeenCalledWith(['a1', 'b1'])
