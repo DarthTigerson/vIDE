@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { DockerPanel } from '../DockerPanel'
 import { useDockerStore } from '@/stores/dockerStore'
+import { useEditorStore } from '@/stores/editorStore'
 import type { DockerContainer } from '@/types/api'
 
 const webappCaddy: DockerContainer = {
@@ -391,6 +392,21 @@ describe('DockerPanel — grouping and global controls', () => {
 
     resolveOpen({ ok: true })
     await waitFor(() => expect(launchButton).toHaveAttribute('aria-busy', 'false'))
+  })
+
+  it('choosing Open from the right-click menu opens the same logs tab a left-click would', async () => {
+    setup([webappCaddy])
+    const openTab = vi.spyOn(useEditorStore.getState(), 'openTab')
+    render(<DockerPanel />)
+    await screen.findByText('gpt-webapp-caddy-1')
+
+    openContainerMenu('gpt-webapp-caddy-1')
+    fireEvent.click(screen.getByRole('button', { name: 'Open', exact: true }))
+
+    expect(openTab).toHaveBeenCalledWith(
+      expect.objectContaining({ path: expect.stringContaining('a1') })
+    )
+    openTab.mockRestore()
   })
 
   it('the container right-click menu closes after selecting an item', async () => {

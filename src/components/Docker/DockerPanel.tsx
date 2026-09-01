@@ -104,6 +104,18 @@ function RestartIcon() {
   )
 }
 
+// Logs/document glyph for the context menu's "Open" item — the row's own
+// left-click already opens the logs tab; this just surfaces the same
+// action as a right-click menu entry too.
+function LogsIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+      <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M8 9h8M8 13h8M8 17h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 // SVG rather than a literal "✕" character — text content inside a button
 // becomes part of its accessible name, which would turn "Remove" into "✕
 // Remove" for screen readers and role-based test queries alike.
@@ -328,6 +340,7 @@ function ContainerRow({ container, onRequestRemove }: {
   }
 
   const actions: MenuAction[] = [
+    { key: 'open', label: 'Open', icon: <LogsIcon />, onSelect: openLogs },
     running
       ? { key: 'stop', label: 'Stop', icon: <StopIcon />, disabled: busy, onSelect: () => run('stop', () => stopContainer(container.id)) }
       : { key: 'start', label: 'Start', icon: <PlayIcon />, disabled: busy, onSelect: () => run('start', () => startContainer(container.id)) },
