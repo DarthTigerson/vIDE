@@ -58,6 +58,21 @@ describe('DockerPanel — grouping and global controls', () => {
     cleanup()
   })
 
+  it('shows the status dot and short state label next to the Docker title when running', async () => {
+    setup([])
+    render(<DockerPanel />)
+    expect(await screen.findByText('Running')).toBeTruthy()
+    expect(screen.getByText('Docker')).toBeTruthy()
+  })
+
+  it('shows the short state label next to the title when stopped, with no separate status row', async () => {
+    setup([])
+    ;(window.api.dockerStatus as ReturnType<typeof vi.fn>).mockResolvedValue('stopped')
+    render(<DockerPanel />)
+    expect(await screen.findByText('Not running')).toBeTruthy()
+    expect(screen.queryByText('Running')).toBeNull()
+  })
+
   it('groups containers under their compose project without interleaving another project', async () => {
     setup([webappCaddy, otherApi, webappDb])
     render(<DockerPanel />)

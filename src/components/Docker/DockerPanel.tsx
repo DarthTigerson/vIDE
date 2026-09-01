@@ -8,11 +8,13 @@ import { Modal } from '@/components/ui/Modal'
 import { DockerIcon } from '@/components/ActivityBar/ActivityBar'
 import type { DockerContainer } from '@/types/api'
 
+// Short form — sits next to the "Docker" panel title, so it doesn't repeat
+// the word itself the way the old inline status row's copy did.
 const STATUS_LABEL: Record<string, string> = {
   unknown: 'Checking…',
-  'not-installed': 'Docker not installed',
-  stopped: 'Docker not running',
-  running: 'Docker running',
+  'not-installed': 'Not installed',
+  stopped: 'Not running',
+  running: 'Running',
 }
 
 const STATUS_DOT: Record<string, string> = {
@@ -20,6 +22,16 @@ const STATUS_DOT: Record<string, string> = {
   'not-installed': 'bg-fg-subtle',
   stopped: 'bg-red-400',
   running: 'bg-green-400',
+}
+
+// Same chip treatment as MobileDisplayPanel's "N connected" header badge —
+// a subtle rounded pill so the state reads as a distinct status indicator
+// rather than a continuation of the plain title text.
+const STATUS_CHIP: Record<string, string> = {
+  unknown: 'text-fg-muted bg-white/5',
+  'not-installed': 'text-fg-muted bg-white/5',
+  stopped: 'text-red-400 bg-red-400/10',
+  running: 'text-green-400 bg-green-400/10',
 }
 
 const pillButtonClass =
@@ -376,26 +388,25 @@ export function DockerPanel() {
   return (
     <div className="h-full flex flex-col bg-sidebar border-r border-border overflow-hidden">
       <div className="h-9 px-3 border-b border-border shrink-0 flex items-center justify-between">
-        <span className="text-xs font-semibold text-fg-muted uppercase tracking-wider">Docker</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[status]}`} />
+          <span className="text-xs font-semibold text-fg-muted uppercase tracking-wider shrink-0">Docker</span>
+          <span className={`text-[0.625rem] font-medium px-1.5 py-0.5 rounded-full shrink-0 truncate ${STATUS_CHIP[status] ?? 'text-fg-muted bg-white/5'}`}>
+            {STATUS_LABEL[status] ?? status}
+          </span>
+        </div>
         <button
           type="button"
           onClick={() => refresh()}
           aria-label="Refresh"
           title="Refresh"
-          className="text-fg-muted hover:text-fg transition-colors"
+          className="text-fg-muted hover:text-fg transition-colors shrink-0"
         >
           <RefreshIcon />
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-        {status !== 'stopped' && (
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${STATUS_DOT[status]}`} />
-            <span className="text-xs font-medium text-fg">{STATUS_LABEL[status] ?? status}</span>
-          </div>
-        )}
-
         {status === 'not-installed' && (
           <p className="text-xs text-fg-muted text-center leading-relaxed pt-2">
             Install Docker to see and control containers here.
