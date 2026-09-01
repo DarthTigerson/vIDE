@@ -1,4 +1,4 @@
-import { useDockerSettingsStore, type DockerBadgeMode } from '@/stores/dockerSettingsStore'
+import { useDockerSettingsStore, type DockerBadgeMode, type DockerMemoryFormat } from '@/stores/dockerSettingsStore'
 import { Toggle } from '@/components/ui/Toggle'
 import { Select } from '@/components/ui/Select'
 
@@ -9,6 +9,10 @@ export function DockerSettingsPage() {
   const setShowBadge = useDockerSettingsStore((s) => s.setShowBadge)
   const badgeMode = useDockerSettingsStore((s) => s.badgeMode)
   const setBadgeMode = useDockerSettingsStore((s) => s.setBadgeMode)
+  const showMemory = useDockerSettingsStore((s) => s.showMemory)
+  const setShowMemory = useDockerSettingsStore((s) => s.setShowMemory)
+  const memoryFormat = useDockerSettingsStore((s) => s.memoryFormat)
+  const setMemoryFormat = useDockerSettingsStore((s) => s.setMemoryFormat)
 
   return (
     <div className="h-full overflow-auto p-6 bg-panel">
@@ -51,6 +55,42 @@ export function DockerSettingsPage() {
                   { value: 'projects', label: 'All running projects' },
                 ]}
               />
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-xl border border-border/60 p-4 flex flex-col gap-5">
+          <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
+            Container Rows
+          </h2>
+
+          <Toggle
+            label="Show memory usage"
+            description="Adds each container's memory usage to its row. Uses docker stats, a noticeably heavier command than the container list itself, so this polls only while the panel is open."
+            checked={showMemory}
+            onChange={setShowMemory}
+          />
+
+          {showMemory && (
+            <div className="pl-1">
+              <label htmlFor="docker-memory-format" className="text-xs text-fg-muted mb-1.5 block">
+                Format
+              </label>
+              <Select
+                id="docker-memory-format"
+                value={memoryFormat}
+                onChange={(v) => setMemoryFormat(v as DockerMemoryFormat)}
+                options={[
+                  { value: 'usedPercent', label: 'Used %' },
+                  { value: 'availablePercent', label: 'Available %' },
+                  { value: 'usedAbsolute', label: 'Used (e.g. 512 MB)' },
+                  { value: 'usedOverLimit', label: 'Used / limit (e.g. 512 MB / 1 GB)' },
+                ]}
+              />
+              <p className="text-xs text-fg-subtle mt-1.5">
+                A container with no explicit memory limit reports its limit as the host's total
+                RAM, so "%" for one of those means share of the whole machine, not of a per-container ceiling.
+              </p>
             </div>
           )}
         </section>

@@ -43,6 +43,7 @@ import {
   startContainers,
   stopContainers,
   removeContainers,
+  getContainerStats,
   openDockerApp,
 } from '../docker'
 import { _resetShellPathCacheForTesting } from '../lsp/shellPath'
@@ -220,5 +221,45 @@ describe('openDockerApp', () => {
     execFileMock.mockReturnValue({ stdout: '', stderr: '' })
     expect(await openDockerApp()).toEqual({ ok: true })
     expect(execFileMock).toHaveBeenCalledWith('systemctl', ['--user', 'start', 'docker'])
+  })
+})
+
+describe('getContainerStats', () => {
+  beforeEach(() => {
+    execFileMock.mockReset()
+    shellResolution.value = null
+    _resetShellPathCacheForTesting()
+  })
+
+  it('parses MemUsage/MemPerc into bytes and percent, keyed by container id', async () => {
+    const row = JSON.stringify({
+      ID: 'a1', MemUsage: '12.5MiB / 1.943GiB', MemPerc: '0.65%',
+    })
+    execFileMock.mockReturnValue({ stdout: `${row}\n`, stderr: '' })
+
+    const stats = await getContainerStats()
+    expect(execFileMock).toHaveBeenCalledWith(
+      'docker',
+      ['stats', '--no-stream', '--format', '{{json .}}'],
+      { timeout: 10000, maxBuffer: 10 * 1024 * 1024 }
+    )
+    expect(stats.a1.percent).toBeCloseTo(0.65)
+    expect(stats.a1.usedBytes).toBeCloseTo(12.5 * 1024 * 1024, 0)
+    expect(stats.a1.limitBytes).toBeCloseTo(1.943 * 1024 ** 3, -3)
+  })
+
+  it('parses multiple rows keyed by their own id', async () => {
+    const rowA = JSON.stringify({ ID: 'a1', MemUsage: '100MiB / 1GiB', MemPerc: '9.77%' })
+    const rowB = JSON.stringify({ ID: 'b2', MemUsage: '50MiB / 2GiB', MemPerc: '2.44%' })
+    execFileMock.mockReturnValue({ stdout: `${rowA}\n${rowB}\n`, stderr: '' })
+
+    const stats = await getContainerStats()
+    expect(Object.keys(stats).sort()).toEqual(['a1', 'b2'])
+    expect(stats.b2.percent).toBeCloseTo(2.44)
+  })
+
+  it('returns an empty object on failure rather than throwing', async () => {
+    execFileMock.mockReturnValue(new Error('daemon not running'))
+    expect(await getContainerStats()).toEqual({})
   })
 })

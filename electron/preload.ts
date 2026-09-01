@@ -88,6 +88,8 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('docker:stopContainers', ids) as Promise<import('./docker').DockerActionResult>,
   dockerRemoveContainers: (ids: string[]) =>
     ipcRenderer.invoke('docker:removeContainers', ids) as Promise<import('./docker').DockerActionResult>,
+  dockerGetContainerStats: () =>
+    ipcRenderer.invoke('docker:getContainerStats') as Promise<Record<string, import('./docker').DockerContainerStats>>,
   dockerOpenApp: () => ipcRenderer.invoke('docker:openApp') as Promise<import('./docker').DockerActionResult>,
   dockerRunLogs: (streamId: string, containerId: string) =>
     ipcRenderer.invoke('docker:runLogs', streamId, containerId),

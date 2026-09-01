@@ -3,6 +3,7 @@ import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-li
 import { DockerPanel } from '../DockerPanel'
 import { useDockerStore } from '@/stores/dockerStore'
 import { useEditorStore } from '@/stores/editorStore'
+import { useDockerSettingsStore } from '@/stores/dockerSettingsStore'
 import type { DockerContainer } from '@/types/api'
 
 const webappCaddy: DockerContainer = {
@@ -35,12 +36,14 @@ function setup(containers: DockerContainer[]) {
     dockerStartContainers: vi.fn().mockResolvedValue({ ok: true }),
     dockerStopContainers: vi.fn().mockResolvedValue({ ok: true }),
     dockerRemoveContainers: vi.fn().mockResolvedValue({ ok: true }),
+    dockerGetContainerStats: vi.fn().mockResolvedValue({}),
     dockerOpenApp: vi.fn().mockResolvedValue({ ok: true }),
     dockerWatch: vi.fn(),
     dockerUnwatch: vi.fn(),
     onDockerChanged: vi.fn().mockReturnValue(() => {}),
   }
-  useDockerStore.setState({ status: 'unknown', containers: [], loading: false, watching: false, watcherRefCount: 0 })
+  useDockerStore.setState({ status: 'unknown', containers: [], containerStats: {}, loading: false, watching: false, watcherRefCount: 0 })
+  useDockerSettingsStore.setState({ showMemory: false, memoryFormat: 'usedPercent' })
 }
 
 // Group actions live behind a kebab (⋮) trigger — open it before looking
@@ -435,5 +438,46 @@ describe('DockerPanel — grouping and global controls', () => {
     // Still exactly one menu on screen — the first row's didn't stay open
     // alongside the second's.
     expect(screen.getAllByRole('button', { name: 'Restart', exact: true })).toHaveLength(1)
+  })
+
+  it('does not show memory usage on a row when the setting is off', async () => {
+    setup([webappCaddy])
+    ;(window.api.dockerGetContainerStats as ReturnType<typeof vi.fn>).mockResolvedValue({
+      a1: { usedBytes: 512 * 1024 * 1024, limitBytes: 1024 * 1024 * 1024, percent: 50 },
+    })
+    render(<DockerPanel />)
+    await screen.findByText('gpt-webapp-caddy-1')
+    expect(screen.queryByText('50%')).toBeNull()
+  })
+
+  it('shows Used % memory on a running row when the setting is on', async () => {
+    setup([webappCaddy])
+    useDockerSettingsStore.setState({ showMemory: true, memoryFormat: 'usedPercent' })
+    ;(window.api.dockerGetContainerStats as ReturnType<typeof vi.fn>).mockResolvedValue({
+      a1: { usedBytes: 512 * 1024 * 1024, limitBytes: 1024 * 1024 * 1024, percent: 50 },
+    })
+    render(<DockerPanel />)
+    expect(await screen.findByText('50%')).toBeTruthy()
+  })
+
+  it('does not show memory on a stopped container even when the setting is on', async () => {
+    setup([standalone])
+    useDockerSettingsStore.setState({ showMemory: true, memoryFormat: 'usedPercent' })
+    ;(window.api.dockerGetContainerStats as ReturnType<typeof vi.fn>).mockResolvedValue({
+      c1: { usedBytes: 0, limitBytes: 1024 * 1024 * 1024, percent: 0 },
+    })
+    render(<DockerPanel />)
+    await screen.findByText('standalone')
+    expect(screen.queryByText('0%')).toBeNull()
+  })
+
+  it('formats memory as Used / limit when that format is selected', async () => {
+    setup([webappCaddy])
+    useDockerSettingsStore.setState({ showMemory: true, memoryFormat: 'usedOverLimit' })
+    ;(window.api.dockerGetContainerStats as ReturnType<typeof vi.fn>).mockResolvedValue({
+      a1: { usedBytes: 512 * 1024 * 1024, limitBytes: 1024 * 1024 * 1024, percent: 50 },
+    })
+    render(<DockerPanel />)
+    expect(await screen.findByText('512 MB / 1 GB')).toBeTruthy()
   })
 })

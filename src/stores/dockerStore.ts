@@ -1,9 +1,13 @@
 import { create } from 'zustand'
-import type { DockerStatus, DockerContainer, DockerActionResult } from '@/types/api'
+import type { DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats } from '@/types/api'
 
 interface DockerStore {
   status: DockerStatus | 'unknown'
   containers: DockerContainer[]
+  // Memory stats keyed by container id — fetched separately from
+  // refresh()/containers since `docker stats` is a much heavier call, so
+  // it's only ever populated while a consumer opts in via refreshStats().
+  containerStats: Record<string, DockerContainerStats>
   loading: boolean
   watching: boolean
   // Both DockerPanel and a DockerLogsPage tab can be mounted at once and
@@ -13,6 +17,7 @@ interface DockerStore {
   // only calls the IPC watch/unwatch channels on the 0->1 / 1->0 edges.
   watcherRefCount: number
   refresh: () => Promise<void>
+  refreshStats: () => Promise<void>
   startContainer: (id: string) => Promise<DockerActionResult>
   stopContainer: (id: string) => Promise<DockerActionResult>
   restartContainer: (id: string) => Promise<DockerActionResult>
@@ -28,6 +33,7 @@ interface DockerStore {
 export const useDockerStore = create<DockerStore>((set, get) => ({
   status: 'unknown',
   containers: [],
+  containerStats: {},
   loading: false,
   watching: false,
   watcherRefCount: 0,
@@ -37,6 +43,12 @@ export const useDockerStore = create<DockerStore>((set, get) => ({
     const status = await window.api.dockerStatus()
     const containers = status === 'running' ? await window.api.dockerListContainers() : []
     set({ status, containers, loading: false })
+  },
+
+  refreshStats: async () => {
+    if (get().status !== 'running') return
+    const containerStats = await window.api.dockerGetContainerStats()
+    set({ containerStats })
   },
 
   startContainer: async (id) => {

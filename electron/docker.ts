@@ -35,6 +35,12 @@ export interface DockerActionResult {
   error?: string
 }
 
+export interface DockerContainerStats {
+  usedBytes: number
+  limitBytes: number
+  percent: number
+}
+
 const COMPOSE_PROJECT_LABEL = 'com.docker.compose.project'
 
 // `docker ps`'s Labels field is a flat "key=value,key=value" string, not JSON.
@@ -86,6 +92,51 @@ export async function listContainers(): Promise<DockerContainer[]> {
       })
   } catch {
     return []
+  }
+}
+
+// `docker stats`'s human-readable MemUsage uses binary (Ki/Mi/Gi) units
+// even though it prints them without the "i" (e.g. "12.5MiB"). Only that
+// suffix set is expected in practice; anything unrecognized falls back to
+// treating the number as raw bytes rather than throwing.
+const MEM_UNIT_MULTIPLIERS: Record<string, number> = {
+  B: 1,
+  KiB: 1024,
+  MiB: 1024 ** 2,
+  GiB: 1024 ** 3,
+  TiB: 1024 ** 4,
+}
+
+function parseMemValue(raw: string): number {
+  const match = raw.trim().match(/^([\d.]+)\s*([A-Za-z]+)$/)
+  if (!match) return 0
+  const [, amount, unit] = match
+  return parseFloat(amount) * (MEM_UNIT_MULTIPLIERS[unit] ?? 1)
+}
+
+// A separate, heavier call than listContainers() — `docker stats --no-stream`
+// takes a CPU sample internally and typically costs ~1s regardless of
+// container count, so callers should only poll this when memory display is
+// actually turned on rather than folding it into every listContainers() poll.
+export async function getContainerStats(): Promise<Record<string, DockerContainerStats>> {
+  try {
+    const { stdout } = await execFileAsync(
+      await dockerBin(),
+      ['stats', '--no-stream', '--format', '{{json .}}'],
+      { timeout: 10000, maxBuffer: 10 * 1024 * 1024 }
+    )
+    const result: Record<string, DockerContainerStats> = {}
+    for (const line of stdout.split('\n').filter(Boolean)) {
+      const raw = JSON.parse(line) as Record<string, string>
+      const [usedRaw, limitRaw] = (raw.MemUsage ?? '').split('/')
+      const usedBytes = parseMemValue(usedRaw ?? '0B')
+      const limitBytes = parseMemValue(limitRaw ?? '0B')
+      const percent = parseFloat((raw.MemPerc ?? '').replace('%', '')) || 0
+      result[raw.ID] = { usedBytes, limitBytes, percent }
+    }
+    return result
+  } catch {
+    return {}
   }
 }
 

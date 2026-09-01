@@ -3,12 +3,43 @@ import { createPortal } from 'react-dom'
 import { useDockerStore } from '@/stores/dockerStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { useDockerLiveUpdates } from '@/hooks/useDockerLiveUpdates'
+import { useDockerSettingsStore, type DockerMemoryFormat } from '@/stores/dockerSettingsStore'
 import { clampToViewport } from '@/components/ui/clampToViewport'
 import { buildDockerLogsPath } from './paths'
 import { ConfirmRemoveContainerModal } from './ConfirmRemoveContainerModal'
 import { Modal } from '@/components/ui/Modal'
 import { DockerIcon } from '@/components/ActivityBar/ActivityBar'
-import type { DockerContainer } from '@/types/api'
+import type { DockerContainer, DockerContainerStats } from '@/types/api'
+
+const MEMORY_POLL_INTERVAL_MS = 5000
+
+function formatBytes(bytes: number): string {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let value = bytes
+  let unitIndex = 0
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024
+    unitIndex++
+  }
+  // Round to one decimal below 10 (e.g. "4.6 MB") but drop the trailing
+  // ".0" on a clean whole number ("1 GB", not "1.0 GB") — Number's default
+  // string conversion does that for free.
+  const rounded = value < 10 && unitIndex > 0 ? Math.round(value * 10) / 10 : Math.round(value)
+  return `${rounded} ${units[unitIndex]}`
+}
+
+function formatMemory(stats: DockerContainerStats, format: DockerMemoryFormat): string {
+  switch (format) {
+    case 'usedPercent':
+      return `${Math.round(stats.percent)}%`
+    case 'availablePercent':
+      return `${Math.round(100 - stats.percent)}%`
+    case 'usedAbsolute':
+      return formatBytes(stats.usedBytes)
+    case 'usedOverLimit':
+      return `${formatBytes(stats.usedBytes)} / ${formatBytes(stats.limitBytes)}`
+  }
+}
 
 // Short form — sits next to the "Docker" panel title, so it doesn't repeat
 // the word itself the way the old inline status row's copy did.
@@ -312,6 +343,9 @@ function ContainerRow({ container, onRequestRemove }: {
   const startContainer = useDockerStore((s) => s.startContainer)
   const stopContainer = useDockerStore((s) => s.stopContainer)
   const restartContainer = useDockerStore((s) => s.restartContainer)
+  const stats = useDockerStore((s) => s.containerStats[container.id])
+  const showMemory = useDockerSettingsStore((s) => s.showMemory)
+  const memoryFormat = useDockerSettingsStore((s) => s.memoryFormat)
   const [pendingAction, setPendingAction] = useState<ContainerAction>(null)
   const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null)
   const running = container.state === 'running'
@@ -359,6 +393,11 @@ function ContainerRow({ container, onRequestRemove }: {
           )}
           <span className="text-xs font-medium text-fg truncate">{container.name}</span>
         </button>
+        {showMemory && running && stats && (
+          <span className="text-[0.625rem] text-fg-subtle shrink-0 tabular-nums">
+            {formatMemory(stats, memoryFormat)}
+          </span>
+        )}
       </div>
       <span className="text-[0.625rem] text-fg-muted pl-4 truncate">{container.status}</span>
 
@@ -421,6 +460,8 @@ export function DockerPanel() {
   const status = useDockerStore((s) => s.status)
   const containers = useDockerStore((s) => s.containers)
   const refresh = useDockerStore((s) => s.refresh)
+  const refreshStats = useDockerStore((s) => s.refreshStats)
+  const showMemory = useDockerSettingsStore((s) => s.showMemory)
   const openApp = useDockerStore((s) => s.openApp)
   const startContainers = useDockerStore((s) => s.startContainers)
   const stopContainers = useDockerStore((s) => s.stopContainers)
@@ -436,6 +477,17 @@ export function DockerPanel() {
   const [launchingDocker, setLaunchingDocker] = useState(false)
 
   useDockerLiveUpdates(true)
+
+  useEffect(() => {
+    if (!showMemory || status !== 'running') return
+    refreshStats()
+    const interval = setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      refreshStats()
+    }, MEMORY_POLL_INTERVAL_MS)
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showMemory, status])
 
   const groups = useMemo(() => groupContainers(containers), [containers])
   const hasRunningContainers = containers.some((c) => c.state === 'running')
