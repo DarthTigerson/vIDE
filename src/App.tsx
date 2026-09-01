@@ -78,6 +78,8 @@ import { useBrowserStore } from './stores/browserStore'
 import { useJiraSettingsStore } from './stores/jiraSettingsStore'
 import { useGitRemoteSettingsStore } from './stores/gitRemoteSettingsStore'
 import { useDockerSettingsStore } from './stores/dockerSettingsStore'
+import { useDockerStore } from './stores/dockerStore'
+import { useDockerLiveUpdates } from './hooks/useDockerLiveUpdates'
 import { useTodoSettingsStore } from './stores/todoSettingsStore'
 import { useNotesSettingsStore } from './stores/notesSettingsStore'
 import { useNotesStore } from './stores/notesStore'
@@ -188,6 +190,9 @@ export default function App() {
   const gitRemoteReady = gitRemoteUrl.trim() !== ''
   const gitRemoteProvider = detectGitRemoteProvider(gitRemoteUrl)
   const dockerEnabled = useDockerSettingsStore((s) => s.enabled)
+  useDockerLiveUpdates(dockerEnabled && !!projectRoot)
+  const runningContainerCount = useDockerStore((s) => s.containers).filter((c) => c.state === 'running').length
+  const dockerBadge = runningContainerCount > 99 ? '99+' : runningContainerCount || undefined
   const mobileEnabled = useMobileSettingsStore((s) => s.enabled)
   const todoEnabled = useTodoSettingsStore((s) => s.enabled)
   const notesEnabled = useNotesSettingsStore((s) => s.enabled)
@@ -765,6 +770,7 @@ export default function App() {
               icon: <DockerIcon />,
               title: 'Docker',
               active: leftPanel === 'docker',
+              badge: dockerBadge,
               onClick: () => setLeftPanel((p) => (p === 'docker' ? null : 'docker')),
             }] : []),
             ...(mobileEnabled && projectRoot ? [{

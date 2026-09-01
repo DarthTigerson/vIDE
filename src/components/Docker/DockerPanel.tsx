@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDockerStore } from '@/stores/dockerStore'
 import { useEditorStore } from '@/stores/editorStore'
+import { useDockerLiveUpdates } from '@/hooks/useDockerLiveUpdates'
 import { buildDockerLogsPath } from './paths'
 import { ConfirmRemoveContainerModal } from './ConfirmRemoveContainerModal'
 import { Modal } from '@/components/ui/Modal'
 import { DockerIcon } from '@/components/ActivityBar/ActivityBar'
 import type { DockerContainer } from '@/types/api'
-
-const POLL_INTERVAL_MS = 5000
 
 const STATUS_LABEL: Record<string, string> = {
   unknown: 'Checking…',
@@ -306,8 +305,6 @@ export function DockerPanel() {
   const status = useDockerStore((s) => s.status)
   const containers = useDockerStore((s) => s.containers)
   const refresh = useDockerStore((s) => s.refresh)
-  const startWatching = useDockerStore((s) => s.startWatching)
-  const stopWatching = useDockerStore((s) => s.stopWatching)
   const openApp = useDockerStore((s) => s.openApp)
   const startContainers = useDockerStore((s) => s.startContainers)
   const stopContainers = useDockerStore((s) => s.stopContainers)
@@ -322,21 +319,7 @@ export function DockerPanel() {
   const [removingGroup, setRemovingGroup] = useState(false)
   const [launchingDocker, setLaunchingDocker] = useState(false)
 
-  useEffect(() => {
-    refresh()
-    startWatching()
-    const offChanged = window.api.onDockerChanged(() => refresh())
-    const interval = setInterval(() => {
-      if (document.visibilityState !== 'visible') return
-      refresh()
-    }, POLL_INTERVAL_MS)
-    return () => {
-      offChanged()
-      clearInterval(interval)
-      stopWatching()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  useDockerLiveUpdates(true)
 
   const groups = useMemo(() => groupContainers(containers), [containers])
   const hasRunningContainers = containers.some((c) => c.state === 'running')
