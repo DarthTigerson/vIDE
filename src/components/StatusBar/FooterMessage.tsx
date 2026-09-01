@@ -5,6 +5,10 @@ import { useUsageAlertStore } from '@/stores/usageAlertStore'
 import { useStatusMessageStore } from '@/stores/statusMessageStore'
 import { useDisplayStore } from '@/stores/displayStore'
 import { useEditorStore } from '@/stores/editorStore'
+import { useDockerSettingsStore } from '@/stores/dockerSettingsStore'
+import { useDockerStore } from '@/stores/dockerStore'
+import { useDockerOffAlertStore } from '@/stores/dockerOffAlertStore'
+import { useFileStore } from '@/stores/fileStore'
 import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
 import { formatCountdownClock } from '@/components/UsagePanel/format'
 import { Clock } from './Clock'
@@ -28,6 +32,30 @@ export function FooterMessage() {
   const startUpdate = useUpdateStore((s) => s.startUpdate)
   const restart = useUpdateStore((s) => s.restart)
   const footerContent = useDisplayStore((s) => s.footerContent)
+  const dockerEnabled = useDockerSettingsStore((s) => s.enabled)
+  const dockerStatus = useDockerStore((s) => s.status)
+  const dockerOffIgnored = useDockerOffAlertStore((s) => s.ignored)
+  const ignoreDockerOff = useDockerOffAlertStore((s) => s.ignore)
+  const resetDockerOffIgnore = useDockerOffAlertStore((s) => s.reset)
+  const requestDockerOpen = useDockerOffAlertStore((s) => s.requestOpen)
+  const projectRoot = useFileStore((s) => s.projectRoot)
+  // Only for someone who normally works with Docker (enabled in settings)
+  // and has it installed but not currently running — "not-installed" is a
+  // different situation (nothing to turn back on) and isn't nagged about here.
+  const dockerOff = dockerEnabled && dockerStatus === 'stopped' && !dockerOffIgnored
+
+  // "Ignore" only covers the current off-stretch in the current project —
+  // Docker coming back up (even briefly) or switching/reopening the project
+  // both clear it, so a stale ignore from a different situation never hides
+  // a fresh one.
+  useEffect(() => {
+    if (dockerStatus !== 'stopped') resetDockerOffIgnore()
+  }, [dockerStatus, resetDockerOffIgnore])
+
+  useEffect(() => {
+    resetDockerOffIgnore()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectRoot])
 
   const [tipIndex, setTipIndex] = useState(() => randomTipIndex())
   const [fading, setFading] = useState(false)
@@ -70,6 +98,28 @@ export function FooterMessage() {
       >
         {`${scopeLabel} usage may run out in ${formatCountdownClock(usageAlert.cutoffAt, now)} — click to view`}
       </button>
+    )
+  }
+
+  if (dockerOff) {
+    return (
+      <span className="absolute left-1/2 -translate-x-1/2 max-w-[45%] flex items-center gap-1.5 text-xs">
+        <span className="truncate text-fg-muted">Docker isn't running</span>
+        <button
+          type="button"
+          onClick={requestDockerOpen}
+          className="shrink-0 rounded-full border border-amber-400 text-amber-400 px-2 py-0.5 text-[10.5px] leading-none hover:bg-amber-400/10 cursor-pointer"
+        >
+          Open panel
+        </button>
+        <button
+          type="button"
+          onClick={ignoreDockerOff}
+          className="shrink-0 rounded-full border border-border text-fg-muted px-2 py-0.5 text-[10.5px] leading-none hover:bg-white/5 hover:text-fg cursor-pointer"
+        >
+          Ignore
+        </button>
+      </span>
     )
   }
 

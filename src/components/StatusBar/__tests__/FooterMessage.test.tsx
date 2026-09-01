@@ -5,6 +5,10 @@ import { useUpdateStore } from '@/stores/updateStore'
 import { useUsageAlertStore } from '@/stores/usageAlertStore'
 import { useDisplayStore } from '@/stores/displayStore'
 import { useEditorStore } from '@/stores/editorStore'
+import { useDockerSettingsStore } from '@/stores/dockerSettingsStore'
+import { useDockerStore } from '@/stores/dockerStore'
+import { useDockerOffAlertStore } from '@/stores/dockerOffAlertStore'
+import { useFileStore } from '@/stores/fileStore'
 import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
 import { FOOTER_TIPS } from '@/lib/footerTips'
 
@@ -12,6 +16,10 @@ beforeEach(() => {
   useUpdateStore.setState({ available: null, status: 'idle' })
   useUsageAlertStore.setState({ alert: null })
   useDisplayStore.setState({ footerContent: 'hints' })
+  useDockerSettingsStore.setState({ enabled: false })
+  useDockerStore.setState({ status: 'unknown' })
+  useDockerOffAlertStore.setState({ ignored: false, openRequest: 0 })
+  useFileStore.setState({ projectRoot: '/repo' })
 })
 
 afterEach(() => {
@@ -19,6 +27,10 @@ afterEach(() => {
   useUpdateStore.setState({ available: null, status: 'idle' })
   useUsageAlertStore.setState({ alert: null })
   useDisplayStore.setState({ footerContent: 'hints' })
+  useDockerSettingsStore.setState({ enabled: false })
+  useDockerStore.setState({ status: 'unknown' })
+  useDockerOffAlertStore.setState({ ignored: false, openRequest: 0 })
+  useFileStore.setState({ projectRoot: '/repo' })
 })
 
 describe('FooterMessage — tip rotation', () => {
@@ -95,6 +107,104 @@ describe('FooterMessage — usage alert', () => {
     render(<FooterMessage />)
     expect(screen.getByRole('button', { name: /Session usage may run out/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /vIDE v0\.2\.0 is available/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('FooterMessage — Docker turned off', () => {
+  it('is silent when Docker is disabled in settings, even if stopped', () => {
+    useDockerSettingsStore.setState({ enabled: false })
+    useDockerStore.setState({ status: 'stopped' })
+    render(<FooterMessage />)
+    expect(screen.queryByText("Docker isn't running")).toBeNull()
+  })
+
+  it('is silent when Docker is enabled but running', () => {
+    useDockerSettingsStore.setState({ enabled: true })
+    useDockerStore.setState({ status: 'running' })
+    render(<FooterMessage />)
+    expect(screen.queryByText("Docker isn't running")).toBeNull()
+  })
+
+  it('is silent when Docker is enabled but not installed — nothing to turn back on', () => {
+    useDockerSettingsStore.setState({ enabled: true })
+    useDockerStore.setState({ status: 'not-installed' })
+    render(<FooterMessage />)
+    expect(screen.queryByText("Docker isn't running")).toBeNull()
+  })
+
+  it('shows a banner when Docker is enabled in settings but stopped', () => {
+    useDockerSettingsStore.setState({ enabled: true })
+    useDockerStore.setState({ status: 'stopped' })
+    render(<FooterMessage />)
+    expect(screen.getByText("Docker isn't running")).toBeInTheDocument()
+  })
+
+  it('requests the Docker panel to open on click', () => {
+    useDockerSettingsStore.setState({ enabled: true })
+    useDockerStore.setState({ status: 'stopped' })
+    render(<FooterMessage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Open panel' }))
+    expect(useDockerOffAlertStore.getState().openRequest).toBe(1)
+  })
+
+  it('hides for the current off-stretch when ignored', () => {
+    useDockerSettingsStore.setState({ enabled: true })
+    useDockerStore.setState({ status: 'stopped' })
+    render(<FooterMessage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Ignore' }))
+    expect(useDockerOffAlertStore.getState().ignored).toBe(true)
+    expect(screen.queryByText("Docker isn't running")).toBeNull()
+  })
+
+  it('reappears once Docker starts and then stops again, even if ignored', () => {
+    useDockerSettingsStore.setState({ enabled: true })
+    useDockerStore.setState({ status: 'stopped' })
+    const { rerender } = render(<FooterMessage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Ignore' }))
+    expect(screen.queryByText("Docker isn't running")).toBeNull()
+
+    act(() => {
+      useDockerStore.setState({ status: 'running' })
+      rerender(<FooterMessage />)
+    })
+    expect(useDockerOffAlertStore.getState().ignored).toBe(false)
+
+    act(() => {
+      useDockerStore.setState({ status: 'stopped' })
+      rerender(<FooterMessage />)
+    })
+    expect(screen.getByText("Docker isn't running")).toBeInTheDocument()
+  })
+
+  it('reappears when the project changes, even if ignored', () => {
+    useDockerSettingsStore.setState({ enabled: true })
+    useDockerStore.setState({ status: 'stopped' })
+    const { rerender } = render(<FooterMessage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Ignore' }))
+    expect(screen.queryByText("Docker isn't running")).toBeNull()
+
+    act(() => {
+      useFileStore.setState({ projectRoot: '/other-repo' })
+      rerender(<FooterMessage />)
+    })
+    expect(screen.getByText("Docker isn't running")).toBeInTheDocument()
+  })
+
+  it('takes priority over an available update', () => {
+    useDockerSettingsStore.setState({ enabled: true })
+    useDockerStore.setState({ status: 'stopped' })
+    useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com' }, status: 'idle' })
+    render(<FooterMessage />)
+    expect(screen.getByText("Docker isn't running")).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /vIDE v0\.2\.0 is available/ })).not.toBeInTheDocument()
+  })
+
+  it('yields to a usage alert', () => {
+    useDockerSettingsStore.setState({ enabled: true })
+    useDockerStore.setState({ status: 'stopped' })
+    useUsageAlertStore.setState({ alert: { scope: 'session', cutoffAt: Date.now() + 1000 } })
+    render(<FooterMessage />)
+    expect(screen.queryByText("Docker isn't running")).toBeNull()
   })
 })
 
