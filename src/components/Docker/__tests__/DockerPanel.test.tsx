@@ -44,6 +44,7 @@ function setup(containers: DockerContainer[]) {
     dockerRemoveContainers: vi.fn().mockResolvedValue({ ok: true }),
     dockerGetContainerStats: vi.fn().mockResolvedValue({}),
     dockerOpenApp: vi.fn().mockResolvedValue({ ok: true }),
+    dockerCloseApp: vi.fn().mockResolvedValue({ ok: true }),
     dockerWatch: vi.fn(),
     dockerUnwatch: vi.fn(),
     onDockerChanged: vi.fn().mockReturnValue(() => {}),
@@ -67,6 +68,10 @@ function openGroupMenu(project: string) {
   const header = screen.getByText(project).closest('div')!
   fireEvent.pointerDown(header, { button: 2 })
   fireEvent.contextMenu(header)
+}
+
+function openPanelMenu() {
+  fireEvent.click(screen.getByRole('button', { name: 'Docker panel actions' }))
 }
 
 describe('DockerPanel — grouping and global controls', () => {
@@ -514,5 +519,74 @@ describe('DockerPanel — grouping and global controls', () => {
 
     const header = (await screen.findByText('gpt-webapp')).closest('div')!
     await waitFor(() => expect(within(header).getByText('500 MB')).toBeTruthy())
+  })
+
+  it('the panel header menu offers Refresh and Close Docker instead of a standalone Refresh button', async () => {
+    setup([])
+    render(<DockerPanel />)
+    await screen.findByText('Running')
+
+    expect(screen.queryByRole('button', { name: 'Refresh' })).toBeNull()
+    openPanelMenu()
+    expect(screen.getByRole('button', { name: 'Refresh', exact: true })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Close Docker', exact: true })).toBeTruthy()
+  })
+
+  it('choosing Refresh from the panel menu refreshes the container list', async () => {
+    setup([webappCaddy])
+    render(<DockerPanel />)
+    await screen.findByText('gpt-webapp-caddy-1')
+    ;(window.api.dockerListContainers as ReturnType<typeof vi.fn>).mockClear()
+
+    openPanelMenu()
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh', exact: true }))
+
+    await waitFor(() => expect(window.api.dockerListContainers).toHaveBeenCalled())
+  })
+
+  it('Close Docker is disabled in the panel menu when Docker is not running', async () => {
+    setup([])
+    ;(window.api.dockerStatus as ReturnType<typeof vi.fn>).mockResolvedValue('stopped')
+    render(<DockerPanel />)
+    await screen.findByText('Launch Docker')
+
+    openPanelMenu()
+    expect(screen.getByRole('button', { name: 'Close Docker', exact: true })).toBeDisabled()
+  })
+
+  it('choosing Close Docker opens a confirmation before quitting Docker', async () => {
+    setup([])
+    render(<DockerPanel />)
+    await screen.findByText('Running')
+
+    openPanelMenu()
+    fireEvent.click(screen.getByRole('button', { name: 'Close Docker', exact: true }))
+
+    expect(screen.getByText('Close Docker', { selector: 'h2' })).toBeTruthy()
+    expect(window.api.dockerCloseApp).not.toHaveBeenCalled()
+  })
+
+  it('confirming Close Docker calls closeApp, with a spinner on the confirm button while in flight', async () => {
+    setup([])
+    let resolveClose: (result: { ok: boolean }) => void = () => {}
+    ;(window.api.dockerCloseApp as ReturnType<typeof vi.fn>).mockImplementation(
+      () => new Promise((resolve) => { resolveClose = resolve })
+    )
+    render(<DockerPanel />)
+    await screen.findByText('Running')
+
+    openPanelMenu()
+    fireEvent.click(screen.getByRole('button', { name: 'Close Docker', exact: true }))
+
+    const modal = screen.getByText('Close Docker', { selector: 'h2' }).closest('div')!
+    const confirmButton = within(modal).getByRole('button', { name: 'Close Docker' })
+    fireEvent.click(confirmButton)
+
+    expect(window.api.dockerCloseApp).toHaveBeenCalled()
+    await waitFor(() => expect(confirmButton).toHaveAttribute('aria-busy', 'true'))
+    expect(confirmButton).toBeDisabled()
+
+    resolveClose({ ok: true })
+    await waitFor(() => expect(screen.queryByText('Close Docker', { selector: 'h2' })).toBeNull())
   })
 })

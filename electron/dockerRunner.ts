@@ -13,6 +13,7 @@ import {
   removeContainers,
   getContainerStats,
   openDockerApp,
+  closeDockerApp,
 } from './docker'
 import { resolveBinaryPath } from './lsp/shellPath'
 
@@ -33,6 +34,7 @@ export class DockerRunner {
     ipcMain.handle('docker:removeContainers', (_e, ids: string[]) => removeContainers(ids))
     ipcMain.handle('docker:getContainerStats', () => getContainerStats())
     ipcMain.handle('docker:openApp', () => openDockerApp())
+    ipcMain.handle('docker:closeApp', () => closeDockerApp())
 
     ipcMain.handle('docker:runLogs', async (event, streamId: string, containerId: string) => {
       const win = BrowserWindow.fromWebContents(event.sender)

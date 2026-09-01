@@ -179,6 +179,16 @@ function CloseIcon() {
   )
 }
 
+function DotsIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="12" cy="5" r="1.8" />
+      <circle cx="12" cy="12" r="1.8" />
+      <circle cx="12" cy="19" r="1.8" />
+    </svg>
+  )
+}
+
 function ChevronIcon({ collapsed }: { collapsed: boolean }) {
   return (
     <svg
@@ -452,6 +462,7 @@ export function DockerPanel() {
   const refreshStats = useDockerStore((s) => s.refreshStats)
   const showMemory = useDockerSettingsStore((s) => s.showMemory)
   const openApp = useDockerStore((s) => s.openApp)
+  const closeApp = useDockerStore((s) => s.closeApp)
   const startContainers = useDockerStore((s) => s.startContainers)
   const stopContainers = useDockerStore((s) => s.stopContainers)
   const removeContainers = useDockerStore((s) => s.removeContainers)
@@ -464,6 +475,9 @@ export function DockerPanel() {
   const [removeGroupTarget, setRemoveGroupTarget] = useState<ContainerGroup | null>(null)
   const [removingGroup, setRemovingGroup] = useState(false)
   const [launchingDocker, setLaunchingDocker] = useState(false)
+  const [headerMenuPos, setHeaderMenuPos] = useState<{ x: number; y: number } | null>(null)
+  const [closeDockerConfirmOpen, setCloseDockerConfirmOpen] = useState(false)
+  const [closingDocker, setClosingDocker] = useState(false)
 
   useDockerLiveUpdates(true)
 
@@ -530,6 +544,33 @@ export function DockerPanel() {
     }
   }
 
+  async function handleCloseDocker() {
+    setClosingDocker(true)
+    try {
+      await closeApp()
+    } finally {
+      setClosingDocker(false)
+    }
+    setCloseDockerConfirmOpen(false)
+  }
+
+  function openHeaderMenu(e: React.MouseEvent<HTMLButtonElement>) {
+    const rect = e.currentTarget.getBoundingClientRect()
+    setHeaderMenuPos({ x: rect.right - 140, y: rect.bottom + 4 })
+  }
+
+  const headerActions: MenuAction[] = [
+    { key: 'refresh', label: 'Refresh', icon: <RefreshIcon />, onSelect: () => refresh() },
+    {
+      key: 'close',
+      label: 'Close Docker',
+      icon: <CloseIcon />,
+      danger: true,
+      disabled: status !== 'running' || closingDocker,
+      onSelect: () => setCloseDockerConfirmOpen(true),
+    },
+  ]
+
   return (
     <div className="h-full flex flex-col bg-sidebar border-r border-border overflow-hidden">
       <div className="h-9 px-3 border-b border-border shrink-0 flex items-center justify-between">
@@ -542,14 +583,23 @@ export function DockerPanel() {
         </div>
         <button
           type="button"
-          onClick={() => refresh()}
-          aria-label="Refresh"
-          title="Refresh"
-          className="text-fg-muted hover:text-fg transition-colors shrink-0"
+          onClick={openHeaderMenu}
+          aria-label="Docker panel actions"
+          aria-haspopup="true"
+          className="w-5 h-5 flex items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-white/5 transition-colors shrink-0"
         >
-          <RefreshIcon />
+          <DotsIcon />
         </button>
       </div>
+
+      {headerMenuPos && (
+        <ContextMenuList
+          x={headerMenuPos.x}
+          y={headerMenuPos.y}
+          actions={headerActions}
+          onClose={() => setHeaderMenuPos(null)}
+        />
+      )}
 
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
         {status === 'not-installed' && (
@@ -665,6 +715,34 @@ export function DockerPanel() {
               className="px-4 py-1.5 text-sm rounded-lg bg-red-600/80 hover:bg-red-600 text-white font-semibold transition-colors"
             >
               Stop All
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {closeDockerConfirmOpen && (
+        <Modal onClose={() => setCloseDockerConfirmOpen(false)}>
+          <h2 className="text-sm font-semibold text-fg mb-1">Close Docker</h2>
+          <p className="text-sm text-fg-muted mb-5">
+            Quit Docker? This stops every running container along with it.
+          </p>
+          <div className="flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setCloseDockerConfirmOpen(false)}
+              className="px-4 py-1.5 text-sm rounded-lg border border-border text-fg-muted hover:text-fg hover:border-fg-muted transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleCloseDocker}
+              disabled={closingDocker}
+              aria-busy={closingDocker}
+              className="px-4 py-1.5 text-sm rounded-lg bg-red-600/80 hover:bg-red-600 text-white font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+            >
+              {closingDocker && <RefreshIcon className="animate-spin" />}
+              Close Docker
             </button>
           </div>
         </Modal>

@@ -45,6 +45,7 @@ import {
   removeContainers,
   getContainerStats,
   openDockerApp,
+  closeDockerApp,
 } from '../docker'
 import { _resetShellPathCacheForTesting } from '../lsp/shellPath'
 
@@ -221,6 +222,38 @@ describe('openDockerApp', () => {
     execFileMock.mockReturnValue({ stdout: '', stderr: '' })
     expect(await openDockerApp()).toEqual({ ok: true })
     expect(execFileMock).toHaveBeenCalledWith('systemctl', ['--user', 'start', 'docker'])
+  })
+})
+
+describe('closeDockerApp', () => {
+  const originalPlatform = process.platform
+
+  beforeEach(() => {
+    execFileMock.mockReset()
+    shellResolution.value = null
+    _resetShellPathCacheForTesting()
+  })
+  afterEach(() => Object.defineProperty(process, 'platform', { value: originalPlatform }))
+
+  it('quits Docker.app via osascript on macOS', async () => {
+    Object.defineProperty(process, 'platform', { value: 'darwin' })
+    execFileMock.mockReturnValue({ stdout: '', stderr: '' })
+    expect(await closeDockerApp()).toEqual({ ok: true })
+    expect(execFileMock).toHaveBeenCalledWith('osascript', ['-e', 'quit app "Docker"'])
+  })
+
+  it('uses systemctl stop on Linux', async () => {
+    Object.defineProperty(process, 'platform', { value: 'linux' })
+    execFileMock.mockReturnValue({ stdout: '', stderr: '' })
+    expect(await closeDockerApp()).toEqual({ ok: true })
+    expect(execFileMock).toHaveBeenCalledWith('systemctl', ['--user', 'stop', 'docker'])
+  })
+
+  it('surfaces stderr on failure', async () => {
+    Object.defineProperty(process, 'platform', { value: 'darwin' })
+    const err = Object.assign(new Error('fail'), { stderr: 'no such process' })
+    execFileMock.mockReturnValue(err)
+    expect(await closeDockerApp()).toEqual({ ok: false, error: 'no such process' })
   })
 })
 

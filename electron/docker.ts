@@ -209,3 +209,23 @@ export async function openDockerApp(): Promise<DockerActionResult> {
     return { ok: false, error: stderr?.trim() || 'Failed to start Docker — try starting it manually.' }
   }
 }
+
+// The inverse of openDockerApp() — quits Docker Desktop (macOS) or stops
+// the daemon (Linux). Stops every running container along with it, same as
+// quitting Docker Desktop from its own menu bar icon would.
+export async function closeDockerApp(): Promise<DockerActionResult> {
+  try {
+    if (process.platform === 'darwin') {
+      await execFileAsync('osascript', ['-e', 'quit app "Docker"'])
+      return { ok: true }
+    }
+    if (process.platform === 'linux') {
+      await execFileAsync('systemctl', ['--user', 'stop', 'docker'])
+      return { ok: true }
+    }
+    return { ok: false, error: 'Unsupported platform' }
+  } catch (err) {
+    const stderr = (err as { stderr?: string }).stderr
+    return { ok: false, error: stderr?.trim() || 'Failed to close Docker — try closing it manually.' }
+  }
+}
