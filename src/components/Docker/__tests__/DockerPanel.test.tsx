@@ -42,11 +42,20 @@ function setup(containers: DockerContainer[]) {
   useDockerStore.setState({ status: 'unknown', containers: [], loading: false, watching: false, watcherRefCount: 0 })
 }
 
-// Every row/group action now lives behind a kebab (⋮) trigger rather than
-// its own always-visible button — open the trigger before looking for the
-// action inside its dropdown.
+// Group actions live behind a kebab (⋮) trigger — open it before looking
+// for an action inside its dropdown.
 function openMenu(triggerName: string) {
   fireEvent.click(screen.getByRole('button', { name: triggerName }))
+}
+
+// Container-row actions live behind a right-click context menu instead —
+// a real right-click fires pointerdown before contextmenu, and the menu's
+// outside-close listener keys off pointerdown, so both must be dispatched
+// for the close-the-previous-menu behavior to actually get exercised.
+function openContainerMenu(containerName: string) {
+  const row = screen.getByText(containerName).closest('li')!
+  fireEvent.pointerDown(row, { button: 2 })
+  fireEvent.contextMenu(row)
 }
 
 describe('DockerPanel — grouping and global controls', () => {
@@ -202,7 +211,7 @@ describe('DockerPanel — grouping and global controls', () => {
     )
   })
 
-  it('disables the container action trigger while its Stop is in flight, then re-enables it', async () => {
+  it('disables the container context-menu actions while its Stop is in flight, then re-enables them', async () => {
     setup([webappCaddy])
     let resolveStop: (result: { ok: boolean }) => void = () => {}
     ;(window.api.dockerStopContainer as ReturnType<typeof vi.fn>).mockImplementation(
@@ -211,15 +220,17 @@ describe('DockerPanel — grouping and global controls', () => {
     render(<DockerPanel />)
     await screen.findByText('gpt-webapp-caddy-1')
 
-    openMenu('gpt-webapp-caddy-1 actions')
+    openContainerMenu('gpt-webapp-caddy-1')
     fireEvent.click(screen.getByRole('button', { name: 'Stop', exact: true }))
 
-    const trigger = screen.getByRole('button', { name: 'gpt-webapp-caddy-1 actions' })
-    await waitFor(() => expect(trigger).toHaveAttribute('aria-busy', 'true'))
-    expect(trigger).toBeDisabled()
+    openContainerMenu('gpt-webapp-caddy-1')
+    expect(screen.getByRole('button', { name: 'Restart', exact: true })).toBeDisabled()
 
     resolveStop({ ok: true })
-    await waitFor(() => expect(trigger).toHaveAttribute('aria-busy', 'false'))
+    await waitFor(() => {
+      openContainerMenu('gpt-webapp-caddy-1')
+      expect(screen.getByRole('button', { name: 'Restart', exact: true })).not.toBeDisabled()
+    })
   })
 
   it('shows Start and Stop in a fully-stopped group\'s menu, Start enabled and Stop disabled', async () => {
@@ -302,7 +313,7 @@ describe('DockerPanel — grouping and global controls', () => {
     render(<DockerPanel />)
     await screen.findByText('standalone')
 
-    openMenu('standalone actions')
+    openContainerMenu('standalone')
     fireEvent.click(screen.getByRole('button', { name: 'Remove', exact: true }))
 
     const modal = screen.getByText('Remove container', { selector: 'h2' }).closest('div')!
@@ -339,12 +350,12 @@ describe('DockerPanel — grouping and global controls', () => {
     await waitFor(() => expect(screen.queryByText('Remove gpt-webapp', { selector: 'h2' })).toBeNull())
   })
 
-  it('choosing Remove from a container row\'s action menu opens the single-container confirm modal', async () => {
+  it('choosing Remove from a container row\'s right-click menu opens the single-container confirm modal', async () => {
     setup([standalone])
     render(<DockerPanel />)
     await screen.findByText('standalone')
 
-    openMenu('standalone actions')
+    openContainerMenu('standalone')
     fireEvent.click(screen.getByRole('button', { name: 'Remove', exact: true }))
 
     const modal = screen.getByText('Remove container', { selector: 'h2' }).closest('div')!
@@ -382,17 +393,31 @@ describe('DockerPanel — grouping and global controls', () => {
     await waitFor(() => expect(launchButton).toHaveAttribute('aria-busy', 'false'))
   })
 
-  it('the action menu closes after selecting an item', async () => {
+  it('the container right-click menu closes after selecting an item', async () => {
     setup([webappCaddy])
     render(<DockerPanel />)
     await screen.findByText('gpt-webapp-caddy-1')
 
-    openMenu('gpt-webapp-caddy-1 actions')
+    openContainerMenu('gpt-webapp-caddy-1')
     expect(screen.getByRole('button', { name: 'Restart', exact: true })).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Stop', exact: true }))
     expect(screen.queryByRole('button', { name: 'Restart', exact: true })).toBeNull()
 
     await waitFor(() => expect(window.api.dockerStopContainer).toHaveBeenCalled())
+  })
+
+  it('right-clicking a different row closes the previously open context menu instead of stacking both', async () => {
+    setup([webappCaddy, webappDb])
+    render(<DockerPanel />)
+    await screen.findByText('gpt-webapp-caddy-1')
+
+    openContainerMenu('gpt-webapp-caddy-1')
+    expect(screen.getAllByRole('button', { name: 'Restart', exact: true })).toHaveLength(1)
+
+    openContainerMenu('gpt-webapp-db-1')
+    // Still exactly one menu on screen — the first row's didn't stay open
+    // alongside the second's.
+    expect(screen.getAllByRole('button', { name: 'Restart', exact: true })).toHaveLength(1)
   })
 })

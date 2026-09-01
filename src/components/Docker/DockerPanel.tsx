@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useDockerStore } from '@/stores/dockerStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { useDockerLiveUpdates } from '@/hooks/useDockerLiveUpdates'
+import { clampToViewport } from '@/components/ui/clampToViewport'
 import { buildDockerLogsPath } from './paths'
 import { ConfirmRemoveContainerModal } from './ConfirmRemoveContainerModal'
 import { Modal } from '@/components/ui/Modal'
@@ -219,6 +221,76 @@ function ActionMenu({ actions, busy, triggerLabel }: {
   )
 }
 
+// Right-click menu for a container row — same MenuAction shape and item
+// styling as ActionMenu's dropdown, just anchored at the click position
+// (matching CommitFileContextMenu's positioning: portaled, clamped to the
+// viewport after the real render) instead of a persistent kebab trigger.
+//
+// Closes on 'pointerdown' rather than 'click' — same mechanism ActionMenu
+// uses — specifically so that right-clicking a *different* row closes this
+// one: a right-click never fires a 'click' event, so a click-based listener
+// would leave every previously-opened menu stacked up on screen instead of
+// replacing it (contextmenu fires after pointerdown, so the outside-click
+// check below still sees this menu as "not yet reopened" and closes it,
+// then the newly-clicked row's own contextmenu handler opens its menu).
+function ContextMenuList({ x, y, actions, onClose }: {
+  x: number
+  y: number
+  actions: MenuAction[]
+  onClose: () => void
+}) {
+  const menuRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) onClose()
+    }
+    const closeOnEscape = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('pointerdown', handlePointerDown)
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [onClose])
+
+  useLayoutEffect(() => {
+    if (!menuRef.current) return
+    const rect = menuRef.current.getBoundingClientRect()
+    const clamped = clampToViewport(x, y, rect.width, rect.height)
+    menuRef.current.style.left = `${clamped.x}px`
+    menuRef.current.style.top = `${clamped.y}px`
+  }, [x, y])
+
+  return createPortal(
+    <div
+      ref={menuRef}
+      className="fixed z-[200] min-w-[130px] rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50 flex flex-col gap-0.5"
+      style={{ left: x, top: y }}
+    >
+      {actions.map((action) => (
+        <button
+          key={action.key}
+          type="button"
+          disabled={action.disabled}
+          onClick={() => {
+            onClose()
+            action.onSelect()
+          }}
+          className={[
+            'flex items-center gap-2 px-2 py-1.5 rounded text-xs text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
+            action.danger ? 'text-red-400 hover:bg-red-500/10' : 'text-fg hover:bg-white/5',
+          ].join(' ')}
+        >
+          <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0">{action.icon}</span>
+          {action.label}
+        </button>
+      ))}
+    </div>,
+    document.body
+  )
+}
+
 type ContainerAction = 'start' | 'stop' | 'restart' | null
 
 function ContainerRow({ container, onRequestRemove }: {
@@ -229,7 +301,9 @@ function ContainerRow({ container, onRequestRemove }: {
   const stopContainer = useDockerStore((s) => s.stopContainer)
   const restartContainer = useDockerStore((s) => s.restartContainer)
   const [pendingAction, setPendingAction] = useState<ContainerAction>(null)
+  const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null)
   const running = container.state === 'running'
+  const busy = pendingAction !== null
 
   function openLogs() {
     useEditorStore.getState().openTab({
@@ -248,24 +322,41 @@ function ContainerRow({ container, onRequestRemove }: {
     }
   }
 
+  function handleContextMenu(e: React.MouseEvent) {
+    e.preventDefault()
+    setContextMenuPos({ x: e.clientX, y: e.clientY })
+  }
+
   const actions: MenuAction[] = [
     running
-      ? { key: 'stop', label: 'Stop', icon: <StopIcon />, onSelect: () => run('stop', () => stopContainer(container.id)) }
-      : { key: 'start', label: 'Start', icon: <PlayIcon />, onSelect: () => run('start', () => startContainer(container.id)) },
-    { key: 'restart', label: 'Restart', icon: <RestartIcon />, onSelect: () => run('restart', () => restartContainer(container.id)) },
-    { key: 'remove', label: 'Remove', icon: <CloseIcon />, danger: true, onSelect: () => onRequestRemove(container) },
+      ? { key: 'stop', label: 'Stop', icon: <StopIcon />, disabled: busy, onSelect: () => run('stop', () => stopContainer(container.id)) }
+      : { key: 'start', label: 'Start', icon: <PlayIcon />, disabled: busy, onSelect: () => run('start', () => startContainer(container.id)) },
+    { key: 'restart', label: 'Restart', icon: <RestartIcon />, disabled: busy, onSelect: () => run('restart', () => restartContainer(container.id)) },
+    { key: 'remove', label: 'Remove', icon: <CloseIcon />, danger: true, disabled: busy, onSelect: () => onRequestRemove(container) },
   ]
 
   return (
-    <li className="flex flex-col gap-1 px-3 py-2 rounded-lg border border-border">
+    <li onContextMenu={handleContextMenu} className="flex flex-col gap-1 px-3 py-2 rounded-lg border border-border">
       <div className="flex items-center justify-between gap-2">
         <button type="button" onClick={openLogs} className="flex items-center gap-2 min-w-0 flex-1 text-left">
-          <span className={`w-2 h-2 rounded-full shrink-0 ${running ? 'bg-green-400' : 'bg-fg-subtle'}`} />
+          {busy ? (
+            <RefreshIcon className="w-2 h-2 shrink-0 animate-spin text-fg-muted" />
+          ) : (
+            <span className={`w-2 h-2 rounded-full shrink-0 ${running ? 'bg-green-400' : 'bg-fg-subtle'}`} />
+          )}
           <span className="text-xs font-medium text-fg truncate">{container.name}</span>
         </button>
-        <ActionMenu actions={actions} busy={pendingAction !== null} triggerLabel={`${container.name} actions`} />
       </div>
       <span className="text-[0.625rem] text-fg-muted pl-4 truncate">{container.status}</span>
+
+      {contextMenuPos && (
+        <ContextMenuList
+          x={contextMenuPos.x}
+          y={contextMenuPos.y}
+          actions={actions}
+          onClose={() => setContextMenuPos(null)}
+        />
+      )}
     </li>
   )
 }
