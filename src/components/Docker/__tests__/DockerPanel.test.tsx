@@ -336,6 +336,37 @@ describe('DockerPanel — grouping and global controls', () => {
     expect(within(modal).getByText('standalone', { exact: false })).toBeTruthy()
   })
 
+  it('shows the empty-state illustration and a Launch Docker button when Docker is stopped, with no redundant status row', async () => {
+    setup([])
+    ;(window.api.dockerStatus as ReturnType<typeof vi.fn>).mockResolvedValue('stopped')
+    render(<DockerPanel />)
+
+    expect(await screen.findByText(/Docker isn't running\. Launch it/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Launch Docker' })).not.toBeDisabled()
+    expect(screen.queryByText('Docker not running')).toBeNull()
+  })
+
+  it('clicking Launch Docker calls openApp and shows a spinner while launching', async () => {
+    setup([])
+    ;(window.api.dockerStatus as ReturnType<typeof vi.fn>).mockResolvedValue('stopped')
+    let resolveOpen: (result: { ok: boolean }) => void = () => {}
+    ;(window.api.dockerOpenApp as ReturnType<typeof vi.fn>).mockImplementation(
+      () => new Promise((resolve) => { resolveOpen = resolve })
+    )
+    render(<DockerPanel />)
+    await screen.findByText(/Docker isn't running\. Launch it/)
+
+    const launchButton = screen.getByRole('button', { name: 'Launch Docker' })
+    fireEvent.click(launchButton)
+
+    await waitFor(() => expect(launchButton).toHaveAttribute('aria-busy', 'true'))
+    expect(launchButton).toBeDisabled()
+    expect(window.api.dockerOpenApp).toHaveBeenCalled()
+
+    resolveOpen({ ok: true })
+    await waitFor(() => expect(launchButton).toHaveAttribute('aria-busy', 'false'))
+  })
+
   it('the action menu closes after selecting an item', async () => {
     setup([webappCaddy])
     render(<DockerPanel />)

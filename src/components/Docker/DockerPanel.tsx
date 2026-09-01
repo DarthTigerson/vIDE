@@ -4,6 +4,7 @@ import { useEditorStore } from '@/stores/editorStore'
 import { buildDockerLogsPath } from './paths'
 import { ConfirmRemoveContainerModal } from './ConfirmRemoveContainerModal'
 import { Modal } from '@/components/ui/Modal'
+import { DockerIcon } from '@/components/ActivityBar/ActivityBar'
 import type { DockerContainer } from '@/types/api'
 
 const POLL_INTERVAL_MS = 5000
@@ -319,6 +320,7 @@ export function DockerPanel() {
   const [cleanSlateRunning, setCleanSlateRunning] = useState(false)
   const [removeGroupTarget, setRemoveGroupTarget] = useState<ContainerGroup | null>(null)
   const [removingGroup, setRemovingGroup] = useState(false)
+  const [launchingDocker, setLaunchingDocker] = useState(false)
 
   useEffect(() => {
     refresh()
@@ -379,6 +381,15 @@ export function DockerPanel() {
     setRemoveGroupTarget(null)
   }
 
+  async function handleLaunchDocker() {
+    setLaunchingDocker(true)
+    try {
+      await openApp()
+    } finally {
+      setLaunchingDocker(false)
+    }
+  }
+
   return (
     <div className="h-full flex flex-col bg-sidebar border-r border-border overflow-hidden">
       <div className="h-9 px-3 border-b border-border shrink-0 flex items-center justify-between">
@@ -395,22 +406,25 @@ export function DockerPanel() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-        <div className="flex items-center justify-between">
+        {status !== 'stopped' && (
           <div className="flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full ${STATUS_DOT[status]}`} />
             <span className="text-xs font-medium text-fg">{STATUS_LABEL[status] ?? status}</span>
           </div>
-          {status === 'stopped' && (
-            <button type="button" onClick={() => openApp()} className="text-xs text-accent hover:opacity-80 transition-opacity">
-              Start Docker
-            </button>
-          )}
-        </div>
+        )}
 
         {status === 'not-installed' && (
           <p className="text-xs text-fg-muted text-center leading-relaxed pt-2">
             Install Docker to see and control containers here.
           </p>
+        )}
+        {status === 'stopped' && (
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6">
+            <DockerIcon className="w-10 h-10 text-fg-subtle" />
+            <p className="text-xs text-fg-muted text-center leading-relaxed max-w-[200px]">
+              Docker isn't running. Launch it to see and manage your containers here.
+            </p>
+          </div>
         )}
         {status === 'running' && containers.length === 0 && (
           <p className="text-xs text-fg-muted text-center leading-relaxed pt-2">No containers found.</p>
@@ -446,6 +460,21 @@ export function DockerPanel() {
           </ul>
         )}
       </div>
+
+      {status === 'stopped' && (
+        <div className="border-t border-border shrink-0 px-3 py-2">
+          <button
+            type="button"
+            aria-label="Launch Docker"
+            aria-busy={launchingDocker}
+            className={pillButtonClass}
+            disabled={launchingDocker}
+            onClick={handleLaunchDocker}
+          >
+            {launchingDocker ? <RefreshIcon className="animate-spin" /> : 'Launch Docker'}
+          </button>
+        </div>
+      )}
 
       {status === 'running' && (
         <div className="border-t border-border shrink-0 px-3 py-2 flex gap-1.5">
