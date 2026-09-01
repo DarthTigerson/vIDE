@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { useDockerStore } from '@/stores/dockerStore'
+import { RefreshIcon } from './DockerPanel'
 import type { DockerContainer } from '@/types/api'
 
 interface Props {
@@ -9,9 +11,15 @@ interface Props {
 
 export function ConfirmRemoveContainerModal({ container, onClose }: Props) {
   const removeContainer = useDockerStore((s) => s.removeContainer)
+  const [removing, setRemoving] = useState(false)
 
   async function handleConfirm() {
-    await removeContainer(container.id)
+    setRemoving(true)
+    try {
+      await removeContainer(container.id)
+    } finally {
+      setRemoving(false)
+    }
     onClose()
   }
 
@@ -26,15 +34,19 @@ export function ConfirmRemoveContainerModal({ container, onClose }: Props) {
         <button
           type="button"
           onClick={onClose}
-          className="px-4 py-1.5 text-sm rounded-lg border border-border text-fg-muted hover:text-fg hover:border-fg-muted transition-colors"
+          disabled={removing}
+          className="px-4 py-1.5 text-sm rounded-lg border border-border text-fg-muted hover:text-fg hover:border-fg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Cancel
         </button>
         <button
           type="button"
           onClick={handleConfirm}
-          className="px-4 py-1.5 text-sm rounded-lg bg-red-600/80 hover:bg-red-600 text-white font-semibold transition-colors"
+          disabled={removing}
+          aria-busy={removing}
+          className="px-4 py-1.5 text-sm rounded-lg bg-red-600/80 hover:bg-red-600 text-white font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
         >
+          {removing && <RefreshIcon className="animate-spin" />}
           Remove
         </button>
       </div>

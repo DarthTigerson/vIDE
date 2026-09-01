@@ -82,7 +82,16 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('docker:restartContainer', id) as Promise<import('./docker').DockerActionResult>,
   dockerRemoveContainer: (id: string) =>
     ipcRenderer.invoke('docker:removeContainer', id) as Promise<import('./docker').DockerActionResult>,
+  dockerStartContainers: (ids: string[]) =>
+    ipcRenderer.invoke('docker:startContainers', ids) as Promise<import('./docker').DockerActionResult>,
+  dockerStopContainers: (ids: string[]) =>
+    ipcRenderer.invoke('docker:stopContainers', ids) as Promise<import('./docker').DockerActionResult>,
+  dockerRemoveContainers: (ids: string[]) =>
+    ipcRenderer.invoke('docker:removeContainers', ids) as Promise<import('./docker').DockerActionResult>,
+  dockerGetContainerStats: () =>
+    ipcRenderer.invoke('docker:getContainerStats') as Promise<Record<string, import('./docker').DockerContainerStats>>,
   dockerOpenApp: () => ipcRenderer.invoke('docker:openApp') as Promise<import('./docker').DockerActionResult>,
+  dockerCloseApp: () => ipcRenderer.invoke('docker:closeApp') as Promise<import('./docker').DockerActionResult>,
   dockerRunLogs: (streamId: string, containerId: string) =>
     ipcRenderer.invoke('docker:runLogs', streamId, containerId),
   dockerStopLogs: (streamId: string) => ipcRenderer.send('docker:stopLogs', streamId),

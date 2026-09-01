@@ -19,7 +19,12 @@ vi.stubGlobal('window', {
     dockerStopContainer: vi.fn().mockResolvedValue({ ok: true }),
     dockerRestartContainer: vi.fn().mockResolvedValue({ ok: true }),
     dockerRemoveContainer: vi.fn().mockResolvedValue({ ok: true }),
+    dockerStartContainers: vi.fn().mockResolvedValue({ ok: true }),
+    dockerStopContainers: vi.fn().mockResolvedValue({ ok: true }),
+    dockerRemoveContainers: vi.fn().mockResolvedValue({ ok: true }),
+    dockerGetContainerStats: vi.fn().mockResolvedValue({ a1: { usedBytes: 100, limitBytes: 1000, percent: 10 } }),
     dockerOpenApp: vi.fn().mockResolvedValue({ ok: true }),
+    dockerCloseApp: vi.fn().mockResolvedValue({ ok: true }),
     dockerWatch: vi.fn(),
     dockerUnwatch: vi.fn(),
   },
@@ -28,7 +33,7 @@ vi.stubGlobal('window', {
 describe('dockerStore', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    useDockerStore.setState({ status: 'unknown', containers: [], loading: false, watching: false, watcherRefCount: 0 })
+    useDockerStore.setState({ status: 'unknown', containers: [], containerStats: {}, loading: false, watching: false, watcherRefCount: 0 })
   })
 
   it('refresh() fetches status then containers only when running', async () => {
@@ -56,6 +61,47 @@ describe('dockerStore', () => {
     ;(window.api.dockerRemoveContainer as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: false, error: 'in use' })
     const result = await useDockerStore.getState().removeContainer('a1')
     expect(result).toEqual({ ok: false, error: 'in use' })
+  })
+
+  it('startContainers calls the batch IPC action with all ids then refreshes', async () => {
+    const result = await useDockerStore.getState().startContainers(['a1', 'b2'])
+    expect(window.api.dockerStartContainers).toHaveBeenCalledWith(['a1', 'b2'])
+    expect(window.api.dockerStatus).toHaveBeenCalled()
+    expect(result).toEqual({ ok: true })
+  })
+
+  it('stopContainers calls the batch IPC action with all ids then refreshes', async () => {
+    const result = await useDockerStore.getState().stopContainers(['a1', 'b2'])
+    expect(window.api.dockerStopContainers).toHaveBeenCalledWith(['a1', 'b2'])
+    expect(window.api.dockerStatus).toHaveBeenCalled()
+    expect(result).toEqual({ ok: true })
+  })
+
+  it('removeContainers calls the batch IPC action with all ids then refreshes', async () => {
+    const result = await useDockerStore.getState().removeContainers(['a1', 'b2'])
+    expect(window.api.dockerRemoveContainers).toHaveBeenCalledWith(['a1', 'b2'])
+    expect(window.api.dockerStatus).toHaveBeenCalled()
+    expect(result).toEqual({ ok: true })
+  })
+
+  it('closeApp calls the IPC action then refreshes', async () => {
+    const result = await useDockerStore.getState().closeApp()
+    expect(window.api.dockerCloseApp).toHaveBeenCalled()
+    expect(window.api.dockerStatus).toHaveBeenCalled()
+    expect(result).toEqual({ ok: true })
+  })
+
+  it('refreshStats() fetches container stats only when running', async () => {
+    useDockerStore.setState({ status: 'running' })
+    await useDockerStore.getState().refreshStats()
+    expect(window.api.dockerGetContainerStats).toHaveBeenCalled()
+    expect(useDockerStore.getState().containerStats).toEqual({ a1: { usedBytes: 100, limitBytes: 1000, percent: 10 } })
+  })
+
+  it('refreshStats() is a no-op when Docker is not running', async () => {
+    useDockerStore.setState({ status: 'stopped' })
+    await useDockerStore.getState().refreshStats()
+    expect(window.api.dockerGetContainerStats).not.toHaveBeenCalled()
   })
 
   it('startWatching/stopWatching call the IPC watch channels once each', () => {

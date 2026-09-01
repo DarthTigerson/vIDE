@@ -40,7 +40,12 @@ import {
   stopContainer,
   restartContainer,
   removeContainer,
+  startContainers,
+  stopContainers,
+  removeContainers,
+  getContainerStats,
   openDockerApp,
+  closeDockerApp,
 } from '../docker'
 import { _resetShellPathCacheForTesting } from '../lsp/shellPath'
 
@@ -92,6 +97,32 @@ describe('listContainers', () => {
     execFileMock.mockReturnValue(new Error('daemon not running'))
     expect(await listContainers()).toEqual([])
   })
+
+  it('extracts the compose project from the Labels field', async () => {
+    const row = JSON.stringify({
+      ID: 'a1',
+      Names: 'gpt-webapp-caddy-1',
+      Image: 'caddy',
+      Status: 'Up',
+      State: 'running',
+      Ports: '',
+      Labels: 'com.docker.compose.service=caddy,com.docker.compose.project=gpt-webapp,com.docker.compose.version=2.20',
+    })
+    execFileMock.mockReturnValue({ stdout: `${row}\n`, stderr: '' })
+
+    const [container] = await listContainers()
+    expect(container.project).toBe('gpt-webapp')
+  })
+
+  it('leaves project undefined for containers with no compose label', async () => {
+    const row = JSON.stringify({
+      ID: 'a1', Names: 'web', Image: 'nginx', Status: 'Up', State: 'running', Ports: '', Labels: '',
+    })
+    execFileMock.mockReturnValue({ stdout: `${row}\n`, stderr: '' })
+
+    const [container] = await listContainers()
+    expect(container.project).toBeUndefined()
+  })
 })
 
 describe('container action commands', () => {
@@ -123,6 +154,24 @@ describe('container action commands', () => {
     execFileMock.mockReturnValue({ stdout: '', stderr: '' })
     await removeContainer('a1')
     expect(execFileMock).toHaveBeenCalledWith('docker', ['rm', '-f', 'a1'])
+  })
+
+  it('startContainers starts every id in a single call', async () => {
+    execFileMock.mockReturnValue({ stdout: '', stderr: '' })
+    expect(await startContainers(['a1', 'b2'])).toEqual({ ok: true })
+    expect(execFileMock).toHaveBeenCalledWith('docker', ['start', 'a1', 'b2'])
+  })
+
+  it('stopContainers stops every id in a single call', async () => {
+    execFileMock.mockReturnValue({ stdout: '', stderr: '' })
+    expect(await stopContainers(['a1', 'b2'])).toEqual({ ok: true })
+    expect(execFileMock).toHaveBeenCalledWith('docker', ['stop', 'a1', 'b2'])
+  })
+
+  it('removeContainers force-removes every id in a single call', async () => {
+    execFileMock.mockReturnValue({ stdout: '', stderr: '' })
+    expect(await removeContainers(['a1', 'b2'])).toEqual({ ok: true })
+    expect(execFileMock).toHaveBeenCalledWith('docker', ['rm', '-f', 'a1', 'b2'])
   })
 })
 
@@ -173,5 +222,77 @@ describe('openDockerApp', () => {
     execFileMock.mockReturnValue({ stdout: '', stderr: '' })
     expect(await openDockerApp()).toEqual({ ok: true })
     expect(execFileMock).toHaveBeenCalledWith('systemctl', ['--user', 'start', 'docker'])
+  })
+})
+
+describe('closeDockerApp', () => {
+  const originalPlatform = process.platform
+
+  beforeEach(() => {
+    execFileMock.mockReset()
+    shellResolution.value = null
+    _resetShellPathCacheForTesting()
+  })
+  afterEach(() => Object.defineProperty(process, 'platform', { value: originalPlatform }))
+
+  it('quits Docker.app via osascript on macOS', async () => {
+    Object.defineProperty(process, 'platform', { value: 'darwin' })
+    execFileMock.mockReturnValue({ stdout: '', stderr: '' })
+    expect(await closeDockerApp()).toEqual({ ok: true })
+    expect(execFileMock).toHaveBeenCalledWith('osascript', ['-e', 'quit app "Docker"'])
+  })
+
+  it('uses systemctl stop on Linux', async () => {
+    Object.defineProperty(process, 'platform', { value: 'linux' })
+    execFileMock.mockReturnValue({ stdout: '', stderr: '' })
+    expect(await closeDockerApp()).toEqual({ ok: true })
+    expect(execFileMock).toHaveBeenCalledWith('systemctl', ['--user', 'stop', 'docker'])
+  })
+
+  it('surfaces stderr on failure', async () => {
+    Object.defineProperty(process, 'platform', { value: 'darwin' })
+    const err = Object.assign(new Error('fail'), { stderr: 'no such process' })
+    execFileMock.mockReturnValue(err)
+    expect(await closeDockerApp()).toEqual({ ok: false, error: 'no such process' })
+  })
+})
+
+describe('getContainerStats', () => {
+  beforeEach(() => {
+    execFileMock.mockReset()
+    shellResolution.value = null
+    _resetShellPathCacheForTesting()
+  })
+
+  it('parses MemUsage/MemPerc into bytes and percent, keyed by container id', async () => {
+    const row = JSON.stringify({
+      ID: 'a1', MemUsage: '12.5MiB / 1.943GiB', MemPerc: '0.65%',
+    })
+    execFileMock.mockReturnValue({ stdout: `${row}\n`, stderr: '' })
+
+    const stats = await getContainerStats()
+    expect(execFileMock).toHaveBeenCalledWith(
+      'docker',
+      ['stats', '--no-stream', '--format', '{{json .}}'],
+      { timeout: 10000, maxBuffer: 10 * 1024 * 1024 }
+    )
+    expect(stats.a1.percent).toBeCloseTo(0.65)
+    expect(stats.a1.usedBytes).toBeCloseTo(12.5 * 1024 * 1024, 0)
+    expect(stats.a1.limitBytes).toBeCloseTo(1.943 * 1024 ** 3, -3)
+  })
+
+  it('parses multiple rows keyed by their own id', async () => {
+    const rowA = JSON.stringify({ ID: 'a1', MemUsage: '100MiB / 1GiB', MemPerc: '9.77%' })
+    const rowB = JSON.stringify({ ID: 'b2', MemUsage: '50MiB / 2GiB', MemPerc: '2.44%' })
+    execFileMock.mockReturnValue({ stdout: `${rowA}\n${rowB}\n`, stderr: '' })
+
+    const stats = await getContainerStats()
+    expect(Object.keys(stats).sort()).toEqual(['a1', 'b2'])
+    expect(stats.b2.percent).toBeCloseTo(2.44)
+  })
+
+  it('returns an empty object on failure rather than throwing', async () => {
+    execFileMock.mockReturnValue(new Error('daemon not running'))
+    expect(await getContainerStats()).toEqual({})
   })
 })

@@ -78,6 +78,9 @@ import { useBrowserStore } from './stores/browserStore'
 import { useJiraSettingsStore } from './stores/jiraSettingsStore'
 import { useGitRemoteSettingsStore } from './stores/gitRemoteSettingsStore'
 import { useDockerSettingsStore } from './stores/dockerSettingsStore'
+import { useDockerStore } from './stores/dockerStore'
+import { useDockerOffAlertStore } from './stores/dockerOffAlertStore'
+import { useDockerLiveUpdates } from './hooks/useDockerLiveUpdates'
 import { useTodoSettingsStore } from './stores/todoSettingsStore'
 import { useNotesSettingsStore } from './stores/notesSettingsStore'
 import { useNotesStore } from './stores/notesStore'
@@ -188,6 +191,24 @@ export default function App() {
   const gitRemoteReady = gitRemoteUrl.trim() !== ''
   const gitRemoteProvider = detectGitRemoteProvider(gitRemoteUrl)
   const dockerEnabled = useDockerSettingsStore((s) => s.enabled)
+  const dockerShowBadge = useDockerSettingsStore((s) => s.showBadge)
+  const dockerBadgeMode = useDockerSettingsStore((s) => s.badgeMode)
+  useDockerLiveUpdates(dockerEnabled && !!projectRoot)
+  const dockerContainers = useDockerStore((s) => s.containers)
+  const dockerOpenRequest = useDockerOffAlertStore((s) => s.openRequest)
+  useEffect(() => {
+    if (!dockerOpenRequest) return
+    setLeftPanel('docker')
+  }, [dockerOpenRequest])
+  const runningDockerCount =
+    dockerBadgeMode === 'projects'
+      ? new Set(
+          dockerContainers.filter((c) => c.state === 'running' && c.project).map((c) => c.project)
+        ).size
+      : dockerContainers.filter((c) => c.state === 'running').length
+  const dockerBadge = !dockerShowBadge
+    ? undefined
+    : runningDockerCount > 99 ? '99+' : runningDockerCount || undefined
   const mobileEnabled = useMobileSettingsStore((s) => s.enabled)
   const todoEnabled = useTodoSettingsStore((s) => s.enabled)
   const notesEnabled = useNotesSettingsStore((s) => s.enabled)
@@ -765,6 +786,7 @@ export default function App() {
               icon: <DockerIcon />,
               title: 'Docker',
               active: leftPanel === 'docker',
+              badge: dockerBadge,
               onClick: () => setLeftPanel((p) => (p === 'docker' ? null : 'docker')),
             }] : []),
             ...(mobileEnabled && projectRoot ? [{

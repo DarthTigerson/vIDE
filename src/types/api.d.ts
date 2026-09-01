@@ -5,10 +5,10 @@ import type { LatestUsage, UsageSnapshot } from '../../electron/usagePoller'
 import type { UpdateInfo } from '../../electron/updateChecker'
 import type { GraphifyGraph } from './graphify'
 import type { DefinitionLocation, DetectResult, LspServerId } from '../../electron/lsp/types'
-import type { DockerStatus, DockerContainer, DockerActionResult } from '../../electron/docker'
+import type { DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats } from '../../electron/docker'
 import type { OnboardingStatus, GitIdentity } from '../../electron/onboarding'
 
-export type { LatestUsage, UsageSnapshot, UpdateInfo, DockerStatus, DockerContainer, DockerActionResult }
+export type { LatestUsage, UsageSnapshot, UpdateInfo, DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats }
 
 export type AssistantKind = 'claude' | 'codex' | 'bridge'
 
@@ -194,7 +194,12 @@ declare global {
       dockerStopContainer: (id: string) => Promise<DockerActionResult>
       dockerRestartContainer: (id: string) => Promise<DockerActionResult>
       dockerRemoveContainer: (id: string) => Promise<DockerActionResult>
+      dockerStartContainers: (ids: string[]) => Promise<DockerActionResult>
+      dockerStopContainers: (ids: string[]) => Promise<DockerActionResult>
+      dockerRemoveContainers: (ids: string[]) => Promise<DockerActionResult>
+      dockerGetContainerStats: () => Promise<Record<string, DockerContainerStats>>
       dockerOpenApp: () => Promise<DockerActionResult>
+      dockerCloseApp: () => Promise<DockerActionResult>
       dockerRunLogs: (streamId: string, containerId: string) => Promise<void>
       dockerStopLogs: (streamId: string) => void
       onDockerLogData: (cb: (streamId: string, data: string) => void) => () => void
