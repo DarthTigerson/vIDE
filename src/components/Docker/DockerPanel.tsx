@@ -56,9 +56,9 @@ function groupContainers(containers: DockerContainer[]): ContainerGroup[] {
   return groups
 }
 
-function RefreshIcon() {
+export function RefreshIcon({ className }: { className?: string } = {}) {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className={className}>
       <path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       <path d="M18 3v4h-4M6 21v-4h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
@@ -139,6 +139,8 @@ function IconButton({ onClick, label, danger, disabled, children }: {
   )
 }
 
+type ContainerAction = 'start' | 'stop' | 'restart' | null
+
 function ContainerRow({ container, onRequestRemove }: {
   container: DockerContainer
   onRequestRemove: (container: DockerContainer) => void
@@ -146,6 +148,7 @@ function ContainerRow({ container, onRequestRemove }: {
   const startContainer = useDockerStore((s) => s.startContainer)
   const stopContainer = useDockerStore((s) => s.stopContainer)
   const restartContainer = useDockerStore((s) => s.restartContainer)
+  const [pendingAction, setPendingAction] = useState<ContainerAction>(null)
   const running = container.state === 'running'
 
   function openLogs() {
@@ -154,6 +157,15 @@ function ContainerRow({ container, onRequestRemove }: {
       content: '',
       dirty: false,
     })
+  }
+
+  async function run(action: Exclude<ContainerAction, null>, fn: () => Promise<unknown>) {
+    setPendingAction(action)
+    try {
+      await fn()
+    } finally {
+      setPendingAction(null)
+    }
   }
 
   return (
@@ -165,12 +177,18 @@ function ContainerRow({ container, onRequestRemove }: {
         </button>
         <div className="flex items-center gap-0.5 shrink-0">
           {running ? (
-            <IconButton onClick={() => stopContainer(container.id)} label="Stop"><StopIcon /></IconButton>
+            <IconButton onClick={() => run('stop', () => stopContainer(container.id))} label="Stop" disabled={pendingAction !== null}>
+              {pendingAction === 'stop' ? <RefreshIcon className="animate-spin" /> : <StopIcon />}
+            </IconButton>
           ) : (
-            <IconButton onClick={() => startContainer(container.id)} label="Start"><PlayIcon /></IconButton>
+            <IconButton onClick={() => run('start', () => startContainer(container.id))} label="Start" disabled={pendingAction !== null}>
+              {pendingAction === 'start' ? <RefreshIcon className="animate-spin" /> : <PlayIcon />}
+            </IconButton>
           )}
-          <IconButton onClick={() => restartContainer(container.id)} label="Restart"><RestartIcon /></IconButton>
-          <IconButton onClick={() => onRequestRemove(container)} label="Remove" danger>✕</IconButton>
+          <IconButton onClick={() => run('restart', () => restartContainer(container.id))} label="Restart" disabled={pendingAction !== null}>
+            {pendingAction === 'restart' ? <RefreshIcon className="animate-spin" /> : <RestartIcon />}
+          </IconButton>
+          <IconButton onClick={() => onRequestRemove(container)} label="Remove" danger disabled={pendingAction !== null}>✕</IconButton>
         </div>
       </div>
       <span className="text-[0.625rem] text-fg-muted pl-4 truncate">{container.status}</span>
@@ -183,10 +201,21 @@ function GroupHeader({ project, containers, collapsed, onToggleCollapse, onStop,
   containers: DockerContainer[]
   collapsed: boolean
   onToggleCollapse: () => void
-  onStop: () => void
+  onStop: () => Promise<unknown>
   onRequestRemove: () => void
 }) {
   const hasRunning = containers.some((c) => c.state === 'running')
+  const [stopping, setStopping] = useState(false)
+
+  async function handleStop() {
+    setStopping(true)
+    try {
+      await onStop()
+    } finally {
+      setStopping(false)
+    }
+  }
+
   return (
     <div className="flex items-center justify-between gap-2 px-1 py-1">
       <button type="button" onClick={onToggleCollapse} className="flex items-center gap-1.5 min-w-0 flex-1 text-left text-fg-muted hover:text-fg transition-colors">
@@ -196,8 +225,10 @@ function GroupHeader({ project, containers, collapsed, onToggleCollapse, onStop,
         <span className="text-[0.625rem] text-fg-subtle shrink-0">({containers.length})</span>
       </button>
       <div className="flex items-center gap-0.5 shrink-0">
-        <IconButton onClick={onStop} label={`Stop ${project}`} disabled={!hasRunning}><StopIcon /></IconButton>
-        <IconButton onClick={onRequestRemove} label={`Remove ${project}`} danger>✕</IconButton>
+        <IconButton onClick={handleStop} label={`Stop ${project}`} disabled={!hasRunning || stopping}>
+          {stopping ? <RefreshIcon className="animate-spin" /> : <StopIcon />}
+        </IconButton>
+        <IconButton onClick={onRequestRemove} label={`Remove ${project}`} danger disabled={stopping}>✕</IconButton>
       </div>
     </div>
   )
@@ -216,7 +247,10 @@ export function DockerPanel() {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [stopAllConfirmOpen, setStopAllConfirmOpen] = useState(false)
   const [cleanSlateConfirmOpen, setCleanSlateConfirmOpen] = useState(false)
+  const [stopAllRunning, setStopAllRunning] = useState(false)
+  const [cleanSlateRunning, setCleanSlateRunning] = useState(false)
   const [removeGroupTarget, setRemoveGroupTarget] = useState<ContainerGroup | null>(null)
+  const [removingGroup, setRemovingGroup] = useState(false)
 
   useEffect(() => {
     refresh()
@@ -244,6 +278,37 @@ export function DockerPanel() {
       else next.add(key)
       return next
     })
+  }
+
+  async function handleStopAll() {
+    setStopAllConfirmOpen(false)
+    setStopAllRunning(true)
+    try {
+      await stopContainers(containers.map((c) => c.id))
+    } finally {
+      setStopAllRunning(false)
+    }
+  }
+
+  async function handleCleanSlate() {
+    setCleanSlateConfirmOpen(false)
+    setCleanSlateRunning(true)
+    try {
+      await removeContainers(containers.map((c) => c.id))
+    } finally {
+      setCleanSlateRunning(false)
+    }
+  }
+
+  async function handleRemoveGroup() {
+    if (!removeGroupTarget) return
+    setRemovingGroup(true)
+    try {
+      await removeContainers(removeGroupTarget.containers.map((c) => c.id))
+    } finally {
+      setRemovingGroup(false)
+    }
+    setRemoveGroupTarget(null)
   }
 
   return (
@@ -318,20 +383,22 @@ export function DockerPanel() {
           <button
             type="button"
             aria-label="Stop All Containers"
+            aria-busy={stopAllRunning}
             className={pillButtonClass}
-            disabled={!hasRunningContainers}
+            disabled={!hasRunningContainers || stopAllRunning}
             onClick={() => setStopAllConfirmOpen(true)}
           >
-            Stop All
+            {stopAllRunning ? <RefreshIcon className="animate-spin" /> : 'Stop All'}
           </button>
           <button
             type="button"
             aria-label="Clean Slate — stop and remove all containers"
+            aria-busy={cleanSlateRunning}
             className={pillButtonClass}
-            disabled={containers.length === 0}
+            disabled={containers.length === 0 || cleanSlateRunning}
             onClick={() => setCleanSlateConfirmOpen(true)}
           >
-            Clean Slate
+            {cleanSlateRunning ? <RefreshIcon className="animate-spin" /> : 'Clean Slate'}
           </button>
         </div>
       )}
@@ -357,10 +424,7 @@ export function DockerPanel() {
             </button>
             <button
               type="button"
-              onClick={() => {
-                stopContainers(containers.map((c) => c.id))
-                setStopAllConfirmOpen(false)
-              }}
+              onClick={handleStopAll}
               className="px-4 py-1.5 text-sm rounded-lg bg-red-600/80 hover:bg-red-600 text-white font-semibold transition-colors"
             >
               Stop All
@@ -386,10 +450,7 @@ export function DockerPanel() {
             </button>
             <button
               type="button"
-              onClick={() => {
-                removeContainers(containers.map((c) => c.id))
-                setCleanSlateConfirmOpen(false)
-              }}
+              onClick={handleCleanSlate}
               className="px-4 py-1.5 text-sm rounded-lg bg-red-600/80 hover:bg-red-600 text-white font-semibold transition-colors"
             >
               Clean Slate
@@ -411,18 +472,19 @@ export function DockerPanel() {
             <button
               type="button"
               onClick={() => setRemoveGroupTarget(null)}
-              className="px-4 py-1.5 text-sm rounded-lg border border-border text-fg-muted hover:text-fg hover:border-fg-muted transition-colors"
+              disabled={removingGroup}
+              className="px-4 py-1.5 text-sm rounded-lg border border-border text-fg-muted hover:text-fg hover:border-fg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
             <button
               type="button"
-              onClick={() => {
-                removeContainers(removeGroupTarget.containers.map((c) => c.id))
-                setRemoveGroupTarget(null)
-              }}
-              className="px-4 py-1.5 text-sm rounded-lg bg-red-600/80 hover:bg-red-600 text-white font-semibold transition-colors"
+              onClick={handleRemoveGroup}
+              disabled={removingGroup}
+              aria-busy={removingGroup}
+              className="px-4 py-1.5 text-sm rounded-lg bg-red-600/80 hover:bg-red-600 text-white font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
             >
+              {removingGroup && <RefreshIcon className="animate-spin" />}
               Remove
             </button>
           </div>

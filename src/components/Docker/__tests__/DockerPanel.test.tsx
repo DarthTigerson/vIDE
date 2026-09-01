@@ -101,6 +101,26 @@ describe('DockerPanel — grouping and global controls', () => {
     )
   })
 
+  it('shows a spinner and disables Stop All while the batch action is in flight', async () => {
+    setup([webappCaddy, otherApi])
+    let resolveStop: (result: { ok: boolean }) => void = () => {}
+    ;(window.api.dockerStopContainers as ReturnType<typeof vi.fn>).mockImplementation(
+      () => new Promise((resolve) => { resolveStop = resolve })
+    )
+    render(<DockerPanel />)
+    await screen.findByText('gpt-webapp')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Stop All Containers' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Stop All', exact: true }))
+
+    const stopAllButton = await screen.findByRole('button', { name: 'Stop All Containers' })
+    await waitFor(() => expect(stopAllButton).toHaveAttribute('aria-busy', 'true'))
+    expect(stopAllButton).toBeDisabled()
+
+    resolveStop({ ok: true })
+    await waitFor(() => expect(stopAllButton).toHaveAttribute('aria-busy', 'false'))
+  })
+
   it('Clean Slate opens a confirmation before calling the batch remove action', async () => {
     setup([webappCaddy, otherApi])
     render(<DockerPanel />)
@@ -148,5 +168,80 @@ describe('DockerPanel — grouping and global controls', () => {
     await waitFor(() =>
       expect(window.api.dockerStopContainers).toHaveBeenCalledWith(['a1', 'a2'])
     )
+  })
+
+  it('disables the other row actions on a container while its Stop is in flight', async () => {
+    setup([webappCaddy])
+    let resolveStop: (result: { ok: boolean }) => void = () => {}
+    ;(window.api.dockerStopContainer as ReturnType<typeof vi.fn>).mockImplementation(
+      () => new Promise((resolve) => { resolveStop = resolve })
+    )
+    render(<DockerPanel />)
+    await screen.findByText('gpt-webapp-caddy-1')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
+    expect(screen.getByRole('button', { name: 'Restart' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeDisabled()
+
+    resolveStop({ ok: true })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Restart' })).not.toBeDisabled())
+  })
+
+  it('disables the group Remove button while the group Stop is in flight', async () => {
+    setup([webappCaddy, webappDb])
+    let resolveStop: (result: { ok: boolean }) => void = () => {}
+    ;(window.api.dockerStopContainers as ReturnType<typeof vi.fn>).mockImplementation(
+      () => new Promise((resolve) => { resolveStop = resolve })
+    )
+    render(<DockerPanel />)
+    await screen.findByText('gpt-webapp')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Stop gpt-webapp' }))
+    expect(screen.getByRole('button', { name: 'Remove gpt-webapp' })).toBeDisabled()
+
+    resolveStop({ ok: true })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Remove gpt-webapp' })).not.toBeDisabled())
+  })
+
+  it('shows a spinner in the single-container remove modal while removing', async () => {
+    setup([standalone])
+    let resolveRemove: (result: { ok: boolean }) => void = () => {}
+    ;(window.api.dockerRemoveContainer as ReturnType<typeof vi.fn>).mockImplementation(
+      () => new Promise((resolve) => { resolveRemove = resolve })
+    )
+    render(<DockerPanel />)
+    await screen.findByText('standalone')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    const modal = screen.getByText('Remove container', { selector: 'h2' }).closest('div')!
+    const confirmButton = within(modal).getByRole('button', { name: 'Remove' })
+    fireEvent.click(confirmButton)
+
+    await waitFor(() => expect(confirmButton).toHaveAttribute('aria-busy', 'true'))
+    expect(confirmButton).toBeDisabled()
+
+    resolveRemove({ ok: true })
+    await waitFor(() => expect(screen.queryByText('Remove container')).toBeNull())
+  })
+
+  it('shows a spinner in the group remove modal while removing', async () => {
+    setup([webappCaddy, webappDb])
+    let resolveRemove: (result: { ok: boolean }) => void = () => {}
+    ;(window.api.dockerRemoveContainers as ReturnType<typeof vi.fn>).mockImplementation(
+      () => new Promise((resolve) => { resolveRemove = resolve })
+    )
+    render(<DockerPanel />)
+    await screen.findByText('gpt-webapp')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove gpt-webapp' }))
+    const modal = screen.getByText('Remove gpt-webapp', { selector: 'h2' }).closest('div')!
+    const confirmButton = within(modal).getByRole('button', { name: 'Remove' })
+    fireEvent.click(confirmButton)
+
+    await waitFor(() => expect(confirmButton).toHaveAttribute('aria-busy', 'true'))
+    expect(confirmButton).toBeDisabled()
+
+    resolveRemove({ ok: true })
+    await waitFor(() => expect(screen.queryByText('Remove gpt-webapp', { selector: 'h2' })).toBeNull())
   })
 })
