@@ -199,7 +199,7 @@ describe('DockerPanel — grouping and global controls', () => {
     await screen.findByText('gpt-webapp')
 
     openGroupMenu('gpt-webapp')
-    fireEvent.click(screen.getByRole('button', { name: 'Remove', exact: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove All', exact: true }))
 
     const modal = screen.getByText('Remove gpt-webapp', { selector: 'h2' }).closest('div')!
     fireEvent.click(within(modal).getByRole('button', { name: 'Remove' }))
@@ -215,7 +215,7 @@ describe('DockerPanel — grouping and global controls', () => {
     await screen.findByText('gpt-webapp')
 
     openGroupMenu('gpt-webapp')
-    fireEvent.click(screen.getByRole('button', { name: 'Stop', exact: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Stop All', exact: true }))
 
     await waitFor(() =>
       expect(window.api.dockerStopContainers).toHaveBeenCalledWith(['a1', 'a2'])
@@ -259,8 +259,8 @@ describe('DockerPanel — grouping and global controls', () => {
     await screen.findByText('gpt-webapp')
 
     openGroupMenu('gpt-webapp')
-    expect(screen.getByRole('button', { name: 'Start', exact: true })).not.toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Stop', exact: true })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Start All', exact: true })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Stop All', exact: true })).toBeDisabled()
   })
 
   it('a fully-running group disables Start and enables Stop in its menu', async () => {
@@ -269,8 +269,8 @@ describe('DockerPanel — grouping and global controls', () => {
     await screen.findByText('gpt-webapp')
 
     openGroupMenu('gpt-webapp')
-    expect(screen.getByRole('button', { name: 'Start', exact: true })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Stop', exact: true })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Start All', exact: true })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Stop All', exact: true })).not.toBeDisabled()
   })
 
   it('choosing Start from a group\'s right-click menu starts only that group\'s containers', async () => {
@@ -279,7 +279,7 @@ describe('DockerPanel — grouping and global controls', () => {
     await screen.findByText('gpt-webapp')
 
     openGroupMenu('gpt-webapp')
-    fireEvent.click(screen.getByRole('button', { name: 'Start', exact: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start All', exact: true }))
 
     await waitFor(() =>
       expect(window.api.dockerStartContainers).toHaveBeenCalledWith(['a1', 'a2'])
@@ -296,15 +296,15 @@ describe('DockerPanel — grouping and global controls', () => {
     await screen.findByText('gpt-webapp')
 
     openGroupMenu('gpt-webapp')
-    fireEvent.click(screen.getByRole('button', { name: 'Start', exact: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start All', exact: true }))
 
     openGroupMenu('gpt-webapp')
-    expect(screen.getByRole('button', { name: 'Remove', exact: true })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Remove All', exact: true })).toBeDisabled()
 
     resolveStart({ ok: true })
     await waitFor(() => {
       openGroupMenu('gpt-webapp')
-      expect(screen.getByRole('button', { name: 'Remove', exact: true })).not.toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Remove All', exact: true })).not.toBeDisabled()
     })
   })
 
@@ -318,15 +318,15 @@ describe('DockerPanel — grouping and global controls', () => {
     await screen.findByText('gpt-webapp')
 
     openGroupMenu('gpt-webapp')
-    fireEvent.click(screen.getByRole('button', { name: 'Stop', exact: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Stop All', exact: true }))
 
     openGroupMenu('gpt-webapp')
-    expect(screen.getByRole('button', { name: 'Remove', exact: true })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Remove All', exact: true })).toBeDisabled()
 
     resolveStop({ ok: true })
     await waitFor(() => {
       openGroupMenu('gpt-webapp')
-      expect(screen.getByRole('button', { name: 'Remove', exact: true })).not.toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Remove All', exact: true })).not.toBeDisabled()
     })
   })
 
@@ -363,7 +363,7 @@ describe('DockerPanel — grouping and global controls', () => {
     await screen.findByText('gpt-webapp')
 
     openGroupMenu('gpt-webapp')
-    fireEvent.click(screen.getByRole('button', { name: 'Remove', exact: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove All', exact: true }))
 
     const modal = screen.getByText('Remove gpt-webapp', { selector: 'h2' }).closest('div')!
     const confirmButton = within(modal).getByRole('button', { name: 'Remove' })

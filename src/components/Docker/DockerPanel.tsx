@@ -410,9 +410,9 @@ function GroupHeader({ project, containers, collapsed, onToggleCollapse, onStart
   // No "Open" entry here — unlike a container row, a project has no single
   // logs tab to jump to.
   const actions: MenuAction[] = [
-    { key: 'start', label: 'Start', icon: <PlayIcon />, disabled: !hasStopped || busy, onSelect: () => run('start', onStart) },
-    { key: 'stop', label: 'Stop', icon: <StopIcon />, disabled: !hasRunning || busy, onSelect: () => run('stop', onStop) },
-    { key: 'remove', label: 'Remove', icon: <CloseIcon />, danger: true, disabled: busy, onSelect: onRequestRemove },
+    { key: 'start', label: 'Start All', icon: <PlayIcon />, disabled: !hasStopped || busy, onSelect: () => run('start', onStart) },
+    { key: 'stop', label: 'Stop All', icon: <StopIcon />, disabled: !hasRunning || busy, onSelect: () => run('stop', onStop) },
+    { key: 'remove', label: 'Remove All', icon: <CloseIcon />, danger: true, disabled: busy, onSelect: onRequestRemove },
   ]
 
   return (
