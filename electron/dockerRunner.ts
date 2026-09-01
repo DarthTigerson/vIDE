@@ -8,6 +8,7 @@ import {
   stopContainer,
   restartContainer,
   removeContainer,
+  startContainers,
   stopContainers,
   removeContainers,
   openDockerApp,
@@ -26,6 +27,7 @@ export class DockerRunner {
     ipcMain.handle('docker:stopContainer', (_e, id: string) => stopContainer(id))
     ipcMain.handle('docker:restartContainer', (_e, id: string) => restartContainer(id))
     ipcMain.handle('docker:removeContainer', (_e, id: string) => removeContainer(id))
+    ipcMain.handle('docker:startContainers', (_e, ids: string[]) => startContainers(ids))
     ipcMain.handle('docker:stopContainers', (_e, ids: string[]) => stopContainers(ids))
     ipcMain.handle('docker:removeContainers', (_e, ids: string[]) => removeContainers(ids))
     ipcMain.handle('docker:openApp', () => openDockerApp())

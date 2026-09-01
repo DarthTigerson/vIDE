@@ -40,6 +40,7 @@ import {
   stopContainer,
   restartContainer,
   removeContainer,
+  startContainers,
   stopContainers,
   removeContainers,
   openDockerApp,
@@ -151,6 +152,12 @@ describe('container action commands', () => {
     execFileMock.mockReturnValue({ stdout: '', stderr: '' })
     await removeContainer('a1')
     expect(execFileMock).toHaveBeenCalledWith('docker', ['rm', '-f', 'a1'])
+  })
+
+  it('startContainers starts every id in a single call', async () => {
+    execFileMock.mockReturnValue({ stdout: '', stderr: '' })
+    expect(await startContainers(['a1', 'b2'])).toEqual({ ok: true })
+    expect(execFileMock).toHaveBeenCalledWith('docker', ['start', 'a1', 'b2'])
   })
 
   it('stopContainers stops every id in a single call', async () => {

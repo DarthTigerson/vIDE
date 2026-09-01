@@ -19,6 +19,7 @@ vi.stubGlobal('window', {
     dockerStopContainer: vi.fn().mockResolvedValue({ ok: true }),
     dockerRestartContainer: vi.fn().mockResolvedValue({ ok: true }),
     dockerRemoveContainer: vi.fn().mockResolvedValue({ ok: true }),
+    dockerStartContainers: vi.fn().mockResolvedValue({ ok: true }),
     dockerStopContainers: vi.fn().mockResolvedValue({ ok: true }),
     dockerRemoveContainers: vi.fn().mockResolvedValue({ ok: true }),
     dockerOpenApp: vi.fn().mockResolvedValue({ ok: true }),
@@ -58,6 +59,13 @@ describe('dockerStore', () => {
     ;(window.api.dockerRemoveContainer as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: false, error: 'in use' })
     const result = await useDockerStore.getState().removeContainer('a1')
     expect(result).toEqual({ ok: false, error: 'in use' })
+  })
+
+  it('startContainers calls the batch IPC action with all ids then refreshes', async () => {
+    const result = await useDockerStore.getState().startContainers(['a1', 'b2'])
+    expect(window.api.dockerStartContainers).toHaveBeenCalledWith(['a1', 'b2'])
+    expect(window.api.dockerStatus).toHaveBeenCalled()
+    expect(result).toEqual({ ok: true })
   })
 
   it('stopContainers calls the batch IPC action with all ids then refreshes', async () => {

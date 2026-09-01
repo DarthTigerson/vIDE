@@ -196,23 +196,27 @@ function ContainerRow({ container, onRequestRemove }: {
   )
 }
 
-function GroupHeader({ project, containers, collapsed, onToggleCollapse, onStop, onRequestRemove }: {
+type GroupAction = 'start' | 'stop' | null
+
+function GroupHeader({ project, containers, collapsed, onToggleCollapse, onStart, onStop, onRequestRemove }: {
   project: string
   containers: DockerContainer[]
   collapsed: boolean
   onToggleCollapse: () => void
+  onStart: () => Promise<unknown>
   onStop: () => Promise<unknown>
   onRequestRemove: () => void
 }) {
   const hasRunning = containers.some((c) => c.state === 'running')
-  const [stopping, setStopping] = useState(false)
+  const hasStopped = containers.some((c) => c.state !== 'running')
+  const [pendingAction, setPendingAction] = useState<GroupAction>(null)
 
-  async function handleStop() {
-    setStopping(true)
+  async function run(action: Exclude<GroupAction, null>, fn: () => Promise<unknown>) {
+    setPendingAction(action)
     try {
-      await onStop()
+      await fn()
     } finally {
-      setStopping(false)
+      setPendingAction(null)
     }
   }
 
@@ -225,10 +229,13 @@ function GroupHeader({ project, containers, collapsed, onToggleCollapse, onStop,
         <span className="text-[0.625rem] text-fg-subtle shrink-0">({containers.length})</span>
       </button>
       <div className="flex items-center gap-0.5 shrink-0">
-        <IconButton onClick={handleStop} label={`Stop ${project}`} disabled={!hasRunning || stopping}>
-          {stopping ? <RefreshIcon className="animate-spin" /> : <StopIcon />}
+        <IconButton onClick={() => run('start', onStart)} label={`Start ${project}`} disabled={!hasStopped || pendingAction !== null}>
+          {pendingAction === 'start' ? <RefreshIcon className="animate-spin" /> : <PlayIcon />}
         </IconButton>
-        <IconButton onClick={onRequestRemove} label={`Remove ${project}`} danger disabled={stopping}>✕</IconButton>
+        <IconButton onClick={() => run('stop', onStop)} label={`Stop ${project}`} disabled={!hasRunning || pendingAction !== null}>
+          {pendingAction === 'stop' ? <RefreshIcon className="animate-spin" /> : <StopIcon />}
+        </IconButton>
+        <IconButton onClick={onRequestRemove} label={`Remove ${project}`} danger disabled={pendingAction !== null}>✕</IconButton>
       </div>
     </div>
   )
@@ -241,6 +248,7 @@ export function DockerPanel() {
   const startWatching = useDockerStore((s) => s.startWatching)
   const stopWatching = useDockerStore((s) => s.stopWatching)
   const openApp = useDockerStore((s) => s.openApp)
+  const startContainers = useDockerStore((s) => s.startContainers)
   const stopContainers = useDockerStore((s) => s.stopContainers)
   const removeContainers = useDockerStore((s) => s.removeContainers)
   const [removeTarget, setRemoveTarget] = useState<DockerContainer | null>(null)
@@ -357,6 +365,7 @@ export function DockerPanel() {
                     containers={group.containers}
                     collapsed={collapsedGroups.has(group.key)}
                     onToggleCollapse={() => toggleGroup(group.key)}
+                    onStart={() => startContainers(group.containers.map((c) => c.id))}
                     onStop={() => stopContainers(group.containers.map((c) => c.id))}
                     onRequestRemove={() => setRemoveGroupTarget(group)}
                   />

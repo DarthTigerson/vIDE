@@ -16,6 +16,12 @@ const otherApi: DockerContainer = {
 const standalone: DockerContainer = {
   id: 'c1', name: 'standalone', image: 'redis', status: 'Exited', state: 'exited', ports: '',
 }
+const stoppedWebappCaddy: DockerContainer = {
+  id: 'a1', name: 'gpt-webapp-caddy-1', image: 'caddy', status: 'Exited', state: 'exited', ports: '', project: 'gpt-webapp',
+}
+const stoppedWebappDb: DockerContainer = {
+  id: 'a2', name: 'gpt-webapp-db-1', image: 'postgres', status: 'Exited', state: 'exited', ports: '', project: 'gpt-webapp',
+}
 
 function setup(containers: DockerContainer[]) {
   ;(global as any).window.api = {
@@ -25,6 +31,7 @@ function setup(containers: DockerContainer[]) {
     dockerStopContainer: vi.fn().mockResolvedValue({ ok: true }),
     dockerRestartContainer: vi.fn().mockResolvedValue({ ok: true }),
     dockerRemoveContainer: vi.fn().mockResolvedValue({ ok: true }),
+    dockerStartContainers: vi.fn().mockResolvedValue({ ok: true }),
     dockerStopContainers: vi.fn().mockResolvedValue({ ok: true }),
     dockerRemoveContainers: vi.fn().mockResolvedValue({ ok: true }),
     dockerOpenApp: vi.fn().mockResolvedValue({ ok: true }),
@@ -185,6 +192,52 @@ describe('DockerPanel — grouping and global controls', () => {
 
     resolveStop({ ok: true })
     await waitFor(() => expect(screen.getByRole('button', { name: 'Restart' })).not.toBeDisabled())
+  })
+
+  it('shows a Start button on a fully-stopped group, disabled when nothing is stopped', async () => {
+    setup([stoppedWebappCaddy, stoppedWebappDb])
+    render(<DockerPanel />)
+    await screen.findByText('gpt-webapp')
+
+    expect(screen.getByRole('button', { name: 'Start gpt-webapp' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Stop gpt-webapp' })).toBeDisabled()
+  })
+
+  it('a fully-running group disables Start and enables Stop', async () => {
+    setup([webappCaddy, webappDb])
+    render(<DockerPanel />)
+    await screen.findByText('gpt-webapp')
+
+    expect(screen.getByRole('button', { name: 'Start gpt-webapp' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Stop gpt-webapp' })).not.toBeDisabled()
+  })
+
+  it('clicking a group Start button starts only that group\'s containers', async () => {
+    setup([stoppedWebappCaddy, stoppedWebappDb, otherApi])
+    render(<DockerPanel />)
+    await screen.findByText('gpt-webapp')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start gpt-webapp' }))
+
+    await waitFor(() =>
+      expect(window.api.dockerStartContainers).toHaveBeenCalledWith(['a1', 'a2'])
+    )
+  })
+
+  it('disables the group Remove button while the group Start is in flight', async () => {
+    setup([stoppedWebappCaddy, stoppedWebappDb])
+    let resolveStart: (result: { ok: boolean }) => void = () => {}
+    ;(window.api.dockerStartContainers as ReturnType<typeof vi.fn>).mockImplementation(
+      () => new Promise((resolve) => { resolveStart = resolve })
+    )
+    render(<DockerPanel />)
+    await screen.findByText('gpt-webapp')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start gpt-webapp' }))
+    expect(screen.getByRole('button', { name: 'Remove gpt-webapp' })).toBeDisabled()
+
+    resolveStart({ ok: true })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Remove gpt-webapp' })).not.toBeDisabled())
   })
 
   it('disables the group Remove button while the group Stop is in flight', async () => {

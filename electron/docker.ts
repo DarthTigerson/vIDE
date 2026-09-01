@@ -114,6 +114,13 @@ export async function restartContainer(id: string): Promise<DockerActionResult> 
 // Batched equivalents of start/stop/remove for the panel's group and
 // "all containers" controls — one docker invocation for the whole scope
 // (`docker stop id1 id2 …`) rather than one round-trip per container.
+// `docker start`/`stop` on an already-started/stopped id is a harmless
+// no-op, so callers can pass a group's full id list without pre-filtering
+// by current state.
+export async function startContainers(ids: string[]): Promise<DockerActionResult> {
+  return runAction(['start', ...ids])
+}
+
 export async function stopContainers(ids: string[]): Promise<DockerActionResult> {
   return runAction(['stop', ...ids])
 }

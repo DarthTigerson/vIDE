@@ -17,6 +17,7 @@ interface DockerStore {
   stopContainer: (id: string) => Promise<DockerActionResult>
   restartContainer: (id: string) => Promise<DockerActionResult>
   removeContainer: (id: string) => Promise<DockerActionResult>
+  startContainers: (ids: string[]) => Promise<DockerActionResult>
   stopContainers: (ids: string[]) => Promise<DockerActionResult>
   removeContainers: (ids: string[]) => Promise<DockerActionResult>
   openApp: () => Promise<DockerActionResult>
@@ -55,6 +56,11 @@ export const useDockerStore = create<DockerStore>((set, get) => ({
   },
   removeContainer: async (id) => {
     const result = await window.api.dockerRemoveContainer(id)
+    await get().refresh()
+    return result
+  },
+  startContainers: async (ids) => {
+    const result = await window.api.dockerStartContainers(ids)
     await get().refresh()
     return result
   },

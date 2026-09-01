@@ -82,6 +82,8 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('docker:restartContainer', id) as Promise<import('./docker').DockerActionResult>,
   dockerRemoveContainer: (id: string) =>
     ipcRenderer.invoke('docker:removeContainer', id) as Promise<import('./docker').DockerActionResult>,
+  dockerStartContainers: (ids: string[]) =>
+    ipcRenderer.invoke('docker:startContainers', ids) as Promise<import('./docker').DockerActionResult>,
   dockerStopContainers: (ids: string[]) =>
     ipcRenderer.invoke('docker:stopContainers', ids) as Promise<import('./docker').DockerActionResult>,
   dockerRemoveContainers: (ids: string[]) =>
