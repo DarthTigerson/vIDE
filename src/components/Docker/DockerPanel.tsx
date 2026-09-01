@@ -469,9 +469,9 @@ export function DockerPanel() {
   const [removeTarget, setRemoveTarget] = useState<DockerContainer | null>(null)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [stopAllConfirmOpen, setStopAllConfirmOpen] = useState(false)
-  const [cleanSlateConfirmOpen, setCleanSlateConfirmOpen] = useState(false)
+  const [removeAllConfirmOpen, setRemoveAllConfirmOpen] = useState(false)
   const [stopAllRunning, setStopAllRunning] = useState(false)
-  const [cleanSlateRunning, setCleanSlateRunning] = useState(false)
+  const [removeAllRunning, setRemoveAllRunning] = useState(false)
   const [removeGroupTarget, setRemoveGroupTarget] = useState<ContainerGroup | null>(null)
   const [removingGroup, setRemovingGroup] = useState(false)
   const [launchingDocker, setLaunchingDocker] = useState(false)
@@ -514,13 +514,13 @@ export function DockerPanel() {
     }
   }
 
-  async function handleCleanSlate() {
-    setCleanSlateConfirmOpen(false)
-    setCleanSlateRunning(true)
+  async function handleRemoveAll() {
+    setRemoveAllConfirmOpen(false)
+    setRemoveAllRunning(true)
     try {
       await removeContainers(containers.map((c) => c.id))
     } finally {
-      setCleanSlateRunning(false)
+      setRemoveAllRunning(false)
     }
   }
 
@@ -675,17 +675,17 @@ export function DockerPanel() {
             disabled={!hasRunningContainers || stopAllRunning}
             onClick={() => setStopAllConfirmOpen(true)}
           >
-            {stopAllRunning ? <RefreshIcon className="animate-spin" /> : 'Stop All'}
+            {stopAllRunning ? <RefreshIcon className="animate-spin" /> : 'Stop All Containers'}
           </button>
           <button
             type="button"
-            aria-label="Clean Slate — stop and remove all containers"
-            aria-busy={cleanSlateRunning}
+            aria-label="Remove All Containers"
+            aria-busy={removeAllRunning}
             className={pillButtonClass}
-            disabled={containers.length === 0 || cleanSlateRunning}
-            onClick={() => setCleanSlateConfirmOpen(true)}
+            disabled={containers.length === 0 || removeAllRunning}
+            onClick={() => setRemoveAllConfirmOpen(true)}
           >
-            {cleanSlateRunning ? <RefreshIcon className="animate-spin" /> : 'Clean Slate'}
+            {removeAllRunning ? <RefreshIcon className="animate-spin" /> : 'Remove All Containers'}
           </button>
         </div>
       )}
@@ -748,9 +748,9 @@ export function DockerPanel() {
         </Modal>
       )}
 
-      {cleanSlateConfirmOpen && (
-        <Modal onClose={() => setCleanSlateConfirmOpen(false)}>
-          <h2 className="text-sm font-semibold text-fg mb-1">Clean Slate</h2>
+      {removeAllConfirmOpen && (
+        <Modal onClose={() => setRemoveAllConfirmOpen(false)}>
+          <h2 className="text-sm font-semibold text-fg mb-1">Remove All Containers</h2>
           <p className="text-sm text-fg-muted mb-5">
             Stop and remove all {containers.length} container{containers.length === 1 ? '' : 's'}? This
             cannot be undone.
@@ -758,17 +758,17 @@ export function DockerPanel() {
           <div className="flex items-center justify-end gap-3">
             <button
               type="button"
-              onClick={() => setCleanSlateConfirmOpen(false)}
+              onClick={() => setRemoveAllConfirmOpen(false)}
               className="px-4 py-1.5 text-sm rounded-lg border border-border text-fg-muted hover:text-fg hover:border-fg-muted transition-colors"
             >
               Cancel
             </button>
             <button
               type="button"
-              onClick={handleCleanSlate}
+              onClick={handleRemoveAll}
               className="px-4 py-1.5 text-sm rounded-lg bg-red-600/80 hover:bg-red-600 text-white font-semibold transition-colors"
             >
-              Clean Slate
+              Remove All
             </button>
           </div>
         </Modal>

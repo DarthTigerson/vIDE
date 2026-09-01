@@ -132,12 +132,12 @@ describe('DockerPanel — grouping and global controls', () => {
     expect(await screen.findByText('gpt-webapp-caddy-1')).toBeTruthy()
   })
 
-  it('Stop All is disabled when nothing is running, Clean Slate is disabled with no containers', async () => {
+  it('Stop All Containers is disabled when nothing is running, Remove All Containers is disabled with no containers', async () => {
     setup([{ ...standalone }])
     render(<DockerPanel />)
     await screen.findByText('standalone')
     expect(screen.getByRole('button', { name: 'Stop All Containers' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /Clean Slate/ })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Remove All Containers' })).not.toBeDisabled()
   })
 
   it('Stop All opens a confirmation before calling the batch stop action', async () => {
@@ -146,7 +146,7 @@ describe('DockerPanel — grouping and global controls', () => {
     await screen.findByText('gpt-webapp')
 
     fireEvent.click(screen.getByRole('button', { name: 'Stop All Containers' }))
-    expect(screen.getByText('Stop All Containers')).toBeTruthy()
+    expect(screen.getByText('Stop All Containers', { selector: 'h2' })).toBeTruthy()
     expect(window.api.dockerStopContainers).not.toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Stop All', exact: true }))
@@ -175,23 +175,23 @@ describe('DockerPanel — grouping and global controls', () => {
     await waitFor(() => expect(stopAllButton).toHaveAttribute('aria-busy', 'false'))
   })
 
-  it('Clean Slate opens a confirmation before calling the batch remove action', async () => {
+  it('Remove All Containers opens a confirmation before calling the batch remove action', async () => {
     setup([webappCaddy, otherApi])
     render(<DockerPanel />)
     await screen.findByText('gpt-webapp')
 
-    fireEvent.click(screen.getByRole('button', { name: /Clean Slate/ }))
-    expect(screen.getByText('Clean Slate', { selector: 'h2' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove All Containers' }))
+    expect(screen.getByText('Remove All Containers', { selector: 'h2' })).toBeTruthy()
     expect(window.api.dockerRemoveContainers).not.toHaveBeenCalled()
   })
 
-  it('confirming Clean Slate calls removeContainers with every container id', async () => {
+  it('confirming Remove All Containers calls removeContainers with every container id', async () => {
     setup([webappCaddy, otherApi])
     render(<DockerPanel />)
     await screen.findByText('gpt-webapp')
 
-    fireEvent.click(screen.getByRole('button', { name: /Clean Slate/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'Clean Slate', exact: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove All Containers' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove All', exact: true }))
 
     await waitFor(() =>
       expect(window.api.dockerRemoveContainers).toHaveBeenCalledWith(['a1', 'b1'])
