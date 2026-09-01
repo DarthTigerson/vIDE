@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDockerStore } from '@/stores/dockerStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { buildDockerLogsPath } from './paths'
@@ -90,6 +90,17 @@ function RestartIcon() {
   )
 }
 
+// SVG rather than a literal "✕" character — text content inside a button
+// becomes part of its accessible name, which would turn "Remove" into "✕
+// Remove" for screen readers and role-based test queries alike.
+function CloseIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 function ChevronIcon({ collapsed }: { collapsed: boolean }) {
   return (
     <svg
@@ -115,27 +126,84 @@ function GroupStatusDot({ containers }: { containers: DockerContainer[] }) {
   )
 }
 
-function IconButton({ onClick, label, danger, disabled, children }: {
-  onClick: () => void
-  label: string
-  danger?: boolean
-  disabled?: boolean
-  children: React.ReactNode
-}) {
+function DotsIcon() {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={label}
-      title={label}
-      className={[
-        'w-5 h-5 flex items-center justify-center rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed',
-        danger ? 'text-red-400 hover:bg-red-500/10' : 'text-fg-muted hover:text-fg hover:bg-white/5',
-      ].join(' ')}
-    >
-      {children}
-    </button>
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="12" cy="5" r="1.8" />
+      <circle cx="12" cy="12" r="1.8" />
+      <circle cx="12" cy="19" r="1.8" />
+    </svg>
+  )
+}
+
+interface MenuAction {
+  key: string
+  label: string
+  icon: React.ReactNode
+  onSelect: () => void
+  disabled?: boolean
+  danger?: boolean
+}
+
+// Kebab trigger + dropdown, replacing what used to be a row of inline icon
+// buttons — same click-outside-closes pattern as GitPanel's SplitCommandButton
+// options popover. `busy` swaps the trigger itself for a spinner and closes
+// off further clicks while a selected action is in flight.
+function ActionMenu({ actions, busy, triggerLabel }: {
+  actions: MenuAction[]
+  busy: boolean
+  triggerLabel: string
+}) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handlePointerDown(event: PointerEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [open])
+
+  return (
+    <div ref={rootRef} className="relative shrink-0">
+      <button
+        type="button"
+        aria-label={triggerLabel}
+        aria-haspopup="true"
+        aria-expanded={open}
+        aria-busy={busy}
+        disabled={busy}
+        onClick={() => setOpen((v) => !v)}
+        className="w-5 h-5 flex items-center justify-center rounded transition-colors text-fg-muted hover:text-fg hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
+      >
+        {busy ? <RefreshIcon className="animate-spin" /> : <DotsIcon />}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-[calc(100%+4px)] z-30 min-w-[130px] rounded-md border border-border bg-popover shadow-2xl shadow-black/40 p-1 flex flex-col gap-0.5">
+          {actions.map((action) => (
+            <button
+              key={action.key}
+              type="button"
+              disabled={action.disabled}
+              onClick={() => {
+                setOpen(false)
+                action.onSelect()
+              }}
+              className={[
+                'flex items-center gap-2 px-2 py-1.5 rounded text-xs text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
+                action.danger ? 'text-red-400 hover:bg-red-500/10' : 'text-fg hover:bg-white/5',
+              ].join(' ')}
+            >
+              <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0">{action.icon}</span>
+              {action.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -168,6 +236,14 @@ function ContainerRow({ container, onRequestRemove }: {
     }
   }
 
+  const actions: MenuAction[] = [
+    running
+      ? { key: 'stop', label: 'Stop', icon: <StopIcon />, onSelect: () => run('stop', () => stopContainer(container.id)) }
+      : { key: 'start', label: 'Start', icon: <PlayIcon />, onSelect: () => run('start', () => startContainer(container.id)) },
+    { key: 'restart', label: 'Restart', icon: <RestartIcon />, onSelect: () => run('restart', () => restartContainer(container.id)) },
+    { key: 'remove', label: 'Remove', icon: <CloseIcon />, danger: true, onSelect: () => onRequestRemove(container) },
+  ]
+
   return (
     <li className="flex flex-col gap-1 px-3 py-2 rounded-lg border border-border">
       <div className="flex items-center justify-between gap-2">
@@ -175,21 +251,7 @@ function ContainerRow({ container, onRequestRemove }: {
           <span className={`w-2 h-2 rounded-full shrink-0 ${running ? 'bg-green-400' : 'bg-fg-subtle'}`} />
           <span className="text-xs font-medium text-fg truncate">{container.name}</span>
         </button>
-        <div className="flex items-center gap-0.5 shrink-0">
-          {running ? (
-            <IconButton onClick={() => run('stop', () => stopContainer(container.id))} label="Stop" disabled={pendingAction !== null}>
-              {pendingAction === 'stop' ? <RefreshIcon className="animate-spin" /> : <StopIcon />}
-            </IconButton>
-          ) : (
-            <IconButton onClick={() => run('start', () => startContainer(container.id))} label="Start" disabled={pendingAction !== null}>
-              {pendingAction === 'start' ? <RefreshIcon className="animate-spin" /> : <PlayIcon />}
-            </IconButton>
-          )}
-          <IconButton onClick={() => run('restart', () => restartContainer(container.id))} label="Restart" disabled={pendingAction !== null}>
-            {pendingAction === 'restart' ? <RefreshIcon className="animate-spin" /> : <RestartIcon />}
-          </IconButton>
-          <IconButton onClick={() => onRequestRemove(container)} label="Remove" danger disabled={pendingAction !== null}>✕</IconButton>
-        </div>
+        <ActionMenu actions={actions} busy={pendingAction !== null} triggerLabel={`${container.name} actions`} />
       </div>
       <span className="text-[0.625rem] text-fg-muted pl-4 truncate">{container.status}</span>
     </li>
@@ -220,6 +282,12 @@ function GroupHeader({ project, containers, collapsed, onToggleCollapse, onStart
     }
   }
 
+  const actions: MenuAction[] = [
+    { key: 'start', label: 'Start', icon: <PlayIcon />, disabled: !hasStopped, onSelect: () => run('start', onStart) },
+    { key: 'stop', label: 'Stop', icon: <StopIcon />, disabled: !hasRunning, onSelect: () => run('stop', onStop) },
+    { key: 'remove', label: 'Remove', icon: <CloseIcon />, danger: true, onSelect: onRequestRemove },
+  ]
+
   return (
     <div className="flex items-center justify-between gap-2 px-1 py-1">
       <button type="button" onClick={onToggleCollapse} className="flex items-center gap-1.5 min-w-0 flex-1 text-left text-fg-muted hover:text-fg transition-colors">
@@ -228,15 +296,7 @@ function GroupHeader({ project, containers, collapsed, onToggleCollapse, onStart
         <span className="text-xs font-semibold text-fg truncate">{project}</span>
         <span className="text-[0.625rem] text-fg-subtle shrink-0">({containers.length})</span>
       </button>
-      <div className="flex items-center gap-0.5 shrink-0">
-        <IconButton onClick={() => run('start', onStart)} label={`Start ${project}`} disabled={!hasStopped || pendingAction !== null}>
-          {pendingAction === 'start' ? <RefreshIcon className="animate-spin" /> : <PlayIcon />}
-        </IconButton>
-        <IconButton onClick={() => run('stop', onStop)} label={`Stop ${project}`} disabled={!hasRunning || pendingAction !== null}>
-          {pendingAction === 'stop' ? <RefreshIcon className="animate-spin" /> : <StopIcon />}
-        </IconButton>
-        <IconButton onClick={onRequestRemove} label={`Remove ${project}`} danger disabled={pendingAction !== null}>✕</IconButton>
-      </div>
+      <ActionMenu actions={actions} busy={pendingAction !== null} triggerLabel={`${project} actions`} />
     </div>
   )
 }
