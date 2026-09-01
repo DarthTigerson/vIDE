@@ -41,6 +41,27 @@ function formatMemory(stats: DockerContainerStats, format: DockerMemoryFormat): 
   }
 }
 
+// Sums usage across a group's running containers. Limits deliberately take
+// the max rather than the sum: an unconstrained container reports its
+// limit as the host's total RAM, so several unconstrained containers in
+// the same project would otherwise multiply that ceiling by container
+// count instead of sharing it, wildly understating the group's real %.
+function aggregateGroupStats(
+  containers: DockerContainer[],
+  statsById: Record<string, DockerContainerStats>
+): DockerContainerStats | null {
+  const withStats = containers.filter((c) => c.state === 'running' && statsById[c.id])
+  if (withStats.length === 0) return null
+  let usedBytes = 0
+  let limitBytes = 0
+  for (const c of withStats) {
+    const s = statsById[c.id]
+    usedBytes += s.usedBytes
+    limitBytes = Math.max(limitBytes, s.limitBytes)
+  }
+  return { usedBytes, limitBytes, percent: limitBytes > 0 ? (usedBytes / limitBytes) * 100 : 0 }
+}
+
 // Short form — sits next to the "Docker" panel title, so it doesn't repeat
 // the word itself the way the old inline status row's copy did.
 const STATUS_LABEL: Record<string, string> = {
@@ -183,16 +204,6 @@ function GroupStatusDot({ containers }: { containers: DockerContainer[] }) {
   )
 }
 
-function DotsIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="12" cy="5" r="1.8" />
-      <circle cx="12" cy="12" r="1.8" />
-      <circle cx="12" cy="19" r="1.8" />
-    </svg>
-  )
-}
-
 interface MenuAction {
   key: string
   label: string
@@ -202,75 +213,12 @@ interface MenuAction {
   danger?: boolean
 }
 
-// Kebab trigger + dropdown, replacing what used to be a row of inline icon
-// buttons — same click-outside-closes pattern as GitPanel's SplitCommandButton
-// options popover. `busy` swaps the trigger itself for a spinner and closes
-// off further clicks while a selected action is in flight.
-function ActionMenu({ actions, busy, triggerLabel }: {
-  actions: MenuAction[]
-  busy: boolean
-  triggerLabel: string
-}) {
-  const [open, setOpen] = useState(false)
-  const rootRef = useRef<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-    function handlePointerDown(event: PointerEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
-    }
-    document.addEventListener('pointerdown', handlePointerDown)
-    return () => document.removeEventListener('pointerdown', handlePointerDown)
-  }, [open])
-
-  return (
-    <div ref={rootRef} className="relative shrink-0">
-      <button
-        type="button"
-        aria-label={triggerLabel}
-        aria-haspopup="true"
-        aria-expanded={open}
-        aria-busy={busy}
-        disabled={busy}
-        onClick={() => setOpen((v) => !v)}
-        className="w-5 h-5 flex items-center justify-center rounded transition-colors text-fg-muted hover:text-fg hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
-      >
-        {busy ? <RefreshIcon className="animate-spin" /> : <DotsIcon />}
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-[calc(100%+4px)] z-30 min-w-[130px] rounded-md border border-border bg-popover shadow-2xl shadow-black/40 p-1 flex flex-col gap-0.5">
-          {actions.map((action) => (
-            <button
-              key={action.key}
-              type="button"
-              disabled={action.disabled}
-              onClick={() => {
-                setOpen(false)
-                action.onSelect()
-              }}
-              className={[
-                'flex items-center gap-2 px-2 py-1.5 rounded text-xs text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
-                action.danger ? 'text-red-400 hover:bg-red-500/10' : 'text-fg hover:bg-white/5',
-              ].join(' ')}
-            >
-              <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0">{action.icon}</span>
-              {action.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// Right-click menu for a container row — same MenuAction shape and item
-// styling as ActionMenu's dropdown, just anchored at the click position
-// (matching CommitFileContextMenu's positioning: portaled, clamped to the
-// viewport after the real render) instead of a persistent kebab trigger.
+// Right-click menu for a container row or group header — portaled at the
+// click position and clamped to the viewport after the real render
+// (matching CommitFileContextMenu's positioning pattern).
 //
-// Closes on 'pointerdown' rather than 'click' — same mechanism ActionMenu
-// uses — specifically so that right-clicking a *different* row closes this
+// Closes on 'pointerdown' rather than 'click' — specifically so that
+// right-clicking a *different* row/group closes this
 // one: a right-click never fires a 'click' event, so a click-based listener
 // would leave every previously-opened menu stacked up on screen instead of
 // replacing it (contextmenu fires after pointerdown, so the outside-click
@@ -336,9 +284,14 @@ function ContextMenuList({ x, y, actions, onClose }: {
 
 type ContainerAction = 'start' | 'stop' | 'restart' | null
 
-function ContainerRow({ container, onRequestRemove }: {
+function ContainerRow({ container, onRequestRemove, nested }: {
   container: DockerContainer
   onRequestRemove: (container: DockerContainer) => void
+  // Inside a group, the group's own outer box (header + all its containers
+  // together) already provides the surrounding border — an individual row
+  // here gets a fainter nested card instead of the full-strength one a
+  // standalone row uses.
+  nested?: boolean
 }) {
   const startContainer = useDockerStore((s) => s.startContainer)
   const stopContainer = useDockerStore((s) => s.stopContainer)
@@ -383,7 +336,13 @@ function ContainerRow({ container, onRequestRemove }: {
   ]
 
   return (
-    <li onContextMenu={handleContextMenu} className="flex flex-col gap-1 px-3 py-2 rounded-lg border border-border">
+    <li
+      onContextMenu={handleContextMenu}
+      className={[
+        'flex flex-col gap-1 px-3 py-2 rounded-lg border',
+        nested ? 'border-border/60 bg-white/[0.02]' : 'border-border',
+      ].join(' ')}
+    >
       <div className="flex items-center justify-between gap-2">
         <button type="button" onClick={openLogs} className="flex items-center gap-2 min-w-0 flex-1 text-left">
           {busy ? (
@@ -427,6 +386,12 @@ function GroupHeader({ project, containers, collapsed, onToggleCollapse, onStart
   const hasRunning = containers.some((c) => c.state === 'running')
   const hasStopped = containers.some((c) => c.state !== 'running')
   const [pendingAction, setPendingAction] = useState<GroupAction>(null)
+  const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null)
+  const busy = pendingAction !== null
+  const containerStats = useDockerStore((s) => s.containerStats)
+  const showMemory = useDockerSettingsStore((s) => s.showMemory)
+  const memoryFormat = useDockerSettingsStore((s) => s.memoryFormat)
+  const groupStats = showMemory ? aggregateGroupStats(containers, containerStats) : null
 
   async function run(action: Exclude<GroupAction, null>, fn: () => Promise<unknown>) {
     setPendingAction(action)
@@ -437,21 +402,45 @@ function GroupHeader({ project, containers, collapsed, onToggleCollapse, onStart
     }
   }
 
+  function handleContextMenu(e: React.MouseEvent) {
+    e.preventDefault()
+    setContextMenuPos({ x: e.clientX, y: e.clientY })
+  }
+
+  // No "Open" entry here — unlike a container row, a project has no single
+  // logs tab to jump to.
   const actions: MenuAction[] = [
-    { key: 'start', label: 'Start', icon: <PlayIcon />, disabled: !hasStopped, onSelect: () => run('start', onStart) },
-    { key: 'stop', label: 'Stop', icon: <StopIcon />, disabled: !hasRunning, onSelect: () => run('stop', onStop) },
-    { key: 'remove', label: 'Remove', icon: <CloseIcon />, danger: true, onSelect: onRequestRemove },
+    { key: 'start', label: 'Start', icon: <PlayIcon />, disabled: !hasStopped || busy, onSelect: () => run('start', onStart) },
+    { key: 'stop', label: 'Stop', icon: <StopIcon />, disabled: !hasRunning || busy, onSelect: () => run('stop', onStop) },
+    { key: 'remove', label: 'Remove', icon: <CloseIcon />, danger: true, disabled: busy, onSelect: onRequestRemove },
   ]
 
   return (
-    <div className="flex items-center justify-between gap-2 px-1 py-1">
+    <div onContextMenu={handleContextMenu} className="flex items-center justify-between gap-2 px-3 py-2">
       <button type="button" onClick={onToggleCollapse} className="flex items-center gap-1.5 min-w-0 flex-1 text-left text-fg-muted hover:text-fg transition-colors">
         <ChevronIcon collapsed={collapsed} />
-        <GroupStatusDot containers={containers} />
+        {busy ? (
+          <RefreshIcon className="w-2 h-2 shrink-0 animate-spin text-fg-muted" />
+        ) : (
+          <GroupStatusDot containers={containers} />
+        )}
         <span className="text-xs font-semibold text-fg truncate">{project}</span>
         <span className="text-[0.625rem] text-fg-subtle shrink-0">({containers.length})</span>
       </button>
-      <ActionMenu actions={actions} busy={pendingAction !== null} triggerLabel={`${project} actions`} />
+      {groupStats && (
+        <span className="text-[0.625rem] text-fg-subtle shrink-0 tabular-nums">
+          {formatMemory(groupStats, memoryFormat)}
+        </span>
+      )}
+
+      {contextMenuPos && (
+        <ContextMenuList
+          x={contextMenuPos.x}
+          y={contextMenuPos.y}
+          actions={actions}
+          onClose={() => setContextMenuPos(null)}
+        />
+      )}
     </div>
   )
 }
@@ -583,7 +572,7 @@ export function DockerPanel() {
           <ul className="flex flex-col gap-1.5">
             {groups.map((group) =>
               group.project ? (
-                <li key={group.key} className="flex flex-col gap-1.5">
+                <li key={group.key} className="rounded-lg border border-border overflow-hidden">
                   <GroupHeader
                     project={group.project}
                     containers={group.containers}
@@ -594,9 +583,9 @@ export function DockerPanel() {
                     onRequestRemove={() => setRemoveGroupTarget(group)}
                   />
                   {!collapsedGroups.has(group.key) && (
-                    <ul className="flex flex-col gap-1.5 pl-3">
+                    <ul className="flex flex-col gap-1.5 pl-6 pr-2 pb-2">
                       {group.containers.map((container) => (
-                        <ContainerRow key={container.id} container={container} onRequestRemove={setRemoveTarget} />
+                        <ContainerRow key={container.id} container={container} onRequestRemove={setRemoveTarget} nested />
                       ))}
                     </ul>
                   )}

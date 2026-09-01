@@ -24,6 +24,12 @@ const stoppedWebappCaddy: DockerContainer = {
 const stoppedWebappDb: DockerContainer = {
   id: 'a2', name: 'gpt-webapp-db-1', image: 'postgres', status: 'Exited', state: 'exited', ports: '', project: 'gpt-webapp',
 }
+// No project — memory-format tests use this rather than a webapp* fixture
+// so the row's own text doesn't collide with the group header's aggregate,
+// which mirrors it exactly when a group has only one member.
+const standaloneRunning: DockerContainer = {
+  id: 'd1', name: 'standalone-running', image: 'redis', status: 'Up', state: 'running', ports: '',
+}
 
 function setup(containers: DockerContainer[]) {
   ;(global as any).window.api = {
@@ -46,20 +52,21 @@ function setup(containers: DockerContainer[]) {
   useDockerSettingsStore.setState({ showMemory: false, memoryFormat: 'usedPercent' })
 }
 
-// Group actions live behind a kebab (⋮) trigger — open it before looking
-// for an action inside its dropdown.
-function openMenu(triggerName: string) {
-  fireEvent.click(screen.getByRole('button', { name: triggerName }))
-}
-
-// Container-row actions live behind a right-click context menu instead —
-// a real right-click fires pointerdown before contextmenu, and the menu's
-// outside-close listener keys off pointerdown, so both must be dispatched
-// for the close-the-previous-menu behavior to actually get exercised.
+// Both container rows and group headers live behind a right-click context
+// menu — a real right-click fires pointerdown before contextmenu, and the
+// menu's outside-close listener keys off pointerdown, so both must be
+// dispatched for the close-the-previous-menu behavior to actually get
+// exercised.
 function openContainerMenu(containerName: string) {
   const row = screen.getByText(containerName).closest('li')!
   fireEvent.pointerDown(row, { button: 2 })
   fireEvent.contextMenu(row)
+}
+
+function openGroupMenu(project: string) {
+  const header = screen.getByText(project).closest('div')!
+  fireEvent.pointerDown(header, { button: 2 })
+  fireEvent.contextMenu(header)
 }
 
 describe('DockerPanel — grouping and global controls', () => {
@@ -105,7 +112,7 @@ describe('DockerPanel — grouping and global controls', () => {
     setup([standalone])
     render(<DockerPanel />)
     expect(await screen.findByText('standalone')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'gpt-webapp actions' })).toBeNull()
+    expect(screen.queryByText('gpt-webapp')).toBeNull()
   })
 
   it('collapsing a group hides its containers', async () => {
@@ -186,12 +193,12 @@ describe('DockerPanel — grouping and global controls', () => {
     )
   })
 
-  it('opening a group\'s action menu and choosing Remove opens a confirmation, which removes only that group', async () => {
+  it('choosing Remove from a group\'s right-click menu opens a confirmation, which removes only that group', async () => {
     setup([webappCaddy, webappDb, otherApi])
     render(<DockerPanel />)
     await screen.findByText('gpt-webapp')
 
-    openMenu('gpt-webapp actions')
+    openGroupMenu('gpt-webapp')
     fireEvent.click(screen.getByRole('button', { name: 'Remove', exact: true }))
 
     const modal = screen.getByText('Remove gpt-webapp', { selector: 'h2' }).closest('div')!
@@ -202,17 +209,26 @@ describe('DockerPanel — grouping and global controls', () => {
     )
   })
 
-  it('choosing Stop from a group\'s action menu stops only that group\'s containers', async () => {
+  it('choosing Stop from a group\'s right-click menu stops only that group\'s containers', async () => {
     setup([webappCaddy, webappDb, otherApi])
     render(<DockerPanel />)
     await screen.findByText('gpt-webapp')
 
-    openMenu('gpt-webapp actions')
+    openGroupMenu('gpt-webapp')
     fireEvent.click(screen.getByRole('button', { name: 'Stop', exact: true }))
 
     await waitFor(() =>
       expect(window.api.dockerStopContainers).toHaveBeenCalledWith(['a1', 'a2'])
     )
+  })
+
+  it('a group\'s right-click menu has no Open item (unlike a container row)', async () => {
+    setup([webappCaddy, webappDb])
+    render(<DockerPanel />)
+    await screen.findByText('gpt-webapp')
+
+    openGroupMenu('gpt-webapp')
+    expect(screen.queryByRole('button', { name: 'Open', exact: true })).toBeNull()
   })
 
   it('disables the container context-menu actions while its Stop is in flight, then re-enables them', async () => {
@@ -242,7 +258,7 @@ describe('DockerPanel — grouping and global controls', () => {
     render(<DockerPanel />)
     await screen.findByText('gpt-webapp')
 
-    openMenu('gpt-webapp actions')
+    openGroupMenu('gpt-webapp')
     expect(screen.getByRole('button', { name: 'Start', exact: true })).not.toBeDisabled()
     expect(screen.getByRole('button', { name: 'Stop', exact: true })).toBeDisabled()
   })
@@ -252,17 +268,17 @@ describe('DockerPanel — grouping and global controls', () => {
     render(<DockerPanel />)
     await screen.findByText('gpt-webapp')
 
-    openMenu('gpt-webapp actions')
+    openGroupMenu('gpt-webapp')
     expect(screen.getByRole('button', { name: 'Start', exact: true })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Stop', exact: true })).not.toBeDisabled()
   })
 
-  it('choosing Start from a group\'s action menu starts only that group\'s containers', async () => {
+  it('choosing Start from a group\'s right-click menu starts only that group\'s containers', async () => {
     setup([stoppedWebappCaddy, stoppedWebappDb, otherApi])
     render(<DockerPanel />)
     await screen.findByText('gpt-webapp')
 
-    openMenu('gpt-webapp actions')
+    openGroupMenu('gpt-webapp')
     fireEvent.click(screen.getByRole('button', { name: 'Start', exact: true }))
 
     await waitFor(() =>
@@ -270,7 +286,7 @@ describe('DockerPanel — grouping and global controls', () => {
     )
   })
 
-  it('disables the group action trigger while the group Start is in flight', async () => {
+  it('disables the group context-menu actions while the group Start is in flight, then re-enables them', async () => {
     setup([stoppedWebappCaddy, stoppedWebappDb])
     let resolveStart: (result: { ok: boolean }) => void = () => {}
     ;(window.api.dockerStartContainers as ReturnType<typeof vi.fn>).mockImplementation(
@@ -279,17 +295,20 @@ describe('DockerPanel — grouping and global controls', () => {
     render(<DockerPanel />)
     await screen.findByText('gpt-webapp')
 
-    openMenu('gpt-webapp actions')
+    openGroupMenu('gpt-webapp')
     fireEvent.click(screen.getByRole('button', { name: 'Start', exact: true }))
 
-    const trigger = screen.getByRole('button', { name: 'gpt-webapp actions' })
-    expect(trigger).toBeDisabled()
+    openGroupMenu('gpt-webapp')
+    expect(screen.getByRole('button', { name: 'Remove', exact: true })).toBeDisabled()
 
     resolveStart({ ok: true })
-    await waitFor(() => expect(trigger).not.toBeDisabled())
+    await waitFor(() => {
+      openGroupMenu('gpt-webapp')
+      expect(screen.getByRole('button', { name: 'Remove', exact: true })).not.toBeDisabled()
+    })
   })
 
-  it('disables the group action trigger while the group Stop is in flight', async () => {
+  it('disables the group context-menu actions while the group Stop is in flight, then re-enables them', async () => {
     setup([webappCaddy, webappDb])
     let resolveStop: (result: { ok: boolean }) => void = () => {}
     ;(window.api.dockerStopContainers as ReturnType<typeof vi.fn>).mockImplementation(
@@ -298,14 +317,17 @@ describe('DockerPanel — grouping and global controls', () => {
     render(<DockerPanel />)
     await screen.findByText('gpt-webapp')
 
-    openMenu('gpt-webapp actions')
+    openGroupMenu('gpt-webapp')
     fireEvent.click(screen.getByRole('button', { name: 'Stop', exact: true }))
 
-    const trigger = screen.getByRole('button', { name: 'gpt-webapp actions' })
-    expect(trigger).toBeDisabled()
+    openGroupMenu('gpt-webapp')
+    expect(screen.getByRole('button', { name: 'Remove', exact: true })).toBeDisabled()
 
     resolveStop({ ok: true })
-    await waitFor(() => expect(trigger).not.toBeDisabled())
+    await waitFor(() => {
+      openGroupMenu('gpt-webapp')
+      expect(screen.getByRole('button', { name: 'Remove', exact: true })).not.toBeDisabled()
+    })
   })
 
   it('shows a spinner in the single-container remove modal while removing', async () => {
@@ -340,7 +362,7 @@ describe('DockerPanel — grouping and global controls', () => {
     render(<DockerPanel />)
     await screen.findByText('gpt-webapp')
 
-    openMenu('gpt-webapp actions')
+    openGroupMenu('gpt-webapp')
     fireEvent.click(screen.getByRole('button', { name: 'Remove', exact: true }))
 
     const modal = screen.getByText('Remove gpt-webapp', { selector: 'h2' }).closest('div')!
@@ -451,10 +473,10 @@ describe('DockerPanel — grouping and global controls', () => {
   })
 
   it('shows Used % memory on a running row when the setting is on', async () => {
-    setup([webappCaddy])
+    setup([standaloneRunning])
     useDockerSettingsStore.setState({ showMemory: true, memoryFormat: 'usedPercent' })
     ;(window.api.dockerGetContainerStats as ReturnType<typeof vi.fn>).mockResolvedValue({
-      a1: { usedBytes: 512 * 1024 * 1024, limitBytes: 1024 * 1024 * 1024, percent: 50 },
+      d1: { usedBytes: 512 * 1024 * 1024, limitBytes: 1024 * 1024 * 1024, percent: 50 },
     })
     render(<DockerPanel />)
     expect(await screen.findByText('50%')).toBeTruthy()
@@ -472,12 +494,25 @@ describe('DockerPanel — grouping and global controls', () => {
   })
 
   it('formats memory as Used / limit when that format is selected', async () => {
-    setup([webappCaddy])
+    setup([standaloneRunning])
     useDockerSettingsStore.setState({ showMemory: true, memoryFormat: 'usedOverLimit' })
     ;(window.api.dockerGetContainerStats as ReturnType<typeof vi.fn>).mockResolvedValue({
-      a1: { usedBytes: 512 * 1024 * 1024, limitBytes: 1024 * 1024 * 1024, percent: 50 },
+      d1: { usedBytes: 512 * 1024 * 1024, limitBytes: 1024 * 1024 * 1024, percent: 50 },
     })
     render(<DockerPanel />)
     expect(await screen.findByText('512 MB / 1 GB')).toBeTruthy()
+  })
+
+  it('shows an aggregate memory reading on the group header, summing usage across its containers', async () => {
+    setup([webappCaddy, webappDb])
+    useDockerSettingsStore.setState({ showMemory: true, memoryFormat: 'usedAbsolute' })
+    ;(window.api.dockerGetContainerStats as ReturnType<typeof vi.fn>).mockResolvedValue({
+      a1: { usedBytes: 300 * 1024 * 1024, limitBytes: 1024 * 1024 * 1024, percent: 29.3 },
+      a2: { usedBytes: 200 * 1024 * 1024, limitBytes: 1024 * 1024 * 1024, percent: 19.5 },
+    })
+    render(<DockerPanel />)
+
+    const header = (await screen.findByText('gpt-webapp')).closest('div')!
+    await waitFor(() => expect(within(header).getByText('500 MB')).toBeTruthy())
   })
 })
