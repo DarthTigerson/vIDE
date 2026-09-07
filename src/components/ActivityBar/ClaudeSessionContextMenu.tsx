@@ -5,11 +5,24 @@ import { clampToViewport } from '@/components/ui/clampToViewport'
 interface Props {
   x: number
   y: number
+  onContinuePreviousSession: () => void
+  onResumeSession: () => void
+  onCompact: () => void
+  onClear: () => void
   onCloseSession: () => void
   onClose: () => void
 }
 
-export function ClaudeSessionContextMenu({ x, y, onCloseSession, onClose }: Props) {
+export function ClaudeSessionContextMenu({
+  x,
+  y,
+  onContinuePreviousSession,
+  onResumeSession,
+  onCompact,
+  onClear,
+  onCloseSession,
+  onClose,
+}: Props) {
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -36,10 +49,39 @@ export function ClaudeSessionContextMenu({ x, y, onCloseSession, onClose }: Prop
   return createPortal(
     <div
       ref={menuRef}
-      className="fixed z-[200] w-40 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50"
+      className="fixed z-[200] w-52 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50"
       style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
     >
+      <button
+        type="button"
+        onClick={() => { onContinuePreviousSession(); onClose() }}
+        className="w-full rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+      >
+        Continue Previous Session
+      </button>
+      <button
+        type="button"
+        onClick={() => { onResumeSession(); onClose() }}
+        className="w-full rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+      >
+        Resume Session…
+      </button>
+      <button
+        type="button"
+        onClick={() => { onCompact(); onClose() }}
+        className="w-full rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+      >
+        Compact
+      </button>
+      <button
+        type="button"
+        onClick={() => { onClear(); onClose() }}
+        className="w-full rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+      >
+        Clear
+      </button>
+      <div className="my-1 h-px bg-border" />
       <button
         type="button"
         onClick={() => { onCloseSession(); onClose() }}

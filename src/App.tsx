@@ -1141,6 +1141,28 @@ export default function App() {
         <ClaudeSessionContextMenu
           x={sessionMenu.x}
           y={sessionMenu.y}
+          onContinuePreviousSession={() => {
+            if (!projectRoot) return
+            useClaudeStore.getState().setActiveInstance(sessionMenu.instanceId)
+            useClaudeStore.getState().setChatVisible(true)
+            useClaudeStore.getState().previousSession(projectRoot)
+          }}
+          onResumeSession={() => {
+            if (!projectRoot) return
+            useClaudeStore.getState().setActiveInstance(sessionMenu.instanceId)
+            useClaudeStore.getState().setChatVisible(true)
+            useClaudeStore.getState().resumeSession(projectRoot)
+          }}
+          onCompact={() => {
+            useClaudeStore.getState().setActiveInstance(sessionMenu.instanceId)
+            useClaudeStore.getState().setChatVisible(true)
+            useClaudeStore.getState().compact()
+          }}
+          onClear={() => {
+            useClaudeStore.getState().setActiveInstance(sessionMenu.instanceId)
+            useClaudeStore.getState().setChatVisible(true)
+            useClaudeStore.getState().clearContext()
+          }}
           onCloseSession={() => {
             if (projectRoot) useClaudeStore.getState().closeInstance(projectRoot, sessionMenu.instanceId)
           }}
