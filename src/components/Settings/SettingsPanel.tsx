@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 import { useEditorStore } from '@/stores/editorStore'
+import { useGeneralSettingsStore } from '@/stores/generalSettingsStore'
+import { getBiggestPaneId } from '@/lib/paneLayout'
 import {
   GENERAL_SETTINGS_TAB_PATH, DISPLAY_TAB_PATH, EDITOR_SETTINGS_TAB_PATH, GIT_SETTINGS_TAB_PATH,
   BROWSER_SETTINGS_TAB_PATH, CLAUDE_SETTINGS_TAB_PATH, BRIDGE_SETTINGS_TAB_PATH, GRAPHIFY_SETTINGS_TAB_PATH,
@@ -87,13 +89,17 @@ export function SettingsPanel() {
                 <button
                   key={item.path}
                   type="button"
-                  onClick={() =>
-                    useEditorStore.getState().openTab({
-                      path: item.path,
-                      content: '',
-                      dirty: false,
-                    })
-                  }
+                  onClick={() => {
+                    const tab = { path: item.path, content: '', dirty: false }
+                    if (useGeneralSettingsStore.getState().openInBiggestPane) {
+                      const biggestPaneId = getBiggestPaneId()
+                      if (biggestPaneId) {
+                        useEditorStore.getState().openTabInPane(tab, biggestPaneId)
+                        return
+                      }
+                    }
+                    useEditorStore.getState().openTab(tab)
+                  }}
                   className={[
                     'w-full flex items-center gap-2 text-left pl-7 pr-3 py-1 text-sm transition-colors',
                     isActive ? 'bg-accent/10 text-fg' : 'text-fg hover:bg-white/5',
