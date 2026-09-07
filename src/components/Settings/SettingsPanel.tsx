@@ -49,7 +49,6 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Integrations',
     items: [
       { path: BROWSER_SETTINGS_TAB_PATH, label: 'Browser', icon: <BrowserIcon /> },
-      { path: JIRA_SETTINGS_TAB_PATH, label: 'Jira', icon: <JiraIcon /> },
       { path: GRAPHIFY_SETTINGS_TAB_PATH, label: 'Graphify', icon: <GraphIcon /> },
       { path: MOBILE_SETTINGS_TAB_PATH, label: 'Mobile', icon: <PhoneIcon /> },
     ],
@@ -59,6 +58,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { path: NOTES_SETTINGS_TAB_PATH, label: 'Notes', icon: <NotesIcon /> },
       { path: TODO_SETTINGS_TAB_PATH, label: 'To Do', icon: <TodoIcon /> },
+      { path: JIRA_SETTINGS_TAB_PATH, label: 'Jira', icon: <JiraIcon /> },
     ],
   },
 ]

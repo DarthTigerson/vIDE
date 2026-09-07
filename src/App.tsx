@@ -253,7 +253,17 @@ export default function App() {
       return
     }
     useBrowserStore.getState().ensureTab(JIRA_BROWSER_ID, url)
-    useEditorStore.getState().openTab({ path: buildBrowserPath(JIRA_BROWSER_ID), content: '', dirty: false })
+    const tab = { path: buildBrowserPath(JIRA_BROWSER_ID), content: '', dirty: false }
+    if (useJiraSettingsStore.getState().openInBiggestPane) {
+      const biggestPaneId = getBiggestPaneId()
+      if (biggestPaneId) {
+        useEditorStore.getState().openTabInPane(tab, biggestPaneId)
+      } else {
+        useEditorStore.getState().openTab(tab)
+      }
+    } else {
+      useEditorStore.getState().openTab(tab)
+    }
     if (useJiraSettingsStore.getState().closeSidePanelOnOpen) setLeftPanel(null)
   }
 
