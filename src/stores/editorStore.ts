@@ -185,6 +185,7 @@ interface EditorState {
   paneTabs: Record<string, string | null>
   paneTabLists: Record<string, string[]>
   openTab: (tab: Tab) => void
+  openTabInPane: (tab: Tab, paneId: string) => void
   openTabAfter: (tab: Tab, afterPath: string) => void
   closeTabInPane: (paneId: string, path: string) => void
   closeTab: (path: string) => void
@@ -249,13 +250,22 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   clearRevealRequest: () => set({ revealRequest: null }),
 
   openTab: (tab: Tab) => {
-    const { tabs, activePaneId, paneTabLists, layout } = get()
+    get().openTabInPane(tab, get().activePaneId)
+  },
+
+  // Like openTab, but lets the caller pick which pane a genuinely-new tab
+  // lands in (e.g. "always open in biggest pane" for external launchers).
+  // If the tab is already open somewhere, that pane wins regardless — same
+  // as openTab, just factored out so both share this precedence rule.
+  openTabInPane: (tab: Tab, paneId: string) => {
+    const { tabs, paneTabLists, layout } = get()
     const paneIds = collectPaneIds(layout)
     // If the tab is already open in some pane, focus that pane rather than
-    // also adding it to the active pane's list — otherwise the same tab ends
+    // also adding it to the target pane's list — otherwise the same tab ends
     // up open in two panes at once (e.g. reopening the Git Log tab from a
     // different pane than the one the user moved it to).
     const existingPaneId = paneIds.find((pid) => (paneTabLists[pid] ?? []).includes(tab.path))
+    const targetPaneId = existingPaneId ?? paneId
 
     if (existingPaneId) {
       set((state) => ({
@@ -269,12 +279,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return
     }
 
-    const currentList = paneTabLists[activePaneId] ?? []
+    const currentList = paneTabLists[targetPaneId] ?? []
     set((state) => ({
       tabs: tabs.some((t) => t.path === tab.path) ? state.tabs : [...state.tabs, tab],
       activeTabPath: tab.path,
-      paneTabs: { ...state.paneTabs, [activePaneId]: tab.path },
-      paneTabLists: { ...state.paneTabLists, [activePaneId]: [...currentList, tab.path] },
+      activePaneId: targetPaneId,
+      paneTabs: { ...state.paneTabs, [targetPaneId]: tab.path },
+      paneTabLists: { ...state.paneTabLists, [targetPaneId]: [...currentList, tab.path] },
     }))
   },
 

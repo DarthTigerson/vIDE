@@ -44,6 +44,8 @@ export function GitSettingsPage() {
   const setGitRemoteProjectUrl = useGitRemoteSettingsStore((s) => s.setProjectUrl)
   const gitRemoteCloseSidePanelOnOpen = useGitRemoteSettingsStore((s) => s.closeSidePanelOnOpen)
   const setGitRemoteCloseSidePanelOnOpen = useGitRemoteSettingsStore((s) => s.setCloseSidePanelOnOpen)
+  const gitRemoteOpenInBiggestPane = useGitRemoteSettingsStore((s) => s.openInBiggestPane)
+  const setGitRemoteOpenInBiggestPane = useGitRemoteSettingsStore((s) => s.setOpenInBiggestPane)
 
   const projectRoot = useFileStore((s) => s.projectRoot)
   const [branches, setBranches] = useState<string[]>([])
@@ -247,13 +249,20 @@ export function GitSettingsPage() {
             />
           )}
 
-          <div className="mt-3">
+          <div className="mt-3 flex flex-col gap-3">
             <Toggle
               className="max-w-[60ch]"
               label="Close side panel when opening"
               description="Collapse the currently open sidebar (Files, Git, etc.) when jumping to the repo browser tab, to give it the full width."
               checked={gitRemoteCloseSidePanelOnOpen}
               onChange={setGitRemoteCloseSidePanelOnOpen}
+            />
+            <Toggle
+              className="max-w-[60ch]"
+              label="Always open in biggest window"
+              description="If the editor is split into multiple panes, open the repo browser tab in whichever pane currently has the most space, instead of the focused one."
+              checked={gitRemoteOpenInBiggestPane}
+              onChange={setGitRemoteOpenInBiggestPane}
             />
           </div>
         </Row>

@@ -3,6 +3,7 @@ import { create } from 'zustand'
 const URL_KEY = 'vide:gitRemote:externalUrl'
 const PROJECT_URLS_KEY = 'vide:gitRemote:projectUrls'
 const CLOSE_SIDE_PANEL_KEY = 'vide:gitRemote:closeSidePanel'
+const OPEN_IN_BIGGEST_PANE_KEY = 'vide:gitRemote:openInBiggestPane'
 
 function getBool(key: string, def: boolean): boolean {
   const value = localStorage.getItem(key)
@@ -31,6 +32,8 @@ interface GitRemoteSettingsStore {
   setProjectUrl: (projectRoot: string, value: string) => void
   closeSidePanelOnOpen: boolean
   setCloseSidePanelOnOpen: (value: boolean) => void
+  openInBiggestPane: boolean
+  setOpenInBiggestPane: (value: boolean) => void
 }
 
 export const useGitRemoteSettingsStore = create<GitRemoteSettingsStore>((set, get) => ({
@@ -65,5 +68,12 @@ export const useGitRemoteSettingsStore = create<GitRemoteSettingsStore>((set, ge
   setCloseSidePanelOnOpen: (value) => {
     localStorage.setItem(CLOSE_SIDE_PANEL_KEY, String(value))
     set({ closeSidePanelOnOpen: value })
+  },
+
+  openInBiggestPane: getBool(OPEN_IN_BIGGEST_PANE_KEY, false),
+
+  setOpenInBiggestPane: (value) => {
+    localStorage.setItem(OPEN_IN_BIGGEST_PANE_KEY, String(value))
+    set({ openInBiggestPane: value })
   },
 }))

@@ -366,6 +366,7 @@ function EditorPane({ paneId }: { paneId: string }) {
 
   return (
     <div
+      data-pane-id={paneId}
       className={[
         'h-full min-h-0 flex flex-col bg-panel overflow-hidden outline outline-1 -outline-offset-1',
         isActivePane ? 'outline-accent/50' : 'outline-transparent',

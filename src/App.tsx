@@ -3,6 +3,7 @@ import type { MouseEvent } from 'react'
 import * as monaco from 'monaco-editor'
 import { ImperativePanelHandle, Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { clampSize, loadPanelSize } from '@/lib/panelSize'
+import { getBiggestPaneId } from '@/lib/paneLayout'
 import { syncOpenTabsFromDisk } from '@/lib/syncOpenTabsFromDisk'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import { Editor } from './components/Editor/Editor'
@@ -257,7 +258,17 @@ export default function App() {
       return
     }
     useBrowserStore.getState().ensureTab(GIT_REMOTE_BROWSER_ID, url)
-    useEditorStore.getState().openTab({ path: buildBrowserPath(GIT_REMOTE_BROWSER_ID), content: '', dirty: false })
+    const tab = { path: buildBrowserPath(GIT_REMOTE_BROWSER_ID), content: '', dirty: false }
+    if (useGitRemoteSettingsStore.getState().openInBiggestPane) {
+      const biggestPaneId = getBiggestPaneId()
+      if (biggestPaneId) {
+        useEditorStore.getState().openTabInPane(tab, biggestPaneId)
+      } else {
+        useEditorStore.getState().openTab(tab)
+      }
+    } else {
+      useEditorStore.getState().openTab(tab)
+    }
     if (useGitRemoteSettingsStore.getState().closeSidePanelOnOpen) setLeftPanel(null)
   }
 
