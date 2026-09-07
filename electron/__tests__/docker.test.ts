@@ -72,6 +72,17 @@ describe('checkDockerStatus', () => {
     execFileMock.mockReturnValue(err)
     expect(await checkDockerStatus()).toBe('stopped')
   })
+
+  it('returns "unknown" (not "stopped") when the call is killed by our own timeout — a busy daemon isn\'t necessarily down', async () => {
+    // Node sets `.killed` on the error when execFile's own `timeout` option
+    // fires, distinct from the CLI actually running and reporting the daemon
+    // is unreachable. Under heavy load (e.g. a `docker compose` deploy, or
+    // several vIDE windows/instances polling at once) `docker info` can be
+    // slow enough to hit this without the daemon being down at all.
+    const err = Object.assign(new Error('command timed out'), { killed: true, signal: 'SIGTERM' })
+    execFileMock.mockReturnValue(err)
+    expect(await checkDockerStatus()).toBe('unknown')
+  })
 })
 
 describe('listContainers', () => {

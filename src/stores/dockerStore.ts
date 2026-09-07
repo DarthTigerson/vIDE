@@ -31,87 +31,108 @@ interface DockerStore {
   stopWatching: () => void
 }
 
-export const useDockerStore = create<DockerStore>((set, get) => ({
-  status: 'unknown',
-  containers: [],
-  containerStats: {},
-  loading: false,
-  watching: false,
-  watcherRefCount: 0,
+export const useDockerStore = create<DockerStore>((set, get) => {
+  // `docker events` can fire refresh() several times in quick succession
+  // (see useDockerLiveUpdates), and under compose-up load the underlying
+  // `docker info`/`docker ps` calls don't always resolve in the order they
+  // were issued. Without this guard a stale, slow-to-resolve refresh could
+  // overwrite a fresher one that already landed, producing exactly the
+  // running/stopped flicker this token prevents.
+  let refreshToken = 0
 
-  refresh: async () => {
-    set({ loading: true })
-    const status = await window.api.dockerStatus()
-    const containers = status === 'running' ? await window.api.dockerListContainers() : []
-    set({ status, containers, loading: false })
-  },
+  return {
+    status: 'unknown',
+    containers: [],
+    containerStats: {},
+    loading: false,
+    watching: false,
+    watcherRefCount: 0,
 
-  refreshStats: async () => {
-    if (get().status !== 'running') return
-    const containerStats = await window.api.dockerGetContainerStats()
-    set({ containerStats })
-  },
+    refresh: async () => {
+      const token = ++refreshToken
+      set({ loading: true })
+      const status = await window.api.dockerStatus()
+      // 'unknown' means the status check itself timed out under load (see
+      // checkDockerStatus in electron/docker.ts) rather than confirming
+      // Docker is actually down — keep whatever we last confirmed instead of
+      // flickering the UI to "stopped" on a transient blip.
+      if (status === 'unknown') {
+        if (token !== refreshToken) return
+        set({ loading: false })
+        return
+      }
+      const containers = status === 'running' ? await window.api.dockerListContainers() : []
+      if (token !== refreshToken) return
+      set({ status, containers, loading: false })
+    },
 
-  startContainer: async (id) => {
-    const result = await window.api.dockerStartContainer(id)
-    await get().refresh()
-    return result
-  },
-  stopContainer: async (id) => {
-    const result = await window.api.dockerStopContainer(id)
-    await get().refresh()
-    return result
-  },
-  restartContainer: async (id) => {
-    const result = await window.api.dockerRestartContainer(id)
-    await get().refresh()
-    return result
-  },
-  removeContainer: async (id) => {
-    const result = await window.api.dockerRemoveContainer(id)
-    await get().refresh()
-    return result
-  },
-  startContainers: async (ids) => {
-    const result = await window.api.dockerStartContainers(ids)
-    await get().refresh()
-    return result
-  },
-  stopContainers: async (ids) => {
-    const result = await window.api.dockerStopContainers(ids)
-    await get().refresh()
-    return result
-  },
-  removeContainers: async (ids) => {
-    const result = await window.api.dockerRemoveContainers(ids)
-    await get().refresh()
-    return result
-  },
-  openApp: async () => {
-    const result = await window.api.dockerOpenApp()
-    await get().refresh()
-    return result
-  },
-  closeApp: async () => {
-    const result = await window.api.dockerCloseApp()
-    await get().refresh()
-    return result
-  },
+    refreshStats: async () => {
+      if (get().status !== 'running') return
+      const containerStats = await window.api.dockerGetContainerStats()
+      set({ containerStats })
+    },
 
-  startWatching: () => {
-    const count = get().watcherRefCount + 1
-    set({ watcherRefCount: count })
-    if (count === 1) {
-      set({ watching: true })
-      window.api.dockerWatch()
-    }
-  },
-  stopWatching: () => {
-    const count = Math.max(0, get().watcherRefCount - 1)
-    set({ watcherRefCount: count })
-    if (count === 0) {
-      set({ watching: false })
-      window.api.dockerUnwatch()
-    }
-  },
-}))
+    startContainer: async (id) => {
+      const result = await window.api.dockerStartContainer(id)
+      await get().refresh()
+      return result
+    },
+    stopContainer: async (id) => {
+      const result = await window.api.dockerStopContainer(id)
+      await get().refresh()
+      return result
+    },
+    restartContainer: async (id) => {
+      const result = await window.api.dockerRestartContainer(id)
+      await get().refresh()
+      return result
+    },
+    removeContainer: async (id) => {
+      const result = await window.api.dockerRemoveContainer(id)
+      await get().refresh()
+      return result
+    },
+    startContainers: async (ids) => {
+      const result = await window.api.dockerStartContainers(ids)
+      await get().refresh()
+      return result
+    },
+    stopContainers: async (ids) => {
+      const result = await window.api.dockerStopContainers(ids)
+      await get().refresh()
+      return result
+    },
+    removeContainers: async (ids) => {
+      const result = await window.api.dockerRemoveContainers(ids)
+      await get().refresh()
+      return result
+    },
+    openApp: async () => {
+      const result = await window.api.dockerOpenApp()
+      await get().refresh()
+      return result
+    },
+    closeApp: async () => {
+      const result = await window.api.dockerCloseApp()
+      await get().refresh()
+      return result
+    },
+
+    startWatching: () => {
+      const count = get().watcherRefCount + 1
+      set({ watcherRefCount: count })
+      if (count === 1) {
+        set({ watching: true })
+        window.api.dockerWatch()
+      }
+    },
+    stopWatching: () => {
+      const count = Math.max(0, get().watcherRefCount - 1)
+      set({ watcherRefCount: count })
+      if (count === 0) {
+        set({ watching: false })
+        window.api.dockerUnwatch()
+      }
+    },
+  }
+})

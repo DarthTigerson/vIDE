@@ -104,6 +104,40 @@ describe('dockerStore', () => {
     expect(window.api.dockerGetContainerStats).not.toHaveBeenCalled()
   })
 
+  it('does not let a stale, slow-to-resolve refresh() clobber a fresher one (out-of-order resolution)', async () => {
+    // Simulates a burst of `docker events` firing several refresh() calls in
+    // quick succession, where an earlier-issued check happens to resolve
+    // after a later one — e.g. because `docker info` is intermittently slow
+    // under the load `docker compose up` puts on the daemon.
+    let resolveFirst: (v: 'stopped') => void = () => {}
+    const first = new Promise<'stopped'>((resolve) => { resolveFirst = resolve })
+    ;(window.api.dockerStatus as ReturnType<typeof vi.fn>)
+      .mockImplementationOnce(() => first)
+      .mockImplementationOnce(() => Promise.resolve('running'))
+
+    const refreshA = useDockerStore.getState().refresh() // fires first, resolves last
+    const refreshB = useDockerStore.getState().refresh() // fires second, resolves first
+    await refreshB
+    expect(useDockerStore.getState().status).toBe('running')
+
+    resolveFirst('stopped')
+    await refreshA
+    // The later-issued refresh (B) is the authoritative one; A's stale
+    // result must not overwrite it just because it resolved later.
+    expect(useDockerStore.getState().status).toBe('running')
+  })
+
+  it('treats "unknown" (busy-daemon timeout) as inconclusive — keeps prior status instead of flickering to stopped', async () => {
+    useDockerStore.setState({ status: 'running', containers: [container] })
+    ;(window.api.dockerStatus as ReturnType<typeof vi.fn>).mockResolvedValueOnce('unknown')
+
+    await useDockerStore.getState().refresh()
+
+    expect(useDockerStore.getState().status).toBe('running')
+    expect(useDockerStore.getState().containers).toEqual([container])
+    expect(window.api.dockerListContainers).not.toHaveBeenCalled()
+  })
+
   it('startWatching/stopWatching call the IPC watch channels once each', () => {
     useDockerStore.getState().startWatching()
     useDockerStore.getState().startWatching()
