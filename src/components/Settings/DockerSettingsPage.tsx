@@ -1,6 +1,7 @@
 import { useDockerSettingsStore, type DockerBadgeMode, type DockerMemoryFormat } from '@/stores/dockerSettingsStore'
 import { Toggle } from '@/components/ui/Toggle'
 import { Select } from '@/components/ui/Select'
+import { Section, Row } from './SettingsLayout'
 
 export function DockerSettingsPage() {
   const enabled = useDockerSettingsStore((s) => s.enabled)
@@ -17,24 +18,24 @@ export function DockerSettingsPage() {
   return (
     <div className="h-full overflow-auto p-6 bg-panel">
       <h1 className="text-base font-semibold text-fg mb-1">Docker</h1>
-      <p className="text-sm text-fg-muted mb-8">
+      <p className="text-sm text-fg-muted mb-4">
         See and control local Docker containers without leaving vIDE.
       </p>
 
-      <div className="grid grid-cols-1 gap-6 max-w-lg">
-        <section className="rounded-xl border border-border/60 p-4 flex flex-col gap-5">
-          <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
-            General
-          </h2>
-
+      <Section label="General">
+        <Row>
           <Toggle
+            className="max-w-[60ch]"
             label="Enable Docker"
             description="Adds a Docker icon to the activity bar with a live container panel and per-container logs."
             checked={enabled}
             onChange={setEnabled}
           />
+        </Row>
 
+        <Row>
           <Toggle
+            className="max-w-[60ch]"
             label="Show running count"
             description="Adds a badge with a live count to the Docker icon in the activity bar, kept up to date even while the panel is closed."
             checked={showBadge}
@@ -42,7 +43,7 @@ export function DockerSettingsPage() {
           />
 
           {showBadge && (
-            <div className="pl-1">
+            <div className="mt-3 pl-4 border-l border-border/40 max-w-xs">
               <label htmlFor="docker-badge-mode" className="text-xs text-fg-muted mb-1.5 block">
                 Count
               </label>
@@ -57,14 +58,13 @@ export function DockerSettingsPage() {
               />
             </div>
           )}
-        </section>
+        </Row>
+      </Section>
 
-        <section className="rounded-xl border border-border/60 p-4 flex flex-col gap-5">
-          <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
-            Container Rows
-          </h2>
-
+      <Section label="Container Rows">
+        <Row>
           <Toggle
+            className="max-w-[60ch]"
             label="Show memory usage"
             description="Adds each container's memory usage to its row. Uses docker stats, a noticeably heavier command than the container list itself, so this polls only while the panel is open."
             checked={showMemory}
@@ -72,7 +72,7 @@ export function DockerSettingsPage() {
           />
 
           {showMemory && (
-            <div className="pl-1">
+            <div className="mt-3 pl-4 border-l border-border/40 max-w-xs">
               <label htmlFor="docker-memory-format" className="text-xs text-fg-muted mb-1.5 block">
                 Format
               </label>
@@ -93,8 +93,8 @@ export function DockerSettingsPage() {
               </p>
             </div>
           )}
-        </section>
-      </div>
+        </Row>
+      </Section>
     </div>
   )
 }
