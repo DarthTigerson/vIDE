@@ -5,6 +5,8 @@ import type { FileNode } from '@/types/index'
 import type { NotesSearchResult } from '@/types/api'
 import { useNotesStore } from '@/stores/notesStore'
 import { useEditorStore } from '@/stores/editorStore'
+import { useNotesSettingsStore } from '@/stores/notesSettingsStore'
+import { getBiggestPaneId } from '@/lib/paneLayout'
 import { buildMarkdownPreviewPath } from '@/components/Viewer/paths'
 import { Modal } from '@/components/ui/Modal'
 import { clampToViewport } from '@/components/ui/clampToViewport'
@@ -138,7 +140,7 @@ function NotesSearchResults({
 export function NotesPanel() {
   const root = useNotesStore((s) => s.root)
   const loadRoot = useNotesStore((s) => s.loadRoot)
-  const { openTab, activeTabPath } = useEditorStore()
+  const { openTab, openTabInPane, activeTabPath } = useEditorStore()
 
   const [childrenByDir, setChildrenByDir] = useState<Record<string, FileNode[]>>({})
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set())
@@ -293,7 +295,15 @@ export function NotesPanel() {
   async function openNote(node: FileNode) {
     setMenu(null)
     const content = await window.api.readFile(node.path)
-    openTab({ path: node.path, content, dirty: false })
+    const tab = { path: node.path, content, dirty: false }
+    if (useNotesSettingsStore.getState().openInBiggestPane) {
+      const biggestPaneId = getBiggestPaneId()
+      if (biggestPaneId) {
+        openTabInPane(tab, biggestPaneId)
+        return
+      }
+    }
+    openTab(tab)
   }
 
   function targetDirectory(node: FileNode | null): string | null {
