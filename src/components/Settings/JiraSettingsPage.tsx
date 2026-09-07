@@ -43,7 +43,7 @@ export function JiraSettingsPage() {
       <div className="grid grid-cols-1 gap-6 max-w-lg">
         <section className="rounded-xl border border-border/60 p-4 flex flex-col gap-5">
           <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
-            Jira
+            General
           </h2>
 
           <Toggle

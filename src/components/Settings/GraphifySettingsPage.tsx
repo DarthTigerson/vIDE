@@ -1,9 +1,13 @@
 import { useGraphifyStore } from '@/stores/graphifyStore'
+import { useGraphifySettingsStore } from '@/stores/graphifySettingsStore'
 import { useFileStore } from '@/stores/fileStore'
+import { Toggle } from '@/components/ui/Toggle'
 
 export function GraphifySettingsPage() {
   const projectRoot = useFileStore((s) => s.projectRoot)
   const { installingSkill, skillInstallResult, installClaudeSkill } = useGraphifyStore()
+  const enabled = useGraphifySettingsStore((s) => s.enabled)
+  const setEnabled = useGraphifySettingsStore((s) => s.setEnabled)
 
   return (
     <div className="h-full overflow-auto p-6 bg-panel">
@@ -13,8 +17,21 @@ export function GraphifySettingsPage() {
       </p>
 
       <div className="grid grid-cols-1 gap-6 max-w-lg">
+        <section className="rounded-xl border border-border/60 p-4 flex flex-col gap-5">
+          <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
+            General
+          </h2>
+
+          <Toggle
+            label="Enable Graphify"
+            description="Adds a Graphify icon to the activity bar with the knowledge graph panel."
+            checked={enabled}
+            onChange={setEnabled}
+          />
+        </section>
+
         <section className="rounded-xl border border-border/60 p-4 flex flex-col gap-4">
-          <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">Claude Code integration</h2>
+          <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">Claude Code</h2>
           <p className="text-sm text-fg-muted">
             Registers graphify as a Claude Code skill for the current project
             (<code className="text-xs bg-white/10 rounded px-1 py-0.5">.claude/skills/graphify</code>, plus a

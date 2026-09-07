@@ -47,7 +47,8 @@ import {
   EDITOR_SETTINGS_TAB_PATH,
   GIT_SETTINGS_TAB_PATH,
   BROWSER_SETTINGS_TAB_PATH,
-  MODELS_SETTINGS_TAB_PATH,
+  CLAUDE_SETTINGS_TAB_PATH,
+  BRIDGE_SETTINGS_TAB_PATH,
   GRAPHIFY_SETTINGS_TAB_PATH,
   JIRA_SETTINGS_TAB_PATH,
   DOCKER_SETTINGS_TAB_PATH,
@@ -62,7 +63,8 @@ import { DisplayPage } from '@/components/Settings/DisplayPage'
 import { GitSettingsPage } from '@/components/Settings/GitSettingsPage'
 import { EditorSettingsPage } from '@/components/Settings/EditorSettingsPage'
 import { BrowserSettingsPage } from '@/components/Settings/BrowserSettingsPage'
-import { ModelsSettingsPage } from '@/components/Settings/ModelsSettingsPage'
+import { ClaudeSettingsPage } from '@/components/Settings/ClaudeSettingsPage'
+import { BridgeSettingsPage } from '@/components/Settings/BridgeSettingsPage'
 import { GraphifySettingsPage } from '@/components/Settings/GraphifySettingsPage'
 import { JiraSettingsPage } from '@/components/Settings/JiraSettingsPage'
 import { DockerSettingsPage } from '@/components/Settings/DockerSettingsPage'
@@ -397,8 +399,10 @@ function EditorPane({ paneId }: { paneId: string }) {
             <EditorSettingsPage />
           ) : activeTab.path === BROWSER_SETTINGS_TAB_PATH ? (
             <BrowserSettingsPage />
-          ) : activeTab.path === MODELS_SETTINGS_TAB_PATH ? (
-            <ModelsSettingsPage />
+          ) : activeTab.path === CLAUDE_SETTINGS_TAB_PATH ? (
+            <ClaudeSettingsPage />
+          ) : activeTab.path === BRIDGE_SETTINGS_TAB_PATH ? (
+            <BridgeSettingsPage />
           ) : activeTab.path === GRAPHIFY_SETTINGS_TAB_PATH ? (
             <GraphifySettingsPage />
           ) : activeTab.path === JIRA_SETTINGS_TAB_PATH ? (

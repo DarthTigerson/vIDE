@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useModelSettingsStore } from '@/stores/modelSettingsStore'
 import { useAutocompleteSettingsStore, AUTOCOMPLETE_MODELS } from '@/stores/autocompleteSettingsStore'
-import { useBridgeSettingsStore } from '@/stores/bridgeSettingsStore'
 import { useInlineEditSettingsStore } from '@/stores/inlineEditSettingsStore'
 import { useCommitMessageSettingsStore } from '@/stores/commitMessageSettingsStore'
 import { useUsagePassiveSettingsStore } from '@/stores/usagePassiveSettingsStore'
@@ -10,12 +9,6 @@ import { useEditorStore } from '@/stores/editorStore'
 import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
 import { Toggle } from '@/components/ui/Toggle'
 import { Select } from '@/components/ui/Select'
-import type { AssistantKind } from '@/types/api'
-
-const MODEL_TOGGLES: Array<{ id: AssistantKind; label: string; description: string }> = [
-  { id: 'claude', label: 'Claude', description: 'Show Claude Code in the model dropdown.' },
-  { id: 'bridge', label: 'Bridge', description: 'Show Bridge in the model dropdown.' },
-]
 
 function SpeakerIcon() {
   return (
@@ -34,66 +27,8 @@ function SpeakerIcon() {
   )
 }
 
-function Field({ id, label, value, onChange, type = 'text' }: {
-  id: string; label: string; value: string; onChange: (v: string) => void; type?: string
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm text-fg">{label}</label>
-      <input
-        id={id}
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-8 px-2 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
-      />
-    </div>
-  )
-}
-
-function BridgeConnectionSection() {
-  const { endpoint, apiKey, modelId, setEndpoint, setApiKey, setModelId } = useBridgeSettingsStore()
-  const [testState, setTestState] = useState<'idle' | 'testing' | 'ok' | 'error'>('idle')
-  const [testError, setTestError] = useState('')
-
-  const runTest = async () => {
-    setTestState('testing')
-    setTestError('')
-    const result = await window.api.bridgeTestConnection({ endpoint, apiKey, modelId })
-    if (result.ok) {
-      setTestState('ok')
-    } else {
-      setTestState('error')
-      setTestError(result.error ?? 'Unknown error')
-    }
-  }
-
-  return (
-    <section className="rounded-xl border border-border/60 p-4 flex flex-col gap-5">
-      <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">Bridge</h2>
-
-      <Field id="bridge-endpoint" label="Endpoint" value={endpoint} onChange={setEndpoint} />
-      <Field id="bridge-apikey" label="API Key" value={apiKey} onChange={setApiKey} />
-      <Field id="bridge-model" label="Model ID" value={modelId} onChange={setModelId} />
-
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={runTest}
-          disabled={testState === 'testing'}
-          className="h-8 px-3 rounded border border-border text-sm text-fg hover:border-fg-subtle transition-colors disabled:opacity-50"
-        >
-          Test Connection
-        </button>
-        {testState === 'ok' && <span className="text-sm text-green-500">Connected</span>}
-        {testState === 'error' && <span className="text-sm text-red-500">{testError}</span>}
-      </div>
-    </section>
-  )
-}
-
-export function ModelsSettingsPage() {
-  const enabledModels = useModelSettingsStore((s) => s.enabled)
+export function ClaudeSettingsPage() {
+  const claudeEnabled = useModelSettingsStore((s) => s.enabled.claude)
   const setModelEnabled = useModelSettingsStore((s) => s.setEnabled)
   const autocompleteModel = useAutocompleteSettingsStore((s) => s.model)
   const setAutocompleteModel = useAutocompleteSettingsStore((s) => s.setModel)
@@ -120,24 +55,21 @@ export function ModelsSettingsPage() {
 
   return (
     <div className="h-full overflow-auto p-6 bg-panel">
-      <h1 className="text-base font-semibold text-fg mb-1">Models</h1>
-      <p className="text-sm text-fg-muted mb-8">Assistants and model-powered features.</p>
+      <h1 className="text-base font-semibold text-fg mb-1">Claude</h1>
+      <p className="text-sm text-fg-muted mb-8">Claude Code and its model-powered features.</p>
 
       <div className="grid grid-cols-1 gap-6 max-w-lg">
         <section className="rounded-xl border border-border/60 p-4 flex flex-col gap-5">
           <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
-            Assistants
+            General
           </h2>
 
-          {MODEL_TOGGLES.map((model) => (
-            <Toggle
-              key={model.id}
-              label={model.label}
-              description={model.description}
-              checked={enabledModels[model.id]}
-              onChange={(value) => setModelEnabled(model.id, value)}
-            />
-          ))}
+          <Toggle
+            label="Claude"
+            description="Show Claude Code in the model dropdown."
+            checked={claudeEnabled}
+            onChange={(value) => setModelEnabled('claude', value)}
+          />
         </section>
 
         <section className="rounded-xl border border-border/60 p-4 flex flex-col gap-5">
@@ -175,8 +107,6 @@ export function ModelsSettingsPage() {
             </div>
           )}
         </section>
-
-        {enabledModels.bridge && <BridgeConnectionSection />}
 
         <section className="rounded-xl border border-border/60 p-4 flex flex-col gap-5">
           <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">

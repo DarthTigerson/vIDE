@@ -82,6 +82,7 @@ import { useDockerOffAlertStore } from './stores/dockerOffAlertStore'
 import { useDockerLiveUpdates } from './hooks/useDockerLiveUpdates'
 import { useTodoSettingsStore } from './stores/todoSettingsStore'
 import { useNotesSettingsStore } from './stores/notesSettingsStore'
+import { useGraphifySettingsStore } from './stores/graphifySettingsStore'
 import { useNotesStore } from './stores/notesStore'
 import { detectGitRemoteProvider, gitRemoteIcon, gitRemoteLabel } from './lib/gitRemoteProvider'
 import { evaluateCmdWForPinnedTab, type PendingClose } from './lib/pinnedTabCloseGuard'
@@ -212,6 +213,7 @@ export default function App() {
   const mobileEnabled = useMobileSettingsStore((s) => s.enabled)
   const todoEnabled = useTodoSettingsStore((s) => s.enabled)
   const notesEnabled = useNotesSettingsStore((s) => s.enabled)
+  const graphifyEnabled = useGraphifySettingsStore((s) => s.enabled)
 
   function openNewTerminal() {
     const id = Date.now().toString(36)
@@ -814,7 +816,7 @@ export default function App() {
               badge: mobileBadge,
               onClick: () => setLeftPanel((p) => (p === 'mobile' ? null : 'mobile')),
             }] : []),
-            ...(projectRoot ? [{
+            ...(graphifyEnabled && projectRoot ? [{
               id: 'graphify',
               icon: <GraphIcon />,
               title: 'Graphify',
