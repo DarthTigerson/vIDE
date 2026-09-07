@@ -9,7 +9,7 @@ export function Toggle({ label, description, checked, onChange, disabled, classN
   return (
     <label
       className={[
-        'flex items-start justify-between gap-4 -mx-2 px-2 py-1 rounded-lg transition-colors',
+        'flex items-center justify-between gap-4 -mx-2 px-2 py-1 rounded-lg transition-colors',
         disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-white/5',
       ].join(' ')}
     >
@@ -25,7 +25,7 @@ export function Toggle({ label, description, checked, onChange, disabled, classN
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={[
-          'relative shrink-0 w-9 h-5 rounded-full border transition-colors mt-0.5',
+          'relative shrink-0 w-9 h-5 rounded-full border transition-colors',
           disabled ? 'cursor-not-allowed' : '',
           checked ? 'bg-accent border-accent' : 'bg-fg-subtle border-fg-subtle',
         ].join(' ')}
