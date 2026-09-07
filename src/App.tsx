@@ -30,7 +30,6 @@ import {
   NewSessionIcon,
   NewSessionPlusIcon,
   PreviousSessionIcon,
-  ResumeSessionIcon,
   CompactIcon,
   ClearIcon,
   UsageIcon,
@@ -159,7 +158,6 @@ export default function App() {
   const assistantLabel = assistant === 'claude' ? 'Claude Code' : 'Bridge'
   const newSessionTitle = assistant === 'claude' ? 'New Claude Session' : 'New Bridge Session'
   const previousSessionTitle = assistant === 'claude' ? 'Continue Claude Session' : 'Restore Previous Bridge Session'
-  const resumeSessionTitle = 'Resume Session…'
   const uncommittedChangeCount = new Set([
     ...gitStatus.staged.map((file) => file.path),
     ...gitStatus.unstaged.map((file) => file.path),
@@ -1006,31 +1004,11 @@ export default function App() {
           ]}
           bottomGroups={assistant === 'claude'
             ? [
-              [], // empty leading group so ItemGroups renders a divider above Previous Session
-              [
-                {
-                  id: 'previous-session',
-                  icon: <PreviousSessionIcon />,
-                  title: previousSessionTitle,
-                  active: false,
-                  disabled: !projectRoot,
-                  onClick: () => {
-                    if (!projectRoot) return
-                    useClaudeStore.getState().previousSession(projectRoot)
-                  },
-                },
-                {
-                  id: 'resume-session',
-                  icon: <ResumeSessionIcon />,
-                  title: resumeSessionTitle,
-                  active: false,
-                  disabled: !projectRoot,
-                  onClick: () => {
-                    if (!projectRoot) return
-                    useClaudeStore.getState().resumeSession(projectRoot)
-                  },
-                },
-              ],
+              [], // empty leading group so ItemGroups renders a divider above Compact
+              // Previous/Resume Session moved to the right-click menu on each
+              // session icon (see ClaudeSessionContextMenu) now that there can
+              // be more than one session — a toolbar button can only ever act
+              // on "the" active one, which stopped being an unambiguous concept.
               [
                 {
                   id: 'compact',

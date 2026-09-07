@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { clampToViewport } from '@/components/ui/clampToViewport'
+import { PreviousSessionIcon, ResumeSessionIcon, CompactIcon, ClearIcon } from './ActivityBar'
 
 interface Props {
   x: number
@@ -56,29 +57,34 @@ export function ClaudeSessionContextMenu({
       <button
         type="button"
         onClick={() => { onContinuePreviousSession(); onClose() }}
-        className="w-full rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
       >
+        <PreviousSessionIcon />
         Continue Previous Session
       </button>
       <button
         type="button"
         onClick={() => { onResumeSession(); onClose() }}
-        className="w-full rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
       >
+        <ResumeSessionIcon />
         Resume Session…
       </button>
+      <div className="my-1 h-px bg-border" />
       <button
         type="button"
         onClick={() => { onCompact(); onClose() }}
-        className="w-full rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
       >
+        <CompactIcon />
         Compact
       </button>
       <button
         type="button"
         onClick={() => { onClear(); onClose() }}
-        className="w-full rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
       >
+        <ClearIcon />
         Clear
       </button>
       <div className="my-1 h-px bg-border" />
