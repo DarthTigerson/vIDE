@@ -4,6 +4,7 @@ const KEYS = {
   autoSaveEnabled: 'vide:editor:autoSaveEnabled',
   wordWrapEnabled: 'vide:editor:wordWrapEnabled',
   changeAllOccurrencesInMenu: 'vide:editor:changeAllOccurrencesInMenu',
+  openInBiggestPane: 'vide:editor:openInBiggestPane',
 }
 
 function getBool(key: string, def: boolean): boolean {
@@ -23,6 +24,8 @@ interface EditorSettingsStore {
   // it only hides/shows the menu entry.
   changeAllOccurrencesInMenu: boolean
   setChangeAllOccurrencesInMenu: (value: boolean) => void
+  openInBiggestPane: boolean
+  setOpenInBiggestPane: (value: boolean) => void
 }
 
 export const useEditorSettingsStore = create<EditorSettingsStore>((set, get) => ({
@@ -47,5 +50,12 @@ export const useEditorSettingsStore = create<EditorSettingsStore>((set, get) => 
   setChangeAllOccurrencesInMenu: (value) => {
     localStorage.setItem(KEYS.changeAllOccurrencesInMenu, String(value))
     set({ changeAllOccurrencesInMenu: value })
+  },
+
+  openInBiggestPane: getBool(KEYS.openInBiggestPane, false),
+
+  setOpenInBiggestPane: (value) => {
+    localStorage.setItem(KEYS.openInBiggestPane, String(value))
+    set({ openInBiggestPane: value })
   },
 }))
