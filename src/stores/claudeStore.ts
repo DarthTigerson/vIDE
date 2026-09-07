@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { AssistantKind } from '@/types/api'
+import { hueForInstanceIndex } from '@/lib/claudeInstanceHues'
 
 const ASSISTANT_KEY = 'vide-last-assistant'
 const VALID: AssistantKind[] = ['claude', 'bridge']
@@ -13,22 +14,41 @@ function readStoredAssistant(): AssistantKind {
   }
 }
 
+export interface ClaudeInstance {
+  id: string
+  hue: string
+}
+
+function createInstance(index: number): ClaudeInstance {
+  return { id: crypto.randomUUID(), hue: hueForInstanceIndex(index) }
+}
+
 interface ClaudeState {
   assistant: AssistantKind
+  // The stacked Claude sessions. Starts empty — App.tsx populates it via
+  // loadInstancesFromSession() once sessionLoad() resolves for the current
+  // project, so no throwaway instance is ever created and then discarded.
+  instances: ClaudeInstance[]
+  activeInstanceId: string
   restartToken: number
   usageOpen: boolean
   costOpen: boolean
   chatVisible: boolean
   pendingInjection: string | null
   focusToken: number
-  // Whether that assistant's CLI is actively generating (electron/claude.ts
+  // Whether that instance's CLI is actively generating (electron/claude.ts
   // infers this from PTY output timing, filtering out echoes of the user's
-  // own keystrokes — see the ECHO_WINDOW_MS comment there).
-  busyByAssistant: Partial<Record<AssistantKind, boolean>>
+  // own keystrokes — see the ECHO_WINDOW_MS comment there). Keyed by
+  // instance id — Bridge never appears here, it never went through the
+  // busy-tracking IPC channel.
+  busyByInstance: Record<string, boolean>
   setAssistant: (assistant: AssistantKind) => void
+  loadInstancesFromSession: (saved: ClaudeInstance[] | undefined) => void
   newSession: (cwd: string) => void
   previousSession: (cwd: string) => void
   resumeSession: (cwd: string) => void
+  closeInstance: (cwd: string, id: string) => void
+  setActiveInstance: (id: string) => void
   compact: () => void
   clearContext: () => void
   usage: () => void
@@ -38,11 +58,13 @@ interface ClaudeState {
   sendSelection: (text: string) => void
   focusChat: () => void
   consumeInjection: () => void
-  setBusy: (assistant: AssistantKind, busy: boolean) => void
+  setBusy: (instanceId: string, busy: boolean) => void
 }
 
 export const useClaudeStore = create<ClaudeState>((set, get) => ({
   assistant: readStoredAssistant(),
+  instances: [],
+  activeInstanceId: '',
   restartToken: 0,
   usageOpen: false,
   costOpen: false,
@@ -53,14 +75,22 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
   chatVisible: false,
   pendingInjection: null,
   focusToken: 0,
-  busyByAssistant: {},
+  busyByInstance: {},
 
-  setBusy: (assistant, busy) =>
-    set((s) => ({ busyByAssistant: { ...s.busyByAssistant, [assistant]: busy } })),
+  setBusy: (instanceId, busy) =>
+    set((s) => ({ busyByInstance: { ...s.busyByInstance, [instanceId]: busy } })),
 
   setAssistant: (assistant: AssistantKind) => {
     try { localStorage.setItem(ASSISTANT_KEY, assistant) } catch {}
     set({ assistant })
+  },
+
+  loadInstancesFromSession: (saved) => {
+    const validSaved = Array.isArray(saved)
+      ? saved.filter((inst): inst is ClaudeInstance => typeof inst?.id === 'string' && typeof inst?.hue === 'string')
+      : []
+    const instances = validSaved.length > 0 ? validSaved : [createInstance(0)]
+    set({ instances, activeInstanceId: instances[0].id })
   },
 
   toggleChatVisible: () => set((s) => ({ chatVisible: !s.chatVisible })),
@@ -78,25 +108,52 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
   consumeInjection: () => set({ pendingInjection: null }),
 
   newSession: (cwd: string) => {
-    set((s) => ({ restartToken: s.restartToken + 1 }))
-    window.api.assistantSpawn(cwd, useClaudeStore.getState().assistant, 'new')
+    const instances = get().instances
+    const instance = createInstance(instances.length)
+    const nextInstances = [...instances, instance]
+    set({ instances: nextInstances, activeInstanceId: instance.id })
+    // Whole-file overwrite — fine today since claudeInstances is the only
+    // field anything writes to session data, but a future feature that
+    // starts persisting layout/tabs here would need a read-merge-write
+    // instead, or its data will be silently erased on every "+"/close.
+    window.api.sessionSave(cwd, { claudeInstances: nextInstances } as any)
   },
 
   previousSession: (cwd: string) => {
     set((s) => ({ restartToken: s.restartToken + 1 }))
-    window.api.assistantSpawn(cwd, useClaudeStore.getState().assistant, 'continue')
+    window.api.claudeSpawn(cwd, get().activeInstanceId, 'continue')
   },
 
   resumeSession: (cwd: string) => {
     set((s) => ({ restartToken: s.restartToken + 1 }))
-    window.api.assistantSpawn(cwd, useClaudeStore.getState().assistant, 'resume')
+    window.api.claudeSpawn(cwd, get().activeInstanceId, 'resume')
+  },
+
+  setActiveInstance: (id) => set({ activeInstanceId: id }),
+
+  closeInstance: (cwd: string, id: string) => {
+    const { instances, activeInstanceId } = get()
+    if (instances.length <= 1) return
+    const closedIndex = instances.findIndex((inst) => inst.id === id)
+    if (closedIndex === -1) return
+
+    const nextInstances = instances.filter((inst) => inst.id !== id)
+    window.api.claudeKill(id)
+
+    const nextActiveId = activeInstanceId === id
+      ? nextInstances[Math.min(closedIndex, nextInstances.length - 1)].id
+      : activeInstanceId
+
+    set({ instances: nextInstances, activeInstanceId: nextActiveId })
+    // Whole-file overwrite — see the comment in newSession() above.
+    window.api.sessionSave(cwd, { claudeInstances: nextInstances } as any)
   },
 
   compact: () => {
-    if (useClaudeStore.getState().assistant === 'claude') window.api.assistantWrite('claude', '/compact\r')
+    if (get().assistant === 'claude') window.api.claudeWrite(get().activeInstanceId, '/compact\r')
   },
   clearContext: () => {
-    if (useClaudeStore.getState().assistant === 'claude') window.api.assistantWrite('claude', '/clear\r')
+    if (get().assistant === 'claude') window.api.claudeWrite(get().activeInstanceId, '/clear\r')
   },
   usage: () => {
     if (get().assistant !== 'claude') return

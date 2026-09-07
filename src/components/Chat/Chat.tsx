@@ -15,7 +15,6 @@ import { CostPanel } from '@/components/UsagePanel/CostPanel'
 import { isShiftEnterKeydown, SHIFT_ENTER_SEQUENCE } from './shiftEnterSequence'
 import { wrapBracketedPaste } from '@/lib/sendSelectionToAssistant'
 import { createFilePathLinkProvider, createFilePathActivateHandler, createUrlActivateHandler, openUrlInBrowserTab } from './terminalLinks'
-import type { AssistantKind } from '@/types/api'
 
 function hasValidSize(cols: number, rows: number): boolean {
   return cols > 0 && rows > 0
@@ -28,8 +27,6 @@ interface AssistantTerminal {
   cleanupData: () => void
   onDataDisposable: { dispose: () => void }
 }
-
-const ASSISTANTS: AssistantKind[] = ['claude']
 
 function createXTerm(themeId: ThemeId, panelStyle: PanelStyle, fontSize: number): XTerm {
   return new XTerm({
@@ -50,6 +47,8 @@ function createXTerm(themeId: ThemeId, panelStyle: PanelStyle, fontSize: number)
 export function Chat() {
   const projectRoot = useFileStore((s) => s.projectRoot)
   const assistant = useClaudeStore((s) => s.assistant)
+  const instances = useClaudeStore((s) => s.instances)
+  const activeInstanceId = useClaudeStore((s) => s.activeInstanceId)
   const usageOpen = useClaudeStore((s) => s.usageOpen)
   const costOpen = useClaudeStore((s) => s.costOpen)
   const focusToken = useClaudeStore((s) => s.focusToken)
@@ -57,33 +56,33 @@ export function Chat() {
   const theme = useThemeStore((s) => s.theme)
   const panelStyle = useDisplayStore((s) => s.panelStyle)
   const fontSize = useFontSizeStore((s) => s.fontSize)
-  const claudeFontSizeOverride = useInstanceFontSizeStore((s) => s.overrides.claude)
+  const instanceFontOverrides = useInstanceFontSizeStore((s) => s.overrides)
   const font = useDisplayStore((s) => s.font)
   const containerRef = useRef<HTMLDivElement>(null)
-  const terminalsRef = useRef<Partial<Record<AssistantKind, AssistantTerminal>>>({})
-  const activeAssistantRef = useRef<AssistantKind>(assistant)
+  const terminalsRef = useRef<Record<string, AssistantTerminal>>({})
+  const activeInstanceRef = useRef<string>(activeInstanceId)
   const isFirstRestart = useRef(true)
   const seenFocusTokenRef = useRef(focusToken)
 
   useEffect(() => {
-    activeAssistantRef.current = assistant
-  }, [assistant])
+    activeInstanceRef.current = activeInstanceId
+  }, [activeInstanceId])
 
   useEffect(() => {
-    if (!projectRoot || !containerRef.current || assistant === 'bridge') return
+    if (!projectRoot || !containerRef.current || assistant === 'bridge' || instances.length === 0) return
 
     const container = containerRef.current
 
-    const ensureTerminal = (kind: AssistantKind): AssistantTerminal => {
-      const existing = terminalsRef.current[kind]
+    const ensureTerminal = (id: string): AssistantTerminal => {
+      const existing = terminalsRef.current[id]
       if (existing) return existing
 
       const host = document.createElement('div')
       host.className = 'h-full w-full overflow-hidden'
-      host.style.display = kind === assistant ? 'block' : 'none'
+      host.style.display = id === activeInstanceId ? 'block' : 'none'
       container.appendChild(host)
 
-      const initialFontSize = useInstanceFontSizeStore.getState().overrides[kind] ?? useFontSizeStore.getState().fontSize
+      const initialFontSize = useInstanceFontSizeStore.getState().overrides[id] ?? useFontSizeStore.getState().fontSize
       const xterm = createXTerm(useThemeStore.getState().theme, useDisplayStore.getState().panelStyle, initialFontSize)
       const fit = new FitAddon()
       xterm.loadAddon(fit)
@@ -95,7 +94,7 @@ export function Chat() {
       xterm.attachCustomKeyEventHandler((event) => {
         if (event.type !== 'keydown') return true
 
-        if (kind === 'claude' && isShiftEnterKeydown(event)) {
+        if (isShiftEnterKeydown(event)) {
           // xterm sends the same CR byte for Enter and Shift+Enter by default, which
           // Claude Code's CLI reads as "submit" either way. Send the ESC+CR sequence
           // it expects for "insert newline" instead of falling through to xterm's
@@ -108,7 +107,7 @@ export function Chat() {
           // handler then forwards to the PTY as a stray extra keystroke right behind
           // our escape sequence, submitting the message anyway.
           event.preventDefault()
-          window.api.assistantWrite(kind, SHIFT_ENTER_SEQUENCE)
+          window.api.claudeWrite(id, SHIFT_ENTER_SEQUENCE)
           return false
         }
 
@@ -117,15 +116,15 @@ export function Chat() {
         const isMod = event.metaKey || event.ctrlKey
         if (isMod && !event.shiftKey && !event.altKey) {
           if (event.key === '=' || event.key === '+') {
-            useInstanceFontSizeStore.getState().increase(kind)
+            useInstanceFontSizeStore.getState().increase(id)
             return false
           }
           if (event.key === '-' || event.key === '_') {
-            useInstanceFontSizeStore.getState().decrease(kind)
+            useInstanceFontSizeStore.getState().decrease(id)
             return false
           }
           if (event.key === '0') {
-            useInstanceFontSizeStore.getState().reset(kind)
+            useInstanceFontSizeStore.getState().reset(id)
             return false
           }
         }
@@ -133,55 +132,80 @@ export function Chat() {
         return true
       })
 
-      if (kind === 'claude') {
-        // Clickable file paths and URLs in Claude's own output. Registered in
-        // this order so a URL match wins over the file-path one for any
-        // overlapping range (a URL's own path segment, e.g. "/path.txt" in
-        // "https://example.com/path.txt", would otherwise also satisfy the
-        // file-path provider) — xterm de-dupes intersecting links across
-        // providers, first-registered wins. URLs go through the stock
-        // WebLinksAddon (real URLs parse fine as URL objects); file paths use
-        // a custom provider — see createFilePathLinkProvider's own comment
-        // for why WebLinksAddon can't be reused for those.
-        xterm.loadAddon(new WebLinksAddon(createUrlActivateHandler()))
-        xterm.registerLinkProvider(createFilePathLinkProvider(xterm, createFilePathActivateHandler()))
-      }
+      // Clickable file paths and URLs in Claude's own output. Registered in
+      // this order so a URL match wins over the file-path one for any
+      // overlapping range (a URL's own path segment, e.g. "/path.txt" in
+      // "https://example.com/path.txt", would otherwise also satisfy the
+      // file-path provider) — xterm de-dupes intersecting links across
+      // providers, first-registered wins. URLs go through the stock
+      // WebLinksAddon (real URLs parse fine as URL objects); file paths use
+      // a custom provider — see createFilePathLinkProvider's own comment
+      // for why WebLinksAddon can't be reused for those. Every terminal in
+      // this loop is a Claude instance, so this applies unconditionally.
+      xterm.loadAddon(new WebLinksAddon(createUrlActivateHandler()))
+      xterm.registerLinkProvider(createFilePathLinkProvider(xterm, createFilePathActivateHandler()))
 
-      window.api.assistantSpawn(projectRoot, kind)
-      const cleanupData = window.api.onAssistantData((source, data) => {
-        if (source === kind) xterm.write(data)
+      window.api.claudeSpawn(projectRoot, id)
+      const cleanupData = window.api.onClaudeData((source, data) => {
+        if (source === id) xterm.write(data)
       })
-      const onDataDisposable = xterm.onData((data) => window.api.assistantWrite(kind, data))
+      const onDataDisposable = xterm.onData((data) => window.api.claudeWrite(id, data))
 
       const terminal = { host, xterm, fit, cleanupData, onDataDisposable }
-      terminalsRef.current[kind] = terminal
+      terminalsRef.current[id] = terminal
       return terminal
     }
 
-    ASSISTANTS.forEach((kind) => {
-      const terminal = kind === assistant ? ensureTerminal(kind) : terminalsRef.current[kind]
-      if (!terminal) return
-
-      terminal.host.style.display = kind === assistant ? 'block' : 'none'
+    // Every instance gets eagerly mounted/spawned here, not just the active
+    // one — background sessions are actually running, not frozen until
+    // first clicked. This is also what brings restored (persisted)
+    // instances back running on next launch, with no separate bootstrap
+    // path: "spawn if this id has no terminal yet" already covers them.
+    instances.forEach(({ id }) => {
+      const terminal = ensureTerminal(id)
+      terminal.host.style.display = id === activeInstanceId ? 'block' : 'none'
     })
 
-    const activeTerminal = ensureTerminal(assistant)
-    requestAnimationFrame(() => {
-      activeTerminal.fit.fit()
-      if (hasValidSize(activeTerminal.xterm.cols, activeTerminal.xterm.rows)) {
-        window.api.assistantResize(assistant, activeTerminal.xterm.cols, activeTerminal.xterm.rows)
-      }
+    // Instances that dropped out of the list (closed via the session
+    // context menu, or orphaned by a project switch racing the new
+    // project's async session load) need their terminal torn down —
+    // otherwise the dead terminal's host keeps whatever display it last
+    // had (which can leave it covering the panel over whichever instance
+    // is now active), and its xterm/IPC subscription/PTY are never
+    // released. claudeKill is a no-op on the main-process side if the
+    // instance was already killed via closeInstance(), so this is safe to
+    // call unconditionally here.
+    const liveIds = new Set(instances.map((inst) => inst.id))
+    Object.keys(terminalsRef.current).forEach((id) => {
+      if (liveIds.has(id)) return
+      const terminal = terminalsRef.current[id]
+      terminal.cleanupData()
+      terminal.onDataDisposable.dispose()
+      terminal.xterm.dispose()
+      terminal.host.remove()
+      delete terminalsRef.current[id]
+      window.api.claudeKill(id)
     })
-  }, [projectRoot, assistant])
+
+    const activeTerminal = terminalsRef.current[activeInstanceId]
+    if (activeTerminal) {
+      requestAnimationFrame(() => {
+        activeTerminal.fit.fit()
+        if (hasValidSize(activeTerminal.xterm.cols, activeTerminal.xterm.rows)) {
+          window.api.claudeResize(activeInstanceId, activeTerminal.xterm.cols, activeTerminal.xterm.rows)
+        }
+      })
+    }
+  }, [projectRoot, assistant, instances, activeInstanceId])
 
   useEffect(() => {
     if (assistant === 'bridge') return
-    const terminal = terminalsRef.current[assistant]
+    const terminal = terminalsRef.current[activeInstanceId]
     if (!terminal) return
 
     const injection = useClaudeStore.getState().pendingInjection
     if (injection) {
-      window.api.assistantWrite(assistant, wrapBracketedPaste(injection))
+      window.api.claudeWrite(activeInstanceId, wrapBracketedPaste(injection))
       useClaudeStore.getState().consumeInjection()
       seenFocusTokenRef.current = focusToken
       terminal.xterm.focus()
@@ -190,7 +214,7 @@ export function Chat() {
     if (focusToken === seenFocusTokenRef.current) return
     seenFocusTokenRef.current = focusToken
     terminal.xterm.focus()
-  }, [focusToken, assistant])
+  }, [focusToken, assistant, activeInstanceId])
 
   useEffect(() => {
     Object.values(terminalsRef.current).forEach((terminal) => {
@@ -199,46 +223,44 @@ export function Chat() {
   }, [theme, panelStyle])
 
   useEffect(() => {
-    const overrides: Partial<Record<AssistantKind, number>> = { claude: claudeFontSizeOverride }
-    ASSISTANTS.forEach((kind) => {
-      const terminal = terminalsRef.current[kind]
+    instances.forEach(({ id }) => {
+      const terminal = terminalsRef.current[id]
       if (!terminal) return
-      terminal.xterm.options.fontSize = overrides[kind] ?? fontSize
+      terminal.xterm.options.fontSize = instanceFontOverrides[id] ?? fontSize
       terminal.fit.fit()
       // A font-size change resizes the cell grid (more/fewer cols and rows fit
       // the same pixel area). Without relaying that to the PTY, the CLI keeps
       // rendering for its old dimensions until some other resize (e.g. dragging
       // the pane) happens to sync it — producing a visibly broken TUI layout.
       if (hasValidSize(terminal.xterm.cols, terminal.xterm.rows)) {
-        window.api.assistantResize(kind, terminal.xterm.cols, terminal.xterm.rows)
+        window.api.claudeResize(id, terminal.xterm.cols, terminal.xterm.rows)
       }
     })
-  }, [fontSize, claudeFontSizeOverride])
+  }, [fontSize, instanceFontOverrides, instances])
 
   useEffect(() => {
-    ASSISTANTS.forEach((kind) => {
-      const terminal = terminalsRef.current[kind]
+    instances.forEach(({ id }) => {
+      const terminal = terminalsRef.current[id]
       if (!terminal) return
       terminal.xterm.options.fontFamily = font
       terminal.fit.fit()
       if (hasValidSize(terminal.xterm.cols, terminal.xterm.rows)) {
-        window.api.assistantResize(kind, terminal.xterm.cols, terminal.xterm.rows)
+        window.api.claudeResize(id, terminal.xterm.cols, terminal.xterm.rows)
       }
     })
-  }, [font])
+  }, [font, instances])
 
   useEffect(() => {
     if (!projectRoot || !containerRef.current) return
 
     const observer = new ResizeObserver(() => {
-      const activeAssistant = activeAssistantRef.current
-      if (activeAssistant === 'bridge') return
-      const activeTerminal = terminalsRef.current[activeAssistant]
+      const activeId = activeInstanceRef.current
+      const activeTerminal = terminalsRef.current[activeId]
       if (!activeTerminal) return
 
       activeTerminal.fit.fit()
       if (hasValidSize(activeTerminal.xterm.cols, activeTerminal.xterm.rows)) {
-        window.api.assistantResize(activeAssistant, activeTerminal.xterm.cols, activeTerminal.xterm.rows)
+        window.api.claudeResize(activeId, activeTerminal.xterm.cols, activeTerminal.xterm.rows)
       }
     })
     observer.observe(containerRef.current)
@@ -265,7 +287,7 @@ export function Chat() {
       isFirstRestart.current = false
       return
     }
-    const terminal = terminalsRef.current[activeAssistantRef.current]
+    const terminal = terminalsRef.current[activeInstanceRef.current]
     if (!terminal) return
     terminal.xterm.clear()
     // A restart ("New Session" / "Continue Session") spawns a brand-new PTY on
@@ -276,7 +298,7 @@ export function Chat() {
     // PTY instead of leaving it stuck at 80x24 until the panel is manually
     // resized.
     if (hasValidSize(terminal.xterm.cols, terminal.xterm.rows)) {
-      window.api.assistantResize(activeAssistantRef.current, terminal.xterm.cols, terminal.xterm.rows)
+      window.api.claudeResize(activeInstanceRef.current, terminal.xterm.cols, terminal.xterm.rows)
     }
   }, [restartToken])
 

@@ -8,6 +8,7 @@ export interface ActivityBarItem {
   badge?: string | number
   disabled?: boolean
   onClick: () => void
+  onContextMenu?: (event: React.MouseEvent) => void
 }
 
 interface ActivityBarProps {
@@ -23,6 +24,7 @@ function ActivityBarButton({ item, showAccent, side, dense }: { item: ActivityBa
     <button
       key={item.id}
       onClick={item.disabled ? undefined : item.onClick}
+      onContextMenu={item.disabled ? undefined : item.onContextMenu}
       aria-label={item.title}
       disabled={item.disabled}
       className={[
@@ -113,14 +115,14 @@ export function FilesIcon() {
   )
 }
 
-export function ClaudeIcon() {
+export function ClaudeIcon({ color = '#D97757' }: { color?: string } = {}) {
   return (
     <svg width="1.375rem" height="1.375rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
         clipRule="evenodd"
         fillRule="evenodd"
         d="M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z"
-        fill="#D97757"
+        fill={color}
       />
     </svg>
   )

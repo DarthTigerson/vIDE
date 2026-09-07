@@ -129,21 +129,23 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('term:exit', handler)
   },
 
-  assistantSpawn: (cwd: string, assistant: 'claude', mode?: 'new' | 'continue' | 'resume') =>
-    ipcRenderer.invoke('assistant:spawn', cwd, assistant, mode),
-  assistantWrite: (assistant: 'claude', data: string) =>
-    ipcRenderer.send('assistant:write', assistant, data),
-  assistantResize: (assistant: 'claude', cols: number, rows: number) =>
-    ipcRenderer.send('assistant:resize', assistant, cols, rows),
-  onAssistantData: (cb: (assistant: 'claude', data: string) => void) => {
-    const handler = (_: Electron.IpcRendererEvent, assistant: 'claude', data: string) => cb(assistant, data)
-    ipcRenderer.on('assistant:data', handler)
-    return () => ipcRenderer.removeListener('assistant:data', handler)
+  claudeSpawn: (cwd: string, instanceId: string, mode?: 'new' | 'continue' | 'resume') =>
+    ipcRenderer.invoke('claude:spawn', cwd, instanceId, mode),
+  claudeWrite: (instanceId: string, data: string) =>
+    ipcRenderer.send('claude:write', instanceId, data),
+  claudeResize: (instanceId: string, cols: number, rows: number) =>
+    ipcRenderer.send('claude:resize', instanceId, cols, rows),
+  claudeKill: (instanceId: string) =>
+    ipcRenderer.send('claude:kill', instanceId),
+  onClaudeData: (cb: (instanceId: string, data: string) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, instanceId: string, data: string) => cb(instanceId, data)
+    ipcRenderer.on('claude:data', handler)
+    return () => ipcRenderer.removeListener('claude:data', handler)
   },
-  onAssistantBusy: (cb: (assistant: 'claude', busy: boolean, chunkCount: number) => void) => {
-    const handler = (_: Electron.IpcRendererEvent, assistant: 'claude', busy: boolean, chunkCount: number) => cb(assistant, busy, chunkCount)
-    ipcRenderer.on('assistant:busy', handler)
-    return () => ipcRenderer.removeListener('assistant:busy', handler)
+  onClaudeBusy: (cb: (instanceId: string, busy: boolean, chunkCount: number) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, instanceId: string, busy: boolean, chunkCount: number) => cb(instanceId, busy, chunkCount)
+    ipcRenderer.on('claude:busy', handler)
+    return () => ipcRenderer.removeListener('claude:busy', handler)
   },
   onBrowserOpenExternalUrl: (cb: (url: string) => void) => {
     const handler = (_: Electron.IpcRendererEvent, url: string) => cb(url)

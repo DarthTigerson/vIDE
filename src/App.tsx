@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { MouseEvent } from 'react'
 import * as monaco from 'monaco-editor'
 import { ImperativePanelHandle, Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { clampSize, loadPanelSize } from '@/lib/panelSize'
@@ -38,6 +39,7 @@ import {
   NotesIcon,
 } from './components/ActivityBar/ActivityBar'
 import { ClaudeStatusIcon } from './components/ActivityBar/ClaudeStatusIcon'
+import { ClaudeSessionContextMenu } from './components/ActivityBar/ClaudeSessionContextMenu'
 import { SettingsPanel } from './components/Settings/SettingsPanel'
 import { GitPanel } from './components/Git/GitPanel'
 import { BranchPalette } from './components/Git/BranchPalette'
@@ -130,6 +132,8 @@ export default function App() {
   const gitStatus = useRepoGitState(selectedRepo).status
   const refreshGitStatus = useGitStore((s) => s.refreshStatus)
   const assistant = useClaudeStore((s) => s.assistant)
+  const instances = useClaudeStore((s) => s.instances)
+  const activeInstanceId = useClaudeStore((s) => s.activeInstanceId)
   const usageOpen = useClaudeStore((s) => s.usageOpen)
   const costOpen = useClaudeStore((s) => s.costOpen)
   const setAssistant = useClaudeStore((s) => s.setAssistant)
@@ -142,6 +146,7 @@ export default function App() {
   const [sidebarSize, setSidebarSize] = useState(loadSidebarSize)
   const [chatSize, setChatSize] = useState(loadChatSize)
   const [assistantMenuOpen, setAssistantMenuOpen] = useState(false)
+  const [sessionMenu, setSessionMenu] = useState<{ x: number; y: number; instanceId: string } | null>(null)
   const [memoryUsage, setMemoryUsage] = useState<{ usedBytes: number; totalBytes: number } | null>(null)
   const commandPaletteOpen = useSearchStore((s) => s.commandPaletteOpen)
   const searchOpen = useSearchStore((s) => s.searchOpen)
@@ -314,6 +319,21 @@ export default function App() {
     hadProjectRef.current = !!projectRoot
   }, [projectRoot])
 
+  // Restores the stacked Claude sessions (count + hue, never conversation
+  // content — that's the CLI's own --continue/--resume, not vIDE's job) for
+  // whichever project just opened. Falls back to a single fresh instance
+  // when there's nothing saved yet (a project that predates this feature,
+  // or a load failure — sessionLoad already resolves null in both cases).
+  useEffect(() => {
+    if (!projectRoot) return
+    let cancelled = false
+    window.api.sessionLoad(projectRoot).then((data) => {
+      if (cancelled) return
+      useClaudeStore.getState().loadInstancesFromSession(data?.claudeInstances)
+    })
+    return () => { cancelled = true }
+  }, [projectRoot])
+
   // Git/Docker/Mobile Display/Graphify only make sense with a project open
   // (their ActivityBar icons disappear entirely when projectRoot is null,
   // see primaryActivityBar below) — fall back to Explorer so a project
@@ -414,19 +434,21 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    return window.api.onAssistantBusy((assistant, busy, chunkCount) => {
-      const wasBusy = useClaudeStore.getState().busyByAssistant[assistant] ?? false
-      useClaudeStore.getState().setBusy(assistant, busy)
-      // Falling edge only (busy -> idle) — that's "Claude finished a turn".
-      // Claude only, for now (VIDE-59). Gated on chunkCount rather than how
-      // long the episode ran: electron/claude.ts's busy signal fires on any
-      // non-echo PTY output, so a single incidental redraw (e.g. a resize
-      // repaint) is indistinguishable from a short real reply by *duration*
-      // alone — both settle idle after the same fixed timeout. Chunk count
-      // isn't: a one-off redraw is ~1 output write, while even a brief
-      // streamed reply is several, so requiring more than one reliably
-      // separates the two without risking silence on genuinely fast replies.
-      if (assistant === 'claude' && wasBusy && !busy && chunkCount > 1) {
+    return window.api.onClaudeBusy((instanceId, busy, chunkCount) => {
+      const wasBusy = useClaudeStore.getState().busyByInstance[instanceId] ?? false
+      useClaudeStore.getState().setBusy(instanceId, busy)
+      // Falling edge only (busy -> idle) — that's "this instance finished a
+      // turn". Fires for every stacked instance, not just the active one —
+      // a background session finishing is exactly the kind of thing worth a
+      // sound for. Gated on chunkCount rather than how long the episode
+      // ran: electron/claude.ts's busy signal fires on any non-echo PTY
+      // output, so a single incidental redraw (e.g. a resize repaint) is
+      // indistinguishable from a short real reply by *duration* alone —
+      // both settle idle after the same fixed timeout. Chunk count isn't: a
+      // one-off redraw is ~1 output write, while even a brief streamed
+      // reply is several, so requiring more than one reliably separates the
+      // two without risking silence on genuinely fast replies.
+      if (wasBusy && !busy && chunkCount > 1) {
         const { enabled, muted, soundId } = useNotificationSoundSettingsStore.getState()
         if (enabled && !muted) playNotificationSound(soundId)
       }
@@ -913,14 +935,35 @@ export default function App() {
           dense
           groups={[
             [
-              {
-                id: assistant,
-                icon: assistant === 'claude' ? <ClaudeStatusIcon /> : assistantIcon(assistant),
-                title: assistantLabel,
-                active: chatVisible,
-                disabled: !projectRoot,
-                onClick: () => useClaudeStore.getState().toggleChatVisible(),
-              },
+              ...(assistant === 'claude'
+                ? instances.map((inst) => ({
+                    id: inst.id,
+                    icon: <ClaudeStatusIcon instanceId={inst.id} color={inst.hue} />,
+                    title: assistantLabel,
+                    active: chatVisible && inst.id === activeInstanceId,
+                    disabled: !projectRoot,
+                    onClick: () => {
+                      if (inst.id !== activeInstanceId) {
+                        useClaudeStore.getState().setActiveInstance(inst.id)
+                        useClaudeStore.getState().setChatVisible(true)
+                      } else {
+                        useClaudeStore.getState().toggleChatVisible()
+                      }
+                    },
+                    onContextMenu: (e: MouseEvent) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setSessionMenu({ x: e.clientX, y: e.clientY, instanceId: inst.id })
+                    },
+                  }))
+                : [{
+                    id: assistant,
+                    icon: assistantIcon(assistant),
+                    title: assistantLabel,
+                    active: chatVisible,
+                    disabled: !projectRoot,
+                    onClick: () => useClaudeStore.getState().toggleChatVisible(),
+                  }]),
               ...(assistant === 'claude' ? [{
                 id: 'new-session',
                 icon: <NewSessionPlusIcon />,
@@ -930,6 +973,7 @@ export default function App() {
                 onClick: () => {
                   if (!projectRoot) return
                   useClaudeStore.getState().newSession(projectRoot)
+                  useClaudeStore.getState().setChatVisible(true)
                 },
               }] : []),
             ],
@@ -1092,6 +1136,16 @@ export default function App() {
       )}
       {branchPaletteOpen && selectedRepo && (
         <BranchPalette projectRoot={selectedRepo} onClose={() => useSearchStore.getState().closeBranchPalette()} />
+      )}
+      {sessionMenu && (
+        <ClaudeSessionContextMenu
+          x={sessionMenu.x}
+          y={sessionMenu.y}
+          onCloseSession={() => {
+            if (projectRoot) useClaudeStore.getState().closeInstance(projectRoot, sessionMenu.instanceId)
+          }}
+          onClose={() => setSessionMenu(null)}
+        />
       )}
       <UpdateChangelogModal />
       <SetupWizard />
