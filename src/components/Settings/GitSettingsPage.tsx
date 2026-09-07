@@ -133,7 +133,7 @@ export function GitSettingsPage() {
           />
 
           {periodicFetchEnabled && (
-            <div className="mt-3 flex items-center gap-3">
+            <div className="mt-3 pl-4 border-l border-border/40 flex items-center gap-3">
               <label htmlFor="fetch-interval" className="text-sm text-fg-muted shrink-0">Fetch every</label>
               <input
                 id="fetch-interval"

@@ -84,7 +84,7 @@ export function ClaudeSettingsPage() {
           />
 
           {notificationSoundEnabled && (
-            <div className="mt-3 flex items-end gap-2">
+            <div className="mt-3 pl-4 border-l border-border/40 flex items-end gap-2">
               <Field label="Sound">
                 <Select
                   id="notification-sound-select"
