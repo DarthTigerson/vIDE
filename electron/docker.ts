@@ -14,7 +14,7 @@ async function dockerBin(): Promise<string> {
   return (await resolveBinaryPath('docker')) ?? 'docker'
 }
 
-export type DockerStatus = 'not-installed' | 'stopped' | 'running'
+export type DockerStatus = 'not-installed' | 'stopped' | 'running' | 'unknown'
 
 export interface DockerContainer {
   id: string
@@ -63,8 +63,17 @@ export async function checkDockerStatus(): Promise<DockerStatus> {
     await execFileAsync(await dockerBin(), ['info', '--format', '{{.ID}}'], { timeout: 5000 })
     return 'running'
   } catch (err) {
-    const code = (err as { code?: string }).code
-    return code === 'ENOENT' ? 'not-installed' : 'stopped'
+    const { code, killed } = err as { code?: string; killed?: boolean }
+    if (code === 'ENOENT') return 'not-installed'
+    // `killed` means execFile's own 5s timeout fired, not that the CLI ran
+    // and told us the daemon is down — under heavy daemon load (a `docker
+    // compose` deploy, especially with several vIDE windows/instances
+    // polling concurrently, since `docker events`/status checks aren't
+    // scoped per-window) `docker info` can be slow without the daemon
+    // actually being stopped. Reporting that as 'stopped' caused the status
+    // to flicker; 'unknown' tells the caller to keep its last known state.
+    if (killed) return 'unknown'
+    return 'stopped'
   }
 }
 

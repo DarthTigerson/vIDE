@@ -818,7 +818,6 @@ export default function App() {
               active: leftPanel === 'notes',
               onClick: () => setLeftPanel((p) => (p === 'notes' ? null : 'notes')),
             }] : []),
-          ], ...(gitRemoteReady || jiraReady ? [[
             ...(gitRemoteReady ? [{
               id: 'git-remote',
               icon: gitRemoteIcon(gitRemoteProvider),
@@ -833,7 +832,7 @@ export default function App() {
               active: activeTabPath === buildBrowserPath(JIRA_BROWSER_ID),
               onClick: openJira,
             }] : []),
-          ]] : [])]}
+          ]]}
           bottomGroups={[[
             {
               id: 'browser',
@@ -924,7 +923,7 @@ export default function App() {
               disabled: !projectRoot,
               onClick: () => useClaudeStore.getState().toggleChatVisible(),
             }],
-            [
+            ...(assistant !== 'claude' ? [[
               {
                 id: 'new-session',
                 icon: <NewSessionIcon />,
@@ -949,39 +948,64 @@ export default function App() {
                   else useClaudeStore.getState().previousSession(projectRoot)
                 },
               },
-              ...(assistant === 'claude' ? [{
-                id: 'resume-session',
-                icon: <ResumeSessionIcon />,
-                title: resumeSessionTitle,
-                active: false,
-                disabled: !projectRoot,
-                onClick: () => {
-                  if (!projectRoot) return
-                  useClaudeStore.getState().resumeSession(projectRoot)
-                },
-              }] : []),
-            ],
-            ...(assistant === 'claude' ? [[
-              {
-                id: 'compact',
-                icon: <CompactIcon />,
-                title: 'Compact',
-                active: false,
-                disabled: !projectRoot,
-                onClick: () => useClaudeStore.getState().compact(),
-              },
-              {
-                id: 'clear',
-                icon: <ClearIcon />,
-                title: 'Clear',
-                active: false,
-                disabled: !projectRoot,
-                onClick: () => useClaudeStore.getState().clearContext(),
-              },
             ]] : []),
           ]}
           bottomGroups={assistant === 'claude'
             ? [
+              [], // empty leading group so ItemGroups renders a divider above New Claude Session
+              [
+                {
+                  id: 'new-session',
+                  icon: <NewSessionIcon />,
+                  title: newSessionTitle,
+                  active: false,
+                  disabled: !projectRoot,
+                  onClick: () => {
+                    if (!projectRoot) return
+                    useClaudeStore.getState().newSession(projectRoot)
+                  },
+                },
+                {
+                  id: 'previous-session',
+                  icon: <PreviousSessionIcon />,
+                  title: previousSessionTitle,
+                  active: false,
+                  disabled: !projectRoot,
+                  onClick: () => {
+                    if (!projectRoot) return
+                    useClaudeStore.getState().previousSession(projectRoot)
+                  },
+                },
+                {
+                  id: 'resume-session',
+                  icon: <ResumeSessionIcon />,
+                  title: resumeSessionTitle,
+                  active: false,
+                  disabled: !projectRoot,
+                  onClick: () => {
+                    if (!projectRoot) return
+                    useClaudeStore.getState().resumeSession(projectRoot)
+                  },
+                },
+              ],
+              [
+                {
+                  id: 'compact',
+                  icon: <CompactIcon />,
+                  title: 'Compact',
+                  active: false,
+                  disabled: !projectRoot,
+                  onClick: () => useClaudeStore.getState().compact(),
+                },
+                {
+                  id: 'clear',
+                  icon: <ClearIcon />,
+                  title: 'Clear',
+                  active: false,
+                  disabled: !projectRoot,
+                  onClick: () => useClaudeStore.getState().clearContext(),
+                },
+              ],
               [
                 ...(notificationSoundEnabled ? [{
                   id: 'mute-notification-sound',

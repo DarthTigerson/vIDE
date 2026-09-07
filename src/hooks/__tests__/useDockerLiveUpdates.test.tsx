@@ -61,6 +61,30 @@ describe('useDockerLiveUpdates', () => {
     expect(window.api.dockerUnwatch).toHaveBeenCalledTimes(1)
   })
 
+  it('coalesces a burst of onDockerChanged events into a single refresh call', () => {
+    setup()
+    vi.useFakeTimers()
+    let onChanged: () => void = () => {}
+    ;(window.api.onDockerChanged as ReturnType<typeof vi.fn>).mockImplementation((cb: () => void) => {
+      onChanged = cb
+      return () => {}
+    })
+    renderHook(() => useDockerLiveUpdates(true))
+    ;(window.api.dockerStatus as ReturnType<typeof vi.fn>).mockClear() // drop the mount-time refresh
+
+    // `docker events` firing a burst of lines, e.g. every container in a
+    // compose stack starting up in quick succession.
+    onChanged()
+    onChanged()
+    onChanged()
+    onChanged()
+    onChanged()
+    vi.advanceTimersByTime(1000)
+
+    expect(window.api.dockerStatus).toHaveBeenCalledTimes(1)
+    vi.useRealTimers()
+  })
+
   it('starts watching once enabled flips from false to true', () => {
     setup()
     const { rerender } = renderHook(({ enabled }) => useDockerLiveUpdates(enabled), {
