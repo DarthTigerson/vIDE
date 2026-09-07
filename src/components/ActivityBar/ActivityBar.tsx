@@ -144,6 +144,17 @@ export function NewSessionIcon() {
   )
 }
 
+// A plain plus, distinct from NewSessionIcon's file-with-corner-fold glyph —
+// used for Claude's New Session button now that it sits directly under the
+// Claude icon rather than grouped with Previous/Resume Session at the bottom.
+export function NewSessionPlusIcon() {
+  return (
+    <svg width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
 export function PreviousSessionIcon() {
   return (
     <svg width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

@@ -27,6 +27,7 @@ import {
   ClaudeIcon,
   BridgeIcon,
   NewSessionIcon,
+  NewSessionPlusIcon,
   PreviousSessionIcon,
   ResumeSessionIcon,
   CompactIcon,
@@ -911,14 +912,27 @@ export default function App() {
           showAccent={false}
           dense
           groups={[
-            [{
-              id: assistant,
-              icon: assistant === 'claude' ? <ClaudeStatusIcon /> : assistantIcon(assistant),
-              title: assistantLabel,
-              active: chatVisible,
-              disabled: !projectRoot,
-              onClick: () => useClaudeStore.getState().toggleChatVisible(),
-            }],
+            [
+              {
+                id: assistant,
+                icon: assistant === 'claude' ? <ClaudeStatusIcon /> : assistantIcon(assistant),
+                title: assistantLabel,
+                active: chatVisible,
+                disabled: !projectRoot,
+                onClick: () => useClaudeStore.getState().toggleChatVisible(),
+              },
+              ...(assistant === 'claude' ? [{
+                id: 'new-session',
+                icon: <NewSessionPlusIcon />,
+                title: newSessionTitle,
+                active: false,
+                disabled: !projectRoot,
+                onClick: () => {
+                  if (!projectRoot) return
+                  useClaudeStore.getState().newSession(projectRoot)
+                },
+              }] : []),
+            ],
             ...(assistant !== 'claude' ? [[
               {
                 id: 'new-session',
@@ -948,19 +962,8 @@ export default function App() {
           ]}
           bottomGroups={assistant === 'claude'
             ? [
-              [], // empty leading group so ItemGroups renders a divider above New Claude Session
+              [], // empty leading group so ItemGroups renders a divider above Previous Session
               [
-                {
-                  id: 'new-session',
-                  icon: <NewSessionIcon />,
-                  title: newSessionTitle,
-                  active: false,
-                  disabled: !projectRoot,
-                  onClick: () => {
-                    if (!projectRoot) return
-                    useClaudeStore.getState().newSession(projectRoot)
-                  },
-                },
                 {
                   id: 'previous-session',
                   icon: <PreviousSessionIcon />,
