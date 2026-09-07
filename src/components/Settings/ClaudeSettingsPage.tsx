@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { useModelSettingsStore } from '@/stores/modelSettingsStore'
 import { useAutocompleteSettingsStore, AUTOCOMPLETE_MODELS } from '@/stores/autocompleteSettingsStore'
 import { useInlineEditSettingsStore } from '@/stores/inlineEditSettingsStore'
@@ -27,6 +27,28 @@ function SpeakerIcon() {
   )
 }
 
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="mt-3 flex items-center gap-3">
+      <label className="text-xs text-fg-muted shrink-0 w-20">{label}</label>
+      <div className="w-56 shrink-0">{children}</div>
+    </div>
+  )
+}
+
+function Section({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <section className="pt-8 first:pt-0">
+      <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider mb-3">{label}</h2>
+      <div className="flex flex-col divide-y divide-border/40">{children}</div>
+    </section>
+  )
+}
+
+function Row({ children }: { children: ReactNode }) {
+  return <div className="py-4 pl-3 first:pt-0 last:pb-0">{children}</div>
+}
+
 export function ClaudeSettingsPage() {
   const claudeEnabled = useModelSettingsStore((s) => s.enabled.claude)
   const setModelEnabled = useModelSettingsStore((s) => s.setEnabled)
@@ -53,31 +75,29 @@ export function ClaudeSettingsPage() {
     useUsagePassiveSettingsStore.getState().init()
   }, [])
 
+  const modelOptions = AUTOCOMPLETE_MODELS.map((m) => ({ value: m.id, label: m.label }))
+
   return (
     <div className="h-full overflow-auto p-6 bg-panel">
       <h1 className="text-base font-semibold text-fg mb-1">Claude</h1>
-      <p className="text-sm text-fg-muted mb-8">Claude Code and its model-powered features.</p>
+      <p className="text-sm text-fg-muted mb-4">Claude Code and its model-powered features.</p>
 
-      <div className="grid grid-cols-1 gap-6 max-w-lg">
-        <section className="rounded-xl border border-border/60 p-4 flex flex-col gap-5">
-          <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
-            General
-          </h2>
-
+      <Section label="General">
+        <Row>
           <Toggle
+            className="max-w-[60ch]"
             label="Claude"
             description="Show Claude Code in the model dropdown."
             checked={claudeEnabled}
             onChange={(value) => setModelEnabled('claude', value)}
           />
-        </section>
+        </Row>
+      </Section>
 
-        <section className="rounded-xl border border-border/60 p-4 flex flex-col gap-5">
-          <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
-            Notifications
-          </h2>
-
+      <Section label="Notifications">
+        <Row>
           <Toggle
+            className="max-w-[60ch]"
             label="Play sound when Claude is done"
             description="Plays a sound when Claude finishes responding. Claude only, for now."
             checked={notificationSoundEnabled}
@@ -85,125 +105,112 @@ export function ClaudeSettingsPage() {
           />
 
           {notificationSoundEnabled && (
-            <div className="flex items-end gap-2">
-              <div className="flex-1">
-                <label htmlFor="notification-sound-select" className="text-xs text-fg-muted mb-1.5 block">Sound</label>
+            <div className="mt-3 flex items-end gap-2">
+              <Field label="Sound">
                 <Select
                   id="notification-sound-select"
                   value={notificationSoundId}
                   onChange={setNotificationSoundId}
                   options={NOTIFICATION_SOUND_OPTIONS.map((s) => ({ value: s.id, label: s.label }))}
+                  ariaLabel="Sound"
                 />
-              </div>
+              </Field>
               <button
                 type="button"
                 onClick={() => playNotificationSound(notificationSoundId)}
                 aria-label="Test sound"
                 title="Test sound"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border text-fg hover:border-fg-subtle transition-colors"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-fg hover:border-fg-subtle transition-colors"
               >
                 <SpeakerIcon />
               </button>
             </div>
           )}
-        </section>
+        </Row>
+      </Section>
 
-        <section className="rounded-xl border border-border/60 p-4 flex flex-col gap-5">
-          <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
-            Autocomplete
-          </h2>
-
+      <Section label="Model Features">
+        <Row>
           <Toggle
+            className="max-w-[60ch]"
             label="Inline Autocomplete"
             description="Temporarily disabled while we rework how this feature works (VIDE-16) — the current design has poor latency and burns subscription usage."
             checked={false}
             disabled
             onChange={() => {}}
           />
-
-          <div>
-            <label htmlFor="autocomplete-model" className="text-xs text-fg-muted mb-1.5 block">Model</label>
+          <Field label="Model">
             <Select
               id="autocomplete-model"
               value={autocompleteModel}
               onChange={setAutocompleteModel}
-              options={AUTOCOMPLETE_MODELS.map((m) => ({ value: m.id, label: m.label }))}
+              options={modelOptions}
+              ariaLabel="Model"
               disabled
             />
-          </div>
-        </section>
+          </Field>
+        </Row>
 
-        <section className="rounded-xl border border-border/60 p-4 flex flex-col gap-5">
-          <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
-            Inline Edit
-          </h2>
-
+        <Row>
           <Toggle
+            className="max-w-[60ch]"
             label="Inline Edit (Cmd+K)"
             description="Select code (or place your cursor) and press Cmd+K to describe a change."
             checked={inlineEditEnabled}
             onChange={setInlineEditEnabled}
           />
-
-          <div>
-            <label htmlFor="inline-edit-model" className="text-xs text-fg-muted mb-1.5 block">Inline Edit Model</label>
+          <Field label="Model">
             <Select
               id="inline-edit-model"
               value={inlineEditModel}
               onChange={setInlineEditModel}
-              options={AUTOCOMPLETE_MODELS.map((m) => ({ value: m.id, label: m.label }))}
+              options={modelOptions}
+              ariaLabel="Inline Edit Model"
             />
-          </div>
-        </section>
+          </Field>
+        </Row>
 
-        <section className="rounded-xl border border-border/60 p-4 flex flex-col gap-5">
-          <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
-            Commit Messages
-          </h2>
-
+        <Row>
           <Toggle
-            label="Generate commit messages"
+            className="max-w-[60ch]"
+            label="Commit Messages"
             description="Adds a button next to the commit message box in the Git panel that writes a message from your staged diff."
             checked={commitMessageEnabled}
             onChange={setCommitMessageEnabled}
           />
-
-          <div>
-            <label htmlFor="commit-message-model" className="text-xs text-fg-muted mb-1.5 block">Commit Message Model</label>
+          <Field label="Model">
             <Select
               id="commit-message-model"
               value={commitMessageModel}
               onChange={setCommitMessageModel}
-              options={AUTOCOMPLETE_MODELS.map((m) => ({ value: m.id, label: m.label }))}
+              options={modelOptions}
+              ariaLabel="Commit Message Model"
             />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="commit-message-prompt" className="text-sm text-fg">Prompt</label>
+          </Field>
+          <div className="mt-3 flex items-start gap-3">
+            <label htmlFor="commit-message-prompt" className="text-xs text-fg-muted shrink-0 w-20 pt-2">Prompt</label>
             <textarea
               id="commit-message-prompt"
               value={commitMessagePrompt}
               onChange={(e) => setCommitMessagePrompt(e.target.value)}
               placeholder="Leave empty for the default prompt"
               rows={3}
-              className="w-full resize-none px-2 py-1.5 text-sm text-fg bg-bg border border-border rounded-lg placeholder:text-fg-subtle focus:outline-none focus:border-accent/60"
+              className="w-full max-w-xl resize-none px-2 py-1.5 text-sm text-fg bg-bg border border-border rounded-lg placeholder:text-fg-subtle focus:outline-none focus:border-accent/60"
             />
           </div>
-        </section>
+        </Row>
+      </Section>
 
-        <section className="rounded-xl border border-border/60 p-4 flex flex-col gap-5">
-          <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
-            Usage Monitoring
-          </h2>
-
+      <Section label="Usage Monitoring">
+        <Row>
           <Toggle
+            className="max-w-[60ch]"
             label="Passive usage monitoring"
             description="Track Claude Code usage continuously in the background, even when the usage panel and mobile display are closed. Off by default — usage is otherwise only tracked while one of those is open. History collected this way is viewable in the Usage Graph tab."
             checked={passiveUsageEnabled}
             onChange={setPassiveUsageEnabled}
           />
-
-          <div>
+          <div className="mt-3">
             <button
               type="button"
               onClick={() => useEditorStore.getState().openTab({ path: USAGE_GRAPH_TAB_PATH, content: '', dirty: false })}
@@ -212,8 +219,8 @@ export function ClaudeSettingsPage() {
               Open Usage Graph
             </button>
           </div>
-        </section>
-      </div>
+        </Row>
+      </Section>
     </div>
   )
 }

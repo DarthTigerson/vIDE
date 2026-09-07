@@ -99,12 +99,12 @@ describe('ClaudeSettingsPage commit messages section', () => {
   it('reflects the current enabled state', () => {
     useCommitMessageSettingsStore.setState({ enabled: true })
     render(<ClaudeSettingsPage />)
-    expect(screen.getByRole('switch', { name: 'Generate commit messages' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('switch', { name: 'Commit Messages' })).toHaveAttribute('aria-checked', 'true')
   })
 
   it('toggles on click', () => {
     render(<ClaudeSettingsPage />)
-    fireEvent.click(screen.getByRole('switch', { name: 'Generate commit messages' }))
+    fireEvent.click(screen.getByRole('switch', { name: 'Commit Messages' }))
     expect(useCommitMessageSettingsStore.getState().enabled).toBe(true)
   })
 

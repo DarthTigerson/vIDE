@@ -1,13 +1,19 @@
-export function Toggle({ label, description, checked, onChange, disabled }: {
+export function Toggle({ label, description, checked, onChange, disabled, className }: {
   label: string
   description: string
   checked: boolean
   onChange: (value: boolean) => void
   disabled?: boolean
+  className?: string
 }) {
   return (
-    <label className={['flex items-start justify-between gap-4', disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'].join(' ')}>
-      <div>
+    <label
+      className={[
+        'flex items-start justify-between gap-4 -mx-2 px-2 py-1 rounded-lg transition-colors',
+        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-white/5',
+      ].join(' ')}
+    >
+      <div className={className}>
         <div className="text-sm text-fg">{label}</div>
         <div className="text-xs text-fg-muted mt-0.5">{description}</div>
       </div>
