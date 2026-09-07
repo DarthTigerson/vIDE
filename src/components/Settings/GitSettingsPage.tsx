@@ -5,26 +5,7 @@ import { useGitRemoteSettingsStore } from '@/stores/gitRemoteSettingsStore'
 import { useFileStore } from '@/stores/fileStore'
 import { Toggle } from '@/components/ui/Toggle'
 import { Select } from '@/components/ui/Select'
-import { Section, Row } from './SettingsLayout'
-
-function Field({ id, label, value, onChange, placeholder }: {
-  id: string; label: string; value: string; onChange: (v: string) => void; placeholder?: string
-}) {
-  return (
-    <div className="mt-3 flex flex-col gap-1.5 max-w-md">
-      <label htmlFor={id} className="text-sm text-fg">{label}</label>
-      <input
-        id={id}
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        spellCheck={false}
-        className="h-8 px-2 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
-      />
-    </div>
-  )
-}
+import { Section, Row, TextField } from './SettingsLayout'
 
 export function GitSettingsPage() {
   const {
@@ -231,21 +212,23 @@ export function GitSettingsPage() {
             matching launcher button appears at the bottom of the Git panel.
           </p>
 
-          <Field
+          <TextField
             id="git-remote-external-url"
             label="Default URL"
             value={gitRemoteUrl}
             onChange={setGitRemoteUrl}
             placeholder="https://github.com/your-org/your-repo"
+            className="mt-3 flex flex-col gap-1.5 max-w-md"
           />
 
           {projectRoot && (
-            <Field
+            <TextField
               id="git-remote-project-url"
               label="This project's URL"
               value={gitRemoteProjectUrls[projectRoot] ?? ''}
               onChange={(v) => setGitRemoteProjectUrl(projectRoot, v)}
               placeholder={gitRemoteUrl || 'Same as default URL above'}
+              className="mt-3 flex flex-col gap-1.5 max-w-md"
             />
           )}
 

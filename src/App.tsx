@@ -75,6 +75,7 @@ import { useUsageAlertStore } from './stores/usageAlertStore'
 import { useChangelogStore } from './stores/changelogStore'
 import { useOnboardingStore } from './stores/onboardingStore'
 import { useBrowserStore } from './stores/browserStore'
+import { useBrowserSettingsStore } from './stores/browserSettingsStore'
 import { useJiraSettingsStore } from './stores/jiraSettingsStore'
 import { useGitRemoteSettingsStore } from './stores/gitRemoteSettingsStore'
 import { useDockerSettingsStore } from './stores/dockerSettingsStore'
@@ -223,7 +224,15 @@ export default function App() {
 
   function openNewBrowser() {
     const id = Date.now().toString(36)
-    useEditorStore.getState().openTab({ path: buildBrowserPath(id), content: '', dirty: false })
+    const tab = { path: buildBrowserPath(id), content: '', dirty: false }
+    if (useBrowserSettingsStore.getState().openInBiggestPane) {
+      const biggestPaneId = getBiggestPaneId()
+      if (biggestPaneId) {
+        useEditorStore.getState().openTabInPane(tab, biggestPaneId)
+        return
+      }
+    }
+    useEditorStore.getState().openTab(tab)
   }
 
   // Opens (or focuses, if already open) the tab the vide-browser MCP server

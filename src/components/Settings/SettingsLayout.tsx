@@ -30,3 +30,30 @@ export function Field({ label, htmlFor, children, className }: {
     </div>
   )
 }
+
+// A stacked (label above, input below) single-line text field — for
+// longer-label or longer-value inputs (URLs, keys) where Field's inline
+// label-left layout would be too cramped.
+export function TextField({ id, label, value, onChange, placeholder, className }: {
+  id: string
+  label: string
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+  className?: string
+}) {
+  return (
+    <div className={className ?? 'flex flex-col gap-1.5'}>
+      <label htmlFor={id} className="text-sm text-fg">{label}</label>
+      <input
+        id={id}
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        spellCheck={false}
+        className="h-8 px-2 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
+      />
+    </div>
+  )
+}
