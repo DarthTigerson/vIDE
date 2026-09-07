@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect } from 'react'
 import { useModelSettingsStore } from '@/stores/modelSettingsStore'
 import { useAutocompleteSettingsStore, AUTOCOMPLETE_MODELS } from '@/stores/autocompleteSettingsStore'
 import { useInlineEditSettingsStore } from '@/stores/inlineEditSettingsStore'
@@ -9,6 +9,7 @@ import { useEditorStore } from '@/stores/editorStore'
 import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
 import { Toggle } from '@/components/ui/Toggle'
 import { Select } from '@/components/ui/Select'
+import { Section, Row, Field } from './SettingsLayout'
 
 function SpeakerIcon() {
   return (
@@ -25,28 +26,6 @@ function SpeakerIcon() {
       <path d="M19 6C20.7 7.7 21.5 9.8 21.5 12C21.5 14.2 20.7 16.3 19 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   )
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="mt-3 flex items-center gap-3">
-      <label className="text-xs text-fg-muted shrink-0 w-20">{label}</label>
-      <div className="w-56 shrink-0">{children}</div>
-    </div>
-  )
-}
-
-function Section({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <section className="pt-8 first:pt-0">
-      <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider mb-3">{label}</h2>
-      <div className="flex flex-col divide-y divide-border/40">{children}</div>
-    </section>
-  )
-}
-
-function Row({ children }: { children: ReactNode }) {
-  return <div className="py-4 pl-3 first:pt-0 last:pb-0">{children}</div>
 }
 
 export function ClaudeSettingsPage() {
