@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 vIDE is an Electron desktop app ("a Claude-native IDE"): a Monaco editor,
 a real terminal (`node-pty`), and git tooling built around one or more AI
-coding agent panels (Claude Code CLI, OpenAI Codex CLI, and "Bridge" for any
+coding agent panels (Claude Code CLI and "Bridge" for any
 OpenAI-compatible local LLM endpoint) running side-by-side. vIDE launches
 these CLIs as terminal processes — it does not reimplement agent logic.
 
@@ -58,11 +58,11 @@ plain `node`, per the `environmentMatchGlobs` split in `vitest.config.ts`.
    per-assistant terminal panels inside resizable `react-resizable-panels`
    groups, and owns top-level modal/palette state.
 
-**Multi-instance panels**: Claude/Codex/Bridge terminal panels and browser
+**Multi-instance panels**: Claude/Bridge terminal panels and browser
 tabs are addressed by path-like IDs built via helpers such as
 `buildTerminalPath`/`buildBrowserPath` (`src/components/Settings/paths.ts`),
 allowing multiple concurrent instances per assistant kind
-(`AssistantKind` in `src/types/api.ts`: `'claude' | 'codex' | 'bridge'`).
+(`AssistantKind` in `src/types/api.ts`: `'claude' | 'bridge'`).
 
 **Mobile Display**: `electron/mobile.ts` runs a local HTTP server
 (`MobileServer`) that a phone pairs to over the LAN via QR code + PIN; the

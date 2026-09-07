@@ -1,5 +1,9 @@
 # vIDE
 
+## v0.2.9 (2026-09-07)
+- **Removed Codex support**: vIDE no longer integrates the OpenAI Codex CLI as an agent panel — Claude Code and Bridge remain
+
+
 ## v0.2.8 (2026-09-02)
 - **Docker panel overhaul**: containers are now grouped by compose project with batch Start All/Stop All/Remove All controls, right-click context menus on both groups and individual containers (replacing the old kebab menus), and an "Open in Docker" action to jump to a container in Docker Desktop
 - Docker panel header gained a Close Docker action (with confirmation) and an actions menu in place of the standalone Refresh button

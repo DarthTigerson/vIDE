@@ -90,8 +90,8 @@ systemDarkQuery.addEventListener('change', (e) => {
 })
 
 // Custom themes registered by defineMonacoThemes() (src/monacoThemes.ts) — the
-// built-in 'vs-dark'/'vs' themes only coincidentally matched Claude/Codex's
-// colors and didn't track Thomas's warm palette at all.
+// built-in 'vs-dark'/'vs' themes only coincidentally matched Claude's colors
+// and didn't track Thomas's warm palette at all.
 export const MONACO_THEMES: Record<ThemeId, string> = {
   'claude-dark':  'claude-dark',
   'claude-light': 'claude-light',

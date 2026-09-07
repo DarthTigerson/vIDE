@@ -11,6 +11,7 @@ export interface SessionData {
   activePaneId: string
   tabs: { path: string }[]
   browserUrls: Record<string, string>
+  claudeInstances?: { id: string; hue: string }[]
 }
 
 function sessionPathFor(projectRoot: string): string {

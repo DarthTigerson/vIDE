@@ -8,6 +8,7 @@ export interface ActivityBarItem {
   badge?: string | number
   disabled?: boolean
   onClick: () => void
+  onContextMenu?: (event: React.MouseEvent) => void
 }
 
 interface ActivityBarProps {
@@ -23,6 +24,7 @@ function ActivityBarButton({ item, showAccent, side, dense }: { item: ActivityBa
     <button
       key={item.id}
       onClick={item.disabled ? undefined : item.onClick}
+      onContextMenu={item.disabled ? undefined : item.onContextMenu}
       aria-label={item.title}
       disabled={item.disabled}
       className={[
@@ -113,26 +115,15 @@ export function FilesIcon() {
   )
 }
 
-export function ClaudeIcon() {
+export function ClaudeIcon({ color = '#D97757' }: { color?: string } = {}) {
   return (
     <svg width="1.375rem" height="1.375rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
         clipRule="evenodd"
         fillRule="evenodd"
         d="M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z"
-        fill="#D97757"
+        fill={color}
       />
-    </svg>
-  )
-}
-
-export function CodexIcon() {
-  return (
-    <svg width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M8 7L3 12L8 17" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M16 7L21 12L16 17" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M14 5L10 19" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-      <path d="M12 12H12.01" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/>
     </svg>
   )
 }
@@ -151,6 +142,17 @@ export function NewSessionIcon() {
       <path d="M14 3H6C4.9 3 4 3.9 4 5V19C4 20.1 4.9 21 6 21H18C19.1 21 20 20.1 20 19V9L14 3Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
       <path d="M14 3V9H20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
       <path d="M12 12V17M9.5 14.5H14.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+// A plain plus, distinct from NewSessionIcon's file-with-corner-fold glyph —
+// used for Claude's New Session button now that it sits directly under the
+// Claude icon rather than grouped with Previous/Resume Session at the bottom.
+export function NewSessionPlusIcon() {
+  return (
+    <svg width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
     </svg>
   )
 }
@@ -178,14 +180,15 @@ export function ResumeSessionIcon() {
   )
 }
 
-// Two chevrons converging toward the center line reads as "squeeze together"
-// (compact the conversation), rather than the old download-arrow-onto-a-
-// stack glyph, which read more like "save" or "archive".
+// A hydraulic press — a ram descending onto a squashed-flat stack — reads
+// as "compact" more directly than the earlier converging-chevrons glyph,
+// which tested as ambiguous at toolbar size.
 export function CompactIcon() {
   return (
     <svg width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M4 5L12 11L20 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M4 19L12 13L20 19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M12 2V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M6 10H18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M5 17H19M5 21H19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
     </svg>
   )
 }
@@ -219,23 +222,6 @@ export function UsageGraphIcon() {
   return (
     <svg width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M4 16l5-6 4 4 7-9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  )
-}
-
-export function ModelIcon() {
-  return (
-    <svg width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 3L19 7V15L12 21L5 15V7L12 3Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-      <path d="M12 3V11M19 7L12 11M5 7L12 11M12 21V11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  )
-}
-
-export function FastIcon() {
-  return (
-    <svg width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M13 2L5 13H11L9 22L19 9H13L13 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   )
 }

@@ -45,11 +45,11 @@ function fakePty() {
 
 function busyCalls(win: ReturnType<typeof fakeWin>): unknown[][] {
   return (win.webContents.send as ReturnType<typeof vi.fn>).mock.calls.filter(
-    (call: unknown[]) => call[0] === 'assistant:busy'
+    (call: unknown[]) => call[0] === 'claude:busy'
   )
 }
 
-describe('ClaudeManager assistant:spawn (attach mode)', () => {
+describe('ClaudeManager claude:spawn (attach mode)', () => {
   beforeEach(() => {
     spawnMock.mockReset()
   })
@@ -57,7 +57,7 @@ describe('ClaudeManager assistant:spawn (attach mode)', () => {
   function setup() {
     const manager = new ClaudeManager()
     manager.registerHandlers()
-    return { manager, spawnHandler: handlers['assistant:spawn'] }
+    return { manager, spawnHandler: handlers['claude:spawn'] }
   }
 
   it('reuses the existing process when re-attaching with the same cwd', () => {
@@ -99,7 +99,7 @@ describe('ClaudeManager assistant:spawn (attach mode)', () => {
     expect(spawnMock.mock.calls[0][1][1]).toBe('claude --resume')
   })
 
-  it('keeps window A\'s assistant process running independent of window B', () => {
+  it('keeps window A\'s instance running independent of window B', () => {
     const { spawnHandler } = setup()
     const winA = fakeWin(1)
     const winB = fakeWin(2)
@@ -109,6 +109,21 @@ describe('ClaudeManager assistant:spawn (attach mode)', () => {
 
     spawnHandler({ sender: winA }, '/project/a', 'claude', undefined)
     spawnHandler({ sender: winB }, '/project/b', 'claude', undefined)
+
+    expect(procA.kill).not.toHaveBeenCalled()
+    expect(procB.kill).not.toHaveBeenCalled()
+    expect(spawnMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps two instances in the same window independent of each other', () => {
+    const { spawnHandler } = setup()
+    const win = fakeWin(1)
+    const procA = fakePty()
+    const procB = fakePty()
+    spawnMock.mockReturnValueOnce(procA).mockReturnValueOnce(procB)
+
+    spawnHandler({ sender: win }, '/project/a', 'instance-a', undefined)
+    spawnHandler({ sender: win }, '/project/a', 'instance-b', undefined)
 
     expect(procA.kill).not.toHaveBeenCalled()
     expect(procB.kill).not.toHaveBeenCalled()
@@ -129,22 +144,22 @@ describe('ClaudeManager busy detection', () => {
   function setup() {
     const manager = new ClaudeManager()
     manager.registerHandlers()
-    return { spawnHandler: handlers['assistant:spawn'], writeHandler: handlers['assistant:write'] }
+    return { spawnHandler: handlers['claude:spawn'], writeHandler: handlers['claude:write'] }
   }
 
-  function spawnClaude() {
+  function spawnClaude(instanceId = 'claude') {
     const { spawnHandler, writeHandler } = setup()
     const win = fakeWin(1)
     const proc = fakePty()
     spawnMock.mockReturnValueOnce(proc)
-    spawnHandler({ sender: win }, '/project/a', 'claude', undefined)
+    spawnHandler({ sender: win }, '/project/a', instanceId, undefined)
     return { win, proc, writeHandler }
   }
 
   it('output with no recent input write marks busy immediately', () => {
     const { win, proc } = spawnClaude()
     proc.emitData('generating a response...')
-    expect(busyCalls(win)).toEqual([['assistant:busy', 'claude', true, 1]])
+    expect(busyCalls(win)).toEqual([['claude:busy', 'claude', true, 1]])
   })
 
   it('output arriving within ECHO_WINDOW_MS of our own write is treated as an echo, not busy', () => {
@@ -162,7 +177,7 @@ describe('ClaudeManager busy detection', () => {
     vi.advanceTimersByTime(ECHO_WINDOW_MS + 50)
     proc.emitData('some real output')
 
-    expect(busyCalls(win)).toEqual([['assistant:busy', 'claude', true, 1]])
+    expect(busyCalls(win)).toEqual([['claude:busy', 'claude', true, 1]])
   })
 
   it('busy clears itself IDLE_TIMEOUT_MS after the last non-echo output', () => {
@@ -171,8 +186,8 @@ describe('ClaudeManager busy detection', () => {
     vi.advanceTimersByTime(IDLE_TIMEOUT_MS)
 
     expect(busyCalls(win)).toEqual([
-      ['assistant:busy', 'claude', true, 1],
-      ['assistant:busy', 'claude', false, 1],
+      ['claude:busy', 'claude', true, 1],
+      ['claude:busy', 'claude', false, 1],
     ])
   })
 
@@ -183,12 +198,12 @@ describe('ClaudeManager busy detection', () => {
     proc.emitData('chunk 2') // resets the countdown
     vi.advanceTimersByTime(300) // past chunk 1's original deadline, not chunk 2's
 
-    expect(busyCalls(win)).toEqual([['assistant:busy', 'claude', true, 1]])
+    expect(busyCalls(win)).toEqual([['claude:busy', 'claude', true, 1]])
 
     vi.advanceTimersByTime(IDLE_TIMEOUT_MS)
     expect(busyCalls(win)).toEqual([
-      ['assistant:busy', 'claude', true, 1],
-      ['assistant:busy', 'claude', false, 2],
+      ['claude:busy', 'claude', true, 1],
+      ['claude:busy', 'claude', false, 2],
     ])
   })
 
@@ -198,7 +213,7 @@ describe('ClaudeManager busy detection', () => {
     vi.advanceTimersByTime(100)
     proc.emitData('chunk 2')
 
-    expect(busyCalls(win)).toEqual([['assistant:busy', 'claude', true, 1]])
+    expect(busyCalls(win)).toEqual([['claude:busy', 'claude', true, 1]])
   })
 
   it('process exit clears busy', () => {
@@ -207,8 +222,8 @@ describe('ClaudeManager busy detection', () => {
     proc.emitExit()
 
     expect(busyCalls(win)).toEqual([
-      ['assistant:busy', 'claude', true, 1],
-      ['assistant:busy', 'claude', false, 1],
+      ['claude:busy', 'claude', true, 1],
+      ['claude:busy', 'claude', false, 1],
     ])
   })
 
@@ -222,8 +237,8 @@ describe('ClaudeManager busy detection', () => {
     vi.advanceTimersByTime(IDLE_TIMEOUT_MS)
 
     expect(busyCalls(win)).toEqual([
-      ['assistant:busy', 'claude', true, 1],
-      ['assistant:busy', 'claude', false, 3],
+      ['claude:busy', 'claude', true, 1],
+      ['claude:busy', 'claude', false, 3],
     ])
   })
 
@@ -237,11 +252,68 @@ describe('ClaudeManager busy detection', () => {
     vi.advanceTimersByTime(IDLE_TIMEOUT_MS)
 
     expect(busyCalls(win)).toEqual([
-      ['assistant:busy', 'claude', true, 1],
-      ['assistant:busy', 'claude', false, 2],
-      ['assistant:busy', 'claude', true, 1],
-      ['assistant:busy', 'claude', false, 1],
+      ['claude:busy', 'claude', true, 1],
+      ['claude:busy', 'claude', false, 2],
+      ['claude:busy', 'claude', true, 1],
+      ['claude:busy', 'claude', false, 1],
     ])
+  })
+
+  it('tracks busy independently for two concurrent instances in the same window', () => {
+    const { spawnHandler } = setup()
+    const win = fakeWin(1)
+    const procA = fakePty()
+    const procB = fakePty()
+    spawnMock.mockReturnValueOnce(procA).mockReturnValueOnce(procB)
+    spawnHandler({ sender: win }, '/project/a', 'instance-a', undefined)
+    spawnHandler({ sender: win }, '/project/a', 'instance-b', undefined)
+
+    procA.emitData('a is generating')
+    expect(busyCalls(win)).toEqual([['claude:busy', 'instance-a', true, 1]])
+
+    procB.emitData('b is generating')
+    expect(busyCalls(win)).toEqual([
+      ['claude:busy', 'instance-a', true, 1],
+      ['claude:busy', 'instance-b', true, 1],
+    ])
+
+    vi.advanceTimersByTime(IDLE_TIMEOUT_MS)
+    expect(busyCalls(win)).toEqual([
+      ['claude:busy', 'instance-a', true, 1],
+      ['claude:busy', 'instance-b', true, 1],
+      ['claude:busy', 'instance-a', false, 1],
+      ['claude:busy', 'instance-b', false, 1],
+    ])
+  })
+})
+
+describe('ClaudeManager claude:kill', () => {
+  beforeEach(() => {
+    spawnMock.mockReset()
+  })
+
+  it('kills only the targeted instance, leaving a sibling instance running', () => {
+    const manager = new ClaudeManager()
+    manager.registerHandlers()
+    const win = fakeWin(1)
+    const procA = fakePty()
+    const procB = fakePty()
+    spawnMock.mockReturnValueOnce(procA).mockReturnValueOnce(procB)
+
+    handlers['claude:spawn']({ sender: win }, '/project/a', 'instance-a', undefined)
+    handlers['claude:spawn']({ sender: win }, '/project/a', 'instance-b', undefined)
+    handlers['claude:kill']({ sender: win }, 'instance-a')
+
+    expect(procA.kill).toHaveBeenCalled()
+    expect(procB.kill).not.toHaveBeenCalled()
+  })
+
+  it('is a no-op for an unknown instance id', () => {
+    const manager = new ClaudeManager()
+    manager.registerHandlers()
+    const win = fakeWin(1)
+
+    expect(() => handlers['claude:kill']({ sender: win }, 'nonexistent')).not.toThrow()
   })
 })
 
@@ -269,7 +341,7 @@ describe('ClaudeManager browser-open shim env', () => {
     const proc = fakePty()
     spawnMock.mockReturnValueOnce(proc)
 
-    handlers['assistant:spawn']({ sender: win }, '/project/a', 'claude', undefined)
+    handlers['claude:spawn']({ sender: win }, '/project/a', 'claude', undefined)
 
     expect(shim.getSpawnEnv).toHaveBeenCalledWith(9)
     expect(spawnMock.mock.calls[0][2].env).toMatchObject({
@@ -277,20 +349,6 @@ describe('ClaudeManager browser-open shim env', () => {
       VIDE_BROWSER_SHIM_SOCK: '/tmp/sock',
       PATH: '/shim/bin:/usr/bin',
     })
-  })
-
-  it('does not apply the shim env to a codex spawn', () => {
-    const shim = fakeShim()
-    const manager = new ClaudeManager(shim)
-    manager.registerHandlers()
-    const win = fakeWin(9)
-    const proc = fakePty()
-    spawnMock.mockReturnValueOnce(proc)
-
-    handlers['assistant:spawn']({ sender: win }, '/project/a', 'codex', undefined)
-
-    expect(shim.getSpawnEnv).not.toHaveBeenCalled()
-    expect(spawnMock.mock.calls[0][2].env.VIDE_WINDOW_ID).toBeUndefined()
   })
 
   // The spawned shell is a login shell (`-lic`), which re-derives PATH from
@@ -306,7 +364,7 @@ describe('ClaudeManager browser-open shim env', () => {
     const proc = fakePty()
     spawnMock.mockReturnValueOnce(proc)
 
-    handlers['assistant:spawn']({ sender: win }, '/project/a', 'claude', undefined)
+    handlers['claude:spawn']({ sender: win }, '/project/a', 'claude', undefined)
 
     const command = spawnMock.mock.calls[0][1][1]
     expect(command).toBe('export PATH="/shim/bin:$PATH"; claude')

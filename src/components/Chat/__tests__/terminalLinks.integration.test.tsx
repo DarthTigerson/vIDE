@@ -12,6 +12,8 @@ import { useBrowserStore } from '@/stores/browserStore'
 // helpers in terminalLinks.test.ts — catches wiring bugs (wrong regex passed
 // to the wrong provider, provider never registered, etc.) that unit-testing
 // FILE_PATH_REGEX in isolation can't.
+const TEST_INSTANCE_ID = 'test-instance-1'
+
 describe('Chat terminal link provider (integration)', () => {
   let assistantDataCallback: ((source: string, data: string) => void) | null = null
 
@@ -19,10 +21,10 @@ describe('Chat terminal link provider (integration)', () => {
     assistantDataCallback = null
     ;(global as any).window.api = {
       ...(global as any).window.api,
-      assistantSpawn: vi.fn(),
-      assistantWrite: vi.fn(),
-      assistantResize: vi.fn(),
-      onAssistantData: vi.fn((cb: (source: string, data: string) => void) => {
+      claudeSpawn: vi.fn(),
+      claudeWrite: vi.fn(),
+      claudeResize: vi.fn(),
+      onClaudeData: vi.fn((cb: (source: string, data: string) => void) => {
         assistantDataCallback = cb
         return () => {}
       }),
@@ -30,7 +32,14 @@ describe('Chat terminal link provider (integration)', () => {
       getHomeDir: vi.fn().mockResolvedValue('/Users/thomas'),
     }
     useFileStore.setState({ projectRoot: '/project' })
-    useClaudeStore.setState({ assistant: 'claude', restartToken: 0, pendingInjection: null, focusToken: 0 })
+    useClaudeStore.setState({
+      assistant: 'claude',
+      instances: [{ id: TEST_INSTANCE_ID, hue: '#D97757' }],
+      activeInstanceId: TEST_INSTANCE_ID,
+      restartToken: 0,
+      pendingInjection: null,
+      focusToken: 0,
+    })
   })
 
   afterEach(() => {
@@ -65,7 +74,7 @@ describe('Chat terminal link provider (integration)', () => {
 
     expect(assistantDataCallback).not.toBeNull()
     await new Promise<void>((resolve) => {
-      assistantDataCallback!('claude', `${line}\r\n`)
+      assistantDataCallback!(TEST_INSTANCE_ID, `${line}\r\n`)
       // xterm.write() parses the written data asynchronously; give it a tick.
       setTimeout(resolve, 50)
     })

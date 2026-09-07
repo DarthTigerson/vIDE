@@ -10,7 +10,7 @@ import type { OnboardingStatus, GitIdentity } from '../../electron/onboarding'
 
 export type { LatestUsage, UsageSnapshot, UpdateInfo, DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats }
 
-export type AssistantKind = 'claude' | 'codex' | 'bridge'
+export type AssistantKind = 'claude' | 'bridge'
 
 export interface SessionData {
   layout: unknown
@@ -20,6 +20,7 @@ export interface SessionData {
   activePaneId: string
   tabs: { path: string }[]
   browserUrls: Record<string, string>
+  claudeInstances?: { id: string; hue: string }[]
 }
 
 export interface MobileNetworkInterface {
@@ -215,11 +216,12 @@ declare global {
       onTermData: (cb: (id: string, data: string) => void) => () => void
       onTermExit: (cb: (id: string) => void) => () => void
 
-      assistantSpawn: (cwd: string, assistant: AssistantKind, mode?: 'new' | 'continue' | 'resume') => Promise<void>
-      assistantWrite: (assistant: AssistantKind, data: string) => void
-      assistantResize: (assistant: AssistantKind, cols: number, rows: number) => void
-      onAssistantData: (cb: (assistant: AssistantKind, data: string) => void) => () => void
-      onAssistantBusy: (cb: (assistant: AssistantKind, busy: boolean, chunkCount: number) => void) => () => void
+      claudeSpawn: (cwd: string, instanceId: string, mode?: 'new' | 'continue' | 'resume') => Promise<void>
+      claudeWrite: (instanceId: string, data: string) => void
+      claudeResize: (instanceId: string, cols: number, rows: number) => void
+      claudeKill: (instanceId: string) => void
+      onClaudeData: (cb: (instanceId: string, data: string) => void) => () => void
+      onClaudeBusy: (cb: (instanceId: string, busy: boolean, chunkCount: number) => void) => () => void
       onBrowserOpenExternalUrl: (cb: (url: string) => void) => () => void
       onOpenClaudeBrowserTab: (cb: () => void) => () => void
 

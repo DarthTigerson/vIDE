@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { MouseEvent } from 'react'
 import * as monaco from 'monaco-editor'
 import { ImperativePanelHandle, Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { clampSize, loadPanelSize } from '@/lib/panelSize'
@@ -25,21 +26,19 @@ import {
   TerminalIcon,
   BrowserIcon,
   ClaudeIcon,
-  CodexIcon,
   BridgeIcon,
   NewSessionIcon,
+  NewSessionPlusIcon,
   PreviousSessionIcon,
-  ResumeSessionIcon,
   CompactIcon,
   ClearIcon,
   UsageIcon,
   CostIcon,
   UsageGraphIcon,
-  ModelIcon,
-  FastIcon,
   NotesIcon,
 } from './components/ActivityBar/ActivityBar'
 import { ClaudeStatusIcon } from './components/ActivityBar/ClaudeStatusIcon'
+import { ClaudeSessionContextMenu } from './components/ActivityBar/ClaudeSessionContextMenu'
 import { SettingsPanel } from './components/Settings/SettingsPanel'
 import { GitPanel } from './components/Git/GitPanel'
 import { BranchPalette } from './components/Git/BranchPalette'
@@ -94,12 +93,11 @@ import type { AssistantKind } from './types/api'
 
 const ASSISTANT_OPTIONS: Array<{ id: AssistantKind; label: string }> = [
   { id: 'claude', label: 'Claude Code' },
-  { id: 'codex', label: 'Codex' },
   { id: 'bridge', label: 'Bridge' },
 ]
 
 function assistantIcon(kind: AssistantKind) {
-  return kind === 'claude' ? <ClaudeIcon /> : kind === 'codex' ? <CodexIcon /> : <BridgeIcon />
+  return kind === 'claude' ? <ClaudeIcon /> : <BridgeIcon />
 }
 
 const JIRA_BROWSER_ID = 'jira-external'
@@ -133,6 +131,8 @@ export default function App() {
   const gitStatus = useRepoGitState(selectedRepo).status
   const refreshGitStatus = useGitStore((s) => s.refreshStatus)
   const assistant = useClaudeStore((s) => s.assistant)
+  const instances = useClaudeStore((s) => s.instances)
+  const activeInstanceId = useClaudeStore((s) => s.activeInstanceId)
   const usageOpen = useClaudeStore((s) => s.usageOpen)
   const costOpen = useClaudeStore((s) => s.costOpen)
   const setAssistant = useClaudeStore((s) => s.setAssistant)
@@ -145,6 +145,7 @@ export default function App() {
   const [sidebarSize, setSidebarSize] = useState(loadSidebarSize)
   const [chatSize, setChatSize] = useState(loadChatSize)
   const [assistantMenuOpen, setAssistantMenuOpen] = useState(false)
+  const [sessionMenu, setSessionMenu] = useState<{ x: number; y: number; instanceId: string } | null>(null)
   const [memoryUsage, setMemoryUsage] = useState<{ usedBytes: number; totalBytes: number } | null>(null)
   const commandPaletteOpen = useSearchStore((s) => s.commandPaletteOpen)
   const searchOpen = useSearchStore((s) => s.searchOpen)
@@ -154,10 +155,9 @@ export default function App() {
   const branchPaletteOpen = useSearchStore((s) => s.branchPaletteOpen)
   const chatPanelRef = useRef<ImperativePanelHandle>(null)
   const sidebarPanelRef = useRef<ImperativePanelHandle>(null)
-  const assistantLabel = assistant === 'claude' ? 'Claude Code' : assistant === 'codex' ? 'Codex' : 'Bridge'
-  const newSessionTitle = assistant === 'claude' ? 'New Claude Session' : assistant === 'codex' ? 'New Codex Session' : 'New Bridge Session'
-  const previousSessionTitle = assistant === 'claude' ? 'Continue Claude Session' : assistant === 'codex' ? 'Resume Latest Codex Session' : 'Restore Previous Bridge Session'
-  const resumeSessionTitle = 'Resume Session…'
+  const assistantLabel = assistant === 'claude' ? 'Claude Code' : 'Bridge'
+  const newSessionTitle = assistant === 'claude' ? 'New Claude Session' : 'New Bridge Session'
+  const previousSessionTitle = assistant === 'claude' ? 'Continue Claude Session' : 'Restore Previous Bridge Session'
   const uncommittedChangeCount = new Set([
     ...gitStatus.staged.map((file) => file.path),
     ...gitStatus.unstaged.map((file) => file.path),
@@ -317,6 +317,21 @@ export default function App() {
     hadProjectRef.current = !!projectRoot
   }, [projectRoot])
 
+  // Restores the stacked Claude sessions (count + hue, never conversation
+  // content — that's the CLI's own --continue/--resume, not vIDE's job) for
+  // whichever project just opened. Falls back to a single fresh instance
+  // when there's nothing saved yet (a project that predates this feature,
+  // or a load failure — sessionLoad already resolves null in both cases).
+  useEffect(() => {
+    if (!projectRoot) return
+    let cancelled = false
+    window.api.sessionLoad(projectRoot).then((data) => {
+      if (cancelled) return
+      useClaudeStore.getState().loadInstancesFromSession(data?.claudeInstances)
+    })
+    return () => { cancelled = true }
+  }, [projectRoot])
+
   // Git/Docker/Mobile Display/Graphify only make sense with a project open
   // (their ActivityBar icons disappear entirely when projectRoot is null,
   // see primaryActivityBar below) — fall back to Explorer so a project
@@ -417,19 +432,21 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    return window.api.onAssistantBusy((assistant, busy, chunkCount) => {
-      const wasBusy = useClaudeStore.getState().busyByAssistant[assistant] ?? false
-      useClaudeStore.getState().setBusy(assistant, busy)
-      // Falling edge only (busy -> idle) — that's "Claude finished a turn".
-      // Claude only, for now (VIDE-59). Gated on chunkCount rather than how
-      // long the episode ran: electron/claude.ts's busy signal fires on any
-      // non-echo PTY output, so a single incidental redraw (e.g. a resize
-      // repaint) is indistinguishable from a short real reply by *duration*
-      // alone — both settle idle after the same fixed timeout. Chunk count
-      // isn't: a one-off redraw is ~1 output write, while even a brief
-      // streamed reply is several, so requiring more than one reliably
-      // separates the two without risking silence on genuinely fast replies.
-      if (assistant === 'claude' && wasBusy && !busy && chunkCount > 1) {
+    return window.api.onClaudeBusy((instanceId, busy, chunkCount) => {
+      const wasBusy = useClaudeStore.getState().busyByInstance[instanceId] ?? false
+      useClaudeStore.getState().setBusy(instanceId, busy)
+      // Falling edge only (busy -> idle) — that's "this instance finished a
+      // turn". Fires for every stacked instance, not just the active one —
+      // a background session finishing is exactly the kind of thing worth a
+      // sound for. Gated on chunkCount rather than how long the episode
+      // ran: electron/claude.ts's busy signal fires on any non-echo PTY
+      // output, so a single incidental redraw (e.g. a resize repaint) is
+      // indistinguishable from a short real reply by *duration* alone —
+      // both settle idle after the same fixed timeout. Chunk count isn't: a
+      // one-off redraw is ~1 output write, while even a brief streamed
+      // reply is several, so requiring more than one reliably separates the
+      // two without risking silence on genuinely fast replies.
+      if (wasBusy && !busy && chunkCount > 1) {
         const { enabled, muted, soundId } = useNotificationSoundSettingsStore.getState()
         if (enabled && !muted) playNotificationSound(soundId)
       }
@@ -439,7 +456,7 @@ export default function App() {
   useEffect(() => {
     // Catches file changes made outside the app's own UI — Finder, an
     // external editor, a build script, `mkdir`/`touch` in a terminal, an
-    // agent (Claude/Codex/Bridge) editing files directly — which the app's
+    // agent (Claude/Bridge) editing files directly — which the app's
     // own create/rename/delete actions already refresh for, but nothing else
     // does. Also refreshes the Git Panel's staged/unstaged list: a content
     // edit only touches the working tree, never `.git/*`, so GitWatcher's
@@ -915,14 +932,49 @@ export default function App() {
           showAccent={false}
           dense
           groups={[
-            [{
-              id: assistant,
-              icon: assistant === 'claude' ? <ClaudeStatusIcon /> : assistantIcon(assistant),
-              title: assistantLabel,
-              active: chatVisible,
-              disabled: !projectRoot,
-              onClick: () => useClaudeStore.getState().toggleChatVisible(),
-            }],
+            [
+              ...(assistant === 'claude'
+                ? instances.map((inst) => ({
+                    id: inst.id,
+                    icon: <ClaudeStatusIcon instanceId={inst.id} color={inst.hue} />,
+                    title: assistantLabel,
+                    active: chatVisible && inst.id === activeInstanceId,
+                    disabled: !projectRoot,
+                    onClick: () => {
+                      if (inst.id !== activeInstanceId) {
+                        useClaudeStore.getState().setActiveInstance(inst.id)
+                        useClaudeStore.getState().setChatVisible(true)
+                      } else {
+                        useClaudeStore.getState().toggleChatVisible()
+                      }
+                    },
+                    onContextMenu: (e: MouseEvent) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setSessionMenu({ x: e.clientX, y: e.clientY, instanceId: inst.id })
+                    },
+                  }))
+                : [{
+                    id: assistant,
+                    icon: assistantIcon(assistant),
+                    title: assistantLabel,
+                    active: chatVisible,
+                    disabled: !projectRoot,
+                    onClick: () => useClaudeStore.getState().toggleChatVisible(),
+                  }]),
+              ...(assistant === 'claude' ? [{
+                id: 'new-session',
+                icon: <NewSessionPlusIcon />,
+                title: newSessionTitle,
+                active: false,
+                disabled: !projectRoot,
+                onClick: () => {
+                  if (!projectRoot) return
+                  useClaudeStore.getState().newSession(projectRoot)
+                  useClaudeStore.getState().setChatVisible(true)
+                },
+              }] : []),
+            ],
             ...(assistant !== 'claude' ? [[
               {
                 id: 'new-session',
@@ -952,42 +1004,11 @@ export default function App() {
           ]}
           bottomGroups={assistant === 'claude'
             ? [
-              [], // empty leading group so ItemGroups renders a divider above New Claude Session
-              [
-                {
-                  id: 'new-session',
-                  icon: <NewSessionIcon />,
-                  title: newSessionTitle,
-                  active: false,
-                  disabled: !projectRoot,
-                  onClick: () => {
-                    if (!projectRoot) return
-                    useClaudeStore.getState().newSession(projectRoot)
-                  },
-                },
-                {
-                  id: 'previous-session',
-                  icon: <PreviousSessionIcon />,
-                  title: previousSessionTitle,
-                  active: false,
-                  disabled: !projectRoot,
-                  onClick: () => {
-                    if (!projectRoot) return
-                    useClaudeStore.getState().previousSession(projectRoot)
-                  },
-                },
-                {
-                  id: 'resume-session',
-                  icon: <ResumeSessionIcon />,
-                  title: resumeSessionTitle,
-                  active: false,
-                  disabled: !projectRoot,
-                  onClick: () => {
-                    if (!projectRoot) return
-                    useClaudeStore.getState().resumeSession(projectRoot)
-                  },
-                },
-              ],
+              [], // empty leading group so ItemGroups renders a divider above Compact
+              // Previous/Resume Session moved to the right-click menu on each
+              // session icon (see ClaudeSessionContextMenu) now that there can
+              // be more than one session — a toolbar button can only ever act
+              // on "the" active one, which stopped being an unambiguous concept.
               [
                 {
                   id: 'compact',
@@ -1043,25 +1064,6 @@ export default function App() {
                 },
               ],
             ]
-            : assistant === 'codex'
-            ? [[
-              {
-                id: 'model',
-                icon: <ModelIcon />,
-                title: 'Model',
-                active: false,
-                disabled: !projectRoot,
-                onClick: () => useClaudeStore.getState().model(),
-              },
-              {
-                id: 'fast',
-                icon: <FastIcon />,
-                title: 'Fast',
-                active: false,
-                disabled: !projectRoot,
-                onClick: () => useClaudeStore.getState().fast(),
-              },
-            ]]
             : []}
         />
           )
@@ -1113,6 +1115,38 @@ export default function App() {
       {branchPaletteOpen && selectedRepo && (
         <BranchPalette projectRoot={selectedRepo} onClose={() => useSearchStore.getState().closeBranchPalette()} />
       )}
+      {sessionMenu && (
+        <ClaudeSessionContextMenu
+          x={sessionMenu.x}
+          y={sessionMenu.y}
+          onContinuePreviousSession={() => {
+            if (!projectRoot) return
+            useClaudeStore.getState().setActiveInstance(sessionMenu.instanceId)
+            useClaudeStore.getState().setChatVisible(true)
+            useClaudeStore.getState().previousSession(projectRoot)
+          }}
+          onResumeSession={() => {
+            if (!projectRoot) return
+            useClaudeStore.getState().setActiveInstance(sessionMenu.instanceId)
+            useClaudeStore.getState().setChatVisible(true)
+            useClaudeStore.getState().resumeSession(projectRoot)
+          }}
+          onCompact={() => {
+            useClaudeStore.getState().setActiveInstance(sessionMenu.instanceId)
+            useClaudeStore.getState().setChatVisible(true)
+            useClaudeStore.getState().compact()
+          }}
+          onClear={() => {
+            useClaudeStore.getState().setActiveInstance(sessionMenu.instanceId)
+            useClaudeStore.getState().setChatVisible(true)
+            useClaudeStore.getState().clearContext()
+          }}
+          onCloseSession={() => {
+            if (projectRoot) useClaudeStore.getState().closeInstance(projectRoot, sessionMenu.instanceId)
+          }}
+          onClose={() => setSessionMenu(null)}
+        />
+      )}
       <UpdateChangelogModal />
       <SetupWizard />
     </div>
@@ -1155,8 +1189,8 @@ function SpeakerIcon() {
   return (
     <svg
       className="shrink-0"
-      width="14"
-      height="14"
+      width="1.25rem"
+      height="1.25rem"
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -1172,8 +1206,8 @@ function MutedSpeakerIcon() {
   return (
     <svg
       className="shrink-0"
-      width="14"
-      height="14"
+      width="1.25rem"
+      height="1.25rem"
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"

@@ -11,6 +11,19 @@ const { store } = vi.hoisted(() => {
 
 import { useClaudeStore } from '../claudeStore'
 
+beforeEach(() => {
+  if (!(global as any).window) {
+    (global as any).window = {}
+  }
+  ;(global as any).window.api = {
+    ...(((global as any).window as any).api ?? {}),
+    claudeSpawn: vi.fn(),
+    claudeWrite: vi.fn(),
+    claudeKill: vi.fn(),
+    sessionSave: vi.fn(),
+  }
+})
+
 describe('claudeStore selection hand-off', () => {
   beforeEach(() => {
     useClaudeStore.setState({ chatVisible: true, pendingInjection: null, focusToken: 0 })
@@ -108,17 +121,121 @@ describe('claudeStore.usage / cost mutual exclusion', () => {
 
 describe('claudeStore.setBusy', () => {
   beforeEach(() => {
-    useClaudeStore.setState({ busyByAssistant: {} })
+    useClaudeStore.setState({ busyByInstance: {} })
   })
 
-  it('tracks busy state per assistant independently', () => {
-    useClaudeStore.getState().setBusy('claude', true)
-    expect(useClaudeStore.getState().busyByAssistant).toEqual({ claude: true })
+  it('tracks busy state per instance independently', () => {
+    useClaudeStore.getState().setBusy('instance-a', true)
+    expect(useClaudeStore.getState().busyByInstance).toEqual({ 'instance-a': true })
 
-    useClaudeStore.getState().setBusy('codex', true)
-    expect(useClaudeStore.getState().busyByAssistant).toEqual({ claude: true, codex: true })
+    useClaudeStore.getState().setBusy('instance-b', true)
+    expect(useClaudeStore.getState().busyByInstance).toEqual({ 'instance-a': true, 'instance-b': true })
 
-    useClaudeStore.getState().setBusy('claude', false)
-    expect(useClaudeStore.getState().busyByAssistant).toEqual({ claude: false, codex: true })
+    useClaudeStore.getState().setBusy('instance-a', false)
+    expect(useClaudeStore.getState().busyByInstance).toEqual({ 'instance-a': false, 'instance-b': true })
+  })
+})
+
+describe('claudeStore.loadInstancesFromSession', () => {
+  it('seeds a single fresh instance when nothing was saved', () => {
+    useClaudeStore.getState().loadInstancesFromSession(undefined)
+    const { instances, activeInstanceId } = useClaudeStore.getState()
+    expect(instances).toHaveLength(1)
+    expect(instances[0].hue).toBe('#D97757')
+    expect(activeInstanceId).toBe(instances[0].id)
+  })
+
+  it('restores a saved instance list verbatim and activates the first one', () => {
+    const saved = [{ id: 'a', hue: '#111111' }, { id: 'b', hue: '#222222' }]
+    useClaudeStore.getState().loadInstancesFromSession(saved)
+    const state = useClaudeStore.getState()
+    expect(state.instances).toEqual(saved)
+    expect(state.activeInstanceId).toBe('a')
+  })
+
+  it('falls back to a fresh instance for an empty saved list', () => {
+    useClaudeStore.getState().loadInstancesFromSession([])
+    expect(useClaudeStore.getState().instances).toHaveLength(1)
+  })
+})
+
+describe('claudeStore.newSession', () => {
+  beforeEach(() => {
+    useClaudeStore.getState().loadInstancesFromSession(undefined)
+  })
+
+  it('appends a new instance, assigns the next hue, and makes it active', () => {
+    const firstId = useClaudeStore.getState().instances[0].id
+    useClaudeStore.getState().newSession('/project')
+
+    const state = useClaudeStore.getState()
+    expect(state.instances).toHaveLength(2)
+    expect(state.instances[0].id).toBe(firstId)
+    expect(state.instances[1].hue).not.toBe(state.instances[0].hue)
+    expect(state.activeInstanceId).toBe(state.instances[1].id)
+  })
+
+  it('persists the new instance list', () => {
+    useClaudeStore.getState().newSession('/project')
+    const saveMock = (window.api as any).sessionSave as ReturnType<typeof vi.fn>
+    expect(saveMock).toHaveBeenCalledWith('/project', { claudeInstances: useClaudeStore.getState().instances })
+  })
+})
+
+describe('claudeStore.closeInstance', () => {
+  beforeEach(() => {
+    useClaudeStore.getState().loadInstancesFromSession([
+      { id: 'a', hue: '#111111' },
+      { id: 'b', hue: '#222222' },
+      { id: 'c', hue: '#333333' },
+    ])
+    useClaudeStore.setState({ activeInstanceId: 'b' })
+  })
+
+  it('removes the instance and kills its PTY', () => {
+    useClaudeStore.getState().closeInstance('/project', 'a')
+    expect(useClaudeStore.getState().instances.map((i) => i.id)).toEqual(['b', 'c'])
+    const killMock = (window.api as any).claudeKill as ReturnType<typeof vi.fn>
+    expect(killMock).toHaveBeenCalledWith('a')
+  })
+
+  it('falls back active to the instance now at the same index when closing the active one', () => {
+    useClaudeStore.getState().closeInstance('/project', 'b')
+    const state = useClaudeStore.getState()
+    expect(state.instances.map((i) => i.id)).toEqual(['a', 'c'])
+    expect(state.activeInstanceId).toBe('c') // 'c' now sits at index 1, where 'b' was
+  })
+
+  it('falls back to the new last instance when closing the active last one', () => {
+    useClaudeStore.setState({ activeInstanceId: 'c' })
+    useClaudeStore.getState().closeInstance('/project', 'c')
+    const state = useClaudeStore.getState()
+    expect(state.instances.map((i) => i.id)).toEqual(['a', 'b'])
+    expect(state.activeInstanceId).toBe('b')
+  })
+
+  it('leaves activeInstanceId untouched when closing a non-active instance', () => {
+    useClaudeStore.getState().closeInstance('/project', 'a')
+    expect(useClaudeStore.getState().activeInstanceId).toBe('b')
+  })
+
+  it('is a no-op when only one instance remains', () => {
+    useClaudeStore.getState().closeInstance('/project', 'a')
+    useClaudeStore.getState().closeInstance('/project', 'c')
+    expect(useClaudeStore.getState().instances).toHaveLength(1)
+
+    const killMock = (window.api as any).claudeKill as ReturnType<typeof vi.fn>
+    killMock.mockClear()
+    useClaudeStore.getState().closeInstance('/project', useClaudeStore.getState().instances[0].id)
+    expect(useClaudeStore.getState().instances).toHaveLength(1)
+    expect(killMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('claudeStore.setActiveInstance', () => {
+  it('switches the active instance id', () => {
+    useClaudeStore.getState().loadInstancesFromSession([{ id: 'a', hue: '#111' }, { id: 'b', hue: '#222' }])
+    useClaudeStore.getState().setActiveInstance('b')
+    expect(useClaudeStore.getState().activeInstanceId).toBe('b')
   })
 })

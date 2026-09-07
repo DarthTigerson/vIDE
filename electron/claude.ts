@@ -1,26 +1,15 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import * as pty from 'node-pty'
 
-type AssistantKind = 'claude' | 'codex'
 type SessionMode = 'attach' | 'new' | 'continue' | 'resume'
 
-const COMMANDS: Record<AssistantKind, Record<Exclude<SessionMode, 'attach'>, string>> = {
-  claude: {
-    new: 'claude',
-    continue: 'claude --continue',
-    resume: 'claude --resume',
-  },
-  codex: {
-    new: 'codex',
-    continue: 'codex resume --last',
-    resume: 'codex resume',
-  },
+const COMMANDS: Record<Exclude<SessionMode, 'attach'>, string> = {
+  new: 'claude',
+  continue: 'claude --continue',
+  resume: 'claude --resume',
 }
 
-const INSTALL_MESSAGES: Record<AssistantKind, string> = {
-  claude: "Install it with: npm install -g @anthropic-ai/claude-code",
-  codex: 'Install Codex CLI, then make sure `codex` is available in PATH.',
-}
+const INSTALL_MESSAGE = "Install it with: npm install -g @anthropic-ai/claude-code"
 
 function hasValidSize(cols: number, rows: number): boolean {
   return Number.isFinite(cols) && Number.isFinite(rows) && cols > 0 && rows > 0
@@ -39,24 +28,31 @@ function hasValidSize(cols: number, rows: number): boolean {
 export const ECHO_WINDOW_MS = 400
 export const IDLE_TIMEOUT_MS = 1500
 
-interface WindowState {
-  procs: Partial<Record<AssistantKind, pty.IPty>>
-  procCwd: Partial<Record<AssistantKind, string>>
-  activeAssistant: AssistantKind
-  lastInputAt: Partial<Record<AssistantKind, number>>
-  busy: Partial<Record<AssistantKind, boolean>>
-  busyTimers: Partial<Record<AssistantKind, NodeJS.Timeout>>
-  // Non-echo output chunks seen since this assistant went busy — reset each
+interface InstanceState {
+  proc?: pty.IPty
+  cwd?: string
+  lastInputAt: number
+  busy: boolean
+  busyTimer?: NodeJS.Timeout
+  // Non-echo output chunks seen since this instance went busy — reset each
   // time a fresh episode starts. A single incidental redraw (a resize
   // repaint, say) is ~1 chunk; real generation streams many. Reported
   // alongside the busy=false event so consumers (the completion-sound
   // wiring in App.tsx) can tell genuine turns from output blips without
   // relying on timing, which can't reliably distinguish the two (VIDE-59).
-  busyChunkCounts: Partial<Record<AssistantKind, number>>
+  busyChunkCount: number
+}
+
+interface WindowState {
+  instances: Map<string, InstanceState>
 }
 
 interface BrowserBridgeLike {
   getSpawnEnv(windowId: number): Record<string, string>
+}
+
+function newInstanceState(): InstanceState {
+  return { lastInputAt: 0, busy: false, busyChunkCount: 0 }
 }
 
 export class ClaudeManager {
@@ -65,33 +61,34 @@ export class ClaudeManager {
   constructor(private browserBridge?: BrowserBridgeLike) {}
 
   registerHandlers(): void {
-    ipcMain.handle('assistant:spawn', (event, cwd: string, assistant: AssistantKind = 'claude', mode: SessionMode = 'attach') => {
+    ipcMain.handle('claude:spawn', (event, cwd: string, instanceId: string, mode: SessionMode = 'attach') => {
       const win = BrowserWindow.fromWebContents(event.sender)
       if (!win) return
       const state = this.stateFor(win.id)
-      const selectedAssistant = assistant === 'codex' ? 'codex' : 'claude'
+      const inst = state.instances.get(instanceId) ?? newInstanceState()
+      state.instances.set(instanceId, inst)
       const selectedMode = mode === 'continue' || mode === 'new' || mode === 'resume' ? mode : 'attach'
-      state.activeAssistant = selectedAssistant
 
-      const attachingToSameCwd = state.procs[selectedAssistant] && state.procCwd[selectedAssistant] === cwd
+      const attachingToSameCwd = inst.proc && inst.cwd === cwd
       if (selectedMode === 'attach' && attachingToSameCwd) return
 
-      state.procs[selectedAssistant]?.kill()
-      delete state.procs[selectedAssistant]
-      delete state.procCwd[selectedAssistant]
+      inst.proc?.kill()
+      inst.proc = undefined
+      inst.cwd = undefined
 
       try {
         const shell = process.env.SHELL ?? '/bin/zsh'
-        // Only claude gets the browser-open shim env — it lets a login flow's
-        // `open`/`xdg-open` call route into vIDE's own Browser panel (VIDE-7)
-        // instead of escaping to the OS browser.
-        const shimEnv = selectedAssistant === 'claude' ? this.browserBridge?.getSpawnEnv(win.id) : undefined
+        // Lets a login flow's `open`/`xdg-open` call route into vIDE's own
+        // Browser panel (VIDE-7) instead of escaping to the OS browser.
+        // Every instance managed here is a Claude instance, so this applies
+        // unconditionally now.
+        const shimEnv = this.browserBridge?.getSpawnEnv(win.id)
         // `-lic` makes this a login shell, which re-derives PATH from scratch
         // via macOS's path_helper — clobbering anything we set in `env`
         // before the shell body runs, so /usr/bin/open would always win over
         // our shim dir if we relied on the env var alone. Re-exporting PATH
         // here, inside the command string, runs after that clobbering.
-        const baseCommand = COMMANDS[selectedAssistant][selectedMode === 'attach' ? 'new' : selectedMode]
+        const baseCommand = COMMANDS[selectedMode === 'attach' ? 'new' : selectedMode]
         const command = shimEnv ? `export PATH="${shimEnv.VIDE_BROWSER_SHIM_BIN}:$PATH"; ${baseCommand}` : baseCommand
         const proc = pty.spawn(shell, ['-lic', command], {
           name: 'xterm-color',
@@ -100,73 +97,81 @@ export class ClaudeManager {
           cwd,
           env: { ...(process.env as Record<string, string>), ...shimEnv },
         })
-        state.procs[selectedAssistant] = proc
-        state.procCwd[selectedAssistant] = cwd
+        inst.proc = proc
+        inst.cwd = cwd
         proc.onData((data) => {
-          if (!win.isDestroyed()) win.webContents.send('assistant:data', selectedAssistant, data)
+          if (!win.isDestroyed()) win.webContents.send('claude:data', instanceId, data)
 
           const now = Date.now()
-          const sinceInput = now - (state.lastInputAt[selectedAssistant] ?? 0)
+          const sinceInput = now - inst.lastInputAt
           if (sinceInput <= ECHO_WINDOW_MS) return // likely an echo of our own input, not real activity
 
-          if (!state.busy[selectedAssistant]) state.busyChunkCounts[selectedAssistant] = 0
-          state.busyChunkCounts[selectedAssistant] = (state.busyChunkCounts[selectedAssistant] ?? 0) + 1
+          if (!inst.busy) inst.busyChunkCount = 0
+          inst.busyChunkCount += 1
 
-          this.setBusy(win, state, selectedAssistant, true)
-          clearTimeout(state.busyTimers[selectedAssistant])
-          state.busyTimers[selectedAssistant] = setTimeout(() => {
-            this.setBusy(win, state, selectedAssistant, false)
+          this.setBusy(win, inst, instanceId, true)
+          clearTimeout(inst.busyTimer)
+          inst.busyTimer = setTimeout(() => {
+            this.setBusy(win, inst, instanceId, false)
           }, IDLE_TIMEOUT_MS)
         })
         proc.onExit(() => {
-          if (state.procs[selectedAssistant] === proc) {
-            delete state.procs[selectedAssistant]
-            delete state.procCwd[selectedAssistant]
+          if (inst.proc === proc) {
+            inst.proc = undefined
+            inst.cwd = undefined
           }
-          clearTimeout(state.busyTimers[selectedAssistant])
-          delete state.busyTimers[selectedAssistant]
-          this.setBusy(win, state, selectedAssistant, false)
+          clearTimeout(inst.busyTimer)
+          inst.busyTimer = undefined
+          this.setBusy(win, inst, instanceId, false)
         })
       } catch {
         if (!win.isDestroyed()) {
           win.webContents.send(
-            'assistant:data',
-            selectedAssistant,
-            `\r\nError: '${selectedAssistant}' not found in PATH.\r\n${INSTALL_MESSAGES[selectedAssistant]}\r\n`
+            'claude:data',
+            instanceId,
+            `\r\nError: 'claude' not found in PATH.\r\n${INSTALL_MESSAGE}\r\n`
           )
         }
       }
     })
 
-    ipcMain.on('assistant:write', (event, assistant: AssistantKind | undefined, data: string) => {
+    ipcMain.on('claude:write', (event, instanceId: string, data: string) => {
+      const win = BrowserWindow.fromWebContents(event.sender)
+      if (!win) return
+      const inst = this.stateFor(win.id).instances.get(instanceId)
+      if (!inst) return
+      inst.lastInputAt = Date.now()
+      inst.proc?.write(data)
+    })
+
+    ipcMain.on('claude:resize', (event, instanceId: string, cols: number, rows: number) => {
+      const win = BrowserWindow.fromWebContents(event.sender)
+      if (!win || !hasValidSize(cols, rows)) return
+      this.stateFor(win.id).instances.get(instanceId)?.proc?.resize(Math.floor(cols), Math.floor(rows))
+    })
+
+    ipcMain.on('claude:kill', (event, instanceId: string) => {
       const win = BrowserWindow.fromWebContents(event.sender)
       if (!win) return
       const state = this.stateFor(win.id)
-      const selectedAssistant = (assistant === 'codex' ? 'codex' : assistant === 'claude' ? 'claude' : state.activeAssistant)
-      state.lastInputAt[selectedAssistant] = Date.now()
-      state.procs[selectedAssistant]?.write(data)
-    })
-
-    ipcMain.on('assistant:resize', (event, assistant: AssistantKind | undefined, cols: number, rows: number) => {
-      const win = BrowserWindow.fromWebContents(event.sender)
-      if (!win || !hasValidSize(cols, rows)) return
-      const state = this.stateFor(win.id)
-      const selectedAssistant = (assistant === 'codex' ? 'codex' : assistant === 'claude' ? 'claude' : state.activeAssistant)
-      state.procs[selectedAssistant]?.resize(Math.floor(cols), Math.floor(rows))
+      const inst = state.instances.get(instanceId)
+      if (!inst) return
+      clearTimeout(inst.busyTimer)
+      inst.proc?.kill()
+      state.instances.delete(instanceId)
     })
   }
 
-  private setBusy(win: BrowserWindow, state: WindowState, assistant: AssistantKind, busy: boolean): void {
-    if (state.busy[assistant] === busy) return
-    state.busy[assistant] = busy
-    const chunkCount = state.busyChunkCounts[assistant] ?? 0
-    if (!win.isDestroyed()) win.webContents.send('assistant:busy', assistant, busy, chunkCount)
+  private setBusy(win: BrowserWindow, inst: InstanceState, instanceId: string, busy: boolean): void {
+    if (inst.busy === busy) return
+    inst.busy = busy
+    if (!win.isDestroyed()) win.webContents.send('claude:busy', instanceId, busy, inst.busyChunkCount)
   }
 
   private stateFor(winId: number): WindowState {
     let state = this.byWindow.get(winId)
     if (!state) {
-      state = { procs: {}, procCwd: {}, activeAssistant: 'claude', lastInputAt: {}, busy: {}, busyTimers: {}, busyChunkCounts: {} }
+      state = { instances: new Map() }
       this.byWindow.set(winId, state)
     }
     return state
@@ -175,8 +180,10 @@ export class ClaudeManager {
   disposeWindow(winId: number): void {
     const state = this.byWindow.get(winId)
     if (!state) return
-    Object.values(state.busyTimers).forEach((timer) => clearTimeout(timer))
-    Object.values(state.procs).forEach((proc) => proc?.kill())
+    for (const inst of state.instances.values()) {
+      clearTimeout(inst.busyTimer)
+      inst.proc?.kill()
+    }
     this.byWindow.delete(winId)
   }
 }

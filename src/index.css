@@ -314,7 +314,7 @@ body {
    background) — --color-sidebar/--color-tab-bar are left undeclared here
    so they keep falling back to the base theme's normal solid value. The
    header, footer, activity bar, primary sidebar, and tab strip (all
-   bg-sidebar/bg-tab-bar) read better solid; the editor and Claude/Codex/
+   bg-sidebar/bg-tab-bar) read better solid; the editor and Claude/
    Cosmos terminal panels (bg-panel/bg-bg) are where the app-wide
    background badge (see .app-bg-badge) is actually meant to show through. */
 [data-theme="claude-dark"][data-panel-style="glass"] {
