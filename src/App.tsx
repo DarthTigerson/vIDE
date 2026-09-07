@@ -818,7 +818,6 @@ export default function App() {
               active: leftPanel === 'notes',
               onClick: () => setLeftPanel((p) => (p === 'notes' ? null : 'notes')),
             }] : []),
-          ], ...(gitRemoteReady || jiraReady ? [[
             ...(gitRemoteReady ? [{
               id: 'git-remote',
               icon: gitRemoteIcon(gitRemoteProvider),
@@ -833,7 +832,7 @@ export default function App() {
               active: activeTabPath === buildBrowserPath(JIRA_BROWSER_ID),
               onClick: openJira,
             }] : []),
-          ]] : [])]}
+          ]]}
           bottomGroups={[[
             {
               id: 'browser',
