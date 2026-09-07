@@ -180,14 +180,15 @@ export function ResumeSessionIcon() {
   )
 }
 
-// Two chevrons converging toward the center line reads as "squeeze together"
-// (compact the conversation), rather than the old download-arrow-onto-a-
-// stack glyph, which read more like "save" or "archive".
+// A hydraulic press — a ram descending onto a squashed-flat stack — reads
+// as "compact" more directly than the earlier converging-chevrons glyph,
+// which tested as ambiguous at toolbar size.
 export function CompactIcon() {
   return (
     <svg width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M4 5L12 11L20 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M4 19L12 13L20 19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M12 2V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M6 10H18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M5 17H19M5 21H19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
     </svg>
   )
 }
