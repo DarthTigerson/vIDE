@@ -29,7 +29,7 @@ interface AssistantTerminal {
   onDataDisposable: { dispose: () => void }
 }
 
-const ASSISTANTS: AssistantKind[] = ['claude', 'codex']
+const ASSISTANTS: AssistantKind[] = ['claude']
 
 function createXTerm(themeId: ThemeId, panelStyle: PanelStyle, fontSize: number): XTerm {
   return new XTerm({
@@ -58,7 +58,6 @@ export function Chat() {
   const panelStyle = useDisplayStore((s) => s.panelStyle)
   const fontSize = useFontSizeStore((s) => s.fontSize)
   const claudeFontSizeOverride = useInstanceFontSizeStore((s) => s.overrides.claude)
-  const codexFontSizeOverride = useInstanceFontSizeStore((s) => s.overrides.codex)
   const font = useDisplayStore((s) => s.font)
   const containerRef = useRef<HTMLDivElement>(null)
   const terminalsRef = useRef<Partial<Record<AssistantKind, AssistantTerminal>>>({})
@@ -200,7 +199,7 @@ export function Chat() {
   }, [theme, panelStyle])
 
   useEffect(() => {
-    const overrides: Partial<Record<AssistantKind, number>> = { claude: claudeFontSizeOverride, codex: codexFontSizeOverride }
+    const overrides: Partial<Record<AssistantKind, number>> = { claude: claudeFontSizeOverride }
     ASSISTANTS.forEach((kind) => {
       const terminal = terminalsRef.current[kind]
       if (!terminal) return
@@ -214,7 +213,7 @@ export function Chat() {
         window.api.assistantResize(kind, terminal.xterm.cols, terminal.xterm.rows)
       }
     })
-  }, [fontSize, claudeFontSizeOverride, codexFontSizeOverride])
+  }, [fontSize, claudeFontSizeOverride])
 
   useEffect(() => {
     ASSISTANTS.forEach((kind) => {
@@ -299,7 +298,7 @@ export function Chat() {
       ) : (
         <div className="flex-1 flex items-center justify-center px-6">
           <p className="text-xs text-fg-muted text-center leading-relaxed">
-            Open a folder to start {assistant === 'claude' ? 'Claude Code' : assistant === 'codex' ? 'Codex' : 'Bridge'}
+            Open a folder to start {assistant === 'claude' ? 'Claude Code' : 'Bridge'}
           </p>
         </div>
       )}

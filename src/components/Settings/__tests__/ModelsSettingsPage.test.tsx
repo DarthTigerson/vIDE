@@ -26,7 +26,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   useAutocompleteSettingsStore.setState({ enabled: true, model: 'claude-haiku-4-5-20251001' })
-  useModelSettingsStore.setState({ enabled: { claude: true, codex: true, bridge: true } })
+  useModelSettingsStore.setState({ enabled: { claude: true, bridge: true } })
   useBridgeSettingsStore.setState({ endpoint: '', apiKey: '', modelId: '' })
   useInlineEditSettingsStore.setState({ enabled: true, model: 'claude-sonnet-5' })
   useUsagePassiveSettingsStore.setState({ enabled: false, initialized: false })
@@ -36,27 +36,27 @@ afterEach(() => {
 
 describe('ModelsSettingsPage assistants section', () => {
   it('reflects the current enabled state for each assistant', () => {
-    useModelSettingsStore.setState({ enabled: { claude: true, codex: false, bridge: true } })
+    useModelSettingsStore.setState({ enabled: { claude: true, bridge: false } })
     render(<ModelsSettingsPage />)
-    expect(screen.getByRole('switch', { name: 'Codex' })).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByRole('switch', { name: 'Bridge' })).toHaveAttribute('aria-checked', 'false')
   })
 
   it('toggles an assistant on click', () => {
     render(<ModelsSettingsPage />)
-    fireEvent.click(screen.getByRole('switch', { name: 'Codex' }))
-    expect(useModelSettingsStore.getState().enabled.codex).toBe(false)
+    fireEvent.click(screen.getByRole('switch', { name: 'Bridge' }))
+    expect(useModelSettingsStore.getState().enabled.bridge).toBe(false)
   })
 })
 
 describe('ModelsSettingsPage bridge section', () => {
   it('is visible when bridge is enabled', () => {
-    useModelSettingsStore.setState({ enabled: { claude: true, codex: true, bridge: true } })
+    useModelSettingsStore.setState({ enabled: { claude: true, bridge: true } })
     render(<ModelsSettingsPage />)
     expect(screen.getByLabelText('Endpoint')).toBeTruthy()
   })
 
   it('is hidden when bridge is disabled', () => {
-    useModelSettingsStore.setState({ enabled: { claude: true, codex: true, bridge: false } })
+    useModelSettingsStore.setState({ enabled: { claude: true, bridge: false } })
     render(<ModelsSettingsPage />)
     expect(screen.queryByLabelText('Endpoint')).toBeNull()
   })

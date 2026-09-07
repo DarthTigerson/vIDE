@@ -25,7 +25,6 @@ import {
   TerminalIcon,
   BrowserIcon,
   ClaudeIcon,
-  CodexIcon,
   BridgeIcon,
   NewSessionIcon,
   PreviousSessionIcon,
@@ -35,8 +34,6 @@ import {
   UsageIcon,
   CostIcon,
   UsageGraphIcon,
-  ModelIcon,
-  FastIcon,
   NotesIcon,
 } from './components/ActivityBar/ActivityBar'
 import { ClaudeStatusIcon } from './components/ActivityBar/ClaudeStatusIcon'
@@ -94,12 +91,11 @@ import type { AssistantKind } from './types/api'
 
 const ASSISTANT_OPTIONS: Array<{ id: AssistantKind; label: string }> = [
   { id: 'claude', label: 'Claude Code' },
-  { id: 'codex', label: 'Codex' },
   { id: 'bridge', label: 'Bridge' },
 ]
 
 function assistantIcon(kind: AssistantKind) {
-  return kind === 'claude' ? <ClaudeIcon /> : kind === 'codex' ? <CodexIcon /> : <BridgeIcon />
+  return kind === 'claude' ? <ClaudeIcon /> : <BridgeIcon />
 }
 
 const JIRA_BROWSER_ID = 'jira-external'
@@ -154,9 +150,9 @@ export default function App() {
   const branchPaletteOpen = useSearchStore((s) => s.branchPaletteOpen)
   const chatPanelRef = useRef<ImperativePanelHandle>(null)
   const sidebarPanelRef = useRef<ImperativePanelHandle>(null)
-  const assistantLabel = assistant === 'claude' ? 'Claude Code' : assistant === 'codex' ? 'Codex' : 'Bridge'
-  const newSessionTitle = assistant === 'claude' ? 'New Claude Session' : assistant === 'codex' ? 'New Codex Session' : 'New Bridge Session'
-  const previousSessionTitle = assistant === 'claude' ? 'Continue Claude Session' : assistant === 'codex' ? 'Resume Latest Codex Session' : 'Restore Previous Bridge Session'
+  const assistantLabel = assistant === 'claude' ? 'Claude Code' : 'Bridge'
+  const newSessionTitle = assistant === 'claude' ? 'New Claude Session' : 'New Bridge Session'
+  const previousSessionTitle = assistant === 'claude' ? 'Continue Claude Session' : 'Restore Previous Bridge Session'
   const resumeSessionTitle = 'Resume Session…'
   const uncommittedChangeCount = new Set([
     ...gitStatus.staged.map((file) => file.path),
@@ -439,7 +435,7 @@ export default function App() {
   useEffect(() => {
     // Catches file changes made outside the app's own UI — Finder, an
     // external editor, a build script, `mkdir`/`touch` in a terminal, an
-    // agent (Claude/Codex/Bridge) editing files directly — which the app's
+    // agent (Claude/Bridge) editing files directly — which the app's
     // own create/rename/delete actions already refresh for, but nothing else
     // does. Also refreshes the Git Panel's staged/unstaged list: a content
     // edit only touches the working tree, never `.git/*`, so GitWatcher's
@@ -1043,25 +1039,6 @@ export default function App() {
                 },
               ],
             ]
-            : assistant === 'codex'
-            ? [[
-              {
-                id: 'model',
-                icon: <ModelIcon />,
-                title: 'Model',
-                active: false,
-                disabled: !projectRoot,
-                onClick: () => useClaudeStore.getState().model(),
-              },
-              {
-                id: 'fast',
-                icon: <FastIcon />,
-                title: 'Fast',
-                active: false,
-                disabled: !projectRoot,
-                onClick: () => useClaudeStore.getState().fast(),
-              },
-            ]]
             : []}
         />
           )

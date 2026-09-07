@@ -115,10 +115,10 @@ describe('claudeStore.setBusy', () => {
     useClaudeStore.getState().setBusy('claude', true)
     expect(useClaudeStore.getState().busyByAssistant).toEqual({ claude: true })
 
-    useClaudeStore.getState().setBusy('codex', true)
-    expect(useClaudeStore.getState().busyByAssistant).toEqual({ claude: true, codex: true })
+    useClaudeStore.getState().setBusy('bridge', true)
+    expect(useClaudeStore.getState().busyByAssistant).toEqual({ claude: true, bridge: true })
 
     useClaudeStore.getState().setBusy('claude', false)
-    expect(useClaudeStore.getState().busyByAssistant).toEqual({ claude: false, codex: true })
+    expect(useClaudeStore.getState().busyByAssistant).toEqual({ claude: false, bridge: true })
   })
 })

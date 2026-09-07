@@ -129,19 +129,19 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('term:exit', handler)
   },
 
-  assistantSpawn: (cwd: string, assistant: 'claude' | 'codex', mode?: 'new' | 'continue' | 'resume') =>
+  assistantSpawn: (cwd: string, assistant: 'claude', mode?: 'new' | 'continue' | 'resume') =>
     ipcRenderer.invoke('assistant:spawn', cwd, assistant, mode),
-  assistantWrite: (assistant: 'claude' | 'codex', data: string) =>
+  assistantWrite: (assistant: 'claude', data: string) =>
     ipcRenderer.send('assistant:write', assistant, data),
-  assistantResize: (assistant: 'claude' | 'codex', cols: number, rows: number) =>
+  assistantResize: (assistant: 'claude', cols: number, rows: number) =>
     ipcRenderer.send('assistant:resize', assistant, cols, rows),
-  onAssistantData: (cb: (assistant: 'claude' | 'codex', data: string) => void) => {
-    const handler = (_: Electron.IpcRendererEvent, assistant: 'claude' | 'codex', data: string) => cb(assistant, data)
+  onAssistantData: (cb: (assistant: 'claude', data: string) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, assistant: 'claude', data: string) => cb(assistant, data)
     ipcRenderer.on('assistant:data', handler)
     return () => ipcRenderer.removeListener('assistant:data', handler)
   },
-  onAssistantBusy: (cb: (assistant: 'claude' | 'codex', busy: boolean, chunkCount: number) => void) => {
-    const handler = (_: Electron.IpcRendererEvent, assistant: 'claude' | 'codex', busy: boolean, chunkCount: number) => cb(assistant, busy, chunkCount)
+  onAssistantBusy: (cb: (assistant: 'claude', busy: boolean, chunkCount: number) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, assistant: 'claude', busy: boolean, chunkCount: number) => cb(assistant, busy, chunkCount)
     ipcRenderer.on('assistant:busy', handler)
     return () => ipcRenderer.removeListener('assistant:busy', handler)
   },

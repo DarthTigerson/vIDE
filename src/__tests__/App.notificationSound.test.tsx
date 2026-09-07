@@ -68,9 +68,7 @@ describe('App — Claude-done notification sound wiring', () => {
     expect(playNotificationSound).not.toHaveBeenCalled()
   })
 
-  it('does not play for codex or bridge — Claude only, for now', () => {
-    handleAssistantBusy('codex', true, 1)
-    handleAssistantBusy('codex', false, 5)
+  it('does not play for bridge — Claude only, for now', () => {
     handleAssistantBusy('bridge', true, 1)
     handleAssistantBusy('bridge', false, 5)
     expect(playNotificationSound).not.toHaveBeenCalled()

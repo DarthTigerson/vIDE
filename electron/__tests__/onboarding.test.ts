@@ -79,12 +79,12 @@ describe('detectCli', () => {
 
   it('resolves false when the shell reports an error (command not found)', async () => {
     execFileMock.mockImplementation((_shell, _args, cb) => cb(new Error('not found'), ''))
-    expect(await detectCli('codex')).toBe(false)
+    expect(await detectCli('some-nonexistent-cli')).toBe(false)
   })
 
   it('resolves false when stdout has no usable absolute path', async () => {
     execFileMock.mockImplementation((_shell, _args, cb) => cb(null, '\n'))
-    expect(await detectCli('codex')).toBe(false)
+    expect(await detectCli('some-nonexistent-cli')).toBe(false)
   })
 })
 

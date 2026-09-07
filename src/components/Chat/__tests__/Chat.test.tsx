@@ -90,26 +90,6 @@ describe('Chat (claude terminal)', () => {
     expect(useClaudeStore.getState().pendingInjection).toBeNull()
   })
 
-  it('routes an injection to the correct assistant terminal and never cross-writes to the inactive one', async () => {
-    useClaudeStore.setState({ assistant: 'codex', restartToken: 0, pendingInjection: null, focusToken: 0 })
-    const { container } = render(<Chat />)
-    await waitFor(() => {
-      if (!container.querySelector('.xterm-helper-textarea')) throw new Error('xterm helper textarea not mounted yet')
-    })
-
-    act(() => {
-      useClaudeStore.getState().sendSelection('In src/foo.ts (line 1):\n```ts\ncode\n```')
-    })
-
-    const writeMock = (window.api as any).assistantWrite as ReturnType<typeof vi.fn>
-    expect(writeMock).toHaveBeenCalledWith(
-      'codex',
-      `${BRACKETED_PASTE_START}In src/foo.ts (line 1):\n\`\`\`ts\ncode\n\`\`\`${BRACKETED_PASTE_END}`
-    )
-    expect(writeMock).not.toHaveBeenCalledWith('claude', expect.anything())
-    expect(useClaudeStore.getState().pendingInjection).toBeNull()
-  })
-
   it('does not write anything for a bare focusChat() with no pending injection', async () => {
     const { container } = render(<Chat />)
     await waitFor(() => {
@@ -137,7 +117,6 @@ describe('Chat (claude terminal)', () => {
     act(() => { textarea.dispatchEvent(event) })
 
     expect(useInstanceFontSizeStore.getState().overrides.claude).toBe(globalSizeBefore + 1)
-    expect(useInstanceFontSizeStore.getState().overrides.codex).toBeUndefined()
     expect(useFontSizeStore.getState().fontSize).toBe(globalSizeBefore)
   })
 
@@ -168,23 +147,6 @@ describe('Chat (claude terminal)', () => {
     act(() => { textarea.dispatchEvent(event) })
 
     expect(event.defaultPrevented).toBe(false)
-    expect(useInstanceFontSizeStore.getState().overrides.claude).toBeUndefined()
-  })
-
-  it('keeps codex panel zoom independent from claude panel zoom', async () => {
-    useClaudeStore.setState({ assistant: 'codex', restartToken: 0, pendingInjection: null, focusToken: 0 })
-    const { container } = render(<Chat />)
-    const textarea = await waitFor(() => {
-      const el = container.querySelector('.xterm-helper-textarea')
-      if (!el) throw new Error('xterm helper textarea not mounted yet')
-      return el as HTMLTextAreaElement
-    })
-
-    const globalSizeBefore = useFontSizeStore.getState().fontSize
-    const event = new KeyboardEvent('keydown', { key: '=', metaKey: true, bubbles: true, cancelable: true })
-    act(() => { textarea.dispatchEvent(event) })
-
-    expect(useInstanceFontSizeStore.getState().overrides.codex).toBe(globalSizeBefore + 1)
     expect(useInstanceFontSizeStore.getState().overrides.claude).toBeUndefined()
   })
 

@@ -9,11 +9,10 @@ display.
 
 ![vIDE main window](docs/screenshots/hero.png)
 
-> **Not affiliated with Anthropic or OpenAI.** vIDE integrates the Claude
-> Code CLI and the OpenAI Codex CLI as terminal agents, and includes a panel
-> for connecting to any OpenAI-compatible local LLM endpoint ("Bridge"). It
-> is an independent, unofficial project — "Claude" and "Codex" are
-> trademarks of their respective owners.
+> **Not affiliated with Anthropic.** vIDE integrates the Claude Code CLI as
+> a terminal agent, and includes a panel for connecting to any
+> OpenAI-compatible local LLM endpoint ("Bridge"). It is an independent,
+> unofficial project — "Claude" is a trademark of its respective owner.
 
 ## What it is
 
@@ -25,8 +24,8 @@ switching between a browser, a terminal, and an editor.
 ## Features
 
 - **Editor** — Monaco-based code editing with syntax highlighting and themes
-- **Agent panels** — run Claude Code and Codex CLI as first-class panels,
-  plus a "Bridge" panel for any OpenAI-compatible local LLM endpoint
+- **Agent panels** — run Claude Code as a first-class panel, plus a
+  "Bridge" panel for any OpenAI-compatible local LLM endpoint
 - **Git panel** — log/graph view, stage & commit, push/pull, all without
   leaving the app
 - **Integrated terminal** — a real shell (via `node-pty`) alongside the
@@ -45,10 +44,8 @@ switching between a browser, a terminal, and an editor.
 
 - macOS (Apple Silicon) or Linux (x86_64, Debian/Ubuntu-based) — Intel Mac
   and other Linux distros aren't supported yet
-- [Claude Code CLI](https://docs.claude.com/en/docs/claude-code) and/or the
-  [OpenAI Codex CLI](https://github.com/openai/codex) installed separately,
-  for the agent panels you want to use — vIDE launches them, it doesn't
-  bundle them
+- [Claude Code CLI](https://docs.claude.com/en/docs/claude-code) installed
+  separately — vIDE launches it, it doesn't bundle it
 
 ## Installation
 

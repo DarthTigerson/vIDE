@@ -279,20 +279,6 @@ describe('ClaudeManager browser-open shim env', () => {
     })
   })
 
-  it('does not apply the shim env to a codex spawn', () => {
-    const shim = fakeShim()
-    const manager = new ClaudeManager(shim)
-    manager.registerHandlers()
-    const win = fakeWin(9)
-    const proc = fakePty()
-    spawnMock.mockReturnValueOnce(proc)
-
-    handlers['assistant:spawn']({ sender: win }, '/project/a', 'codex', undefined)
-
-    expect(shim.getSpawnEnv).not.toHaveBeenCalled()
-    expect(spawnMock.mock.calls[0][2].env.VIDE_WINDOW_ID).toBeUndefined()
-  })
-
   // The spawned shell is a login shell (`-lic`), which re-derives PATH from
   // scratch via macOS's path_helper — clobbering whatever we set in `env`
   // before the shell body even runs, so /usr/bin/open always wins over our

@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { AssistantKind } from '@/types/api'
 
 const ASSISTANT_KEY = 'vide-last-assistant'
-const VALID: AssistantKind[] = ['claude', 'codex', 'bridge']
+const VALID: AssistantKind[] = ['claude', 'bridge']
 
 function readStoredAssistant(): AssistantKind {
   try {
@@ -33,8 +33,6 @@ interface ClaudeState {
   clearContext: () => void
   usage: () => void
   cost: () => void
-  model: () => void
-  fast: () => void
   toggleChatVisible: () => void
   setChatVisible: (visible: boolean) => void
   sendSelection: (text: string) => void
@@ -116,6 +114,4 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
       return { costOpen, usageOpen: costOpen ? false : s.usageOpen }
     })
   },
-  model: () => window.api.assistantWrite('codex', '/model\r'),
-  fast: () => window.api.assistantWrite('codex', '/fast\r'),
 }))

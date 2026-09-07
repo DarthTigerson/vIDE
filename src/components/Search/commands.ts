@@ -82,14 +82,6 @@ export const COMMANDS: Command[] = [
     action: () => openTab(GIT_SETTINGS_TAB_PATH),
   },
   {
-    id: 'switch-to-codex',
-    label: 'Switch to Codex',
-    description: 'Use Codex as the AI assistant',
-    keywords: ['assistant', 'model'],
-    condition: () => useClaudeStore.getState().assistant !== 'codex',
-    action: () => useClaudeStore.getState().setAssistant('codex'),
-  },
-  {
     id: 'switch-to-claude',
     label: 'Switch to Claude',
     description: 'Use Claude Code as the AI assistant',

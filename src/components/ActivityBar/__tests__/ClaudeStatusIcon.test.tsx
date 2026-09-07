@@ -52,7 +52,7 @@ describe('ClaudeStatusIcon', () => {
 
   it('does not track other assistants\' busy state', () => {
     const { container } = render(<ClaudeStatusIcon />)
-    act(() => useClaudeStore.getState().setBusy('codex', true))
+    act(() => useClaudeStore.getState().setBusy('bridge', true))
     expect(container.querySelector('img')).toBeNull()
   })
 })

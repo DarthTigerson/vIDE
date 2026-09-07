@@ -14,7 +14,6 @@ import type { AssistantKind } from '@/types/api'
 
 const MODEL_TOGGLES: Array<{ id: AssistantKind; label: string; description: string }> = [
   { id: 'claude', label: 'Claude', description: 'Show Claude Code in the model dropdown.' },
-  { id: 'codex', label: 'Codex', description: 'Show Codex in the model dropdown.' },
   { id: 'bridge', label: 'Bridge', description: 'Show Bridge in the model dropdown.' },
 ]
 

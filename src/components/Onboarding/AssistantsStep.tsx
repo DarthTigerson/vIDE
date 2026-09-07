@@ -18,22 +18,16 @@ const MODEL_TOGGLES: Array<{
     description: 'Claude Code CLI, run as a terminal panel.',
     cli: { bin: 'claude', installUrl: 'https://docs.claude.com/en/docs/claude-code/setup' },
   },
-  {
-    id: 'codex',
-    label: 'Codex',
-    description: 'OpenAI Codex CLI, run as a terminal panel.',
-    cli: { bin: 'codex', installUrl: 'https://github.com/openai/codex' },
-  },
   { id: 'bridge', label: 'Bridge', description: 'Any OpenAI-compatible local LLM endpoint.' },
 ]
 
 export function AssistantsStep() {
   const enabledModels = useModelSettingsStore((s) => s.enabled)
   const setModelEnabled = useModelSettingsStore((s) => s.setEnabled)
-  const [cliStatus, setCliStatus] = useState<Record<string, CliState>>({ claude: 'checking', codex: 'checking' })
+  const [cliStatus, setCliStatus] = useState<Record<string, CliState>>({ claude: 'checking' })
 
   const runCliCheck = () => {
-    setCliStatus({ claude: 'checking', codex: 'checking' })
+    setCliStatus({ claude: 'checking' })
     for (const model of MODEL_TOGGLES) {
       if (!model.cli) continue
       const bin = model.cli.bin
@@ -50,8 +44,8 @@ export function AssistantsStep() {
       <div>
         <h2 className="text-sm font-semibold text-fg">Which LLM model?</h2>
         <p className="text-xs text-fg-muted mt-0.5">
-          Controls what shows up in the assistant dropdown. vIDE launches Claude/Codex as terminal
-          processes rather than bundling them, so they need to be installed and on your PATH
+          Controls what shows up in the assistant dropdown. vIDE launches Claude as a terminal
+          process rather than bundling it, so it needs to be installed and on your PATH
           separately — checked below. Change any of this anytime in Settings → Models.
         </p>
       </div>

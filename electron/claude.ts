@@ -1,7 +1,7 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import * as pty from 'node-pty'
 
-type AssistantKind = 'claude' | 'codex'
+type AssistantKind = 'claude'
 type SessionMode = 'attach' | 'new' | 'continue' | 'resume'
 
 const COMMANDS: Record<AssistantKind, Record<Exclude<SessionMode, 'attach'>, string>> = {
@@ -10,16 +10,10 @@ const COMMANDS: Record<AssistantKind, Record<Exclude<SessionMode, 'attach'>, str
     continue: 'claude --continue',
     resume: 'claude --resume',
   },
-  codex: {
-    new: 'codex',
-    continue: 'codex resume --last',
-    resume: 'codex resume',
-  },
 }
 
 const INSTALL_MESSAGES: Record<AssistantKind, string> = {
   claude: "Install it with: npm install -g @anthropic-ai/claude-code",
-  codex: 'Install Codex CLI, then make sure `codex` is available in PATH.',
 }
 
 function hasValidSize(cols: number, rows: number): boolean {
@@ -69,7 +63,7 @@ export class ClaudeManager {
       const win = BrowserWindow.fromWebContents(event.sender)
       if (!win) return
       const state = this.stateFor(win.id)
-      const selectedAssistant = assistant === 'codex' ? 'codex' : 'claude'
+      const selectedAssistant: AssistantKind = 'claude'
       const selectedMode = mode === 'continue' || mode === 'new' || mode === 'resume' ? mode : 'attach'
       state.activeAssistant = selectedAssistant
 
@@ -142,7 +136,7 @@ export class ClaudeManager {
       const win = BrowserWindow.fromWebContents(event.sender)
       if (!win) return
       const state = this.stateFor(win.id)
-      const selectedAssistant = (assistant === 'codex' ? 'codex' : assistant === 'claude' ? 'claude' : state.activeAssistant)
+      const selectedAssistant = (assistant === 'claude' ? 'claude' : state.activeAssistant)
       state.lastInputAt[selectedAssistant] = Date.now()
       state.procs[selectedAssistant]?.write(data)
     })
@@ -151,7 +145,7 @@ export class ClaudeManager {
       const win = BrowserWindow.fromWebContents(event.sender)
       if (!win || !hasValidSize(cols, rows)) return
       const state = this.stateFor(win.id)
-      const selectedAssistant = (assistant === 'codex' ? 'codex' : assistant === 'claude' ? 'claude' : state.activeAssistant)
+      const selectedAssistant = (assistant === 'claude' ? 'claude' : state.activeAssistant)
       state.procs[selectedAssistant]?.resize(Math.floor(cols), Math.floor(rows))
     })
   }
