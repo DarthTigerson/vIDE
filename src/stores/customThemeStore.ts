@@ -1,6 +1,7 @@
 import { create } from 'zustand'
+import { useThemeStore, familyOf, THEME_OPTIONS } from './themeStore'
 
-const STORAGE_KEY = 'vide:customTheme:overrides'
+const STORAGE_KEY = 'vide:customThemes'
 
 export const CUSTOM_COLOR_VARS = [
   { varName: '--color-accent',    label: 'Accent',      isAccent: true  },
@@ -14,8 +15,19 @@ export const CUSTOM_COLOR_VARS = [
   { varName: '--color-fg-subtle', label: 'Text Subtle', isAccent: false },
 ] as const
 
+export type CustomColorVar = typeof CUSTOM_COLOR_VARS[number]['varName']
+type Palette = Record<CustomColorVar, string>
+
+export interface CustomTheme {
+  id: string
+  name: string
+  baseFamily: string
+  light: Palette
+  dark: Palette
+}
+
 // Accent is stored in CSS as "R G B" for Tailwind opacity modifiers — convert
-// both ways when reading/writing the inline style override.
+// both ways when reading/writing.
 function hexToRgbSpace(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16)
   const g = parseInt(hex.slice(3, 5), 16)
@@ -23,59 +35,214 @@ function hexToRgbSpace(hex: string): string {
   return `${r} ${g} ${b}`
 }
 
-function applyToDOM(varName: string, hex: string) {
+function rgbSpaceToHex(raw: string): string {
+  const parts = raw.split(/\s+/).map(Number)
+  return parts.length === 3 && parts.every((n) => !isNaN(n))
+    ? '#' + parts.map((n) => Math.round(n).toString(16).padStart(2, '0')).join('')
+    : '#808080'
+}
+
+function applyToDOM(varName: CustomColorVar, hex: string) {
   document.documentElement.style.setProperty(
     varName,
     varName === '--color-accent' ? hexToRgbSpace(hex) : hex,
   )
 }
 
-function removeFromDOM(varName: string) {
+function removeFromDOM(varName: CustomColorVar) {
   document.documentElement.style.removeProperty(varName)
 }
 
-function load(): Record<string, string> {
+function applyPalette(palette: Palette) {
+  CUSTOM_COLOR_VARS.forEach((def) => applyToDOM(def.varName, palette[def.varName]))
+}
+
+function removePalette() {
+  CUSTOM_COLOR_VARS.forEach((def) => removeFromDOM(def.varName))
+}
+
+function currentVariant(): 'light' | 'dark' {
+  return useThemeStore.getState().theme.endsWith('-dark') ? 'dark' : 'light'
+}
+
+// Reads the 9 CUSTOM_COLOR_VARS as computed under `themeId`'s built-in CSS,
+// independent of whatever custom theme (if any) currently has inline
+// overrides applied. Temporarily removes any inline overrides and swaps
+// data-theme, reads, then restores both — synchronously, so there's no
+// visible flash and no risk of reading an active override back instead of
+// the true built-in default.
+function readBuiltInPalette(themeId: string): Palette {
+  const el = document.documentElement
+  const originalAttr = el.getAttribute('data-theme')
+  const savedInline: Partial<Record<CustomColorVar, string>> = {}
+  CUSTOM_COLOR_VARS.forEach((def) => {
+    const v = el.style.getPropertyValue(def.varName)
+    if (v) savedInline[def.varName] = v
+    el.style.removeProperty(def.varName)
+  })
+
+  el.setAttribute('data-theme', themeId)
+  const styles = getComputedStyle(el)
+  const palette = {} as Palette
+  CUSTOM_COLOR_VARS.forEach((def) => {
+    const raw = styles.getPropertyValue(def.varName).trim()
+    palette[def.varName] = def.isAccent
+      ? rgbSpaceToHex(raw)
+      : (raw.startsWith('#') ? raw : '#000000')
+  })
+
+  if (originalAttr === null) el.removeAttribute('data-theme')
+  else el.setAttribute('data-theme', originalAttr)
+  Object.entries(savedInline).forEach(([k, v]) => el.style.setProperty(k, v as string))
+
+  return palette
+}
+
+function load(): { themes: CustomTheme[]; activeId: string | null } {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return {}
+    if (!raw) return { themes: [], activeId: null }
     const parsed = JSON.parse(raw)
-    return parsed && typeof parsed === 'object' ? (parsed as Record<string, string>) : {}
+    return {
+      themes: Array.isArray(parsed?.themes) ? parsed.themes : [],
+      activeId: typeof parsed?.activeId === 'string' ? parsed.activeId : null,
+    }
   } catch {
-    return {}
+    return { themes: [], activeId: null }
   }
 }
 
-const initial = load()
-Object.entries(initial).forEach(([k, v]) => applyToDOM(k, v))
-
-interface CustomThemeStore {
-  overrides: Record<string, string>   // varName → hex
-  setOverride: (varName: string, hex: string) => void
-  clearOverride: (varName: string) => void
-  clearAll: () => void
+function persist(themes: CustomTheme[], activeId: string | null) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ themes, activeId }))
 }
 
+const initial = load()
+if (initial.activeId) {
+  const active = initial.themes.find((t) => t.id === initial.activeId)
+  if (active) applyPalette(active[currentVariant()])
+}
+
+interface CustomThemeStore {
+  themes: CustomTheme[]
+  activeId: string | null
+  createFromActive: (name: string) => string
+  rename: (id: string, name: string) => void
+  setSwatch: (id: string, variant: 'light' | 'dark', varName: CustomColorVar, hex: string) => void
+  deleteTheme: (id: string) => void
+  setActive: (id: string | null) => void
+  exportTheme: (id: string) => string
+  importTheme: (json: string) => { ok: true; id: string } | { ok: false; error: string }
+}
+
+const IMPORT_ERROR = "Couldn't read that theme — check the pasted text and try again."
+
 export const useCustomThemeStore = create<CustomThemeStore>((set, get) => ({
-  overrides: initial,
+  themes: initial.themes,
+  activeId: initial.activeId,
 
-  setOverride: (varName, hex) => {
-    const next = { ...get().overrides, [varName]: hex }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-    applyToDOM(varName, hex)
-    set({ overrides: next })
+  createFromActive: (name) => {
+    const { themes, activeId } = get()
+    const active = activeId ? themes.find((t) => t.id === activeId) : undefined
+    const baseFamily = familyOf(useThemeStore.getState().theme)
+    const light = active ? active.light : readBuiltInPalette(`${baseFamily}-light`)
+    const dark = active ? active.dark : readBuiltInPalette(`${baseFamily}-dark`)
+    const id = crypto.randomUUID()
+    const newTheme: CustomTheme = { id, name, baseFamily, light, dark }
+    const next = [...themes, newTheme]
+    set({ themes: next, activeId: id })
+    persist(next, id)
+    applyPalette(newTheme[currentVariant()])
+    return id
   },
 
-  clearOverride: (varName) => {
-    const next = { ...get().overrides }
-    delete next[varName]
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-    removeFromDOM(varName)
-    set({ overrides: next })
+  rename: (id, name) => {
+    const next = get().themes.map((t) => (t.id === id ? { ...t, name } : t))
+    set({ themes: next })
+    persist(next, get().activeId)
   },
 
-  clearAll: () => {
-    Object.keys(get().overrides).forEach(removeFromDOM)
-    localStorage.removeItem(STORAGE_KEY)
-    set({ overrides: {} })
+  setSwatch: (id, variant, varName, hex) => {
+    const next = get().themes.map((t) =>
+      t.id === id ? { ...t, [variant]: { ...t[variant], [varName]: hex } } : t,
+    )
+    set({ themes: next })
+    persist(next, get().activeId)
+    if (get().activeId === id && variant === currentVariant()) applyToDOM(varName, hex)
+  },
+
+  deleteTheme: (id) => {
+    const wasActive = get().activeId === id
+    const next = get().themes.filter((t) => t.id !== id)
+    const activeId = wasActive ? null : get().activeId
+    if (wasActive) removePalette()
+    set({ themes: next, activeId })
+    persist(next, activeId)
+  },
+
+  setActive: (id) => {
+    if (get().activeId === id) return
+    if (id === null) {
+      removePalette()
+      set({ activeId: null })
+      persist(get().themes, null)
+      return
+    }
+    const theme = get().themes.find((t) => t.id === id)
+    if (!theme) return
+    applyPalette(theme[currentVariant()])
+    set({ activeId: id })
+    persist(get().themes, id)
+  },
+
+  exportTheme: (id) => {
+    const theme = get().themes.find((t) => t.id === id)
+    if (!theme) return ''
+    const { name, baseFamily, light, dark } = theme
+    return JSON.stringify({ name, baseFamily, light, dark })
+  },
+
+  importTheme: (json) => {
+    let parsed: any
+    try {
+      parsed = JSON.parse(json)
+    } catch {
+      return { ok: false, error: IMPORT_ERROR }
+    }
+    if (
+      !parsed || typeof parsed.name !== 'string' ||
+      typeof parsed.light !== 'object' || parsed.light === null ||
+      typeof parsed.dark !== 'object' || parsed.dark === null
+    ) {
+      return { ok: false, error: IMPORT_ERROR }
+    }
+
+    const baseFamily = typeof parsed.baseFamily === 'string' &&
+      THEME_OPTIONS.some((t) => familyOf(t.id) === parsed.baseFamily)
+      ? parsed.baseFamily
+      : 'claude'
+    const fallbackLight = readBuiltInPalette(`${baseFamily}-light`)
+    const fallbackDark = readBuiltInPalette(`${baseFamily}-dark`)
+
+    const light = {} as Palette
+    const dark = {} as Palette
+    CUSTOM_COLOR_VARS.forEach((def) => {
+      light[def.varName] = typeof parsed.light[def.varName] === 'string' ? parsed.light[def.varName] : fallbackLight[def.varName]
+      dark[def.varName] = typeof parsed.dark[def.varName] === 'string' ? parsed.dark[def.varName] : fallbackDark[def.varName]
+    })
+
+    const id = crypto.randomUUID()
+    const theme: CustomTheme = { id, name: parsed.name, baseFamily, light, dark }
+    const next = [...get().themes, theme]
+    set({ themes: next })
+    persist(next, get().activeId)
+    return { ok: true, id }
   },
 }))
+
+useThemeStore.subscribe((state, prevState) => {
+  if (state.theme === prevState.theme) return
+  const { activeId, themes } = useCustomThemeStore.getState()
+  if (!activeId) return
+  const theme = themes.find((t) => t.id === activeId)
+  if (theme) applyPalette(theme[currentVariant()])
+})
