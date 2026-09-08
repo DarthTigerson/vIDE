@@ -104,6 +104,36 @@
   --color-on-accent: #0d0d0d;
 }
 
+/* "Borahae" (BTS/ARMY's "I purple you") — see the note in themeStore.ts's
+   XTERM_THEMES for the phrase's origin. */
+[data-theme="borahae-dark"] {
+  --color-bg:        #15111f;
+  --color-panel:     #1b1728;
+  --color-sidebar:   #1f1a2e;
+  --color-popover:   #1f1a2e;
+  --color-tab-bar:   #251f38;
+  --color-border:    #3d3552;
+  --color-accent:    139 92 246;   /* #8b5cf6 */
+  --color-fg:        #e8e0f5;
+  --color-fg-muted:  #a99cc4;
+  --color-fg-subtle: #6f6389;
+  --color-on-accent: #15111f;
+}
+
+[data-theme="borahae-light"] {
+  --color-bg:        #f5f1fb;
+  --color-panel:     #fdfcff;
+  --color-sidebar:   #ece4f9;
+  --color-popover:   #ece4f9;
+  --color-tab-bar:   #e3d7f5;
+  --color-border:    #d4c2ec;
+  --color-accent:    109 40 217;   /* #6d28d9 */
+  --color-fg:        #241b38;
+  --color-fg-muted:  #6b5c87;
+  --color-fg-subtle: #9c8fb8;
+  --color-on-accent: #f5f1fb;
+}
+
 [data-theme="link-dark"] {
   --color-bg:        #12160f;
   --color-panel:     #171c13;
@@ -255,6 +285,10 @@ body {
 [data-theme="luuk-light"][data-panel-style="solid"],
 [data-theme="luuk-dark"][data-panel-style="brushed-metal"],
 [data-theme="luuk-light"][data-panel-style="brushed-metal"]   { --color-border: #484848; }
+[data-theme="borahae-dark"][data-panel-style="solid"],
+[data-theme="borahae-dark"][data-panel-style="brushed-metal"]  { --color-border: #4a4066; }
+[data-theme="borahae-light"][data-panel-style="solid"],
+[data-theme="borahae-light"][data-panel-style="brushed-metal"] { --color-border: #b8a0dc; }
 [data-theme="link-dark"][data-panel-style="solid"],
 [data-theme="link-dark"][data-panel-style="brushed-metal"]    { --color-border: #55703c; }
 [data-theme="link-light"][data-panel-style="solid"],
@@ -295,6 +329,18 @@ body {
   --color-panel:   rgba(20,  20,  20,  0.6);
   --color-sidebar: rgba(17,  17,  17,  0.5);
   --color-tab-bar: rgba(24,  24,  24,  0.65);
+}
+[data-theme="borahae-dark"][data-panel-style="glossy"] {
+  --color-bg:      rgba(21,  17,  31,  0.5);
+  --color-panel:   rgba(27,  23,  40,  0.6);
+  --color-sidebar: rgba(31,  26,  46,  0.5);
+  --color-tab-bar: rgba(37,  31,  56,  0.65);
+}
+[data-theme="borahae-light"][data-panel-style="glossy"] {
+  --color-bg:      rgba(245, 241, 251, 0.55);
+  --color-panel:   rgba(253, 252, 255, 0.7);
+  --color-sidebar: rgba(236, 228, 249, 0.6);
+  --color-tab-bar: rgba(227, 215, 245, 0.65);
 }
 [data-theme="link-dark"][data-panel-style="glossy"] {
   --color-bg:      rgba(18,  22,  15,  0.5);
@@ -349,6 +395,14 @@ body {
 [data-theme="luuk-light"][data-panel-style="glass"] {
   --color-bg:    rgba(13, 13, 13, 0.2);
   --color-panel: rgba(20, 20, 20, 0.25);
+}
+[data-theme="borahae-dark"][data-panel-style="glass"] {
+  --color-bg:    rgba(21, 17, 31, 0.2);
+  --color-panel: rgba(27, 23, 40, 0.25);
+}
+[data-theme="borahae-light"][data-panel-style="glass"] {
+  --color-bg:    rgba(245, 241, 251, 0.25);
+  --color-panel: rgba(253, 252, 255, 0.3);
 }
 [data-theme="link-dark"][data-panel-style="glass"] {
   --color-bg:    rgba(18, 22, 15, 0.2);

@@ -10,6 +10,7 @@ const FAMILIES = [
   { value: 'link', label: 'Link' },
   { value: 'atreus', label: 'Atreus' },
   { value: 'luuk', label: 'Luuk' },
+  { value: 'borahae', label: 'Borahae' },
 ]
 
 const VARIANT_OPTIONS: { value: 'light' | 'dark' | 'system'; label: string }[] = [

@@ -3,11 +3,12 @@ import type { ITheme } from '@xterm/xterm'
 import { hexWithAlpha } from '@/lib/color'
 
 export type ThemeId =
-  | 'claude-dark' | 'claude-light'
-  | 'thomas-dark' | 'thomas-light'
-  | 'luuk-dark'   | 'luuk-light'
-  | 'link-dark'   | 'link-light'
-  | 'atreus-dark' | 'atreus-light'
+  | 'claude-dark'  | 'claude-light'
+  | 'thomas-dark'  | 'thomas-light'
+  | 'luuk-dark'    | 'luuk-light'
+  | 'borahae-dark' | 'borahae-light'
+  | 'link-dark'    | 'link-light'
+  | 'atreus-dark'  | 'atreus-light'
 
 interface ThemeStore {
   theme: ThemeId
@@ -99,6 +100,8 @@ export const MONACO_THEMES: Record<ThemeId, string> = {
   'thomas-light': 'thomas-light',
   'luuk-dark':    'luuk-dark',
   'luuk-light':   'luuk-light',
+  'borahae-dark':  'borahae-dark',
+  'borahae-light': 'borahae-light',
   'link-dark':    'link-dark',
   'link-light':   'link-light',
   'atreus-dark':  'atreus-dark',
@@ -245,6 +248,53 @@ export const XTERM_THEMES: Record<ThemeId, ITheme> = {
     brightCyan:          '#7cd0dc',
     brightWhite:         '#ffffff',
   },
+  // "Borahae" (보라해) — BTS/ARMY's "I purple you", coined by V (Kim
+  // Taehyung) in 2016. Purple is the last colour of the rainbow, meaning
+  // "I'll trust and love you for a long time."
+  'borahae-dark': {
+    background:          '#15111f',
+    foreground:          '#e8e0f5',
+    cursor:              '#8b5cf6',
+    selectionBackground: '#8b5cf640',
+    black:               '#251f38',
+    red:                 '#e0687a',
+    green:               '#8fd19e',
+    yellow:              '#e5c07b',
+    blue:                '#7aa2f7',
+    magenta:             '#c58af9',
+    cyan:                '#7fd4c9',
+    white:               '#e8e0f5',
+    brightBlack:         '#6f6389',
+    brightRed:           '#f08a99',
+    brightGreen:         '#a8e0b8',
+    brightYellow:        '#f0d090',
+    brightBlue:          '#9ab8ff',
+    brightMagenta:       '#dcaefc',
+    brightCyan:          '#9ee8dc',
+    brightWhite:         '#fffaff',
+  },
+  'borahae-light': {
+    background:          '#f5f1fb',
+    foreground:          '#241b38',
+    cursor:              '#6d28d9',
+    selectionBackground: '#6d28d940',
+    black:               '#3a2f52',
+    red:                 '#b5433f',
+    green:               '#4f8a5c',
+    yellow:              '#92721f',
+    blue:                '#3355a8',
+    magenta:             '#8a3fae',
+    cyan:                '#2f8a7d',
+    white:               '#241b38',
+    brightBlack:         '#6b5c87',
+    brightRed:           '#d1685a',
+    brightGreen:         '#6ba578',
+    brightYellow:        '#b9963f',
+    brightBlue:          '#5a78c4',
+    brightMagenta:       '#a866d1',
+    brightCyan:          '#4aa89a',
+    brightWhite:         '#100b1a',
+  },
   'link-dark': {
     background:          '#12160f',
     foreground:          '#eef0d5',
@@ -368,4 +418,7 @@ export const THEME_OPTIONS: ThemeOption[] = [
   // Luuk hates light mode — "Luuk Light" is a gag, identical to "Luuk Dark".
   { id: 'luuk-dark',    name: 'Luuk Dark',    swatches: ['#0d0d0d', '#111111', '#141414', '#9e9e9e', '#2e2e2e'] },
   { id: 'luuk-light',   name: 'Luuk Light',   swatches: ['#0d0d0d', '#111111', '#141414', '#9e9e9e', '#2e2e2e'] },
+  // "Borahae" (BTS/ARMY's "I purple you") — see the note on XTERM_THEMES above.
+  { id: 'borahae-dark',  name: 'Borahae Dark',  swatches: ['#15111f', '#1f1a2e', '#1b1728', '#8b5cf6', '#3d3552'] },
+  { id: 'borahae-light', name: 'Borahae Light', swatches: ['#f5f1fb', '#ece4f9', '#fdfcff', '#6d28d9', '#d4c2ec'] },
 ]

@@ -23,6 +23,8 @@ const THEME_PALETTES: Record<ThemeId, ThemePalette> = {
   // identical to "Luuk Dark", base 'vs-dark' included.
   'luuk-dark':    { base: 'vs-dark', background: '#141414', foreground: '#d4d4d4', accent: '#9e9e9e', border: '#2e2e2e', fgMuted: '#8a8a8a', fgSubtle: '#525252' },
   'luuk-light':   { base: 'vs-dark', background: '#141414', foreground: '#d4d4d4', accent: '#9e9e9e', border: '#2e2e2e', fgMuted: '#8a8a8a', fgSubtle: '#525252' },
+  'borahae-dark':  { base: 'vs-dark', background: '#1b1728', foreground: '#e8e0f5', accent: '#8b5cf6', border: '#3d3552', fgMuted: '#a99cc4', fgSubtle: '#6f6389' },
+  'borahae-light': { base: 'vs',      background: '#fdfcff', foreground: '#241b38', accent: '#6d28d9', border: '#d4c2ec', fgMuted: '#6b5c87', fgSubtle: '#9c8fb8' },
   'link-dark':    { base: 'vs-dark', background: '#171c13', foreground: '#eef0d5', accent: '#9ac26a', border: '#3a4a2c', fgMuted: '#9aa084', fgSubtle: '#5f6650' },
   'link-light':   { base: 'vs',      background: '#fffef2', foreground: '#3a2f1e', accent: '#6b8a3d', border: '#c9c093', fgMuted: '#7a6b4f', fgSubtle: '#a89b78' },
   'atreus-dark':  { base: 'vs-dark', background: '#171b28', foreground: '#e4e7f2', accent: '#5468c4', border: '#3a4460', fgMuted: '#8b93b0', fgSubtle: '#4f5670' },
