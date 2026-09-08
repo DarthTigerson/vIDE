@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import {
-  useDisplayStore, basePanelColors, FONT_PRESETS, PANEL_STYLE_OPTIONS, BACKGROUND_IMAGE_OPTIONS,
+  useDisplayStore, basePanelColors, PANEL_STYLE_OPTIONS, BACKGROUND_IMAGE_OPTIONS,
   type FooterContent, type BackgroundImage,
 } from '@/stores/displayStore'
 import { useThemeStore } from '@/stores/themeStore'
@@ -8,6 +8,7 @@ import { Toggle } from '@/components/ui/Toggle'
 import { Select } from '@/components/ui/Select'
 import { Section, Row } from './SettingsLayout'
 import { ThemeSection } from './ThemeSection'
+import { FontSection } from './FontSection'
 
 const FOOTER_CONTENT_OPTIONS: { value: FooterContent; label: string }[] = [
   { value: 'hints', label: 'Hints' },
@@ -40,8 +41,8 @@ const brushedMetalPreviewStyle: CSSProperties = {
 
 export function DisplayPage() {
   const {
-    font, panelStyle, footerContent, memoryUsageVisible, backgroundImage, navbarPosition,
-    setFont, setPanelStyle, setFooterContent, setMemoryUsageVisible, setBackgroundImage, setNavbarPosition,
+    panelStyle, footerContent, memoryUsageVisible, backgroundImage, navbarPosition,
+    setPanelStyle, setFooterContent, setMemoryUsageVisible, setBackgroundImage, setNavbarPosition,
   } = useDisplayStore()
   // Only read to force a re-render (and so basePanelColors() below picks up
   // the change) when the active theme changes elsewhere — its value isn't
@@ -55,6 +56,8 @@ export function DisplayPage() {
       <p className="text-sm text-fg-muted mb-4">Colour theme, fonts, and panel appearance.</p>
 
       <ThemeSection />
+
+      <FontSection />
 
       {/* ── Panel Style ───────────────────────────────────────────────────── */}
       <Section label="Panel Style">
@@ -155,15 +158,6 @@ export function DisplayPage() {
                 value={footerContent}
                 onChange={(v) => setFooterContent(v as FooterContent)}
                 options={FOOTER_CONTENT_OPTIONS}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5 min-w-[180px]">
-              <label htmlFor="font-select" className="text-sm text-fg">Font</label>
-              <Select
-                id="font-select"
-                value={font}
-                onChange={setFont}
-                options={FONT_PRESETS.map((p) => ({ value: p.value, label: p.label, style: { fontFamily: p.value } }))}
               />
             </div>
             <div className="flex flex-col gap-1.5 min-w-[180px]">
