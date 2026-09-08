@@ -39,11 +39,20 @@ export type BrowserViewEvent =
   | { type: 'zoom-changed'; level: number }
   | { type: 'open-in-new-tab'; url: string }
 
+export interface NetworkLogEntry {
+  url: string
+  method: string
+  status: number
+  type: string
+  startedAt: number
+}
+
 interface Entry {
   view: WebContentsView
   attached: boolean
   mobileMode: boolean
   consoleLogs: string[]
+  networkLog: NetworkLogEntry[]
 }
 
 // Reserved browser-view id for the single tab the vide-browser MCP server
@@ -51,6 +60,7 @@ interface Entry {
 // which are addressed by the path-like ids buildBrowserPath generates.
 const CLAUDE_TAB_ID = 'claude-controlled'
 const MAX_CONSOLE_LOGS = 200
+const MAX_NETWORK_LOG = 100
 const CONSOLE_LEVELS = ['verbose', 'info', 'warning', 'error'] as const
 
 // <webview> was dropped in favor of WebContentsView because Electron's <webview>
@@ -147,7 +157,8 @@ export class BrowserViewManager {
     this.wireEvents(win, id, view)
 
     win.contentView.addChildView(view)
-    entries.set(id, { view, attached: true, mobileMode: false, consoleLogs: [] })
+    entries.set(id, { view, attached: true, mobileMode: false, consoleLogs: [], networkLog: [] })
+    if (id === CLAUDE_TAB_ID) this.attachNetworkDebugger(win.id, id, view.webContents)
     return view.webContents.id
   }
 
@@ -304,9 +315,51 @@ export class BrowserViewManager {
     if (!entry) return
     if (entry.attached) win.contentView.removeChildView(entry.view)
     if (!entry.view.webContents.isDestroyed()) {
+      try { entry.view.webContents.debugger.detach() } catch { /* not attached */ }
       entry.view.webContents.close({ waitForBeforeUnload: false })
     }
     this.viewsByWindow.get(win.id)?.delete(id)
+  }
+
+  // Taps Chromium's Network domain (CDP) for the Claude tab so we can give
+  // Claude a real network log without polling or page-side injection. The
+  // debugger is per-webContents, so this only captures the Claude tab's
+  // traffic — not the user's other browser tabs.
+  private attachNetworkDebugger(winId: number, id: string, wc: Electron.WebContents): void {
+    try {
+      wc.debugger.attach('1.3')
+    } catch {
+      return
+    }
+    // Correlates request metadata (method, start time) with the later response
+    // event, which only carries the requestId as a key.
+    const pending = new Map<string, { url: string; method: string; startedAt: number }>()
+    wc.debugger.sendCommand('Network.enable').catch(() => {})
+    wc.debugger.on('message', (_event, method, params: Record<string, any>) => {
+      if (method === 'Network.requestWillBeSent') {
+        pending.set(params.requestId as string, {
+          url: params.request.url as string,
+          method: params.request.method as string,
+          startedAt: Math.round((params.timestamp as number) * 1000),
+        })
+      } else if (method === 'Network.responseReceived') {
+        const req = pending.get(params.requestId as string)
+        if (!req) return
+        pending.delete(params.requestId as string)
+        const entry = this.viewsByWindow.get(winId)?.get(id)
+        if (!entry) return
+        entry.networkLog.push({
+          url: req.url,
+          method: req.method,
+          status: (params.response as { status: number }).status,
+          type: params.type as string,
+          startedAt: req.startedAt,
+        })
+        if (entry.networkLog.length > MAX_NETWORK_LOG) entry.networkLog.shift()
+      } else if (method === 'Network.loadingFailed') {
+        pending.delete(params.requestId as string)
+      }
+    })
   }
 
   // --- Claude-controlled tab (VIDE-53) ---
@@ -401,6 +454,23 @@ export class BrowserViewManager {
 
   async readClaudeTabText(winId: number): Promise<string> {
     return this.claudeTabWebContents(winId).executeJavaScript('document.body.innerText')
+  }
+
+  async readClaudeTabHtml(winId: number): Promise<string> {
+    return this.claudeTabWebContents(winId).executeJavaScript('document.documentElement.outerHTML')
+  }
+
+  async evaluateInClaudeTab(winId: number, script: string): Promise<unknown> {
+    return this.claudeTabWebContents(winId).executeJavaScript(script)
+  }
+
+  getClaudeTabNetworkLog(winId: number): NetworkLogEntry[] {
+    return this.viewsByWindow.get(winId)?.get(CLAUDE_TAB_ID)?.networkLog ?? []
+  }
+
+  clearClaudeTabNetworkLog(winId: number): void {
+    const entry = this.viewsByWindow.get(winId)?.get(CLAUDE_TAB_ID)
+    if (entry) entry.networkLog = []
   }
 
   disposeWindow(winId: number): void {

@@ -150,5 +150,57 @@ export function buildBrowserTools(socketPath: string, windowId: string): McpTool
         return text || '(empty page)'
       },
     },
+    {
+      name: 'browser_get_html',
+      description:
+        "Read the Claude-controlled browser tab's full HTML source (document.documentElement.outerHTML). " +
+        'Useful for inspecting the DOM structure, finding CSS selectors, or extracting data that ' +
+        'innerText would strip out.',
+      inputSchema: { type: 'object', properties: {} },
+      handler: async () => {
+        const { html } = await callJson(socketPath, windowId, '/read-html')
+        return html || '(empty page)'
+      },
+    },
+    {
+      name: 'browser_evaluate',
+      description:
+        'Run a JavaScript expression in the Claude-controlled browser tab and return the result. ' +
+        'Use for anything that needs direct DOM access: reading attribute values, checking element ' +
+        'state, extracting structured data, triggering JS events, etc. ' +
+        'The expression is evaluated with executeJavaScript — wrap multi-line logic in an IIFE if needed.',
+      inputSchema: {
+        type: 'object',
+        properties: { script: { type: 'string', description: 'JS expression or IIFE to evaluate' } },
+        required: ['script'],
+      },
+      handler: async (args) => {
+        const { result } = await callJson(socketPath, windowId, '/evaluate', { script: String(args.script) })
+        return result === undefined ? '(undefined)' : JSON.stringify(result, null, 2)
+      },
+    },
+    {
+      name: 'browser_get_network_log',
+      description:
+        "Read the Claude-controlled browser tab's captured network requests (up to the last 100), " +
+        'oldest first. Shows URL, HTTP method, response status code, and resource type (XHR, Fetch, ' +
+        'Document, Script, etc.). Useful for discovering what API calls a page is making. ' +
+        'Pass clear=true to flush the log after reading.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          clear: { type: 'boolean', description: 'Flush the log after reading (default false)' },
+        },
+      },
+      handler: async (args) => {
+        const params: Record<string, string> = {}
+        if (args.clear) params.clear = '1'
+        const { log } = await callJson(socketPath, windowId, '/network-log', params)
+        if (!log.length) return 'No network requests captured yet.'
+        return (log as Array<{ method: string; status: number; type: string; url: string; startedAt: number }>)
+          .map((e) => `[${e.method} ${e.status}] [${e.type}] ${e.url}`)
+          .join('\n')
+      },
+    },
   ]
 }

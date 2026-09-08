@@ -161,6 +161,25 @@ export class BrowserBridge {
       this.endJson(res, { text })
       return
     }
+    if (req.url === '/read-html') {
+      const html = await this.browserViews.readClaudeTabHtml(windowId)
+      this.endJson(res, { html })
+      return
+    }
+    if (req.url === '/evaluate') {
+      const script = new URLSearchParams(body).get('script') ?? ''
+      if (!script) throw new Error('Missing script')
+      const result = await this.browserViews.evaluateInClaudeTab(windowId, script)
+      this.endJson(res, { result })
+      return
+    }
+    if (req.url === '/network-log') {
+      const clear = new URLSearchParams(body).get('clear') === '1'
+      const log = this.browserViews.getClaudeTabNetworkLog(windowId)
+      if (clear) this.browserViews.clearClaudeTabNetworkLog(windowId)
+      this.endJson(res, { log })
+      return
+    }
 
     res.statusCode = 404
     this.endJson(res, { error: `Unknown route: ${req.url}` })
