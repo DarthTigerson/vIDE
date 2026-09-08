@@ -573,8 +573,13 @@ export class BrowserViewManager {
     } else if (text) {
       return wc.executeJavaScript(`(() => {
         const needle = ${JSON.stringify(text.toLowerCase())}
-        const candidates = Array.from(document.querySelectorAll('a,button,input,label,select,textarea,[role="button"],[role="link"],[role="menuitem"],li,td,th,h1,h2,h3,h4,h5,h6,span,p'))
-        const el = candidates.find(el => el.textContent?.trim().toLowerCase().includes(needle))
+        // Two-pass: interactive elements win over structural ones so that
+        // clicking a label's visible text doesn't land on the <p>/<span>
+        // wrapper instead of the associated focusable control.
+        const INTERACTIVE = 'a,button,input,select,textarea,label,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[role="checkbox"],[role="radio"]'
+        const STRUCTURAL = 'li,td,th,h1,h2,h3,h4,h5,h6,span,p,div'
+        const match = (sel) => Array.from(document.querySelectorAll(sel)).find(el => el.textContent?.trim().toLowerCase().includes(needle))
+        const el = match(INTERACTIVE) ?? match(STRUCTURAL)
         if (!el) throw new Error('No visible element found containing text: ' + ${JSON.stringify(text)})
         el.scrollIntoView({ behavior: 'instant', block: 'center' })
         const r = el.getBoundingClientRect()

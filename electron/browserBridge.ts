@@ -150,6 +150,11 @@ export class BrowserBridge {
     }
     if (req.url === '/release-tab') {
       this.targetTabIds.delete(windowId)
+      // If the dedicated Claude tab was closed while a user tab was active,
+      // silently recreate it so the next tool call doesn't error.
+      if (!this.browserViews.hasTab(windowId, CLAUDE_TAB_ID)) {
+        await this.browserViews.navigateClaudeTab(windowId, 'about:blank')
+      }
       this.endJson(res, { ok: true, activeTabId: CLAUDE_TAB_ID })
       return
     }
