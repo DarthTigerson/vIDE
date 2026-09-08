@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import {
   useDisplayStore, FONT_PRESETS, PANEL_STYLE_OPTIONS, BACKGROUND_IMAGE_OPTIONS,
   type FooterContent, type BackgroundImage,
@@ -11,6 +12,30 @@ const FOOTER_CONTENT_OPTIONS: { value: FooterContent; label: string }[] = [
   { value: 'hints', label: 'Hints' },
   { value: 'clock', label: 'Clock' },
 ]
+
+// Mirrors the [data-panel-style="brushed-metal"] rule in index.css exactly.
+// Can't just rely on that rule here — it deliberately excludes
+// .panel-style-swatch (see below) so this preview isn't a live view of
+// whichever style happens to be globally active — so the preview applies
+// the same look directly via inline style instead.
+const BRUSHED_METAL_PREVIEW_IMAGE = `repeating-linear-gradient(
+  100deg,
+  rgba(255, 255, 255, 0.12) 0px,
+  rgba(255, 255, 255, 0.12) 1px,
+  rgba(0, 0, 0, 0.07) 1px,
+  rgba(0, 0, 0, 0.07) 2px
+), linear-gradient(
+  100deg,
+  rgba(255, 255, 255, 0.16) 0%,
+  rgba(255, 255, 255, 0) 28%,
+  rgba(0, 0, 0, 0.06) 52%,
+  rgba(255, 255, 255, 0.1) 76%,
+  rgba(255, 255, 255, 0) 100%
+)`
+const brushedMetalPreviewStyle: CSSProperties = {
+  backgroundImage: BRUSHED_METAL_PREVIEW_IMAGE,
+  backgroundBlendMode: 'overlay, soft-light',
+}
 
 export function DisplayPage() {
   const {
@@ -41,27 +66,60 @@ export function DisplayPage() {
                     isActive ? 'border-accent' : 'border-border hover:border-fg-muted',
                   ].join(' ')}
                 >
-                  <div className="h-14 relative overflow-hidden bg-bg">
-                    {opt.value === 'glass' && (
-                      <div className="absolute right-1 bottom-0 w-6 h-6 rounded-full bg-accent/70 blur-[3px]" />
+                  {/* panel-style-swatch: these mock rectangles are always
+                      *representative* of `opt`, not a live view of the
+                      currently-applied global style — the [data-panel-style]
+                      CSS rules that recolor real .bg-* panels app-wide are
+                      scoped to exclude this class so, e.g., every card
+                      doesn't turn brushed-metal-textured just because that
+                      happens to be the active style. */}
+                  <div className="h-14 relative overflow-hidden bg-bg panel-style-swatch">
+                    {(opt.value === 'glossy' || opt.value === 'glass') && (
+                      <>
+                        {/* Stand-in "background image" behind the frosted panels —
+                            without this there's nothing back there for the
+                            backdrop-blur below to actually blur, so the effect
+                            these two styles are named for wasn't visible at
+                            this size. */}
+                        <div className="absolute -left-3 -top-3 w-11 h-11 rounded-full bg-accent" />
+                        <div className="absolute -right-2 -bottom-4 w-12 h-12 rounded-full bg-sky-400" />
+                      </>
                     )}
                     {opt.value === 'glossy' ? (
                       <>
-                        <div className="absolute left-0 top-0 bottom-0 w-7 bg-sidebar/50 backdrop-blur-sm" />
-                        <div className="absolute left-7 top-0 right-0 h-5 bg-tab-bar/60 backdrop-blur-sm border-b border-border/40" />
-                        <div className="absolute left-7 top-5 right-0 bottom-0 bg-panel/50 backdrop-blur-sm" />
+                        <div className="absolute left-0 top-0 bottom-0 w-7 bg-sidebar/60 backdrop-blur-md" />
+                        <div className="absolute left-7 top-0 right-0 h-5 bg-tab-bar/70 backdrop-blur-md border-b border-border/40" />
+                        <div className="absolute left-7 top-5 right-0 bottom-0 bg-panel/60 backdrop-blur-md" />
+                        {/* Diagonal sheen — the one thing that actually reads as
+                            "glossy" rather than merely translucent. */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/25 via-transparent to-transparent" />
                       </>
                     ) : opt.value === 'glass' ? (
                       <>
-                        <div className="absolute left-0 top-0 bottom-0 w-7 bg-sidebar/20 backdrop-blur-sm" />
-                        <div className="absolute left-7 top-0 right-0 h-5 bg-tab-bar/25 backdrop-blur-sm border-b border-border/30" />
-                        <div className="absolute left-7 top-5 right-0 bottom-0 bg-panel/20 backdrop-blur-sm" />
+                        <div className="absolute left-0 top-0 bottom-0 w-7 bg-sidebar/15 backdrop-blur-sm" />
+                        <div className="absolute left-7 top-0 right-0 h-5 bg-tab-bar/20 backdrop-blur-sm border-b border-border/30" />
+                        <div className="absolute left-7 top-5 right-0 bottom-0 bg-panel/15 backdrop-blur-sm" />
                       </>
                     ) : opt.value === 'solid' ? (
                       <>
                         <div className="absolute left-0 top-0 bottom-0 w-7 bg-sidebar border-r-2 border-fg-subtle" />
                         <div className="absolute left-7 top-0 right-0 h-5 bg-tab-bar border-b-2 border-fg-subtle" />
                         <div className="absolute left-7 top-5 right-0 bottom-0 bg-panel" />
+                      </>
+                    ) : opt.value === 'brushed-metal' ? (
+                      <>
+                        <div
+                          className="absolute left-0 top-0 bottom-0 w-7 border-r-2 border-fg-subtle"
+                          style={{ background: 'var(--color-sidebar)', ...brushedMetalPreviewStyle }}
+                        />
+                        <div
+                          className="absolute left-7 top-0 right-0 h-5 border-b-2 border-fg-subtle"
+                          style={{ background: 'var(--color-tab-bar)', ...brushedMetalPreviewStyle }}
+                        />
+                        <div
+                          className="absolute left-7 top-5 right-0 bottom-0"
+                          style={{ background: 'var(--color-panel)', ...brushedMetalPreviewStyle }}
+                        />
                       </>
                     ) : (
                       <>

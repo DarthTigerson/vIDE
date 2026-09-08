@@ -238,19 +238,31 @@ body {
   background-color: rgba(255, 255, 255, 0.55);
 }
 
-/* Solid Colours panel style — same fully-opaque colors as Matt, just with
-   a stronger --color-border so the sidebar/tab-bar/panel divides read as
-   deliberate hard lines instead of Matt's soft, low-contrast ones. */
-[data-theme="claude-dark"][data-panel-style="solid"]  { --color-border: #5a5a5a; }
-[data-theme="claude-light"][data-panel-style="solid"] { --color-border: #b0b0b0; }
-[data-theme="thomas-dark"][data-panel-style="solid"]  { --color-border: #6b5738; }
-[data-theme="thomas-light"][data-panel-style="solid"] { --color-border: #c2ab72; }
+/* Solid panel style — fully-opaque colors with a stronger --color-border so
+   the sidebar/tab-bar/panel divides read as deliberate hard lines. Brushed
+   Metal shares this same bolder border (a metal panel reads as bounded/
+   bezeled too) — its actual brushed finish comes from the background-image
+   grain/sheen block further down. */
+[data-theme="claude-dark"][data-panel-style="solid"],
+[data-theme="claude-dark"][data-panel-style="brushed-metal"]  { --color-border: #5a5a5a; }
+[data-theme="claude-light"][data-panel-style="solid"],
+[data-theme="claude-light"][data-panel-style="brushed-metal"] { --color-border: #b0b0b0; }
+[data-theme="thomas-dark"][data-panel-style="solid"],
+[data-theme="thomas-dark"][data-panel-style="brushed-metal"]  { --color-border: #6b5738; }
+[data-theme="thomas-light"][data-panel-style="solid"],
+[data-theme="thomas-light"][data-panel-style="brushed-metal"] { --color-border: #c2ab72; }
 [data-theme="luuk-dark"][data-panel-style="solid"],
-[data-theme="luuk-light"][data-panel-style="solid"]   { --color-border: #484848; }
-[data-theme="link-dark"][data-panel-style="solid"]    { --color-border: #55703c; }
-[data-theme="link-light"][data-panel-style="solid"]   { --color-border: #a3925c; }
-[data-theme="atreus-dark"][data-panel-style="solid"]  { --color-border: #4a5580; }
-[data-theme="atreus-light"][data-panel-style="solid"] { --color-border: #9aa2c2; }
+[data-theme="luuk-light"][data-panel-style="solid"],
+[data-theme="luuk-dark"][data-panel-style="brushed-metal"],
+[data-theme="luuk-light"][data-panel-style="brushed-metal"]   { --color-border: #484848; }
+[data-theme="link-dark"][data-panel-style="solid"],
+[data-theme="link-dark"][data-panel-style="brushed-metal"]    { --color-border: #55703c; }
+[data-theme="link-light"][data-panel-style="solid"],
+[data-theme="link-light"][data-panel-style="brushed-metal"]   { --color-border: #a3925c; }
+[data-theme="atreus-dark"][data-panel-style="solid"],
+[data-theme="atreus-dark"][data-panel-style="brushed-metal"]  { --color-border: #4a5580; }
+[data-theme="atreus-light"][data-panel-style="solid"],
+[data-theme="atreus-light"][data-panel-style="brushed-metal"] { --color-border: #9aa2c2; }
 
 /* Glossy panel opacity — rgba overrides let native vibrancy show through */
 [data-theme="claude-dark"][data-panel-style="glossy"] {
@@ -355,14 +367,52 @@ body {
   --color-panel: rgba(248, 249, 252, 0.3);
 }
 
-[data-panel-style="glossy"] .bg-bg,
-[data-panel-style="glossy"] .bg-panel,
-[data-panel-style="glossy"] .bg-sidebar,
-[data-panel-style="glossy"] .bg-tab-bar,
-[data-panel-style="glass"] .bg-bg,
-[data-panel-style="glass"] .bg-panel {
+/* :not(.panel-style-swatch, .panel-style-swatch *) on every rule below keeps these effects off
+   the Display settings page's own Panel Style preview thumbnails — those
+   reuse the real .bg-bg/.bg-panel/.bg-sidebar/.bg-tab-bar classes to stay
+   in sync with the live theme colours, but each one is a fixed mockup of
+   its own `opt`, not a live view of whichever style happens to be active
+   globally (see DisplayPage.tsx's panel-style-swatch comment). */
+[data-panel-style="glossy"] .bg-bg:not(.panel-style-swatch, .panel-style-swatch *),
+[data-panel-style="glossy"] .bg-panel:not(.panel-style-swatch, .panel-style-swatch *),
+[data-panel-style="glossy"] .bg-sidebar:not(.panel-style-swatch, .panel-style-swatch *),
+[data-panel-style="glossy"] .bg-tab-bar:not(.panel-style-swatch, .panel-style-swatch *),
+[data-panel-style="glass"] .bg-bg:not(.panel-style-swatch, .panel-style-swatch *),
+[data-panel-style="glass"] .bg-panel:not(.panel-style-swatch, .panel-style-swatch *) {
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* Brushed Metal panel finish: a fine directional grain (the repeating
+   stripe) plus a soft diagonal sheen band, both blended over each panel's
+   normal solid colour rather than replacing it the way glossy/glass swap
+   in translucent rgba. Blend modes read the grain/sheen against whatever
+   hue the active theme already has, so — unlike glossy/glass — this needs
+   no per-theme tuning; one rule covers every theme. The stripe's 100deg
+   tilt (not perfectly horizontal/vertical) is deliberate: dead-straight
+   repeating gradients read as a test pattern, real brushed/machined metal
+   always has a slight directional drift. */
+[data-panel-style="brushed-metal"] .bg-bg:not(.panel-style-swatch, .panel-style-swatch *),
+[data-panel-style="brushed-metal"] .bg-panel:not(.panel-style-swatch, .panel-style-swatch *),
+[data-panel-style="brushed-metal"] .bg-sidebar:not(.panel-style-swatch, .panel-style-swatch *),
+[data-panel-style="brushed-metal"] .bg-tab-bar:not(.panel-style-swatch, .panel-style-swatch *) {
+  background-image:
+    repeating-linear-gradient(
+      100deg,
+      rgba(255, 255, 255, 0.12) 0px,
+      rgba(255, 255, 255, 0.12) 1px,
+      rgba(0, 0, 0, 0.07) 1px,
+      rgba(0, 0, 0, 0.07) 2px
+    ),
+    linear-gradient(
+      100deg,
+      rgba(255, 255, 255, 0.16) 0%,
+      rgba(255, 255, 255, 0) 28%,
+      rgba(0, 0, 0, 0.06) 52%,
+      rgba(255, 255, 255, 0.1) 76%,
+      rgba(255, 255, 255, 0) 100%
+    );
+  background-blend-mode: overlay, soft-light;
 }
 
 #root { width: 100vw; height: 100vh; }
