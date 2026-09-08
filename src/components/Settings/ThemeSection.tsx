@@ -1,12 +1,23 @@
 import { useState } from 'react'
-import { useThemeStore, THEME_OPTIONS } from '@/stores/themeStore'
+import { useThemeStore, THEME_OPTIONS, familyOf } from '@/stores/themeStore'
 import { useCustomThemeStore, type CustomTheme, type CustomColorVar } from '@/stores/customThemeStore'
-import { Toggle } from '@/components/ui/Toggle'
+import { RadioGroup } from '@/components/ui/RadioGroup'
 import { Section } from './SettingsLayout'
 import { CustomThemeEditor } from './CustomThemeEditor'
 
 const PREVIEW_VAR_ORDER: CustomColorVar[] = [
   '--color-bg', '--color-panel', '--color-sidebar', '--color-accent', '--color-border',
+]
+
+// One card per family in the picker (built-ins used to show a separate
+// card per light/dark variant — now that variant is its own Light/System/
+// Dark control below, that split is a duplicate, not a choice).
+const FAMILIES = Array.from(new Set(THEME_OPTIONS.map((t) => familyOf(t.id))))
+
+const VARIANT_OPTIONS: { value: 'light' | 'dark' | 'system'; label: string }[] = [
+  { value: 'light', label: 'Light' },
+  { value: 'system', label: 'System' },
+  { value: 'dark', label: 'Dark' },
 ]
 
 function EditIcon() {
@@ -176,7 +187,7 @@ function ImportThemeCard({ onImport }: { onImport: (json: string) => string | nu
 }
 
 export function ThemeSection() {
-  const { theme, setTheme, matchSystem, setMatchSystem, setFamily } = useThemeStore()
+  const { theme, matchSystem, setMatchSystem, setFamily, setVariant } = useThemeStore()
   const customThemes = useCustomThemeStore((s) => s.themes)
   const activeCustomId = useCustomThemeStore((s) => s.activeId)
   const setActiveCustom = useCustomThemeStore((s) => s.setActive)
@@ -186,11 +197,17 @@ export function ThemeSection() {
   const [editingId, setEditingId] = useState<string | null>(null)
 
   const variant: 'light' | 'dark' = theme.endsWith('-dark') ? 'dark' : 'light'
+  const appearance: 'light' | 'dark' | 'system' = matchSystem ? 'system' : variant
 
-  function activateBuiltIn(id: typeof theme) {
-    setTheme(id)
+  function activateBuiltIn(family: string) {
+    setFamily(family)
     setActiveCustom(null)
     setEditingId(null)
+  }
+
+  function setAppearance(v: 'light' | 'dark' | 'system') {
+    if (v === 'system') { setMatchSystem(true); return }
+    setVariant(v === 'dark')
   }
 
   function activateCustom(id: string) {
@@ -212,31 +229,35 @@ export function ThemeSection() {
   return (
     <Section label="Theme">
       <div className="pb-4 pl-3">
-        <Toggle
-          className="max-w-[60ch] mb-5"
-          label="Match system appearance"
-          description="Automatically switch this theme between its light and dark variant when macOS does."
-          checked={matchSystem}
-          onChange={setMatchSystem}
-        />
+        <div className="mb-5">
+          <span className="text-xs text-fg-muted mb-1.5 block">Appearance</span>
+          <RadioGroup
+            ariaLabel="Appearance"
+            value={appearance}
+            onChange={setAppearance}
+            options={VARIANT_OPTIONS}
+          />
+        </div>
         <div className="mt-5 grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-3">
-          {THEME_OPTIONS.map((t) => {
-            const isActive = !activeCustomId && t.id === theme
+          {FAMILIES.map((family) => {
+            const isActive = !activeCustomId && familyOf(theme) === family
+            const option = THEME_OPTIONS.find((t) => t.id === `${family}-${variant}`)!
+            const label = option.name.replace(/\s+(Light|Dark)$/, '')
             return (
               <button
-                key={t.id}
+                key={family}
                 type="button"
-                onClick={() => activateBuiltIn(t.id)}
+                onClick={() => activateBuiltIn(family)}
                 className={[
                   'text-left rounded-lg border-2 p-3 transition-colors',
                   isActive ? 'border-accent' : 'border-border hover:border-fg-muted',
                 ].join(' ')}
               >
                 <div className="flex gap-1 mb-3 rounded overflow-hidden h-10">
-                  {t.swatches.map((color, i) => <div key={i} className="flex-1" style={{ background: color }} />)}
+                  {option.swatches.map((color, i) => <div key={i} className="flex-1" style={{ background: color }} />)}
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-fg truncate">{t.name}</span>
+                  <span className="text-sm font-medium text-fg truncate">{label}</span>
                   {isActive && (
                     <span className="shrink-0 text-xs font-medium text-accent px-1.5 py-0.5 rounded bg-accent/10">Active</span>
                   )}

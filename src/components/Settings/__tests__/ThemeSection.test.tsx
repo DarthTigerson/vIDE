@@ -15,10 +15,40 @@ afterEach(() => {
 })
 
 describe('ThemeSection', () => {
-  it('renders every built-in theme card plus a New Custom Theme card', () => {
+  it('renders one card per built-in family plus a New Custom Theme card', () => {
     render(<ThemeSection />)
-    expect(screen.getByRole('button', { name: /Claude Dark/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Claude/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Thomas/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Claude Dark/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Claude Light/ })).toBeNull()
     expect(screen.getByText('New Custom Theme')).toBeInTheDocument()
+  })
+
+  it('renders a Light/System/Dark appearance control reflecting the current state', () => {
+    useThemeStore.setState({ theme: 'claude-dark', matchSystem: false })
+    render(<ThemeSection />)
+    const group = screen.getByRole('radiogroup', { name: 'Appearance' })
+    expect(group).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Dark' })).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('picking Dark sets the variant and turns off match system, without clearing an active custom theme', () => {
+    useThemeStore.setState({ theme: 'claude-light', matchSystem: true })
+    const id = useCustomThemeStore.getState().createFromActive('Sunset')
+    render(<ThemeSection />)
+    fireEvent.click(screen.getByRole('radio', { name: 'Dark' }))
+    expect(useThemeStore.getState().theme).toBe('claude-dark')
+    expect(useThemeStore.getState().matchSystem).toBe(false)
+    expect(useCustomThemeStore.getState().activeId).toBe(id)
+  })
+
+  it('picking System turns on match system without clearing an active custom theme', () => {
+    useThemeStore.setState({ theme: 'claude-dark', matchSystem: false })
+    const id = useCustomThemeStore.getState().createFromActive('Sunset')
+    render(<ThemeSection />)
+    fireEvent.click(screen.getByRole('radio', { name: 'System' }))
+    expect(useThemeStore.getState().matchSystem).toBe(true)
+    expect(useCustomThemeStore.getState().activeId).toBe(id)
   })
 
   it('renders a separator between the built-in and custom themes', () => {
@@ -50,7 +80,7 @@ describe('ThemeSection', () => {
     const id = useCustomThemeStore.getState().createFromActive('Sunset')
     useCustomThemeStore.getState().setActive(id)
     render(<ThemeSection />)
-    fireEvent.click(screen.getByRole('button', { name: /Thomas Dark/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Thomas/ }))
     expect(useCustomThemeStore.getState().activeId).toBeNull()
     expect(useThemeStore.getState().theme).toBe('thomas-dark')
   })
