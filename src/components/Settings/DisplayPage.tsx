@@ -5,7 +5,8 @@ import {
 } from '@/stores/displayStore'
 import { useThemeStore } from '@/stores/themeStore'
 import { Toggle } from '@/components/ui/Toggle'
-import { Select } from '@/components/ui/Select'
+import { Clock } from '@/components/StatusBar/Clock'
+import { FOOTER_TIPS } from '@/lib/footerTips'
 import { Section, Row } from './SettingsLayout'
 import { ThemeSection } from './ThemeSection'
 import { FontSection } from './FontSection'
@@ -153,15 +154,41 @@ export function DisplayPage() {
       {/* ── General ───────────────────────────────────────────────────────── */}
       <Section label="General">
         <Row>
-          <div className="flex flex-wrap gap-4">
-            <div className="flex flex-col gap-1.5 min-w-[180px]">
-              <label htmlFor="footer-content-select" className="text-sm text-fg">Footer Content</label>
-              <Select
-                id="footer-content-select"
-                value={footerContent}
-                onChange={(v) => setFooterContent(v as FooterContent)}
-                options={FOOTER_CONTENT_OPTIONS}
-              />
+          <div>
+            <span className="text-sm text-fg mb-1.5 block">Footer Content</span>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-3 max-w-[280px]">
+              {FOOTER_CONTENT_OPTIONS.map((opt) => {
+                const isActive = footerContent === opt.value
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setFooterContent(opt.value)}
+                    className={[
+                      'text-left rounded-lg border-2 overflow-hidden transition-colors',
+                      isActive ? 'border-accent' : 'border-border hover:border-fg-muted',
+                    ].join(' ')}
+                  >
+                    <div className="h-14 flex items-center justify-center bg-bg px-2">
+                      {opt.value === 'clock' ? (
+                        <Clock />
+                      ) : (
+                        <span className="text-xs text-fg-subtle text-center truncate">{FOOTER_TIPS[0]}</span>
+                      )}
+                    </div>
+                    <div className={['px-3 py-2', isActive ? 'bg-accent/10' : 'bg-sidebar'].join(' ')}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={['text-sm font-medium truncate', isActive ? 'text-fg' : 'text-fg-muted'].join(' ')}>
+                          {opt.label}
+                        </span>
+                        {isActive && (
+                          <span className="shrink-0 text-xs font-medium text-accent px-1.5 py-0.5 rounded bg-accent/10">Active</span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           </div>
         </Row>
