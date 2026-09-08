@@ -21,15 +21,15 @@ export const FONT_PRESETS = [
   { label: 'Courier New', value: 'Courier New, monospace' },
 ] as const
 
-export type PanelStyle = 'matt' | 'solid' | 'glossy' | 'glass'
+export type PanelStyle = 'solid' | 'glossy' | 'glass' | 'brushed-metal'
 
 // Shared between DisplayPage and the setup wizard's theme step, so both
 // pickers stay in sync rather than duplicating this list.
 export const PANEL_STYLE_OPTIONS: { value: PanelStyle; label: string; description: string }[] = [
-  { value: 'matt',   label: 'Matt',          description: 'Solid panels' },
-  { value: 'solid',  label: 'Solid Colours', description: 'Solid panels, bolder dividing lines' },
-  { value: 'glossy', label: 'Glossy',        description: 'Frosted glass' },
-  { value: 'glass',  label: 'Glass',         description: 'See-through, reveals the background image' },
+  { value: 'solid',         label: 'Solid',       description: 'Solid panels' },
+  { value: 'glossy',        label: 'Glossy',      description: 'Frosted glass' },
+  { value: 'glass',         label: 'Glass',       description: 'See-through' },
+  { value: 'brushed-metal', label: 'Brush Metal', description: 'Welder approved' },
 ]
 
 // More may be added later (e.g. a combined view) - kept as its own union
@@ -81,7 +81,10 @@ function applyPanelStyle(style: PanelStyle) {
 
 const storedFont = localStorage.getItem(FONT_KEY)
 const initialFont = storedFont && FONT_PRESETS.some((p) => p.value === storedFont) ? storedFont : DEFAULT_FONT
-const initialPanelStyle = (localStorage.getItem(PANEL_STYLE_KEY) as PanelStyle | null) || 'matt'
+const storedPanelStyle = localStorage.getItem(PANEL_STYLE_KEY)
+const initialPanelStyle: PanelStyle = PANEL_STYLE_OPTIONS.some((o) => o.value === storedPanelStyle)
+  ? (storedPanelStyle as PanelStyle)
+  : 'solid'
 const storedFooterContent = localStorage.getItem(FOOTER_CONTENT_KEY)
 const initialFooterContent: FooterContent = storedFooterContent === 'clock' ? 'clock' : 'hints'
 const storedMemoryUsageVisible = localStorage.getItem(MEMORY_USAGE_VISIBLE_KEY)
