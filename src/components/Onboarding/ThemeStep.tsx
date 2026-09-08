@@ -1,5 +1,6 @@
 import { useThemeStore, THEME_OPTIONS, familyOf } from '@/stores/themeStore'
 import { useDisplayStore, PANEL_STYLE_OPTIONS, BACKGROUND_IMAGE_OPTIONS, type BackgroundImage } from '@/stores/displayStore'
+import { useCustomThemeStore } from '@/stores/customThemeStore'
 import { Select } from '@/components/ui/Select'
 import { RadioGroup } from '@/components/ui/RadioGroup'
 
@@ -45,6 +46,7 @@ function SwatchPreview({ themeId, swatches, active, onClick }: {
 
 export function ThemeStep() {
   const { theme, matchSystem, setFamily, setVariant, setMatchSystem } = useThemeStore()
+  const setActiveCustom = useCustomThemeStore((s) => s.setActive)
   const backgroundImage = useDisplayStore((s) => s.backgroundImage)
   const setBackgroundImage = useDisplayStore((s) => s.setBackgroundImage)
   const panelStyle = useDisplayStore((s) => s.panelStyle)
@@ -68,7 +70,7 @@ export function ThemeStep() {
         <Select
           id="onboarding-theme-family"
           value={family}
-          onChange={setFamily}
+          onChange={(v) => { setActiveCustom(null); setFamily(v) }}
           options={FAMILIES}
         />
       </div>
@@ -78,13 +80,13 @@ export function ThemeStep() {
           themeId={lightOption.id}
           swatches={lightOption.swatches}
           active={variant === 'light'}
-          onClick={() => setVariant(false)}
+          onClick={() => { setActiveCustom(null); setVariant(false) }}
         />
         <SwatchPreview
           themeId={darkOption.id}
           swatches={darkOption.swatches}
           active={variant === 'dark'}
-          onClick={() => setVariant(true)}
+          onClick={() => { setActiveCustom(null); setVariant(true) }}
         />
       </div>
 
@@ -93,7 +95,11 @@ export function ThemeStep() {
         <RadioGroup
           ariaLabel="Appearance"
           value={variant}
-          onChange={(v) => (v === 'system' ? setMatchSystem(true) : setVariant(v === 'dark'))}
+          onChange={(v) => {
+            if (v === 'system') { setMatchSystem(true); return }
+            setActiveCustom(null)
+            setVariant(v === 'dark')
+          }}
           options={VARIANT_OPTIONS}
         />
       </div>
