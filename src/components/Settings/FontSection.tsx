@@ -29,7 +29,7 @@ export function FontSection() {
   return (
     <Section label="Font">
       <div className="pb-4 pl-3">
-        <div className="mb-5 flex items-center justify-between gap-4">
+        <div className="mb-5 flex items-center justify-between gap-4 -mx-2 px-2 py-1 rounded-lg transition-colors hover:bg-white/5">
           <div>
             <div className="text-sm text-fg">Size</div>
             <div className="text-xs text-fg-muted mt-0.5">
