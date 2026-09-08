@@ -2,6 +2,8 @@ import type { MouseEvent } from 'react'
 import type { FileNode } from '@/types/index'
 import { useFileStore } from '@/stores/fileStore'
 import { useEditorStore } from '@/stores/editorStore'
+import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
+import { getBiggestPaneId } from '@/lib/paneLayout'
 import { useRepoGitState } from '@/stores/gitStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { isGitDiffTab, parseGitDiffPath, isGitCommitDiffTab, parseGitCommitDiffPath } from '@/components/Git/paths'
@@ -94,7 +96,7 @@ export function FileTree({
   const revealedPath = useFileStore((s) => s.revealedPath)
   const selectedRepo = useGitReposStore((s) => s.selectedRepo)
   const ignoredPaths = useRepoGitState(selectedRepo).ignoredPaths
-  const { activeTabPath, openTab } = useEditorStore()
+  const { activeTabPath, openTab, openTabInPane } = useEditorStore()
   // isGitDiffTab/isGitCommitDiffTab both carry a repo-*relative* path (that's
   // what git status/git show hand back, and what getDiffContent's own
   // HEAD:<path> git refs require) — has to be re-joined to the diff tab's
@@ -114,6 +116,17 @@ export function FileTree({
               : activeTabPath
   const createPromptHere = prompt && !prompt.node && prompt.directory === directoryPath
 
+  function openFileTab(tab: { path: string; content: string; dirty: boolean }) {
+    if (useEditorSettingsStore.getState().openInBiggestPane) {
+      const biggestPaneId = getBiggestPaneId()
+      if (biggestPaneId) {
+        openTabInPane(tab, biggestPaneId)
+        return
+      }
+    }
+    openTab(tab)
+  }
+
   async function handleClick(node: FileNode) {
     useFileStore.getState().clearRevealedPath()
     if (node.isDirectory) {
@@ -124,11 +137,11 @@ export function FileTree({
       }
     } else if (isImageFile(node.name)) {
       select(node.path)
-      openTab({ path: buildImagePreviewPath(node.path), content: '', dirty: false })
+      openFileTab({ path: buildImagePreviewPath(node.path), content: '', dirty: false })
     } else {
       select(node.path)
       const content = await window.api.readFile(node.path)
-      openTab({ path: node.path, content, dirty: false })
+      openFileTab({ path: node.path, content, dirty: false })
     }
   }
 

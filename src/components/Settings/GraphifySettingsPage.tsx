@@ -1,21 +1,37 @@
 import { useGraphifyStore } from '@/stores/graphifyStore'
+import { useGraphifySettingsStore } from '@/stores/graphifySettingsStore'
 import { useFileStore } from '@/stores/fileStore'
+import { Toggle } from '@/components/ui/Toggle'
+import { Section, Row } from './SettingsLayout'
 
 export function GraphifySettingsPage() {
   const projectRoot = useFileStore((s) => s.projectRoot)
   const { installingSkill, skillInstallResult, installClaudeSkill } = useGraphifyStore()
+  const enabled = useGraphifySettingsStore((s) => s.enabled)
+  const setEnabled = useGraphifySettingsStore((s) => s.setEnabled)
 
   return (
     <div className="h-full overflow-auto p-6 bg-panel">
       <h1 className="text-base font-semibold text-fg mb-1">Graphify</h1>
-      <p className="text-sm text-fg-muted mb-8">
+      <p className="text-sm text-fg-muted mb-4">
         graphify builds a knowledge graph of your codebase, viewable from the Graphify panel.
       </p>
 
-      <div className="grid grid-cols-1 gap-6 max-w-lg">
-        <section className="rounded-xl border border-border/60 p-4 flex flex-col gap-4">
-          <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">Claude Code integration</h2>
-          <p className="text-sm text-fg-muted">
+      <Section label="General">
+        <Row>
+          <Toggle
+            className="max-w-[60ch]"
+            label="Enable Graphify"
+            description="Adds a Graphify icon to the activity bar with the knowledge graph panel."
+            checked={enabled}
+            onChange={setEnabled}
+          />
+        </Row>
+      </Section>
+
+      <Section label="Claude Code">
+        <Row>
+          <p className="text-sm text-fg-muted mb-3">
             Registers graphify as a Claude Code skill for the current project
             (<code className="text-xs bg-white/10 rounded px-1 py-0.5">.claude/skills/graphify</code>, plus a
             CLAUDE.md section), so Claude can query the graph itself
@@ -36,7 +52,7 @@ export function GraphifySettingsPage() {
 
           {skillInstallResult && (
             <div
-              className={`text-xs whitespace-pre-wrap border rounded p-2 max-h-64 overflow-y-auto ${
+              className={`mt-3 text-xs whitespace-pre-wrap border rounded p-2 max-h-64 overflow-y-auto ${
                 skillInstallResult.ok ? 'text-fg-muted border-border' : 'text-red-400 border-red-400/30'
               }`}
             >
@@ -45,8 +61,8 @@ export function GraphifySettingsPage() {
                 : `Failed to enable graphify for Claude Code:\n${skillInstallResult.output}`}
             </div>
           )}
-        </section>
-      </div>
+        </Row>
+      </Section>
     </div>
   )
 }

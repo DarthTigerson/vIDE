@@ -3,11 +3,12 @@ import type { ITheme } from '@xterm/xterm'
 import { hexWithAlpha } from '@/lib/color'
 
 export type ThemeId =
-  | 'claude-dark' | 'claude-light'
-  | 'thomas-dark' | 'thomas-light'
-  | 'luuk-dark'   | 'luuk-light'
-  | 'link-dark'   | 'link-light'
-  | 'atreus-dark' | 'atreus-light'
+  | 'claude-dark'  | 'claude-light'
+  | 'thomas-dark'  | 'thomas-light'
+  | 'luuk-dark'    | 'luuk-light'
+  | 'borahae-dark' | 'borahae-light'
+  | 'link-dark'    | 'link-light'
+  | 'atreus-dark'  | 'atreus-light'
 
 interface ThemeStore {
   theme: ThemeId
@@ -61,7 +62,7 @@ export const useThemeStore = create<ThemeStore>((set, get) => ({
       set({ matchSystem })
     }
   },
-  // Switches only the color family (Claude/Thomas/Luuk/Link), preserving
+  // Switches only the color family (Claude/vIDE/Luuk/Link), preserving
   // whether the current variant is light or dark — including "follow
   // system," which setTheme() would otherwise always turn off.
   setFamily: (family) => {
@@ -91,7 +92,7 @@ systemDarkQuery.addEventListener('change', (e) => {
 
 // Custom themes registered by defineMonacoThemes() (src/monacoThemes.ts) — the
 // built-in 'vs-dark'/'vs' themes only coincidentally matched Claude's colors
-// and didn't track Thomas's warm palette at all.
+// and didn't track vIDE's warm palette at all.
 export const MONACO_THEMES: Record<ThemeId, string> = {
   'claude-dark':  'claude-dark',
   'claude-light': 'claude-light',
@@ -99,6 +100,8 @@ export const MONACO_THEMES: Record<ThemeId, string> = {
   'thomas-light': 'thomas-light',
   'luuk-dark':    'luuk-dark',
   'luuk-light':   'luuk-light',
+  'borahae-dark':  'borahae-dark',
+  'borahae-light': 'borahae-light',
   'link-dark':    'link-dark',
   'link-light':   'link-light',
   'atreus-dark':  'atreus-dark',
@@ -245,6 +248,53 @@ export const XTERM_THEMES: Record<ThemeId, ITheme> = {
     brightCyan:          '#7cd0dc',
     brightWhite:         '#ffffff',
   },
+  // "Borahae" (보라해) — BTS/ARMY's "I purple you", coined by V (Kim
+  // Taehyung) in 2016. Purple is the last colour of the rainbow, meaning
+  // "I'll trust and love you for a long time."
+  'borahae-dark': {
+    background:          '#15111f',
+    foreground:          '#e8e0f5',
+    cursor:              '#8b5cf6',
+    selectionBackground: '#8b5cf640',
+    black:               '#251f38',
+    red:                 '#e0687a',
+    green:               '#8fd19e',
+    yellow:              '#e5c07b',
+    blue:                '#7aa2f7',
+    magenta:             '#c58af9',
+    cyan:                '#7fd4c9',
+    white:               '#e8e0f5',
+    brightBlack:         '#6f6389',
+    brightRed:           '#f08a99',
+    brightGreen:         '#a8e0b8',
+    brightYellow:        '#f0d090',
+    brightBlue:          '#9ab8ff',
+    brightMagenta:       '#dcaefc',
+    brightCyan:          '#9ee8dc',
+    brightWhite:         '#fffaff',
+  },
+  'borahae-light': {
+    background:          '#f5f1fb',
+    foreground:          '#241b38',
+    cursor:              '#6d28d9',
+    selectionBackground: '#6d28d940',
+    black:               '#3a2f52',
+    red:                 '#b5433f',
+    green:               '#4f8a5c',
+    yellow:              '#92721f',
+    blue:                '#3355a8',
+    magenta:             '#8a3fae',
+    cyan:                '#2f8a7d',
+    white:               '#241b38',
+    brightBlack:         '#6b5c87',
+    brightRed:           '#d1685a',
+    brightGreen:         '#6ba578',
+    brightYellow:        '#b9963f',
+    brightBlue:          '#5a78c4',
+    brightMagenta:       '#a866d1',
+    brightCyan:          '#4aa89a',
+    brightWhite:         '#100b1a',
+  },
   'link-dark': {
     background:          '#12160f',
     foreground:          '#eef0d5',
@@ -340,7 +390,7 @@ export const XTERM_THEMES: Record<ThemeId, ITheme> = {
 // ITheme.background, independent of the --color-bg CSS custom property the
 // rest of the UI uses. Matches --color-bg's glass alpha in index.css so the
 // terminal blends with the same transparency as its own wrapper panel.
-const XTERM_GLASS_ALPHA = 0.2
+export const XTERM_GLASS_ALPHA = 0.2
 
 export function glassXtermTheme(theme: ThemeId): ITheme {
   const base = XTERM_THEMES[theme]
@@ -359,13 +409,16 @@ export interface ThemeOption {
 export const THEME_OPTIONS: ThemeOption[] = [
   { id: 'claude-dark',  name: 'Claude Dark',  swatches: ['#1a1a1a', '#252526', '#1e1e1e', '#d97757', '#3c3c3c'] },
   { id: 'claude-light', name: 'Claude Light', swatches: ['#f3f3f3', '#ececec', '#ffffff', '#c4613d', '#e0e0e0'] },
-  { id: 'thomas-dark',  name: 'Thomas Dark',  swatches: ['#1c1712', '#2b2319', '#221c15', '#f5c242', '#4a3d29'] },
-  { id: 'thomas-light', name: 'Thomas Light', swatches: ['#f7f1e0', '#efe6cd', '#fffcf2', '#ad7b00', '#d8c89a'] },
-  // Luuk hates light mode — "Luuk Light" is a gag, identical to "Luuk Dark".
-  { id: 'luuk-dark',    name: 'Luuk Dark',    swatches: ['#0d0d0d', '#111111', '#141414', '#9e9e9e', '#2e2e2e'] },
-  { id: 'luuk-light',   name: 'Luuk Light',   swatches: ['#0d0d0d', '#111111', '#141414', '#9e9e9e', '#2e2e2e'] },
+  { id: 'thomas-dark',  name: 'vIDE Dark',  swatches: ['#1c1712', '#2b2319', '#221c15', '#f5c242', '#4a3d29'] },
+  { id: 'thomas-light', name: 'vIDE Light', swatches: ['#f7f1e0', '#efe6cd', '#fffcf2', '#ad7b00', '#d8c89a'] },
   { id: 'link-dark',    name: 'Link Dark',    swatches: ['#12160f', '#1c2216', '#171c13', '#9ac26a', '#3a4a2c'] },
   { id: 'link-light',   name: 'Link Light',   swatches: ['#fdfee8', '#eef0cf', '#fffef2', '#6b8a3d', '#c9c093'] },
   { id: 'atreus-dark',  name: 'Atreus Dark',  swatches: ['#12151f', '#1c2233', '#171b28', '#5468c4', '#3a4460'] },
   { id: 'atreus-light', name: 'Atreus Light', swatches: ['#eef0f5', '#e2e5ee', '#f8f9fc', '#2c3a6e', '#c2c8dc'] },
+  // Luuk hates light mode — "Luuk Light" is a gag, identical to "Luuk Dark".
+  { id: 'luuk-dark',    name: 'Luuk Dark',    swatches: ['#0d0d0d', '#111111', '#141414', '#9e9e9e', '#2e2e2e'] },
+  { id: 'luuk-light',   name: 'Luuk Light',   swatches: ['#0d0d0d', '#111111', '#141414', '#9e9e9e', '#2e2e2e'] },
+  // "Borahae" (BTS/ARMY's "I purple you") — see the note on XTERM_THEMES above.
+  { id: 'borahae-dark',  name: 'Borahae Dark',  swatches: ['#15111f', '#1f1a2e', '#1b1728', '#8b5cf6', '#3d3552'] },
+  { id: 'borahae-light', name: 'Borahae Light', swatches: ['#f5f1fb', '#ece4f9', '#fdfcff', '#6d28d9', '#d4c2ec'] },
 ]

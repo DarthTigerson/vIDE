@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react'
 import { Terminal as XTerm } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
-import { useThemeStore, XTERM_THEMES, glassXtermTheme } from '@/stores/themeStore'
+import { useThemeStore } from '@/stores/themeStore'
+import { useCustomThemeStore, effectiveXtermTheme } from '@/stores/customThemeStore'
 import { useFontSizeStore } from '@/stores/fontSizeStore'
 import { useInstanceFontSizeStore } from '@/stores/instanceFontSizeStore'
 import { useDisplayStore } from '@/stores/displayStore'
@@ -39,6 +40,8 @@ export function TerminalTab({ terminalId }: Props) {
   const instanceRef = useRef<TerminalInstance | null>(null)
   const theme = useThemeStore((s) => s.theme)
   const panelStyle = useDisplayStore((s) => s.panelStyle)
+  const customActiveId = useCustomThemeStore((s) => s.activeId)
+  const customThemes = useCustomThemeStore((s) => s.themes)
   const fontSize = useFontSizeStore((s) => s.fontSize)
   const fontSizeOverride = useInstanceFontSizeStore((s) => s.overrides[terminalId])
   const effectiveFontSize = fontSizeOverride ?? fontSize
@@ -60,9 +63,7 @@ export function TerminalTab({ terminalId }: Props) {
       // First time: create a fresh terminal and PTY
       const initialTheme = useThemeStore.getState().theme
       const xterm = new XTerm({
-        theme: useDisplayStore.getState().panelStyle === 'glass'
-          ? glassXtermTheme(initialTheme)
-          : XTERM_THEMES[initialTheme],
+        theme: effectiveXtermTheme(initialTheme, useDisplayStore.getState().panelStyle === 'glass'),
         fontFamily: useDisplayStore.getState().font,
         fontSize: useInstanceFontSizeStore.getState().overrides[terminalId] ?? useFontSizeStore.getState().fontSize,
         cursorBlink: true,
@@ -156,9 +157,8 @@ export function TerminalTab({ terminalId }: Props) {
 
   useEffect(() => {
     if (!instanceRef.current) return
-    instanceRef.current.xterm.options.theme =
-      panelStyle === 'glass' ? glassXtermTheme(theme) : XTERM_THEMES[theme]
-  }, [theme, panelStyle])
+    instanceRef.current.xterm.options.theme = effectiveXtermTheme(theme, panelStyle === 'glass')
+  }, [theme, panelStyle, customActiveId, customThemes])
 
   useEffect(() => {
     if (!instanceRef.current) return

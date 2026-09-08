@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useThemeStore, familyOf } from './themeStore'
 
 const FONT_KEY = 'vide:font'
 const PANEL_STYLE_KEY = 'vide:panelStyle'
@@ -7,6 +8,7 @@ const MEMORY_USAGE_VISIBLE_KEY = 'vide:memoryUsageVisible'
 const BACKGROUND_IMAGE_KEY = 'vide:backgroundImage'
 const BACKGROUND_IMAGE_VISIBLE_KEY = 'vide:backgroundImageVisible'
 const NAVBAR_POSITION_KEY = 'vide:navbarPosition'
+const EDITOR_COLOR_SCHEME_KEY = 'vide:editorColorScheme'
 
 // Presets are limited to monospace fonts that ship preinstalled with a
 // major OS (macOS: Menlo/Monaco, Windows: Consolas, both: Courier New).
@@ -21,15 +23,15 @@ export const FONT_PRESETS = [
   { label: 'Courier New', value: 'Courier New, monospace' },
 ] as const
 
-export type PanelStyle = 'matt' | 'solid' | 'glossy' | 'glass'
+export type PanelStyle = 'solid' | 'glossy' | 'glass' | 'brushed-metal'
 
 // Shared between DisplayPage and the setup wizard's theme step, so both
 // pickers stay in sync rather than duplicating this list.
 export const PANEL_STYLE_OPTIONS: { value: PanelStyle; label: string; description: string }[] = [
-  { value: 'matt',   label: 'Matt',          description: 'Solid panels' },
-  { value: 'solid',  label: 'Solid Colours', description: 'Solid panels, bolder dividing lines' },
-  { value: 'glossy', label: 'Glossy',        description: 'Frosted glass' },
-  { value: 'glass',  label: 'Glass',         description: 'See-through, reveals the background image' },
+  { value: 'brushed-metal', label: 'Brush Metal', description: 'Welder approved' },
+  { value: 'solid',         label: 'Solid',       description: 'Solid panels' },
+  { value: 'glossy',        label: 'Glossy',      description: 'Frosted glass' },
+  { value: 'glass',         label: 'Glass',       description: 'See-through' },
 ]
 
 // More may be added later (e.g. a combined view) - kept as its own union
@@ -37,20 +39,51 @@ export const PANEL_STYLE_OPTIONS: { value: PanelStyle; label: string; descriptio
 // don't need reshaping when that happens.
 export type FooterContent = 'hints' | 'clock'
 
-export type BackgroundImage = 'none' | 'vide' | 'clawd'
+export type BackgroundImage = 'none' | 'vide' | 'clawd' | 'atreus' | 'link' | 'techLines' | 'borahae' | 'wave'
 
 // Shared between DisplayPage and the setup wizard's theme step, same as
 // PANEL_STYLE_OPTIONS below.
 export const BACKGROUND_IMAGE_OPTIONS: { value: BackgroundImage; label: string }[] = [
-  { value: 'none',  label: 'None' },
-  { value: 'vide',  label: 'vIDE' },
-  { value: 'clawd', label: 'Clawd' },
+  { value: 'none',      label: 'None' },
+  { value: 'clawd',     label: 'Clawd' },
+  { value: 'vide',      label: 'vIDE' },
+  { value: 'link',      label: 'Link' },
+  { value: 'atreus',    label: 'Atreus' },
+  { value: 'borahae',   label: 'Borahae' },
+  { value: 'techLines', label: 'Tech Lines' },
+  { value: 'wave',      label: 'Wave' },
 ]
+
+// Each built-in theme family's matching background — swapping the active
+// theme family swaps the background to follow (see the useThemeStore
+// subscription below). Luuk has no artwork of its own, so it clears the
+// background rather than leaving whatever was previously selected.
+const FAMILY_BACKGROUND: Record<string, BackgroundImage> = {
+  claude: 'clawd',
+  thomas: 'vide',
+  link: 'link',
+  atreus: 'atreus',
+  borahae: 'borahae',
+  luuk: 'none',
+}
 
 // Which physical side the primary (Explorer/Git/Settings) activity bar and
 // its Sidebar panel render on; the Claude/assistant activity bar and Chat
 // panel always take the opposite side — see App.tsx's mirrored layout.
 export type NavbarPosition = 'left' | 'right'
+
+// Syntax color scheme for the Monaco editor — independent of the app Theme.
+// 'high-contrast' follows whichever theme family/variant is active rather
+// than being a sticky standalone choice (see monacoThemes.ts's
+// HIGH_CONTRAST_TOKENS); 'mario-mode' ignores the active theme entirely —
+// same fixed black background and palette no matter what (MARIO_MODE_*).
+export type EditorColorScheme = 'default' | 'high-contrast' | 'mario-mode'
+
+export const EDITOR_COLOR_SCHEME_OPTIONS: { value: EditorColorScheme; label: string; description: string }[] = [
+  { value: 'default',       label: 'Default',       description: "Follows the active theme's own syntax colors" },
+  { value: 'high-contrast', label: 'High Contrast', description: 'Bright, high-visibility colors for easier reading' },
+  { value: 'mario-mode',    label: 'Mario Mode',    description: 'Bold primary colors on black — maximum readability' },
+]
 
 const DEFAULT_FONT = 'Menlo, monospace'
 
@@ -61,12 +94,14 @@ interface DisplayStore {
   memoryUsageVisible: boolean
   backgroundImage: BackgroundImage
   navbarPosition: NavbarPosition
+  editorColorScheme: EditorColorScheme
   setFont: (font: string) => void
   setPanelStyle: (style: PanelStyle) => void
   setFooterContent: (content: FooterContent) => void
   setMemoryUsageVisible: (visible: boolean) => void
   setBackgroundImage: (image: BackgroundImage) => void
   setNavbarPosition: (position: NavbarPosition) => void
+  setEditorColorScheme: (scheme: EditorColorScheme) => void
 }
 
 function applyFont(font: string) {
@@ -79,9 +114,41 @@ function applyPanelStyle(style: PanelStyle) {
   localStorage.setItem(PANEL_STYLE_KEY, style)
 }
 
+// --color-bg/panel/sidebar/tab-bar/border are inherited CSS custom
+// properties, and Glossy/Glass (translucent rgba) and Solid/Brush Metal
+// (bolder border) each redefine some of them on `<html>` while active.
+// Because they're inherited, ANY element reading e.g. var(--color-sidebar)
+// picks up whichever panel style is globally active right now — including
+// the Panel Style picker's own preview thumbnails, which need to show each
+// option's colours independent of whatever's actually selected. This reads
+// what those variables would compute to with no data-panel-style override
+// at all, i.e. the theme's own base colours — temporarily removing the
+// attribute, reading, then restoring it, synchronously, so there's no
+// visible flash. Same technique customThemeStore.ts's readBuiltInPalette
+// uses for an analogous problem.
+export function basePanelColors(): { bg: string; panel: string; sidebar: string; tabBar: string; border: string } {
+  const el = document.documentElement
+  const original = el.getAttribute('data-panel-style')
+  el.removeAttribute('data-panel-style')
+  const styles = getComputedStyle(el)
+  const result = {
+    bg: styles.getPropertyValue('--color-bg').trim(),
+    panel: styles.getPropertyValue('--color-panel').trim(),
+    sidebar: styles.getPropertyValue('--color-sidebar').trim(),
+    tabBar: styles.getPropertyValue('--color-tab-bar').trim(),
+    border: styles.getPropertyValue('--color-border').trim(),
+  }
+  if (original === null) el.removeAttribute('data-panel-style')
+  else el.setAttribute('data-panel-style', original)
+  return result
+}
+
 const storedFont = localStorage.getItem(FONT_KEY)
 const initialFont = storedFont && FONT_PRESETS.some((p) => p.value === storedFont) ? storedFont : DEFAULT_FONT
-const initialPanelStyle = (localStorage.getItem(PANEL_STYLE_KEY) as PanelStyle | null) || 'matt'
+const storedPanelStyle = localStorage.getItem(PANEL_STYLE_KEY)
+const initialPanelStyle: PanelStyle = PANEL_STYLE_OPTIONS.some((o) => o.value === storedPanelStyle)
+  ? (storedPanelStyle as PanelStyle)
+  : 'solid'
 const storedFooterContent = localStorage.getItem(FOOTER_CONTENT_KEY)
 const initialFooterContent: FooterContent = storedFooterContent === 'clock' ? 'clock' : 'hints'
 const storedMemoryUsageVisible = localStorage.getItem(MEMORY_USAGE_VISIBLE_KEY)
@@ -96,6 +163,10 @@ const initialBackgroundImage: BackgroundImage = storedBackgroundImage && BACKGRO
   : localStorage.getItem(BACKGROUND_IMAGE_VISIBLE_KEY) === 'true' ? 'vide' : 'none'
 const storedNavbarPosition = localStorage.getItem(NAVBAR_POSITION_KEY)
 const initialNavbarPosition: NavbarPosition = storedNavbarPosition === 'right' ? 'right' : 'left'
+const storedEditorColorScheme = localStorage.getItem(EDITOR_COLOR_SCHEME_KEY)
+const initialEditorColorScheme: EditorColorScheme = EDITOR_COLOR_SCHEME_OPTIONS.some((o) => o.value === storedEditorColorScheme)
+  ? (storedEditorColorScheme as EditorColorScheme)
+  : 'default'
 applyFont(initialFont)
 applyPanelStyle(initialPanelStyle)
 
@@ -106,6 +177,7 @@ export const useDisplayStore = create<DisplayStore>((set) => ({
   memoryUsageVisible: initialMemoryUsageVisible,
   backgroundImage: initialBackgroundImage,
   navbarPosition: initialNavbarPosition,
+  editorColorScheme: initialEditorColorScheme,
   setFont: (font) => {
     applyFont(font)
     set({ font })
@@ -130,4 +202,21 @@ export const useDisplayStore = create<DisplayStore>((set) => ({
     localStorage.setItem(NAVBAR_POSITION_KEY, position)
     set({ navbarPosition: position })
   },
+  setEditorColorScheme: (scheme) => {
+    localStorage.setItem(EDITOR_COLOR_SCHEME_KEY, scheme)
+    set({ editorColorScheme: scheme })
+  },
 }))
+
+// Swaps the background image to match whenever the active theme family
+// changes — whether from a built-in family card or activating a custom
+// theme (which also calls setFamily(baseFamily)). Only fires on an actual
+// family change, not a light/dark variant or "match system appearance"
+// toggle within the same family, so those never disturb a background the
+// user set explicitly.
+useThemeStore.subscribe((state, prevState) => {
+  const family = familyOf(state.theme)
+  if (family === familyOf(prevState.theme)) return
+  const next = FAMILY_BACKGROUND[family]
+  if (next) useDisplayStore.getState().setBackgroundImage(next)
+})

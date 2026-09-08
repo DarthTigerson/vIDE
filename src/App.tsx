@@ -3,6 +3,7 @@ import type { MouseEvent } from 'react'
 import * as monaco from 'monaco-editor'
 import { ImperativePanelHandle, Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { clampSize, loadPanelSize } from '@/lib/panelSize'
+import { getBiggestPaneId } from '@/lib/paneLayout'
 import { syncOpenTabsFromDisk } from '@/lib/syncOpenTabsFromDisk'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import { Editor } from './components/Editor/Editor'
@@ -74,6 +75,7 @@ import { useUsageAlertStore } from './stores/usageAlertStore'
 import { useChangelogStore } from './stores/changelogStore'
 import { useOnboardingStore } from './stores/onboardingStore'
 import { useBrowserStore } from './stores/browserStore'
+import { useBrowserSettingsStore } from './stores/browserSettingsStore'
 import { useJiraSettingsStore } from './stores/jiraSettingsStore'
 import { useGitRemoteSettingsStore } from './stores/gitRemoteSettingsStore'
 import { useDockerSettingsStore } from './stores/dockerSettingsStore'
@@ -82,6 +84,7 @@ import { useDockerOffAlertStore } from './stores/dockerOffAlertStore'
 import { useDockerLiveUpdates } from './hooks/useDockerLiveUpdates'
 import { useTodoSettingsStore } from './stores/todoSettingsStore'
 import { useNotesSettingsStore } from './stores/notesSettingsStore'
+import { useGraphifySettingsStore } from './stores/graphifySettingsStore'
 import { useNotesStore } from './stores/notesStore'
 import { detectGitRemoteProvider, gitRemoteIcon, gitRemoteLabel } from './lib/gitRemoteProvider'
 import { evaluateCmdWForPinnedTab, type PendingClose } from './lib/pinnedTabCloseGuard'
@@ -212,6 +215,7 @@ export default function App() {
   const mobileEnabled = useMobileSettingsStore((s) => s.enabled)
   const todoEnabled = useTodoSettingsStore((s) => s.enabled)
   const notesEnabled = useNotesSettingsStore((s) => s.enabled)
+  const graphifyEnabled = useGraphifySettingsStore((s) => s.enabled)
 
   function openNewTerminal() {
     const id = Date.now().toString(36)
@@ -220,7 +224,15 @@ export default function App() {
 
   function openNewBrowser() {
     const id = Date.now().toString(36)
-    useEditorStore.getState().openTab({ path: buildBrowserPath(id), content: '', dirty: false })
+    const tab = { path: buildBrowserPath(id), content: '', dirty: false }
+    if (useBrowserSettingsStore.getState().openInBiggestPane) {
+      const biggestPaneId = getBiggestPaneId()
+      if (biggestPaneId) {
+        useEditorStore.getState().openTabInPane(tab, biggestPaneId)
+        return
+      }
+    }
+    useEditorStore.getState().openTab(tab)
   }
 
   // Opens (or focuses, if already open) the tab the vide-browser MCP server
@@ -241,7 +253,17 @@ export default function App() {
       return
     }
     useBrowserStore.getState().ensureTab(JIRA_BROWSER_ID, url)
-    useEditorStore.getState().openTab({ path: buildBrowserPath(JIRA_BROWSER_ID), content: '', dirty: false })
+    const tab = { path: buildBrowserPath(JIRA_BROWSER_ID), content: '', dirty: false }
+    if (useJiraSettingsStore.getState().openInBiggestPane) {
+      const biggestPaneId = getBiggestPaneId()
+      if (biggestPaneId) {
+        useEditorStore.getState().openTabInPane(tab, biggestPaneId)
+      } else {
+        useEditorStore.getState().openTab(tab)
+      }
+    } else {
+      useEditorStore.getState().openTab(tab)
+    }
     if (useJiraSettingsStore.getState().closeSidePanelOnOpen) setLeftPanel(null)
   }
 
@@ -255,7 +277,17 @@ export default function App() {
       return
     }
     useBrowserStore.getState().ensureTab(GIT_REMOTE_BROWSER_ID, url)
-    useEditorStore.getState().openTab({ path: buildBrowserPath(GIT_REMOTE_BROWSER_ID), content: '', dirty: false })
+    const tab = { path: buildBrowserPath(GIT_REMOTE_BROWSER_ID), content: '', dirty: false }
+    if (useGitRemoteSettingsStore.getState().openInBiggestPane) {
+      const biggestPaneId = getBiggestPaneId()
+      if (biggestPaneId) {
+        useEditorStore.getState().openTabInPane(tab, biggestPaneId)
+      } else {
+        useEditorStore.getState().openTab(tab)
+      }
+    } else {
+      useEditorStore.getState().openTab(tab)
+    }
     if (useGitRemoteSettingsStore.getState().closeSidePanelOnOpen) setLeftPanel(null)
   }
 
@@ -814,7 +846,7 @@ export default function App() {
               badge: mobileBadge,
               onClick: () => setLeftPanel((p) => (p === 'mobile' ? null : 'mobile')),
             }] : []),
-            ...(projectRoot ? [{
+            ...(graphifyEnabled && projectRoot ? [{
               id: 'graphify',
               icon: <GraphIcon />,
               title: 'Graphify',

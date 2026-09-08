@@ -1,14 +1,31 @@
 /// <reference types="@testing-library/jest-dom" />
-import { describe, it, expect, afterEach, vi } from 'vitest'
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+
+vi.hoisted(() => {
+  const store: Record<string, string> = {}
+  ;(global as any).localStorage = {
+    getItem: (k: string) => store[k] ?? null,
+    setItem: (k: string, v: string) => { store[k] = v },
+    removeItem: (k: string) => { delete store[k] },
+  }
+  ;(global as any).window = (global as any).window ?? {}
+  ;(global as any).window.api = {
+    todosMcpEnable: () => Promise.resolve(),
+    todosMcpDisable: () => Promise.resolve(),
+  }
+})
+
 import { TodoSettingsPage } from '../TodoSettingsPage'
 import { useTodoSettingsStore } from '@/stores/todoSettingsStore'
 import { useTodoMcpStore } from '@/stores/todoMcpStore'
 
-;(window as any).api = {
-  todosMcpEnable: vi.fn().mockResolvedValue(undefined),
-  todosMcpDisable: vi.fn().mockResolvedValue(undefined),
-}
+beforeEach(() => {
+  ;(global as any).window.api = {
+    todosMcpEnable: vi.fn().mockResolvedValue(undefined),
+    todosMcpDisable: vi.fn().mockResolvedValue(undefined),
+  }
+})
 
 afterEach(() => {
   cleanup()

@@ -5,7 +5,7 @@ import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { useEditorStore, type EditorLayoutNode } from '@/stores/editorStore'
 import { useSearchStore } from '@/stores/searchStore'
 import { useThemeStore, MONACO_THEMES } from '@/stores/themeStore'
-import { defineMonacoThemes, glassMonacoThemeId } from '@/monacoThemes'
+import { defineMonacoThemes, glassMonacoThemeId, highContrastMonacoThemeId, MARIO_MODE_THEME_ID } from '@/monacoThemes'
 import { useFontSizeStore } from '@/stores/fontSizeStore'
 import { useInstanceFontSizeStore } from '@/stores/instanceFontSizeStore'
 import { useDisplayStore } from '@/stores/displayStore'
@@ -47,7 +47,8 @@ import {
   EDITOR_SETTINGS_TAB_PATH,
   GIT_SETTINGS_TAB_PATH,
   BROWSER_SETTINGS_TAB_PATH,
-  MODELS_SETTINGS_TAB_PATH,
+  CLAUDE_SETTINGS_TAB_PATH,
+  BRIDGE_SETTINGS_TAB_PATH,
   GRAPHIFY_SETTINGS_TAB_PATH,
   JIRA_SETTINGS_TAB_PATH,
   DOCKER_SETTINGS_TAB_PATH,
@@ -62,7 +63,8 @@ import { DisplayPage } from '@/components/Settings/DisplayPage'
 import { GitSettingsPage } from '@/components/Settings/GitSettingsPage'
 import { EditorSettingsPage } from '@/components/Settings/EditorSettingsPage'
 import { BrowserSettingsPage } from '@/components/Settings/BrowserSettingsPage'
-import { ModelsSettingsPage } from '@/components/Settings/ModelsSettingsPage'
+import { ClaudeSettingsPage } from '@/components/Settings/ClaudeSettingsPage'
+import { BridgeSettingsPage } from '@/components/Settings/BridgeSettingsPage'
 import { GraphifySettingsPage } from '@/components/Settings/GraphifySettingsPage'
 import { JiraSettingsPage } from '@/components/Settings/JiraSettingsPage'
 import { DockerSettingsPage } from '@/components/Settings/DockerSettingsPage'
@@ -211,7 +213,14 @@ function EditorPane({ paneId }: { paneId: string }) {
   const revealRequest = useEditorStore((s) => s.revealRequest)
   const themeId = useThemeStore((s) => s.theme)
   const panelStyle = useDisplayStore((s) => s.panelStyle)
-  const monacoTheme = panelStyle === 'glass' ? glassMonacoThemeId(themeId) : MONACO_THEMES[themeId]
+  const editorColorScheme = useDisplayStore((s) => s.editorColorScheme)
+  // Mario Mode and High Contrast both always win over Glass — a see-through
+  // high-contrast editor would defeat the point of turning either one on.
+  const monacoTheme = editorColorScheme === 'mario-mode'
+    ? MARIO_MODE_THEME_ID
+    : editorColorScheme === 'high-contrast'
+    ? highContrastMonacoThemeId(themeId)
+    : panelStyle === 'glass' ? glassMonacoThemeId(themeId) : MONACO_THEMES[themeId]
   const fontSize = useFontSizeStore((s) => s.fontSize)
   const font = useDisplayStore((s) => s.font)
   const wordWrapEnabled = useEditorSettingsStore((s) => s.wordWrapEnabled)
@@ -364,6 +373,7 @@ function EditorPane({ paneId }: { paneId: string }) {
 
   return (
     <div
+      data-pane-id={paneId}
       className={[
         'h-full min-h-0 flex flex-col bg-panel overflow-hidden outline outline-1 -outline-offset-1',
         isActivePane ? 'outline-accent/50' : 'outline-transparent',
@@ -397,8 +407,10 @@ function EditorPane({ paneId }: { paneId: string }) {
             <EditorSettingsPage />
           ) : activeTab.path === BROWSER_SETTINGS_TAB_PATH ? (
             <BrowserSettingsPage />
-          ) : activeTab.path === MODELS_SETTINGS_TAB_PATH ? (
-            <ModelsSettingsPage />
+          ) : activeTab.path === CLAUDE_SETTINGS_TAB_PATH ? (
+            <ClaudeSettingsPage />
+          ) : activeTab.path === BRIDGE_SETTINGS_TAB_PATH ? (
+            <BridgeSettingsPage />
           ) : activeTab.path === GRAPHIFY_SETTINGS_TAB_PATH ? (
             <GraphifySettingsPage />
           ) : activeTab.path === JIRA_SETTINGS_TAB_PATH ? (
