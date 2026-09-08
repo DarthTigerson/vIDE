@@ -38,16 +38,17 @@ export const PANEL_STYLE_OPTIONS: { value: PanelStyle; label: string; descriptio
 // don't need reshaping when that happens.
 export type FooterContent = 'hints' | 'clock'
 
-export type BackgroundImage = 'none' | 'vide' | 'clawd' | 'atreus' | 'link'
+export type BackgroundImage = 'none' | 'vide' | 'clawd' | 'atreus' | 'link' | 'techLines'
 
 // Shared between DisplayPage and the setup wizard's theme step, same as
 // PANEL_STYLE_OPTIONS below.
 export const BACKGROUND_IMAGE_OPTIONS: { value: BackgroundImage; label: string }[] = [
-  { value: 'none',   label: 'None' },
-  { value: 'clawd',  label: 'Clawd' },
-  { value: 'vide',   label: 'vIDE' },
-  { value: 'link',   label: 'Link' },
-  { value: 'atreus', label: 'Atreus' },
+  { value: 'none',      label: 'None' },
+  { value: 'clawd',     label: 'Clawd' },
+  { value: 'vide',      label: 'vIDE' },
+  { value: 'link',      label: 'Link' },
+  { value: 'atreus',    label: 'Atreus' },
+  { value: 'techLines', label: 'Tech Lines' },
 ]
 
 // Each built-in theme family's matching background — swapping the active

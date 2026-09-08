@@ -10,13 +10,14 @@ afterEach(() => {
 })
 
 describe('BackgroundSection', () => {
-  it('renders a card for every background option, including the two new ones', () => {
+  it('renders a card for every background option', () => {
     render(<BackgroundSection />)
     expect(screen.getByText('None')).toBeInTheDocument()
     expect(screen.getByText('vIDE')).toBeInTheDocument()
     expect(screen.getByText('Clawd')).toBeInTheDocument()
     expect(screen.getByText('Atreus')).toBeInTheDocument()
     expect(screen.getByText('Link')).toBeInTheDocument()
+    expect(screen.getByText('Tech Lines')).toBeInTheDocument()
   })
 
   it('marks the active background option', () => {
