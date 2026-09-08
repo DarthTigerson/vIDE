@@ -1,12 +1,9 @@
 import { useBrowserSettingsStore } from '@/stores/browserSettingsStore'
 import { useBrowserMcpStore } from '@/stores/browserMcpStore'
 import { Toggle } from '@/components/ui/Toggle'
-import { Section, Row, TextField } from './SettingsLayout'
+import { Section, Row } from './SettingsLayout'
 
 export function BrowserSettingsPage() {
-  const defaultUrl = useBrowserSettingsStore((s) => s.defaultUrl)
-  const setDefaultUrl = useBrowserSettingsStore((s) => s.setDefaultUrl)
-
   const openInBiggestPane = useBrowserSettingsStore((s) => s.openInBiggestPane)
   const setOpenInBiggestPane = useBrowserSettingsStore((s) => s.setOpenInBiggestPane)
 
@@ -21,16 +18,6 @@ export function BrowserSettingsPage() {
       <p className="text-sm text-fg-muted mb-4">Settings for the embedded browser tab.</p>
 
       <Section label="New Tab">
-        <Row>
-          <TextField
-            id="browser-default-url"
-            label="Default URL"
-            value={defaultUrl}
-            onChange={setDefaultUrl}
-            className="max-w-md flex flex-col gap-1.5"
-          />
-        </Row>
-
         <Row>
           <Toggle
             className="max-w-[60ch]"
