@@ -79,6 +79,35 @@ function applyPanelStyle(style: PanelStyle) {
   localStorage.setItem(PANEL_STYLE_KEY, style)
 }
 
+// --color-bg/panel/sidebar/tab-bar/border are inherited CSS custom
+// properties, and Glossy/Glass (translucent rgba) and Solid/Brush Metal
+// (bolder border) each redefine some of them on `<html>` while active.
+// Because they're inherited, ANY element reading e.g. var(--color-sidebar)
+// picks up whichever panel style is globally active right now — including
+// the Panel Style picker's own preview thumbnails, which need to show each
+// option's colours independent of whatever's actually selected. This reads
+// what those variables would compute to with no data-panel-style override
+// at all, i.e. the theme's own base colours — temporarily removing the
+// attribute, reading, then restoring it, synchronously, so there's no
+// visible flash. Same technique customThemeStore.ts's readBuiltInPalette
+// uses for an analogous problem.
+export function basePanelColors(): { bg: string; panel: string; sidebar: string; tabBar: string; border: string } {
+  const el = document.documentElement
+  const original = el.getAttribute('data-panel-style')
+  el.removeAttribute('data-panel-style')
+  const styles = getComputedStyle(el)
+  const result = {
+    bg: styles.getPropertyValue('--color-bg').trim(),
+    panel: styles.getPropertyValue('--color-panel').trim(),
+    sidebar: styles.getPropertyValue('--color-sidebar').trim(),
+    tabBar: styles.getPropertyValue('--color-tab-bar').trim(),
+    border: styles.getPropertyValue('--color-border').trim(),
+  }
+  if (original === null) el.removeAttribute('data-panel-style')
+  else el.setAttribute('data-panel-style', original)
+  return result
+}
+
 const storedFont = localStorage.getItem(FONT_KEY)
 const initialFont = storedFont && FONT_PRESETS.some((p) => p.value === storedFont) ? storedFont : DEFAULT_FONT
 const storedPanelStyle = localStorage.getItem(PANEL_STYLE_KEY)

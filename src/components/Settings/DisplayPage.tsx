@@ -1,8 +1,9 @@
 import type { CSSProperties } from 'react'
 import {
-  useDisplayStore, FONT_PRESETS, PANEL_STYLE_OPTIONS, BACKGROUND_IMAGE_OPTIONS,
+  useDisplayStore, basePanelColors, FONT_PRESETS, PANEL_STYLE_OPTIONS, BACKGROUND_IMAGE_OPTIONS,
   type FooterContent, type BackgroundImage,
 } from '@/stores/displayStore'
+import { useThemeStore } from '@/stores/themeStore'
 import { Toggle } from '@/components/ui/Toggle'
 import { Select } from '@/components/ui/Select'
 import { Section, Row } from './SettingsLayout'
@@ -42,6 +43,11 @@ export function DisplayPage() {
     font, panelStyle, footerContent, memoryUsageVisible, backgroundImage, navbarPosition,
     setFont, setPanelStyle, setFooterContent, setMemoryUsageVisible, setBackgroundImage, setNavbarPosition,
   } = useDisplayStore()
+  // Only read to force a re-render (and so basePanelColors() below picks up
+  // the change) when the active theme changes elsewhere — its value isn't
+  // used directly here.
+  useThemeStore((s) => s.theme)
+  const base = basePanelColors()
 
   return (
     <div className="h-full overflow-auto p-6 bg-panel">
@@ -66,14 +72,16 @@ export function DisplayPage() {
                     isActive ? 'border-accent' : 'border-border hover:border-fg-muted',
                   ].join(' ')}
                 >
-                  {/* panel-style-swatch: these mock rectangles are always
-                      *representative* of `opt`, not a live view of the
-                      currently-applied global style — the [data-panel-style]
-                      CSS rules that recolor real .bg-* panels app-wide are
-                      scoped to exclude this class so, e.g., every card
-                      doesn't turn brushed-metal-textured just because that
-                      happens to be the active style. */}
-                  <div className="h-14 relative overflow-hidden bg-bg panel-style-swatch">
+                  {/* Every colour below comes from `base` (basePanelColors()),
+                      never a live var(--color-x) or a real bg-x utility class
+                      — this is always a fixed mockup of `opt`'s own look, not
+                      a live view of whichever panel style is actually active
+                      app-wide. Those CSS vars are inherited, and Glossy/Glass/
+                      Solid/Brush Metal each redefine some of them globally
+                      while active, so reading them live here would make every
+                      other option's preview shift to match whichever one is
+                      currently selected. */}
+                  <div className="h-14 relative overflow-hidden" style={{ background: base.bg }}>
                     {(opt.value === 'glossy' || opt.value === 'glass') && (
                       <>
                         {/* Stand-in "background image" behind the frosted panels —
@@ -87,53 +95,47 @@ export function DisplayPage() {
                     )}
                     {opt.value === 'glossy' ? (
                       <>
-                        <div className="absolute left-0 top-0 bottom-0 w-7 bg-sidebar/60 backdrop-blur-md" />
-                        <div className="absolute left-7 top-0 right-0 h-5 bg-tab-bar/70 backdrop-blur-md border-b border-border/40" />
-                        <div className="absolute left-7 top-5 right-0 bottom-0 bg-panel/60 backdrop-blur-md" />
+                        <div className="absolute left-0 top-0 bottom-0 w-7 backdrop-blur-md" style={{ background: `color-mix(in srgb, ${base.sidebar} 60%, transparent)` }} />
+                        <div className="absolute left-7 top-0 right-0 h-5 backdrop-blur-md border-b" style={{ background: `color-mix(in srgb, ${base.tabBar} 70%, transparent)`, borderColor: `color-mix(in srgb, ${base.border} 40%, transparent)` }} />
+                        <div className="absolute left-7 top-5 right-0 bottom-0 backdrop-blur-md" style={{ background: `color-mix(in srgb, ${base.panel} 60%, transparent)` }} />
                         {/* Diagonal sheen — the one thing that actually reads as
                             "glossy" rather than merely translucent. */}
                         <div className="absolute inset-0 bg-gradient-to-br from-white/25 via-transparent to-transparent" />
                       </>
                     ) : opt.value === 'glass' ? (
                       <>
-                        <div className="absolute left-0 top-0 bottom-0 w-7 bg-sidebar/15 backdrop-blur-sm" />
-                        <div className="absolute left-7 top-0 right-0 h-5 bg-tab-bar/20 backdrop-blur-sm border-b border-border/30" />
-                        <div className="absolute left-7 top-5 right-0 bottom-0 bg-panel/15 backdrop-blur-sm" />
+                        <div className="absolute left-0 top-0 bottom-0 w-7 backdrop-blur-sm" style={{ background: `color-mix(in srgb, ${base.sidebar} 15%, transparent)` }} />
+                        <div className="absolute left-7 top-0 right-0 h-5 backdrop-blur-sm border-b" style={{ background: `color-mix(in srgb, ${base.tabBar} 20%, transparent)`, borderColor: `color-mix(in srgb, ${base.border} 30%, transparent)` }} />
+                        <div className="absolute left-7 top-5 right-0 bottom-0 backdrop-blur-sm" style={{ background: `color-mix(in srgb, ${base.panel} 15%, transparent)` }} />
                       </>
                     ) : opt.value === 'solid' ? (
                       <>
-                        <div className="absolute left-0 top-0 bottom-0 w-7 bg-sidebar border-r-2 border-fg-subtle" />
-                        <div className="absolute left-7 top-0 right-0 h-5 bg-tab-bar border-b-2 border-fg-subtle" />
-                        <div className="absolute left-7 top-5 right-0 bottom-0 bg-panel" />
-                      </>
-                    ) : opt.value === 'brushed-metal' ? (
-                      <>
-                        <div
-                          className="absolute left-0 top-0 bottom-0 w-7 border-r-2 border-fg-subtle"
-                          style={{ background: 'var(--color-sidebar)', ...brushedMetalPreviewStyle }}
-                        />
-                        <div
-                          className="absolute left-7 top-0 right-0 h-5 border-b-2 border-fg-subtle"
-                          style={{ background: 'var(--color-tab-bar)', ...brushedMetalPreviewStyle }}
-                        />
-                        <div
-                          className="absolute left-7 top-5 right-0 bottom-0"
-                          style={{ background: 'var(--color-panel)', ...brushedMetalPreviewStyle }}
-                        />
+                        <div className="absolute left-0 top-0 bottom-0 w-7 border-r-2 border-fg-subtle" style={{ background: base.sidebar }} />
+                        <div className="absolute left-7 top-0 right-0 h-5 border-b-2 border-fg-subtle" style={{ background: base.tabBar }} />
+                        <div className="absolute left-7 top-5 right-0 bottom-0" style={{ background: base.panel }} />
                       </>
                     ) : (
                       <>
-                        <div className="absolute left-0 top-0 bottom-0 w-7 bg-sidebar" />
-                        <div className="absolute left-7 top-0 right-0 h-5 bg-tab-bar border-b border-border" />
-                        <div className="absolute left-7 top-5 right-0 bottom-0 bg-panel" />
+                        <div
+                          className="absolute left-0 top-0 bottom-0 w-7 border-r-2 border-fg-subtle"
+                          style={{ background: base.sidebar, ...brushedMetalPreviewStyle }}
+                        />
+                        <div
+                          className="absolute left-7 top-0 right-0 h-5 border-b-2 border-fg-subtle"
+                          style={{ background: base.tabBar, ...brushedMetalPreviewStyle }}
+                        />
+                        <div
+                          className="absolute left-7 top-5 right-0 bottom-0"
+                          style={{ background: base.panel, ...brushedMetalPreviewStyle }}
+                        />
                       </>
                     )}
                   </div>
                   <div className={['px-3 py-2', isActive ? 'bg-accent/10' : 'bg-sidebar'].join(' ')}>
-                    <div className={['text-sm font-medium', isActive ? 'text-fg' : 'text-fg-muted'].join(' ')}>
+                    <div className={['text-sm font-medium truncate', isActive ? 'text-fg' : 'text-fg-muted'].join(' ')}>
                       {opt.label}
                     </div>
-                    <div className="text-xs text-fg-subtle mt-0.5">{opt.description}</div>
+                    <div className="text-xs text-fg-subtle mt-0.5 truncate">{opt.description}</div>
                   </div>
                 </button>
               )

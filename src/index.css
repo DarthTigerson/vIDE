@@ -367,18 +367,18 @@ body {
   --color-panel: rgba(248, 249, 252, 0.3);
 }
 
-/* :not(.panel-style-swatch, .panel-style-swatch *) on every rule below keeps these effects off
-   the Display settings page's own Panel Style preview thumbnails — those
-   reuse the real .bg-bg/.bg-panel/.bg-sidebar/.bg-tab-bar classes to stay
-   in sync with the live theme colours, but each one is a fixed mockup of
-   its own `opt`, not a live view of whichever style happens to be active
-   globally (see DisplayPage.tsx's panel-style-swatch comment). */
-[data-panel-style="glossy"] .bg-bg:not(.panel-style-swatch, .panel-style-swatch *),
-[data-panel-style="glossy"] .bg-panel:not(.panel-style-swatch, .panel-style-swatch *),
-[data-panel-style="glossy"] .bg-sidebar:not(.panel-style-swatch, .panel-style-swatch *),
-[data-panel-style="glossy"] .bg-tab-bar:not(.panel-style-swatch, .panel-style-swatch *),
-[data-panel-style="glass"] .bg-bg:not(.panel-style-swatch, .panel-style-swatch *),
-[data-panel-style="glass"] .bg-panel:not(.panel-style-swatch, .panel-style-swatch *) {
+/* The Display settings page's own Panel Style preview thumbnails set their
+   colours via inline style (var(--color-x)) rather than these bg-x classes
+   specifically so rules like this one — and the brushed-metal one below —
+   can key off the class name without also recolouring every other style's
+   preview card just because that style happens to be the active one
+   app-wide. See the preview markup in DisplayPage.tsx. */
+[data-panel-style="glossy"] .bg-bg,
+[data-panel-style="glossy"] .bg-panel,
+[data-panel-style="glossy"] .bg-sidebar,
+[data-panel-style="glossy"] .bg-tab-bar,
+[data-panel-style="glass"] .bg-bg,
+[data-panel-style="glass"] .bg-panel {
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
 }
@@ -392,10 +392,10 @@ body {
    tilt (not perfectly horizontal/vertical) is deliberate: dead-straight
    repeating gradients read as a test pattern, real brushed/machined metal
    always has a slight directional drift. */
-[data-panel-style="brushed-metal"] .bg-bg:not(.panel-style-swatch, .panel-style-swatch *),
-[data-panel-style="brushed-metal"] .bg-panel:not(.panel-style-swatch, .panel-style-swatch *),
-[data-panel-style="brushed-metal"] .bg-sidebar:not(.panel-style-swatch, .panel-style-swatch *),
-[data-panel-style="brushed-metal"] .bg-tab-bar:not(.panel-style-swatch, .panel-style-swatch *) {
+[data-panel-style="brushed-metal"] .bg-bg,
+[data-panel-style="brushed-metal"] .bg-panel,
+[data-panel-style="brushed-metal"] .bg-sidebar,
+[data-panel-style="brushed-metal"] .bg-tab-bar {
   background-image:
     repeating-linear-gradient(
       100deg,
