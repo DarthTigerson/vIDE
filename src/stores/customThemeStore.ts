@@ -98,13 +98,31 @@ function readBuiltInPalette(themeId: string): Palette {
   return palette
 }
 
+function isValidPalette(value: unknown): value is Palette {
+  if (typeof value !== 'object' || value === null) return false
+  const palette = value as Record<string, unknown>
+  return CUSTOM_COLOR_VARS.every((def) => typeof palette[def.varName] === 'string')
+}
+
+function isValidCustomTheme(value: unknown): value is CustomTheme {
+  if (typeof value !== 'object' || value === null) return false
+  const theme = value as Record<string, unknown>
+  return (
+    typeof theme.id === 'string' &&
+    typeof theme.name === 'string' &&
+    typeof theme.baseFamily === 'string' &&
+    isValidPalette(theme.light) &&
+    isValidPalette(theme.dark)
+  )
+}
+
 function load(): { themes: CustomTheme[]; activeId: string | null } {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return { themes: [], activeId: null }
     const parsed = JSON.parse(raw)
     return {
-      themes: Array.isArray(parsed?.themes) ? parsed.themes : [],
+      themes: Array.isArray(parsed?.themes) ? parsed.themes.filter(isValidCustomTheme) : [],
       activeId: typeof parsed?.activeId === 'string' ? parsed.activeId : null,
     }
   } catch {

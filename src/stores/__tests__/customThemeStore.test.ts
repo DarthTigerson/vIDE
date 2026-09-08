@@ -267,3 +267,60 @@ describe('reacting to theme variant changes', () => {
     expect(domState.inline['--color-bg']).toBe('#eeeeee')
   })
 })
+
+// These tests exercise load()'s validation of persisted data at module-scope
+// evaluation time (the `const initial = load()` line runs once, at import).
+// To re-trigger that module-load code fresh per test, force a clean module
+// registry with vi.resetModules() and dynamically re-import the module —
+// the statically-imported `useCustomThemeStore`/`useThemeStore` above still
+// point at the original (already-evaluated) module instances, so they're
+// untouched by this and safe to keep using in every other describe block.
+describe('load() validation at module-load time (malformed persisted data)', () => {
+  const STORAGE_KEY = 'vide:customThemes'
+
+  it('drops a persisted theme missing light/dark instead of crashing on module load', async () => {
+    localStorageStore[STORAGE_KEY] = JSON.stringify({
+      themes: [{ id: 'bad', name: 'Bad', baseFamily: 'claude' }],
+      activeId: 'bad',
+    })
+    vi.resetModules()
+    const mod = await import('../customThemeStore')
+    expect(mod.useCustomThemeStore.getState().themes).toHaveLength(0)
+    // activeId pointed at a now-filtered-out theme; find(...) returns
+    // undefined and the existing `if (active)` guard already handles it.
+    expect(mod.useCustomThemeStore.getState().activeId).toBe('bad')
+  })
+
+  it('drops a persisted theme whose light/dark palette is missing some of the 9 vars', async () => {
+    localStorageStore[STORAGE_KEY] = JSON.stringify({
+      themes: [{
+        id: 'bad2', name: 'Bad2', baseFamily: 'claude',
+        light: { '--color-bg': '#111111' }, // missing the other 8 vars
+        dark: Object.fromEntries(CUSTOM_COLOR_VARS.map((d) => [d.varName, '#222222'])),
+      }],
+      activeId: null,
+    })
+    vi.resetModules()
+    const mod = await import('../customThemeStore')
+    expect(mod.useCustomThemeStore.getState().themes).toHaveLength(0)
+  })
+
+  it('keeps only the valid theme when storage has a mix of one valid and one malformed theme', async () => {
+    const validTheme = {
+      id: 'good', name: 'Good', baseFamily: 'claude',
+      light: Object.fromEntries(CUSTOM_COLOR_VARS.map((d) => [d.varName, '#eeeeee'])),
+      dark: Object.fromEntries(CUSTOM_COLOR_VARS.map((d) => [d.varName, '#111111'])),
+    }
+    const malformedTheme = { id: 'bad', name: 'Bad', baseFamily: 'claude', light: {} }
+    localStorageStore[STORAGE_KEY] = JSON.stringify({
+      themes: [validTheme, malformedTheme],
+      activeId: 'good',
+    })
+    vi.resetModules()
+    const mod = await import('../customThemeStore')
+    const state = mod.useCustomThemeStore.getState()
+    expect(state.themes).toHaveLength(1)
+    expect(state.themes[0].id).toBe('good')
+    expect(state.activeId).toBe('good')
+  })
+})

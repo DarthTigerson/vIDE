@@ -75,4 +75,31 @@ describe('CustomThemeEditor', () => {
     const { container } = render(<CustomThemeEditor themeId="missing" onClose={onClose} />)
     expect(container).toBeEmptyDOMElement()
   })
+
+  describe('hex text field validation', () => {
+    it('does not update the store while typing an invalid partial hex', () => {
+      render(<CustomThemeEditor themeId="t1" onClose={vi.fn()} />)
+      const hexInput = screen.getAllByDisplayValue('#111111')[0]
+      fireEvent.change(hexInput, { target: { value: '#ee' } })
+      expect(useCustomThemeStore.getState().themes[0].dark['--color-accent']).toBe('#111111')
+    })
+
+    it('updates the store via setSwatch when a valid hex is typed and the field is blurred', () => {
+      render(<CustomThemeEditor themeId="t1" onClose={vi.fn()} />)
+      const hexInput = screen.getAllByDisplayValue('#111111')[0]
+      fireEvent.change(hexInput, { target: { value: '#ABCDEF' } })
+      fireEvent.blur(hexInput)
+      expect(useCustomThemeStore.getState().themes[0].dark['--color-accent']).toBe('#abcdef')
+    })
+
+    it('pressing Escape after typing an invalid value reverts the displayed value without committing', () => {
+      render(<CustomThemeEditor themeId="t1" onClose={vi.fn()} />)
+      const hexInput = screen.getAllByDisplayValue('#111111')[0] as HTMLInputElement
+      fireEvent.change(hexInput, { target: { value: '#ee' } })
+      expect(hexInput.value).toBe('#ee')
+      fireEvent.keyDown(hexInput, { key: 'Escape' })
+      expect(hexInput.value).toBe('#111111')
+      expect(useCustomThemeStore.getState().themes[0].dark['--color-accent']).toBe('#111111')
+    })
+  })
 })

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useCustomThemeStore, CUSTOM_COLOR_VARS } from '@/stores/customThemeStore'
 import { useThemeStore } from '@/stores/themeStore'
 import { ColorPickerPopover } from '@/components/ui/ColorPickerPopover'
+import { isValidHex } from '@/lib/color'
 
 function ColorPickerRow({ label, value, onChange }: {
   label: string
@@ -10,6 +11,15 @@ function ColorPickerRow({ label, value, onChange }: {
 }) {
   const [open, setOpen] = useState(false)
   const swatchRef = useRef<HTMLButtonElement>(null)
+  const [draft, setDraft] = useState<string | null>(null)
+
+  function commitHex(raw: string) {
+    const cleaned = raw.startsWith('#') ? raw : `#${raw}`
+    if (isValidHex(cleaned)) {
+      onChange(cleaned.toLowerCase())
+    }
+    setDraft(null)
+  }
 
   return (
     <div className="flex items-center gap-3 py-1.5">
@@ -24,8 +34,13 @@ function ColorPickerRow({ label, value, onChange }: {
       <span className="w-28 shrink-0 text-sm text-fg">{label}</span>
       <input
         type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={draft ?? value}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={(e) => commitHex(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur()
+          if (e.key === 'Escape') setDraft(null)
+        }}
         spellCheck={false}
         className="text-xs font-mono text-fg-subtle bg-transparent border-none p-0 focus:outline-none w-24"
       />
