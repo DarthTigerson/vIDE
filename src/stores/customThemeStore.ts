@@ -1,5 +1,7 @@
 import { create } from 'zustand'
-import { useThemeStore, familyOf, THEME_OPTIONS } from './themeStore'
+import type { ITheme } from '@xterm/xterm'
+import { useThemeStore, familyOf, THEME_OPTIONS, XTERM_THEMES, glassXtermTheme, XTERM_GLASS_ALPHA, type ThemeId } from './themeStore'
+import { hexWithAlpha } from '@/lib/color'
 
 const STORAGE_KEY = 'vide:customThemes'
 
@@ -275,3 +277,18 @@ useThemeStore.subscribe((state, prevState) => {
   const theme = themes.find((t) => t.id === activeId)
   if (theme) applyPalette(theme[currentVariant()])
 })
+
+// Monaco/xterm keep rendering the built-in `themeId`'s own palette (see the
+// spec's "Base family" section) — a custom theme only ever overrides the 9
+// CUSTOM_COLOR_VARS chrome variables, never Monaco tokens or the xterm ANSI
+// palette. Its background is the one exception: leaving the terminal on a
+// stock dark/light background while every other panel follows the custom
+// theme reads as a bug, not a design choice, so this substitutes just that.
+export function effectiveXtermTheme(themeId: ThemeId, glass: boolean): ITheme {
+  const base = glass ? glassXtermTheme(themeId) : XTERM_THEMES[themeId]
+  const { activeId, themes } = useCustomThemeStore.getState()
+  const active = activeId ? themes.find((t) => t.id === activeId) : undefined
+  if (!active) return base
+  const bg = active[currentVariant()]['--color-bg']
+  return { ...base, background: glass ? hexWithAlpha(bg, XTERM_GLASS_ALPHA) : bg }
+}

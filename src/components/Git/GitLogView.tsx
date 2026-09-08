@@ -5,7 +5,8 @@ import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { useRepoGitLogText } from '@/stores/gitLogStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
-import { useThemeStore, XTERM_THEMES, glassXtermTheme } from '@/stores/themeStore'
+import { useThemeStore } from '@/stores/themeStore'
+import { useCustomThemeStore, effectiveXtermTheme } from '@/stores/customThemeStore'
 import { useDisplayStore } from '@/stores/displayStore'
 import { useFontSizeStore } from '@/stores/fontSizeStore'
 import { useInstanceFontSizeStore } from '@/stores/instanceFontSizeStore'
@@ -28,6 +29,8 @@ export function GitLogView() {
   const text = useRepoGitLogText(selectedRepo)
   const theme = useThemeStore((s) => s.theme)
   const panelStyle = useDisplayStore((s) => s.panelStyle)
+  const customActiveId = useCustomThemeStore((s) => s.activeId)
+  const customThemes = useCustomThemeStore((s) => s.themes)
   const font = useDisplayStore((s) => s.font)
   const fontSize = useFontSizeStore((s) => s.fontSize)
   const fontSizeOverride = useInstanceFontSizeStore((s) => s.overrides[GIT_LOG_TAB_PATH])
@@ -38,7 +41,7 @@ export function GitLogView() {
     const container = containerRef.current
 
     const xterm = new XTerm({
-      theme: panelStyle === 'glass' ? glassXtermTheme(theme) : XTERM_THEMES[theme],
+      theme: effectiveXtermTheme(theme, panelStyle === 'glass'),
       fontFamily: font,
       fontSize: effectiveFontSize,
       disableStdin: true,
@@ -101,8 +104,8 @@ export function GitLogView() {
 
   useEffect(() => {
     if (!xtermRef.current) return
-    xtermRef.current.options.theme = panelStyle === 'glass' ? glassXtermTheme(theme) : XTERM_THEMES[theme]
-  }, [theme, panelStyle])
+    xtermRef.current.options.theme = effectiveXtermTheme(theme, panelStyle === 'glass')
+  }, [theme, panelStyle, customActiveId, customThemes])
 
   useEffect(() => {
     if (!xtermRef.current || !fitRef.current) return

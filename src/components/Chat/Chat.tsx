@@ -5,7 +5,8 @@ import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
 import { useFileStore } from '@/stores/fileStore'
 import { useClaudeStore } from '@/stores/claudeStore'
-import { useThemeStore, XTERM_THEMES, glassXtermTheme, type ThemeId } from '@/stores/themeStore'
+import { useThemeStore, type ThemeId } from '@/stores/themeStore'
+import { useCustomThemeStore, effectiveXtermTheme } from '@/stores/customThemeStore'
 import { useFontSizeStore } from '@/stores/fontSizeStore'
 import { useInstanceFontSizeStore } from '@/stores/instanceFontSizeStore'
 import { useDisplayStore, type PanelStyle } from '@/stores/displayStore'
@@ -30,7 +31,7 @@ interface AssistantTerminal {
 
 function createXTerm(themeId: ThemeId, panelStyle: PanelStyle, fontSize: number): XTerm {
   return new XTerm({
-    theme: panelStyle === 'glass' ? glassXtermTheme(themeId) : XTERM_THEMES[themeId],
+    theme: effectiveXtermTheme(themeId, panelStyle === 'glass'),
     fontFamily: useDisplayStore.getState().font,
     fontSize,
     cursorBlink: true,
@@ -55,6 +56,8 @@ export function Chat() {
   const restartToken = useClaudeStore((s) => s.restartToken)
   const theme = useThemeStore((s) => s.theme)
   const panelStyle = useDisplayStore((s) => s.panelStyle)
+  const customActiveId = useCustomThemeStore((s) => s.activeId)
+  const customThemes = useCustomThemeStore((s) => s.themes)
   const fontSize = useFontSizeStore((s) => s.fontSize)
   const instanceFontOverrides = useInstanceFontSizeStore((s) => s.overrides)
   const font = useDisplayStore((s) => s.font)
@@ -218,9 +221,9 @@ export function Chat() {
 
   useEffect(() => {
     Object.values(terminalsRef.current).forEach((terminal) => {
-      terminal.xterm.options.theme = panelStyle === 'glass' ? glassXtermTheme(theme) : XTERM_THEMES[theme]
+      terminal.xterm.options.theme = effectiveXtermTheme(theme, panelStyle === 'glass')
     })
-  }, [theme, panelStyle])
+  }, [theme, panelStyle, customActiveId, customThemes])
 
   useEffect(() => {
     instances.forEach(({ id }) => {

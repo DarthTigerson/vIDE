@@ -340,7 +340,7 @@ export const XTERM_THEMES: Record<ThemeId, ITheme> = {
 // ITheme.background, independent of the --color-bg CSS custom property the
 // rest of the UI uses. Matches --color-bg's glass alpha in index.css so the
 // terminal blends with the same transparency as its own wrapper panel.
-const XTERM_GLASS_ALPHA = 0.2
+export const XTERM_GLASS_ALPHA = 0.2
 
 export function glassXtermTheme(theme: ThemeId): ITheme {
   const base = XTERM_THEMES[theme]

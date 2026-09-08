@@ -62,8 +62,9 @@ const { localStorageStore, mediaState, domState, CSS_DEFAULTS } = vi.hoisted(() 
   return { localStorageStore, mediaState, domState, CSS_DEFAULTS }
 })
 
-import { useThemeStore } from '../themeStore'
-import { useCustomThemeStore, CUSTOM_COLOR_VARS } from '../customThemeStore'
+import { useThemeStore, XTERM_THEMES, glassXtermTheme, XTERM_GLASS_ALPHA } from '../themeStore'
+import { useCustomThemeStore, CUSTOM_COLOR_VARS, effectiveXtermTheme } from '../customThemeStore'
+import { hexWithAlpha } from '@/lib/color'
 
 function resetDom() {
   domState.attr = null
@@ -355,5 +356,39 @@ describe('load() validation at module-load time (malformed persisted data)', () 
     expect(state.themes).toHaveLength(1)
     expect(state.themes[0].id).toBe('good')
     expect(state.activeId).toBe('good')
+  })
+})
+
+describe('effectiveXtermTheme', () => {
+  it('returns the built-in xterm theme unchanged when no custom theme is active', () => {
+    expect(effectiveXtermTheme('claude-dark', false)).toEqual(XTERM_THEMES['claude-dark'])
+  })
+
+  it('returns the built-in glass xterm theme unchanged when no custom theme is active', () => {
+    expect(effectiveXtermTheme('claude-dark', true)).toEqual(glassXtermTheme('claude-dark'))
+  })
+
+  it('overrides only the background with the active custom theme\'s current-variant colour', () => {
+    const id = useCustomThemeStore.getState().createFromActive('Sunset')
+    useCustomThemeStore.getState().setSwatch(id, 'dark', '--color-bg', '#123456')
+    useThemeStore.setState({ theme: 'claude-dark' })
+    const result = effectiveXtermTheme('claude-dark', false)
+    expect(result.background).toBe('#123456')
+    expect(result.foreground).toBe(XTERM_THEMES['claude-dark'].foreground)
+  })
+
+  it('applies the glass alpha to the custom background when glass is true', () => {
+    const id = useCustomThemeStore.getState().createFromActive('Sunset')
+    useCustomThemeStore.getState().setSwatch(id, 'dark', '--color-bg', '#123456')
+    useThemeStore.setState({ theme: 'claude-dark' })
+    const result = effectiveXtermTheme('claude-dark', true)
+    expect(result.background).toBe(hexWithAlpha('#123456', XTERM_GLASS_ALPHA))
+  })
+
+  it('uses the light-variant background when the current variant is light', () => {
+    const id = useCustomThemeStore.getState().createFromActive('Sunset')
+    useCustomThemeStore.getState().setSwatch(id, 'light', '--color-bg', '#abcabc')
+    useThemeStore.setState({ theme: 'claude-light' })
+    expect(effectiveXtermTheme('claude-light', false).background).toBe('#abcabc')
   })
 })
