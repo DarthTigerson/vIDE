@@ -80,7 +80,7 @@ export function FontSection() {
               >
                 <div className="text-lg text-fg mb-2 truncate" style={{ fontFamily: p.value }}>Aa Bb 123</div>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-fg truncate">{p.label}</span>
+                  <span className="text-sm font-medium text-fg truncate" style={{ fontFamily: p.value }}>{p.label}</span>
                   {isActive && (
                     <span className="shrink-0 text-xs font-medium text-accent px-1.5 py-0.5 rounded bg-accent/10">Active</span>
                   )}

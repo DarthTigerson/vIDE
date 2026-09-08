@@ -19,6 +19,11 @@ describe('FontSection', () => {
     expect(screen.getByText('Consolas')).toBeInTheDocument()
     expect(screen.getByText('Courier New')).toBeInTheDocument()
 
+    // the label itself renders in its own font, not whichever one is
+    // currently selected app-wide
+    expect(screen.getByText('Monaco')).toHaveStyle({ fontFamily: 'Monaco, monospace' })
+    expect(screen.getByText('Consolas')).toHaveStyle({ fontFamily: 'Consolas, monospace' })
+
     const samples = screen.getAllByText('Aa Bb 123')
     expect(samples).toHaveLength(4)
     expect(samples[0]).toHaveStyle({ fontFamily: 'Menlo, monospace' })
