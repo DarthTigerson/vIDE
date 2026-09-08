@@ -6,6 +6,7 @@ import { useBrowserStore } from '@/stores/browserStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { useBrowserFavoritesStore } from '@/stores/browserFavoritesStore'
 import { useBrowserRecentStore } from '@/stores/browserRecentStore'
+import { useBrowserClosedTabsStore } from '@/stores/browserClosedTabsStore'
 
 // Captures the most recent onBrowserViewEvent callback so later tasks'
 // tests can simulate main-process events (did-navigate, page-title-updated, ...).
@@ -41,6 +42,7 @@ beforeEach(() => {
   useEditorStore.setState({ tabs: [] } as any)
   useBrowserFavoritesStore.setState({ favorites: {} })
   useBrowserRecentStore.setState({ entries: [] })
+  useBrowserClosedTabsStore.setState({ entries: [] })
 })
 
 afterEach(() => {
@@ -98,5 +100,24 @@ describe('BrowserTab', () => {
       url: 'https://example.com',
       title: 'Example Domain',
     })
+  })
+
+  it('records a closed tab when a tab that had navigated somewhere unmounts', () => {
+    const { unmount } = render(<BrowserTab browserId="tab-6" />)
+    lastEventCallback!('tab-6', { type: 'did-navigate', url: 'https://example.com', canGoBack: false, canGoForward: false })
+    lastEventCallback!('tab-6', { type: 'page-title-updated', title: 'Example Domain' })
+
+    unmount()
+
+    expect(useBrowserClosedTabsStore.getState().entries[0]).toMatchObject({
+      url: 'https://example.com',
+      title: 'Example Domain',
+    })
+  })
+
+  it('does not record a closed tab for an unvisited landing-page tab', () => {
+    const { unmount } = render(<BrowserTab browserId="tab-7" />)
+    unmount()
+    expect(useBrowserClosedTabsStore.getState().entries).toHaveLength(0)
   })
 })

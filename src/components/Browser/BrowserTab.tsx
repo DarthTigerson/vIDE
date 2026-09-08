@@ -9,6 +9,7 @@ import { useStatusMessageStore } from '@/stores/statusMessageStore'
 import { useSearchStore } from '@/stores/searchStore'
 import { useChangelogStore } from '@/stores/changelogStore'
 import { useBrowserRecentStore } from '@/stores/browserRecentStore'
+import { useBrowserClosedTabsStore } from '@/stores/browserClosedTabsStore'
 import { BrowserLandingPage } from './BrowserLandingPage'
 
 interface Props {
@@ -181,6 +182,12 @@ export function BrowserTab({ browserId }: Props) {
       const tabPath = buildBrowserPath(browserId)
       const stillOpen = useEditorStore.getState().tabs.some((t) => t.path === tabPath)
       if (!stillOpen) {
+        // A landing-page tab that was never navigated has no url — nothing
+        // worth remembering as a "closed tab" in that case.
+        const closingTab = useBrowserStore.getState().tabs[browserId]
+        if (closingTab?.url) {
+          useBrowserClosedTabsStore.getState().recordClosed(closingTab.url, closingTab.title || closingTab.url)
+        }
         liveBrowserViews.delete(browserId)
         useBrowserStore.getState().removeTab(browserId)
         window.api.browserViewDestroy(browserId)
