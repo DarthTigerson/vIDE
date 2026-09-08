@@ -21,6 +21,11 @@ describe('ThemeSection', () => {
     expect(screen.getByText('New Custom Theme')).toBeInTheDocument()
   })
 
+  it('renders a separator between the built-in and custom themes', () => {
+    render(<ThemeSection />)
+    expect(screen.getByText('Custom Themes')).toBeInTheDocument()
+  })
+
   it('creating a custom theme via the inline name field adds it to the grid and opens the editor', () => {
     render(<ThemeSection />)
     fireEvent.click(screen.getByText('New Custom Theme'))

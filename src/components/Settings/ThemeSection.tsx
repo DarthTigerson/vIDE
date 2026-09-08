@@ -245,6 +245,12 @@ export function ThemeSection() {
             )
           })}
 
+          <div className="col-span-full flex items-center gap-3 my-1" aria-hidden="true">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">Custom Themes</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+
           {customThemes.map((t) => (
             <CustomThemeCard
               key={t.id}
