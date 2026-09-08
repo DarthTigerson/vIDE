@@ -10,6 +10,7 @@ import { FOOTER_TIPS } from '@/lib/footerTips'
 import { Section, Row } from './SettingsLayout'
 import { ThemeSection } from './ThemeSection'
 import { FontSection } from './FontSection'
+import { EditorColorsSection } from './EditorColorsSection'
 import { BackgroundSection } from './BackgroundSection'
 
 const FOOTER_CONTENT_OPTIONS: { value: FooterContent; label: string }[] = [
@@ -148,6 +149,8 @@ export function DisplayPage() {
       </Section>
 
       <FontSection />
+
+      <EditorColorsSection />
 
       <BackgroundSection />
 

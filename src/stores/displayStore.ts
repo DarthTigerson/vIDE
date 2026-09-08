@@ -8,6 +8,7 @@ const MEMORY_USAGE_VISIBLE_KEY = 'vide:memoryUsageVisible'
 const BACKGROUND_IMAGE_KEY = 'vide:backgroundImage'
 const BACKGROUND_IMAGE_VISIBLE_KEY = 'vide:backgroundImageVisible'
 const NAVBAR_POSITION_KEY = 'vide:navbarPosition'
+const EDITOR_COLOR_SCHEME_KEY = 'vide:editorColorScheme'
 
 // Presets are limited to monospace fonts that ship preinstalled with a
 // major OS (macOS: Menlo/Monaco, Windows: Consolas, both: Courier New).
@@ -71,6 +72,16 @@ const FAMILY_BACKGROUND: Record<string, BackgroundImage> = {
 // panel always take the opposite side — see App.tsx's mirrored layout.
 export type NavbarPosition = 'left' | 'right'
 
+// Syntax color scheme for the Monaco editor — independent of the app Theme,
+// and follows whichever theme family/variant is active rather than being a
+// sticky standalone choice (see monacoThemes.ts's HIGH_CONTRAST_TOKENS).
+export type EditorColorScheme = 'default' | 'high-contrast'
+
+export const EDITOR_COLOR_SCHEME_OPTIONS: { value: EditorColorScheme; label: string; description: string }[] = [
+  { value: 'default',       label: 'Default',       description: "Follows the active theme's own syntax colors" },
+  { value: 'high-contrast', label: 'High Contrast', description: 'Bright, high-visibility colors for easier reading' },
+]
+
 const DEFAULT_FONT = 'Menlo, monospace'
 
 interface DisplayStore {
@@ -80,12 +91,14 @@ interface DisplayStore {
   memoryUsageVisible: boolean
   backgroundImage: BackgroundImage
   navbarPosition: NavbarPosition
+  editorColorScheme: EditorColorScheme
   setFont: (font: string) => void
   setPanelStyle: (style: PanelStyle) => void
   setFooterContent: (content: FooterContent) => void
   setMemoryUsageVisible: (visible: boolean) => void
   setBackgroundImage: (image: BackgroundImage) => void
   setNavbarPosition: (position: NavbarPosition) => void
+  setEditorColorScheme: (scheme: EditorColorScheme) => void
 }
 
 function applyFont(font: string) {
@@ -147,6 +160,8 @@ const initialBackgroundImage: BackgroundImage = storedBackgroundImage && BACKGRO
   : localStorage.getItem(BACKGROUND_IMAGE_VISIBLE_KEY) === 'true' ? 'vide' : 'none'
 const storedNavbarPosition = localStorage.getItem(NAVBAR_POSITION_KEY)
 const initialNavbarPosition: NavbarPosition = storedNavbarPosition === 'right' ? 'right' : 'left'
+const storedEditorColorScheme = localStorage.getItem(EDITOR_COLOR_SCHEME_KEY)
+const initialEditorColorScheme: EditorColorScheme = storedEditorColorScheme === 'high-contrast' ? 'high-contrast' : 'default'
 applyFont(initialFont)
 applyPanelStyle(initialPanelStyle)
 
@@ -157,6 +172,7 @@ export const useDisplayStore = create<DisplayStore>((set) => ({
   memoryUsageVisible: initialMemoryUsageVisible,
   backgroundImage: initialBackgroundImage,
   navbarPosition: initialNavbarPosition,
+  editorColorScheme: initialEditorColorScheme,
   setFont: (font) => {
     applyFont(font)
     set({ font })
@@ -180,6 +196,10 @@ export const useDisplayStore = create<DisplayStore>((set) => ({
   setNavbarPosition: (position) => {
     localStorage.setItem(NAVBAR_POSITION_KEY, position)
     set({ navbarPosition: position })
+  },
+  setEditorColorScheme: (scheme) => {
+    localStorage.setItem(EDITOR_COLOR_SCHEME_KEY, scheme)
+    set({ editorColorScheme: scheme })
   },
 }))
 
