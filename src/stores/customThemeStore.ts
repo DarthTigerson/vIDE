@@ -146,6 +146,7 @@ interface CustomThemeStore {
   createFromActive: (name: string) => string
   rename: (id: string, name: string) => void
   setSwatch: (id: string, variant: 'light' | 'dark', varName: CustomColorVar, hex: string) => void
+  copyVariant: (id: string, from: 'light' | 'dark', to: 'light' | 'dark') => void
   deleteTheme: (id: string) => void
   setActive: (id: string | null) => void
   exportTheme: (id: string) => string
@@ -186,6 +187,16 @@ export const useCustomThemeStore = create<CustomThemeStore>((set, get) => ({
     set({ themes: next })
     persist(next, get().activeId)
     if (get().activeId === id && variant === currentVariant()) applyToDOM(varName, hex)
+  },
+
+  copyVariant: (id, from, to) => {
+    const target = get().themes.find((t) => t.id === id)
+    if (!target) return
+    const copied: Palette = { ...target[from] }
+    const next = get().themes.map((t) => (t.id === id ? { ...t, [to]: copied } : t))
+    set({ themes: next })
+    persist(next, get().activeId)
+    if (get().activeId === id && to === currentVariant()) applyPalette(copied)
   },
 
   deleteTheme: (id) => {

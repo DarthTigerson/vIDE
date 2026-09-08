@@ -44,6 +44,20 @@ describe('CustomThemeEditor', () => {
     expect(screen.getAllByDisplayValue('#eeeeee').length).toBeGreaterThan(0)
   })
 
+  it('shows "Copy from Light" while editing Dark, and "Copy from Dark" while editing Light', () => {
+    render(<CustomThemeEditor themeId="t1" onClose={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Copy from Light' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'light' }))
+    expect(screen.getByRole('button', { name: 'Copy from Dark' })).toBeInTheDocument()
+  })
+
+  it('clicking "Copy from Light" overwrites the dark palette with the light palette', () => {
+    render(<CustomThemeEditor themeId="t1" onClose={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Copy from Light' }))
+    expect(useCustomThemeStore.getState().themes[0].dark['--color-bg']).toBe('#eeeeee')
+    expect(useCustomThemeStore.getState().themes[0].light['--color-bg']).toBe('#eeeeee')
+  })
+
   it('clicking Export copies the theme JSON to the clipboard', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.assign(navigator, { clipboard: { writeText } })

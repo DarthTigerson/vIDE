@@ -60,6 +60,7 @@ export function CustomThemeEditor({ themeId, onClose }: { themeId: string; onClo
   const theme = useCustomThemeStore((s) => s.themes.find((t) => t.id === themeId))
   const rename = useCustomThemeStore((s) => s.rename)
   const setSwatch = useCustomThemeStore((s) => s.setSwatch)
+  const copyVariant = useCustomThemeStore((s) => s.copyVariant)
   const deleteTheme = useCustomThemeStore((s) => s.deleteTheme)
   const exportTheme = useCustomThemeStore((s) => s.exportTheme)
   const liveVariant = useThemeStore((s) => (s.theme.endsWith('-dark') ? 'dark' : 'light'))
@@ -93,20 +94,29 @@ export function CustomThemeEditor({ themeId, onClose }: { themeId: string; onClo
         </button>
       </div>
 
-      <div className="flex gap-1 mb-4">
-        {(['light', 'dark'] as const).map((v) => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => setVariant(v)}
-            className={[
-              'px-2.5 py-1 text-xs rounded-md capitalize transition-colors',
-              variant === v ? 'bg-accent/15 text-accent' : 'text-fg-muted hover:text-fg',
-            ].join(' ')}
-          >
-            {v}
-          </button>
-        ))}
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex gap-1">
+          {(['light', 'dark'] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setVariant(v)}
+              className={[
+                'px-2.5 py-1 text-xs rounded-md capitalize transition-colors',
+                variant === v ? 'bg-accent/15 text-accent' : 'text-fg-muted hover:text-fg',
+              ].join(' ')}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => copyVariant(themeId, variant === 'dark' ? 'light' : 'dark', variant)}
+          className="text-xs font-medium text-accent hover:underline"
+        >
+          Copy from {variant === 'dark' ? 'Light' : 'Dark'}
+        </button>
       </div>
 
       <div className="flex flex-col mb-4">

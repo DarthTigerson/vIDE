@@ -159,6 +159,39 @@ describe('setSwatch', () => {
   })
 })
 
+describe('copyVariant', () => {
+  it('overwrites the target variant with the source variant\'s palette', () => {
+    const id = useCustomThemeStore.getState().createFromActive('Copy me')
+    useCustomThemeStore.getState().setSwatch(id, 'light', '--color-bg', '#111111')
+    useCustomThemeStore.getState().setSwatch(id, 'dark', '--color-bg', '#222222')
+    useCustomThemeStore.getState().copyVariant(id, 'light', 'dark')
+    const theme = useCustomThemeStore.getState().themes[0]
+    expect(theme.dark['--color-bg']).toBe('#111111')
+    expect(theme.light['--color-bg']).toBe('#111111')
+  })
+
+  it('re-applies to the DOM when the target variant is currently active and displayed', () => {
+    const id = useCustomThemeStore.getState().createFromActive('Copy me')
+    useThemeStore.setState({ theme: 'claude-dark' })
+    useCustomThemeStore.getState().setSwatch(id, 'light', '--color-bg', '#eeeeee')
+    useCustomThemeStore.getState().copyVariant(id, 'light', 'dark')
+    expect(domState.inline['--color-bg']).toBe('#eeeeee')
+  })
+
+  it('does not touch the DOM when the target variant is not currently displayed', () => {
+    const id = useCustomThemeStore.getState().createFromActive('Copy me')
+    useThemeStore.setState({ theme: 'claude-dark' })
+    const before = domState.inline['--color-bg']
+    useCustomThemeStore.getState().setSwatch(id, 'light', '--color-bg', '#eeeeee')
+    useCustomThemeStore.getState().copyVariant(id, 'dark', 'light')
+    expect(domState.inline['--color-bg']).toBe(before)
+  })
+
+  it('is a no-op for an unknown theme id', () => {
+    expect(() => useCustomThemeStore.getState().copyVariant('missing', 'light', 'dark')).not.toThrow()
+  })
+})
+
 describe('deleteTheme', () => {
   it('removes the theme and clears activeId + DOM overrides if it was active', () => {
     const id = useCustomThemeStore.getState().createFromActive('Gone soon')
