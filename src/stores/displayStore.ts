@@ -26,10 +26,10 @@ export type PanelStyle = 'solid' | 'glossy' | 'glass' | 'brushed-metal'
 // Shared between DisplayPage and the setup wizard's theme step, so both
 // pickers stay in sync rather than duplicating this list.
 export const PANEL_STYLE_OPTIONS: { value: PanelStyle; label: string; description: string }[] = [
+  { value: 'brushed-metal', label: 'Brush Metal', description: 'Welder approved' },
   { value: 'solid',         label: 'Solid',       description: 'Solid panels' },
   { value: 'glossy',        label: 'Glossy',      description: 'Frosted glass' },
   { value: 'glass',         label: 'Glass',       description: 'See-through' },
-  { value: 'brushed-metal', label: 'Brush Metal', description: 'Welder approved' },
 ]
 
 // More may be added later (e.g. a combined view) - kept as its own union

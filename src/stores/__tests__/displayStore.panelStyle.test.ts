@@ -23,12 +23,12 @@ beforeEach(() => {
 })
 
 describe('PANEL_STYLE_OPTIONS', () => {
-  it('lists Solid, Glossy, Glass, then Brush Metal last, with the requested labels and descriptions', () => {
+  it('lists Brush Metal first, then Solid, Glossy, Glass, with the requested labels and descriptions', () => {
     expect(PANEL_STYLE_OPTIONS).toEqual([
+      { value: 'brushed-metal', label: 'Brush Metal', description: 'Welder approved' },
       { value: 'solid', label: 'Solid', description: 'Solid panels' },
       { value: 'glossy', label: 'Glossy', description: 'Frosted glass' },
       { value: 'glass', label: 'Glass', description: 'See-through' },
-      { value: 'brushed-metal', label: 'Brush Metal', description: 'Welder approved' },
     ])
   })
 
