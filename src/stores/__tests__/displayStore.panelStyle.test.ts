@@ -13,6 +13,15 @@ const { localStorageStore } = vi.hoisted(() => {
       setAttribute: () => {},
     },
   }
+  // displayStore.ts now imports themeStore.ts (for the family-background
+  // subscription), whose own module-load code needs window.matchMedia.
+  ;(globalThis as any).window = {
+    matchMedia: () => ({
+      matches: false,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }),
+  }
   return { localStorageStore }
 })
 

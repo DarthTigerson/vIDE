@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useThemeStore, familyOf } from './themeStore'
 
 const FONT_KEY = 'vide:font'
 const PANEL_STYLE_KEY = 'vide:panelStyle'
@@ -37,15 +38,29 @@ export const PANEL_STYLE_OPTIONS: { value: PanelStyle; label: string; descriptio
 // don't need reshaping when that happens.
 export type FooterContent = 'hints' | 'clock'
 
-export type BackgroundImage = 'none' | 'vide' | 'clawd'
+export type BackgroundImage = 'none' | 'vide' | 'clawd' | 'atreus' | 'link'
 
 // Shared between DisplayPage and the setup wizard's theme step, same as
 // PANEL_STYLE_OPTIONS below.
 export const BACKGROUND_IMAGE_OPTIONS: { value: BackgroundImage; label: string }[] = [
-  { value: 'none',  label: 'None' },
-  { value: 'vide',  label: 'vIDE' },
-  { value: 'clawd', label: 'Clawd' },
+  { value: 'none',   label: 'None' },
+  { value: 'clawd',  label: 'Clawd' },
+  { value: 'vide',   label: 'vIDE' },
+  { value: 'link',   label: 'Link' },
+  { value: 'atreus', label: 'Atreus' },
 ]
+
+// Each built-in theme family's matching background — swapping the active
+// theme family swaps the background to follow (see the useThemeStore
+// subscription below). Luuk has no artwork of its own, so it clears the
+// background rather than leaving whatever was previously selected.
+const FAMILY_BACKGROUND: Record<string, BackgroundImage> = {
+  claude: 'clawd',
+  thomas: 'vide',
+  link: 'link',
+  atreus: 'atreus',
+  luuk: 'none',
+}
 
 // Which physical side the primary (Explorer/Git/Settings) activity bar and
 // its Sidebar panel render on; the Claude/assistant activity bar and Chat
@@ -163,3 +178,16 @@ export const useDisplayStore = create<DisplayStore>((set) => ({
     set({ navbarPosition: position })
   },
 }))
+
+// Swaps the background image to match whenever the active theme family
+// changes — whether from a built-in family card or activating a custom
+// theme (which also calls setFamily(baseFamily)). Only fires on an actual
+// family change, not a light/dark variant or "match system appearance"
+// toggle within the same family, so those never disturb a background the
+// user set explicitly.
+useThemeStore.subscribe((state, prevState) => {
+  const family = familyOf(state.theme)
+  if (family === familyOf(prevState.theme)) return
+  const next = FAMILY_BACKGROUND[family]
+  if (next) useDisplayStore.getState().setBackgroundImage(next)
+})

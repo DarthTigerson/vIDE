@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import {
-  useDisplayStore, basePanelColors, PANEL_STYLE_OPTIONS, BACKGROUND_IMAGE_OPTIONS,
-  type FooterContent, type BackgroundImage,
+  useDisplayStore, basePanelColors, PANEL_STYLE_OPTIONS,
+  type FooterContent,
 } from '@/stores/displayStore'
 import { useThemeStore } from '@/stores/themeStore'
 import { Toggle } from '@/components/ui/Toggle'
@@ -9,6 +9,7 @@ import { Select } from '@/components/ui/Select'
 import { Section, Row } from './SettingsLayout'
 import { ThemeSection } from './ThemeSection'
 import { FontSection } from './FontSection'
+import { BackgroundSection } from './BackgroundSection'
 
 const FOOTER_CONTENT_OPTIONS: { value: FooterContent; label: string }[] = [
   { value: 'hints', label: 'Hints' },
@@ -41,8 +42,8 @@ const brushedMetalPreviewStyle: CSSProperties = {
 
 export function DisplayPage() {
   const {
-    panelStyle, footerContent, memoryUsageVisible, backgroundImage, navbarPosition,
-    setPanelStyle, setFooterContent, setMemoryUsageVisible, setBackgroundImage, setNavbarPosition,
+    panelStyle, footerContent, memoryUsageVisible, navbarPosition,
+    setPanelStyle, setFooterContent, setMemoryUsageVisible, setNavbarPosition,
   } = useDisplayStore()
   // Only read to force a re-render (and so basePanelColors() below picks up
   // the change) when the active theme changes elsewhere — its value isn't
@@ -147,6 +148,8 @@ export function DisplayPage() {
         </div>
       </Section>
 
+      <BackgroundSection />
+
       {/* ── General ───────────────────────────────────────────────────────── */}
       <Section label="General">
         <Row>
@@ -158,15 +161,6 @@ export function DisplayPage() {
                 value={footerContent}
                 onChange={(v) => setFooterContent(v as FooterContent)}
                 options={FOOTER_CONTENT_OPTIONS}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5 min-w-[180px]">
-              <label htmlFor="background-image-select" className="text-sm text-fg">Background Image</label>
-              <Select
-                id="background-image-select"
-                value={backgroundImage}
-                onChange={(v) => setBackgroundImage(v as BackgroundImage)}
-                options={BACKGROUND_IMAGE_OPTIONS}
               />
             </div>
           </div>
