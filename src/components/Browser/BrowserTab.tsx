@@ -10,7 +10,9 @@ import { useSearchStore } from '@/stores/searchStore'
 import { useChangelogStore } from '@/stores/changelogStore'
 import { useBrowserRecentStore } from '@/stores/browserRecentStore'
 import { useBrowserClosedTabsStore } from '@/stores/browserClosedTabsStore'
+import { useBrowserFavoritesStore } from '@/stores/browserFavoritesStore'
 import { BrowserLandingPage } from './BrowserLandingPage'
+import { StarIcon } from './StarIcon'
 
 interface Props {
   browserId: string
@@ -304,6 +306,7 @@ export function BrowserTab({ browserId }: Props) {
   }
 
   const url = tabState?.url ?? ''
+  const isFavorite = useBrowserFavoritesStore((s) => (url ? s.isFavorite(url) : false))
   const isLoading = tabState?.isLoading ?? false
   const canGoBack = tabState?.canGoBack ?? false
   const canGoForward = tabState?.canGoForward ?? false
@@ -379,6 +382,21 @@ export function BrowserTab({ browserId }: Props) {
             className="w-full h-6 rounded bg-bg border border-border px-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent/60"
           />
         </form>
+        {url && (
+          <button
+            type="button"
+            aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            aria-pressed={isFavorite}
+            onClick={() => useBrowserFavoritesStore.getState().toggleFavorite(url, tabState?.title || url)}
+            className={
+              isFavorite
+                ? 'flex h-6 w-6 items-center justify-center rounded text-accent hover:bg-white/5'
+                : 'flex h-6 w-6 items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-white/5'
+            }
+          >
+            <StarIcon filled={isFavorite} />
+          </button>
+        )}
         <button
           ref={toggleButtonRef}
           type="button"

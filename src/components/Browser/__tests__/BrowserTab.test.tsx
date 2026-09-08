@@ -120,4 +120,21 @@ describe('BrowserTab', () => {
     unmount()
     expect(useBrowserClosedTabsStore.getState().entries).toHaveLength(0)
   })
+
+  it('toggles favorite for the current page from the toolbar star', () => {
+    useBrowserStore.getState().ensureTab('tab-8', 'https://example.com')
+    useBrowserStore.getState().updateTab('tab-8', { title: 'Example Domain' })
+
+    const { getByLabelText } = render(<BrowserTab browserId="tab-8" />)
+    fireEvent.click(getByLabelText('Add to favorites'))
+    expect(useBrowserFavoritesStore.getState().isFavorite('https://example.com')).toBe(true)
+
+    fireEvent.click(getByLabelText('Remove from favorites'))
+    expect(useBrowserFavoritesStore.getState().isFavorite('https://example.com')).toBe(false)
+  })
+
+  it('does not show a favorite star on the landing page itself', () => {
+    const { queryByLabelText } = render(<BrowserTab browserId="tab-9" />)
+    expect(queryByLabelText('Add to favorites')).toBeNull()
+  })
 })
