@@ -43,3 +43,33 @@ describe('ThemeStep — consistency with custom themes', () => {
     expect(useCustomThemeStore.getState().activeId).toBe('t1')
   })
 })
+
+describe('ThemeStep — Panel style and Background pickers', () => {
+  it('renders the same card-based Panel style picker as Display settings, not a dropdown', () => {
+    render(<ThemeStep />)
+    expect(screen.getByText('Brush Metal')).toBeInTheDocument()
+    expect(screen.getByText('Solid')).toBeInTheDocument()
+    expect(screen.getByText('Glossy')).toBeInTheDocument()
+    expect(screen.getByText('Glass')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Panel style')).not.toBeInTheDocument()
+  })
+
+  it('renders the same card-based Background picker as Display settings, not a dropdown', () => {
+    render(<ThemeStep />)
+    expect(screen.getByText('None')).toBeInTheDocument()
+    expect(screen.getByText('Borahae')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Background image')).not.toBeInTheDocument()
+  })
+
+  it('clicking a panel style card in the wizard updates the shared display store', () => {
+    render(<ThemeStep />)
+    fireEvent.click(screen.getByText('Glass'))
+    expect(useDisplayStore.getState().panelStyle).toBe('glass')
+  })
+
+  it('clicking a background card in the wizard updates the shared display store', () => {
+    render(<ThemeStep />)
+    fireEvent.click(screen.getByText('Atreus'))
+    expect(useDisplayStore.getState().backgroundImage).toBe('atreus')
+  })
+})
