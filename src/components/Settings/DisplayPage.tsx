@@ -59,8 +59,6 @@ export function DisplayPage() {
 
       <ThemeSection />
 
-      <FontSection />
-
       {/* ── Panel Style ───────────────────────────────────────────────────── */}
       <Section label="Panel Style">
         <div className="pb-4 pl-3">
@@ -148,6 +146,8 @@ export function DisplayPage() {
           </div>
         </div>
       </Section>
+
+      <FontSection />
 
       <BackgroundSection />
 
