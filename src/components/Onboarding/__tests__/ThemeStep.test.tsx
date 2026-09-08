@@ -27,7 +27,7 @@ describe('ThemeStep — consistency with custom themes', () => {
   it('choosing a colour family clears any active custom theme', () => {
     render(<ThemeStep />)
     fireEvent.click(screen.getByLabelText('Colour family'))
-    fireEvent.click(screen.getByRole('option', { name: 'Thomas' }))
+    fireEvent.click(screen.getByRole('option', { name: 'vIDE' }))
     expect(useCustomThemeStore.getState().activeId).toBeNull()
   })
 

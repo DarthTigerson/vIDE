@@ -61,7 +61,7 @@ export const useThemeStore = create<ThemeStore>((set, get) => ({
       set({ matchSystem })
     }
   },
-  // Switches only the color family (Claude/Thomas/Luuk/Link), preserving
+  // Switches only the color family (Claude/vIDE/Luuk/Link), preserving
   // whether the current variant is light or dark — including "follow
   // system," which setTheme() would otherwise always turn off.
   setFamily: (family) => {
@@ -91,7 +91,7 @@ systemDarkQuery.addEventListener('change', (e) => {
 
 // Custom themes registered by defineMonacoThemes() (src/monacoThemes.ts) — the
 // built-in 'vs-dark'/'vs' themes only coincidentally matched Claude's colors
-// and didn't track Thomas's warm palette at all.
+// and didn't track vIDE's warm palette at all.
 export const MONACO_THEMES: Record<ThemeId, string> = {
   'claude-dark':  'claude-dark',
   'claude-light': 'claude-light',
@@ -359,13 +359,13 @@ export interface ThemeOption {
 export const THEME_OPTIONS: ThemeOption[] = [
   { id: 'claude-dark',  name: 'Claude Dark',  swatches: ['#1a1a1a', '#252526', '#1e1e1e', '#d97757', '#3c3c3c'] },
   { id: 'claude-light', name: 'Claude Light', swatches: ['#f3f3f3', '#ececec', '#ffffff', '#c4613d', '#e0e0e0'] },
-  { id: 'thomas-dark',  name: 'Thomas Dark',  swatches: ['#1c1712', '#2b2319', '#221c15', '#f5c242', '#4a3d29'] },
-  { id: 'thomas-light', name: 'Thomas Light', swatches: ['#f7f1e0', '#efe6cd', '#fffcf2', '#ad7b00', '#d8c89a'] },
-  // Luuk hates light mode — "Luuk Light" is a gag, identical to "Luuk Dark".
-  { id: 'luuk-dark',    name: 'Luuk Dark',    swatches: ['#0d0d0d', '#111111', '#141414', '#9e9e9e', '#2e2e2e'] },
-  { id: 'luuk-light',   name: 'Luuk Light',   swatches: ['#0d0d0d', '#111111', '#141414', '#9e9e9e', '#2e2e2e'] },
+  { id: 'thomas-dark',  name: 'vIDE Dark',  swatches: ['#1c1712', '#2b2319', '#221c15', '#f5c242', '#4a3d29'] },
+  { id: 'thomas-light', name: 'vIDE Light', swatches: ['#f7f1e0', '#efe6cd', '#fffcf2', '#ad7b00', '#d8c89a'] },
   { id: 'link-dark',    name: 'Link Dark',    swatches: ['#12160f', '#1c2216', '#171c13', '#9ac26a', '#3a4a2c'] },
   { id: 'link-light',   name: 'Link Light',   swatches: ['#fdfee8', '#eef0cf', '#fffef2', '#6b8a3d', '#c9c093'] },
   { id: 'atreus-dark',  name: 'Atreus Dark',  swatches: ['#12151f', '#1c2233', '#171b28', '#5468c4', '#3a4460'] },
   { id: 'atreus-light', name: 'Atreus Light', swatches: ['#eef0f5', '#e2e5ee', '#f8f9fc', '#2c3a6e', '#c2c8dc'] },
+  // Luuk hates light mode — "Luuk Light" is a gag, identical to "Luuk Dark".
+  { id: 'luuk-dark',    name: 'Luuk Dark',    swatches: ['#0d0d0d', '#111111', '#141414', '#9e9e9e', '#2e2e2e'] },
+  { id: 'luuk-light',   name: 'Luuk Light',   swatches: ['#0d0d0d', '#111111', '#141414', '#9e9e9e', '#2e2e2e'] },
 ]

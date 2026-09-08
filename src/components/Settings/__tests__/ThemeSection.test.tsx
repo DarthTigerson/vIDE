@@ -18,7 +18,7 @@ describe('ThemeSection', () => {
   it('renders one card per built-in family plus a New Custom Theme card', () => {
     render(<ThemeSection />)
     expect(screen.getByRole('button', { name: /^Claude/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^Thomas/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^vIDE/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Claude Dark/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /Claude Light/ })).toBeNull()
     expect(screen.getByText('New Custom Theme')).toBeInTheDocument()
@@ -85,7 +85,7 @@ describe('ThemeSection', () => {
     const id = useCustomThemeStore.getState().createFromActive('Sunset')
     useCustomThemeStore.getState().setActive(id)
     render(<ThemeSection />)
-    fireEvent.click(screen.getByRole('button', { name: /^Thomas/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^vIDE/ }))
     expect(useCustomThemeStore.getState().activeId).toBeNull()
     expect(useThemeStore.getState().theme).toBe('thomas-dark')
   })
