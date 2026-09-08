@@ -4,6 +4,7 @@ import { useCustomThemeStore, type CustomTheme, type CustomColorVar } from '@/st
 import { RadioGroup } from '@/components/ui/RadioGroup'
 import { Section } from './SettingsLayout'
 import { CustomThemeEditor } from './CustomThemeEditor'
+import { CustomThemeContextMenu } from './CustomThemeContextMenu'
 
 const PREVIEW_VAR_ORDER: CustomColorVar[] = [
   '--color-bg', '--color-panel', '--color-sidebar', '--color-accent', '--color-border',
@@ -20,62 +21,30 @@ const VARIANT_OPTIONS: { value: 'light' | 'dark' | 'system'; label: string }[] =
   { value: 'dark', label: 'Dark' },
 ]
 
-function EditIcon() {
-  return (
-    <svg className="shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M16.5 3.5L20.5 7.5L8 20H4V16L16.5 3.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function TrashIcon() {
-  return (
-    <svg className="shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M5 7H19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M9 7V4.5C9 4.22386 9.22386 4 9.5 4H14.5C14.7761 4 15 4.22386 15 4.5V7" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M6.5 7L7.2 19C7.24 19.55 7.7 20 8.25 20H15.75C16.3 20 16.76 19.55 16.8 19L17.5 7" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function CustomThemeCard({ theme, isActive, variant, onActivate, onEdit, onDelete }: {
+function CustomThemeCard({ theme, isActive, variant, onActivate, onEdit, onShare, onDelete }: {
   theme: CustomTheme
   isActive: boolean
   variant: 'light' | 'dark'
   onActivate: () => void
   onEdit: () => void
+  onShare: () => void
   onDelete: () => void
 }) {
   const swatches = PREVIEW_VAR_ORDER.map((v) => theme[variant][v])
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+
   return (
     <div
       role="button"
       tabIndex={0}
       onClick={onActivate}
       onKeyDown={(e) => { if (e.key === 'Enter') onActivate() }}
+      onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }) }}
       className={[
-        'group relative text-left rounded-lg border-2 p-3 transition-colors cursor-pointer',
+        'text-left rounded-lg border-2 p-3 transition-colors cursor-pointer',
         isActive ? 'border-accent' : 'border-border hover:border-fg-muted',
       ].join(' ')}
     >
-      <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onEdit() }}
-          className="w-5 h-5 flex items-center justify-center rounded bg-panel/90 text-fg-subtle hover:text-fg"
-          title={`Edit ${theme.name}`}
-        >
-          <EditIcon />
-        </button>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onDelete() }}
-          className="w-5 h-5 flex items-center justify-center rounded bg-panel/90 text-fg-subtle hover:text-red-400"
-          title={`Delete ${theme.name}`}
-        >
-          <TrashIcon />
-        </button>
-      </div>
       <div className="flex gap-1 mb-3 rounded overflow-hidden h-10">
         {swatches.map((color, i) => <div key={i} className="flex-1" style={{ background: color }} />)}
       </div>
@@ -85,6 +54,16 @@ function CustomThemeCard({ theme, isActive, variant, onActivate, onEdit, onDelet
           <span className="shrink-0 text-xs font-medium text-accent px-1.5 py-0.5 rounded bg-accent/10">Active</span>
         )}
       </div>
+      {menu && (
+        <CustomThemeContextMenu
+          x={menu.x}
+          y={menu.y}
+          onEdit={onEdit}
+          onShare={onShare}
+          onDelete={onDelete}
+          onClose={() => setMenu(null)}
+        />
+      )}
     </div>
   )
 }
@@ -193,6 +172,7 @@ export function ThemeSection() {
   const setActiveCustom = useCustomThemeStore((s) => s.setActive)
   const createFromActive = useCustomThemeStore((s) => s.createFromActive)
   const deleteTheme = useCustomThemeStore((s) => s.deleteTheme)
+  const exportTheme = useCustomThemeStore((s) => s.exportTheme)
   const importTheme = useCustomThemeStore((s) => s.importTheme)
   const [editingId, setEditingId] = useState<string | null>(null)
 
@@ -280,6 +260,7 @@ export function ThemeSection() {
               isActive={activeCustomId === t.id}
               onActivate={() => activateCustom(t.id)}
               onEdit={() => { activateCustom(t.id); setEditingId(t.id) }}
+              onShare={() => navigator.clipboard.writeText(exportTheme(t.id))}
               onDelete={() => deleteTheme(t.id)}
             />
           ))}

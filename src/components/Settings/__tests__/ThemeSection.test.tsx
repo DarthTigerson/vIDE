@@ -118,6 +118,53 @@ describe('ThemeSection', () => {
     expect(screen.getByText(/Couldn't read that theme/)).toBeInTheDocument()
   })
 
+  describe('custom theme right-click menu', () => {
+    it('right-clicking a custom theme card opens a menu with Edit, Share Theme, and Delete', () => {
+      useCustomThemeStore.getState().createFromActive('Sunset')
+      render(<ThemeSection />)
+      fireEvent.contextMenu(screen.getByText('Sunset'))
+      expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Share Theme' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument()
+    })
+
+    it('Edit activates the theme and opens the editor', () => {
+      const id = useCustomThemeStore.getState().createFromActive('Sunset')
+      useCustomThemeStore.getState().setActive(null)
+      render(<ThemeSection />)
+      fireEvent.contextMenu(screen.getByText('Sunset'))
+      fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+      expect(useCustomThemeStore.getState().activeId).toBe(id)
+      expect(screen.getByText(CUSTOM_COLOR_VARS[0].label)).toBeInTheDocument()
+    })
+
+    it('Share Theme copies the exported theme JSON to the clipboard', () => {
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      Object.assign(navigator, { clipboard: { writeText } })
+      useCustomThemeStore.getState().createFromActive('Sunset')
+      render(<ThemeSection />)
+      fireEvent.contextMenu(screen.getByText('Sunset'))
+      fireEvent.click(screen.getByRole('button', { name: 'Share Theme' }))
+      expect(writeText).toHaveBeenCalled()
+      expect(JSON.parse(writeText.mock.calls[0][0]).name).toBe('Sunset')
+    })
+
+    it('Delete removes the theme', () => {
+      useCustomThemeStore.getState().createFromActive('Sunset')
+      render(<ThemeSection />)
+      fireEvent.contextMenu(screen.getByText('Sunset'))
+      fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+      expect(useCustomThemeStore.getState().themes).toHaveLength(0)
+    })
+
+    it('does not render a hover edit/delete icon on the card itself', () => {
+      useCustomThemeStore.getState().createFromActive('Sunset')
+      render(<ThemeSection />)
+      expect(screen.queryByTitle(/Edit Sunset/)).toBeNull()
+      expect(screen.queryByTitle(/Delete Sunset/)).toBeNull()
+    })
+  })
+
   it('never renders a <dialog> or role="dialog" element', () => {
     const { container } = render(<ThemeSection />)
     fireEvent.click(screen.getByText('New Custom Theme'))
