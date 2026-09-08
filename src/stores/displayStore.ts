@@ -48,8 +48,8 @@ export const BACKGROUND_IMAGE_OPTIONS: { value: BackgroundImage; label: string }
   { value: 'vide',      label: 'vIDE' },
   { value: 'link',      label: 'Link' },
   { value: 'atreus',    label: 'Atreus' },
-  { value: 'techLines', label: 'Tech Lines' },
   { value: 'borahae',   label: 'Borahae' },
+  { value: 'techLines', label: 'Tech Lines' },
   { value: 'wave',      label: 'Wave' },
 ]
 
