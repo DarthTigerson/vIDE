@@ -60,6 +60,30 @@ export const HIGH_CONTRAST_TOKENS: Record<ThemeId, HighContrastTokens> = {
   'atreus-light':  { keyword: '#1a3fcc', string: '#00707a', number: '#a6650a', type: '#6a1fb3', comment: '#5a6486' },
 }
 
+// "Mario Mode" — a single, universal maximum-contrast scheme rather than
+// one bright variant per theme like High Contrast above. It ignores the
+// active app Theme entirely (fixed black background, fixed palette) since
+// its whole purpose is the most legible option available, independent of
+// whatever look the rest of the app happens to be using.
+export const MARIO_MODE_THEME_ID = 'mario-mode'
+
+export const MARIO_MODE_BASE = {
+  background: '#000000',
+  foreground: '#ffffff',
+  accent: '#e52521',
+  border: '#4d4d4d',
+  fgMuted: '#bbbbbb',
+  fgSubtle: '#888888',
+}
+
+export const MARIO_MODE_TOKENS: HighContrastTokens = {
+  keyword: '#fbd000',
+  string: '#00a651',
+  number: '#049cd8',
+  type: '#e52521',
+  comment: '#e8a33d',
+}
+
 // Approximates Monaco's own built-in vs/vs-dark default token colors — the
 // "Default" scheme literally is those stock colors (see the empty `rules: []`
 // below), so the Editor Colors picker's Default card preview needs the real
@@ -144,4 +168,33 @@ export function defineMonacoThemes(monaco: Monaco) {
       colors: { ...colors, 'editor.background': p.background },
     })
   }
+
+  // Mario Mode — defined once, not per-theme (see MARIO_MODE_THEME_ID above).
+  const m = MARIO_MODE_BASE
+  monaco.editor.defineTheme(MARIO_MODE_THEME_ID, {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+      { token: 'comment', foreground: stripHash(MARIO_MODE_TOKENS.comment), fontStyle: 'italic' },
+      { token: 'keyword', foreground: stripHash(MARIO_MODE_TOKENS.keyword) },
+      { token: 'string', foreground: stripHash(MARIO_MODE_TOKENS.string) },
+      { token: 'number', foreground: stripHash(MARIO_MODE_TOKENS.number) },
+      { token: 'type.identifier', foreground: stripHash(MARIO_MODE_TOKENS.type) },
+      { token: 'regexp', foreground: stripHash(MARIO_MODE_TOKENS.string) },
+      { token: 'delimiter', foreground: stripHash(m.fgMuted) },
+    ],
+    colors: {
+      'editor.foreground':                   m.foreground,
+      'editorCursor.foreground':              m.accent,
+      'editor.selectionBackground':           m.accent + '55',
+      'editor.inactiveSelectionBackground':   m.accent + '30',
+      'editor.lineHighlightBackground':       m.accent + '20',
+      'editorLineNumber.foreground':          m.fgSubtle,
+      'editorLineNumber.activeForeground':    m.fgMuted,
+      'editorIndentGuide.background':         m.border,
+      'editorIndentGuide.activeBackground':   m.fgSubtle,
+      'editorWhitespace.foreground':          m.border,
+      'editor.background':                   m.background,
+    },
+  })
 }

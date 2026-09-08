@@ -72,14 +72,17 @@ const FAMILY_BACKGROUND: Record<string, BackgroundImage> = {
 // panel always take the opposite side — see App.tsx's mirrored layout.
 export type NavbarPosition = 'left' | 'right'
 
-// Syntax color scheme for the Monaco editor — independent of the app Theme,
-// and follows whichever theme family/variant is active rather than being a
-// sticky standalone choice (see monacoThemes.ts's HIGH_CONTRAST_TOKENS).
-export type EditorColorScheme = 'default' | 'high-contrast'
+// Syntax color scheme for the Monaco editor — independent of the app Theme.
+// 'high-contrast' follows whichever theme family/variant is active rather
+// than being a sticky standalone choice (see monacoThemes.ts's
+// HIGH_CONTRAST_TOKENS); 'mario-mode' ignores the active theme entirely —
+// same fixed black background and palette no matter what (MARIO_MODE_*).
+export type EditorColorScheme = 'default' | 'high-contrast' | 'mario-mode'
 
 export const EDITOR_COLOR_SCHEME_OPTIONS: { value: EditorColorScheme; label: string; description: string }[] = [
   { value: 'default',       label: 'Default',       description: "Follows the active theme's own syntax colors" },
   { value: 'high-contrast', label: 'High Contrast', description: 'Bright, high-visibility colors for easier reading' },
+  { value: 'mario-mode',    label: 'Mario Mode',    description: 'Bold primary colors on black — maximum readability' },
 ]
 
 const DEFAULT_FONT = 'Menlo, monospace'
@@ -161,7 +164,9 @@ const initialBackgroundImage: BackgroundImage = storedBackgroundImage && BACKGRO
 const storedNavbarPosition = localStorage.getItem(NAVBAR_POSITION_KEY)
 const initialNavbarPosition: NavbarPosition = storedNavbarPosition === 'right' ? 'right' : 'left'
 const storedEditorColorScheme = localStorage.getItem(EDITOR_COLOR_SCHEME_KEY)
-const initialEditorColorScheme: EditorColorScheme = storedEditorColorScheme === 'high-contrast' ? 'high-contrast' : 'default'
+const initialEditorColorScheme: EditorColorScheme = EDITOR_COLOR_SCHEME_OPTIONS.some((o) => o.value === storedEditorColorScheme)
+  ? (storedEditorColorScheme as EditorColorScheme)
+  : 'default'
 applyFont(initialFont)
 applyPanelStyle(initialPanelStyle)
 

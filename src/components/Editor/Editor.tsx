@@ -5,7 +5,7 @@ import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { useEditorStore, type EditorLayoutNode } from '@/stores/editorStore'
 import { useSearchStore } from '@/stores/searchStore'
 import { useThemeStore, MONACO_THEMES } from '@/stores/themeStore'
-import { defineMonacoThemes, glassMonacoThemeId, highContrastMonacoThemeId } from '@/monacoThemes'
+import { defineMonacoThemes, glassMonacoThemeId, highContrastMonacoThemeId, MARIO_MODE_THEME_ID } from '@/monacoThemes'
 import { useFontSizeStore } from '@/stores/fontSizeStore'
 import { useInstanceFontSizeStore } from '@/stores/instanceFontSizeStore'
 import { useDisplayStore } from '@/stores/displayStore'
@@ -214,9 +214,11 @@ function EditorPane({ paneId }: { paneId: string }) {
   const themeId = useThemeStore((s) => s.theme)
   const panelStyle = useDisplayStore((s) => s.panelStyle)
   const editorColorScheme = useDisplayStore((s) => s.editorColorScheme)
-  // High Contrast always wins over Glass — a see-through high-contrast
-  // editor would defeat the point of turning it on.
-  const monacoTheme = editorColorScheme === 'high-contrast'
+  // Mario Mode and High Contrast both always win over Glass — a see-through
+  // high-contrast editor would defeat the point of turning either one on.
+  const monacoTheme = editorColorScheme === 'mario-mode'
+    ? MARIO_MODE_THEME_ID
+    : editorColorScheme === 'high-contrast'
     ? highContrastMonacoThemeId(themeId)
     : panelStyle === 'glass' ? glassMonacoThemeId(themeId) : MONACO_THEMES[themeId]
   const fontSize = useFontSizeStore((s) => s.fontSize)

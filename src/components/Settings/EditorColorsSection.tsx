@@ -1,15 +1,19 @@
 import { useDisplayStore, EDITOR_COLOR_SCHEME_OPTIONS, type EditorColorScheme } from '@/stores/displayStore'
 import { useThemeStore, type ThemeId } from '@/stores/themeStore'
-import { THEME_PALETTES, HIGH_CONTRAST_TOKENS, DEFAULT_TOKENS } from '@/monacoThemes'
+import { THEME_PALETTES, HIGH_CONTRAST_TOKENS, DEFAULT_TOKENS, MARIO_MODE_BASE, MARIO_MODE_TOKENS } from '@/monacoThemes'
 import { Section } from './SettingsLayout'
 
-// Same 4-line snippet for both cards so the two schemes compare directly,
-// and reads from the *active* theme's own palette — Default really is just
-// Monaco's stock vs/vs-dark token colors (see monacoThemes.ts's `rules: []`),
-// so this card previews exactly what the editor already looks like today.
+// Same 4-line snippet for every card so the schemes compare directly.
+// Default and High Contrast read from the *active* theme's own palette —
+// Default really is just Monaco's stock vs/vs-dark token colors (see
+// monacoThemes.ts's `rules: []`), so this previews exactly what the editor
+// already looks like today. Mario Mode ignores the active theme entirely —
+// same fixed black background and palette no matter what.
 function CodePreview({ scheme, themeId }: { scheme: EditorColorScheme; themeId: ThemeId }) {
-  const palette = THEME_PALETTES[themeId]
-  const tokens = scheme === 'high-contrast' ? HIGH_CONTRAST_TOKENS[themeId] : DEFAULT_TOKENS[palette.base]
+  const palette = scheme === 'mario-mode' ? MARIO_MODE_BASE : THEME_PALETTES[themeId]
+  const tokens = scheme === 'mario-mode' ? MARIO_MODE_TOKENS
+    : scheme === 'high-contrast' ? HIGH_CONTRAST_TOKENS[themeId]
+    : DEFAULT_TOKENS[THEME_PALETTES[themeId].base]
   return (
     <pre
       className="h-16 w-full overflow-hidden rounded-t-[6px] px-2.5 py-2 text-[10px] leading-[1.5] font-mono whitespace-pre"
