@@ -34,14 +34,12 @@ function CustomThemeCard({ theme, isActive, variant, onActivate, onEdit, onShare
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
+    <button
+      type="button"
       onClick={onActivate}
-      onKeyDown={(e) => { if (e.key === 'Enter') onActivate() }}
       onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }) }}
       className={[
-        'text-left rounded-lg border-2 p-3 transition-colors cursor-pointer',
+        'text-left rounded-lg border-2 p-3 transition-colors',
         isActive ? 'border-accent' : 'border-border hover:border-fg-muted',
       ].join(' ')}
     >
@@ -64,7 +62,7 @@ function CustomThemeCard({ theme, isActive, variant, onActivate, onEdit, onShare
           onClose={() => setMenu(null)}
         />
       )}
-    </div>
+    </button>
   )
 }
 
