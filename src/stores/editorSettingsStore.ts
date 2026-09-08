@@ -52,7 +52,7 @@ export const useEditorSettingsStore = create<EditorSettingsStore>((set, get) => 
     set({ changeAllOccurrencesInMenu: value })
   },
 
-  openInBiggestPane: getBool(KEYS.openInBiggestPane, false),
+  openInBiggestPane: getBool(KEYS.openInBiggestPane, true),
 
   setOpenInBiggestPane: (value) => {
     localStorage.setItem(KEYS.openInBiggestPane, String(value))

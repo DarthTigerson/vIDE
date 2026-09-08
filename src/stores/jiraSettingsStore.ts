@@ -79,7 +79,7 @@ export const useJiraSettingsStore = create<JiraSettingsStore>((set, get) => ({
     set({ enabled: value })
   },
 
-  openInBiggestPane: getBool(OPEN_IN_BIGGEST_PANE_KEY, false),
+  openInBiggestPane: getBool(OPEN_IN_BIGGEST_PANE_KEY, true),
 
   setOpenInBiggestPane: (value) => {
     localStorage.setItem(OPEN_IN_BIGGEST_PANE_KEY, String(value))

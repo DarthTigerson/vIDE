@@ -13,7 +13,7 @@ interface GeneralSettingsStore {
 }
 
 export const useGeneralSettingsStore = create<GeneralSettingsStore>((set) => ({
-  openInBiggestPane: getBool(OPEN_IN_BIGGEST_PANE_KEY, false),
+  openInBiggestPane: getBool(OPEN_IN_BIGGEST_PANE_KEY, true),
 
   setOpenInBiggestPane: (value) => {
     localStorage.setItem(OPEN_IN_BIGGEST_PANE_KEY, String(value))

@@ -24,7 +24,7 @@ export const useBrowserSettingsStore = create<BrowserSettingsStore>((set) => ({
     set({ defaultUrl: value })
   },
 
-  openInBiggestPane: getBool(OPEN_IN_BIGGEST_PANE_KEY, false),
+  openInBiggestPane: getBool(OPEN_IN_BIGGEST_PANE_KEY, true),
 
   setOpenInBiggestPane: (value) => {
     localStorage.setItem(OPEN_IN_BIGGEST_PANE_KEY, String(value))
