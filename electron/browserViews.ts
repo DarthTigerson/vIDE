@@ -109,7 +109,7 @@ interface Entry {
 // Reserved browser-view id for the single tab the vide-browser MCP server
 // (VIDE-53) drives on Claude's behalf — never one of the user's own tabs,
 // which are addressed by the path-like ids buildBrowserPath generates.
-const CLAUDE_TAB_ID = 'claude-controlled'
+export const CLAUDE_TAB_ID = 'claude-controlled'
 const MAX_CONSOLE_LOGS = 200
 const MAX_NETWORK_LOG = 100
 const CONSOLE_LEVELS = ['verbose', 'info', 'warning', 'error'] as const
@@ -456,9 +456,13 @@ export class BrowserViewManager {
     }
   }
 
-  private claudeTabWebContents(winId: number): Electron.WebContents {
-    const wc = this.get(winId, CLAUDE_TAB_ID)?.webContents
-    if (!wc) throw new Error('No Claude-controlled tab open for this window yet — call navigate first')
+  private claudeTabWebContents(winId: number, tabId = CLAUDE_TAB_ID): Electron.WebContents {
+    const wc = this.get(winId, tabId)?.webContents
+    if (!wc) throw new Error(
+      tabId === CLAUDE_TAB_ID
+        ? 'No Claude-controlled tab open for this window yet — call browser_navigate first'
+        : `Tab "${tabId}" not found — use browser_list_tabs to see open tabs`
+    )
     return wc
   }
 
@@ -473,9 +477,9 @@ export class BrowserViewManager {
   // current size — a total no-op. Resizing to the view's actual bounds is
   // what's needed to make the exported PNG's pixel dimensions match 1:1
   // with what sendInputEvent's x/y coordinates expect.
-  async captureClaudeTab(winId: number): Promise<{ png: Buffer; imageSize: { width: number; height: number }; viewBounds: { width: number; height: number } }> {
-    const image = await this.claudeTabWebContents(winId).capturePage()
-    const view = this.get(winId, CLAUDE_TAB_ID)
+  async captureClaudeTab(winId: number, tabId = CLAUDE_TAB_ID): Promise<{ png: Buffer; imageSize: { width: number; height: number }; viewBounds: { width: number; height: number } }> {
+    const image = await this.claudeTabWebContents(winId, tabId).capturePage()
+    const view = this.get(winId, tabId)
     const bounds = view ? view.getBounds() : { width: 0, height: 0 }
     const viewBounds = { width: bounds.width, height: bounds.height }
     const normalized = viewBounds.width > 0 && viewBounds.height > 0 ? image.resize(viewBounds) : image
@@ -483,8 +487,8 @@ export class BrowserViewManager {
     return { png, imageSize: normalized.getSize(), viewBounds }
   }
 
-  async clickClaudeTab(winId: number, x: number, y: number): Promise<string> {
-    const wc = this.claudeTabWebContents(winId)
+  async clickClaudeTab(winId: number, x: number, y: number, tabId = CLAUDE_TAB_ID): Promise<string> {
+    const wc = this.claudeTabWebContents(winId, tabId)
     wc.sendInputEvent({ type: 'mouseDown', x, y, button: 'left', clickCount: 1 })
     wc.sendInputEvent({ type: 'mouseUp', x, y, button: 'left', clickCount: 1 })
     // sendInputEvent's own effects (including a resulting focus change) are
@@ -510,20 +514,20 @@ export class BrowserViewManager {
     }
   }
 
-  async typeIntoClaudeTab(winId: number, text: string): Promise<void> {
-    return this.claudeTabWebContents(winId).insertText(text)
+  async typeIntoClaudeTab(winId: number, text: string, tabId = CLAUDE_TAB_ID): Promise<void> {
+    return this.claudeTabWebContents(winId, tabId).insertText(text)
   }
 
-  getClaudeTabConsoleLogs(winId: number): string[] {
-    return this.viewsByWindow.get(winId)?.get(CLAUDE_TAB_ID)?.consoleLogs ?? []
+  getClaudeTabConsoleLogs(winId: number, tabId = CLAUDE_TAB_ID): string[] {
+    return this.viewsByWindow.get(winId)?.get(tabId)?.consoleLogs ?? []
   }
 
-  getClaudeTabUrl(winId: number): string {
-    return this.claudeTabWebContents(winId).getURL()
+  getClaudeTabUrl(winId: number, tabId = CLAUDE_TAB_ID): string {
+    return this.claudeTabWebContents(winId, tabId).getURL()
   }
 
-  async waitForClaudeTabLoad(winId: number, timeoutMs: number): Promise<void> {
-    const wc = this.claudeTabWebContents(winId)
+  async waitForClaudeTabLoad(winId: number, timeoutMs: number, tabId = CLAUDE_TAB_ID): Promise<void> {
+    const wc = this.claudeTabWebContents(winId, tabId)
     if (!wc.isLoading()) return
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -538,8 +542,8 @@ export class BrowserViewManager {
     })
   }
 
-  async waitForSelectorInClaudeTab(winId: number, selector: string, timeoutMs: number): Promise<void> {
-    const wc = this.claudeTabWebContents(winId)
+  async waitForSelectorInClaudeTab(winId: number, selector: string, timeoutMs: number, tabId = CLAUDE_TAB_ID): Promise<void> {
+    const wc = this.claudeTabWebContents(winId, tabId)
     const start = Date.now()
     while (true) {
       const found: boolean = await wc.executeJavaScript(`!!document.querySelector(${JSON.stringify(selector)})`)
@@ -552,9 +556,10 @@ export class BrowserViewManager {
   async findElementInClaudeTab(
     winId: number,
     selector?: string,
-    text?: string
+    text?: string,
+    tabId = CLAUDE_TAB_ID
   ): Promise<{ x: number; y: number; tag: string; description: string }> {
-    const wc = this.claudeTabWebContents(winId)
+    const wc = this.claudeTabWebContents(winId, tabId)
     if (selector) {
       return wc.executeJavaScript(`(() => {
         const el = document.querySelector(${JSON.stringify(selector)})
@@ -581,8 +586,8 @@ export class BrowserViewManager {
     }
   }
 
-  async scrollClaudeTab(winId: number, x: number, y: number, selector?: string): Promise<void> {
-    const wc = this.claudeTabWebContents(winId)
+  async scrollClaudeTab(winId: number, x: number, y: number, selector?: string, tabId = CLAUDE_TAB_ID): Promise<void> {
+    const wc = this.claudeTabWebContents(winId, tabId)
     if (selector) {
       await wc.executeJavaScript(
         `(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) throw new Error('Selector not found: ' + ${JSON.stringify(selector)}); el.scrollIntoView({ behavior: 'instant', block: 'center' }) })()`
@@ -592,40 +597,40 @@ export class BrowserViewManager {
     }
   }
 
-  async keyPressInClaudeTab(winId: number, key: string): Promise<void> {
-    const wc = this.claudeTabWebContents(winId)
+  async keyPressInClaudeTab(winId: number, key: string, tabId = CLAUDE_TAB_ID): Promise<void> {
+    const wc = this.claudeTabWebContents(winId, tabId)
     const keyCode = normalizeKey(key)
     wc.sendInputEvent({ type: 'keyDown', keyCode })
     wc.sendInputEvent({ type: 'keyUp', keyCode })
     await new Promise((resolve) => setTimeout(resolve, 50))
   }
 
-  async readClaudeTabText(winId: number): Promise<string> {
-    return this.claudeTabWebContents(winId).executeJavaScript('document.body.innerText')
+  async readClaudeTabText(winId: number, tabId = CLAUDE_TAB_ID): Promise<string> {
+    return this.claudeTabWebContents(winId, tabId).executeJavaScript('document.body.innerText')
   }
 
-  async readClaudeTabHtml(winId: number): Promise<string> {
-    return this.claudeTabWebContents(winId).executeJavaScript('document.documentElement.outerHTML')
+  async readClaudeTabHtml(winId: number, tabId = CLAUDE_TAB_ID): Promise<string> {
+    return this.claudeTabWebContents(winId, tabId).executeJavaScript('document.documentElement.outerHTML')
   }
 
-  async evaluateInClaudeTab(winId: number, script: string): Promise<unknown> {
-    return this.claudeTabWebContents(winId).executeJavaScript(script)
+  async evaluateInClaudeTab(winId: number, script: string, tabId = CLAUDE_TAB_ID): Promise<unknown> {
+    return this.claudeTabWebContents(winId, tabId).executeJavaScript(script)
   }
 
-  getClaudeTabNetworkLog(winId: number): NetworkLogEntry[] {
-    return this.viewsByWindow.get(winId)?.get(CLAUDE_TAB_ID)?.networkLog ?? []
+  getClaudeTabNetworkLog(winId: number, tabId = CLAUDE_TAB_ID): NetworkLogEntry[] {
+    return this.viewsByWindow.get(winId)?.get(tabId)?.networkLog ?? []
   }
 
-  clearClaudeTabNetworkLog(winId: number): void {
-    const entry = this.viewsByWindow.get(winId)?.get(CLAUDE_TAB_ID)
+  clearClaudeTabNetworkLog(winId: number, tabId = CLAUDE_TAB_ID): void {
+    const entry = this.viewsByWindow.get(winId)?.get(tabId)
     if (entry) entry.networkLog = []
   }
 
-  async getClaudeTabResponseBody(winId: number, urlMatch: string): Promise<{ body: string; base64Encoded: boolean }> {
-    const log = this.getClaudeTabNetworkLog(winId)
+  async getClaudeTabResponseBody(winId: number, urlMatch: string, tabId = CLAUDE_TAB_ID): Promise<{ body: string; base64Encoded: boolean }> {
+    const log = this.getClaudeTabNetworkLog(winId, tabId)
     const entry = [...log].reverse().find((e) => e.url.includes(urlMatch))
     if (!entry) throw new Error(`No captured request matching "${urlMatch}" — check browser_get_network_log for available URLs`)
-    const wc = this.claudeTabWebContents(winId)
+    const wc = this.claudeTabWebContents(winId, tabId)
     try {
       return (await wc.debugger.sendCommand('Network.getResponseBody', { requestId: entry.requestId })) as {
         body: string
@@ -636,19 +641,19 @@ export class BrowserViewManager {
     }
   }
 
-  async getClaudeTabPdf(winId: number): Promise<Buffer> {
-    return this.claudeTabWebContents(winId).printToPDF({ printBackground: true })
+  async getClaudeTabPdf(winId: number, tabId = CLAUDE_TAB_ID): Promise<Buffer> {
+    return this.claudeTabWebContents(winId, tabId).printToPDF({ printBackground: true })
   }
 
-  async getClaudeTabAccessibilityTree(winId: number): Promise<string> {
-    const wc = this.claudeTabWebContents(winId)
+  async getClaudeTabAccessibilityTree(winId: number, tabId = CLAUDE_TAB_ID): Promise<string> {
+    const wc = this.claudeTabWebContents(winId, tabId)
     await wc.debugger.sendCommand('Accessibility.enable')
     const { nodes } = (await wc.debugger.sendCommand('Accessibility.getFullAXTree')) as { nodes: AXNode[] }
     return formatAccessibilityTree(nodes)
   }
 
-  async checkClaudeTabCertificate(winId: number): Promise<CertInfo> {
-    const wc = this.claudeTabWebContents(winId)
+  async checkClaudeTabCertificate(winId: number, tabId = CLAUDE_TAB_ID): Promise<CertInfo> {
+    const wc = this.claudeTabWebContents(winId, tabId)
     const url = wc.getURL()
     if (!url.startsWith('https://')) throw new Error('Current page is not HTTPS — no certificate to inspect')
     const origin = new URL(url).origin
@@ -668,8 +673,28 @@ export class BrowserViewManager {
     }
   }
 
-  async setClaudeTabExtraHeaders(winId: number, headers: Record<string, string>): Promise<void> {
-    await this.claudeTabWebContents(winId).debugger.sendCommand('Network.setExtraHTTPHeaders', { headers })
+  async setClaudeTabExtraHeaders(winId: number, headers: Record<string, string>, tabId = CLAUDE_TAB_ID): Promise<void> {
+    await this.claudeTabWebContents(winId, tabId).debugger.sendCommand('Network.setExtraHTTPHeaders', { headers })
+  }
+
+  listUserTabs(winId: number): Array<{ id: string; url: string; title: string }> {
+    const entries = this.viewsByWindow.get(winId)
+    if (!entries) return []
+    const result: Array<{ id: string; url: string; title: string }> = []
+    for (const [id, entry] of entries) {
+      if (id === CLAUDE_TAB_ID) continue
+      const wc = entry.view.webContents
+      result.push({ id, url: wc.getURL(), title: wc.getTitle() })
+    }
+    return result
+  }
+
+  hasTab(winId: number, tabId: string): boolean {
+    return !!this.viewsByWindow.get(winId)?.has(tabId)
+  }
+
+  async navigateUserTab(winId: number, tabId: string, url: string): Promise<void> {
+    await this.claudeTabWebContents(winId, tabId).loadURL(url)
   }
 
   disposeWindow(winId: number): void {

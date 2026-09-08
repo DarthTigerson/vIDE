@@ -7,6 +7,11 @@
 - [x] `browser_get_network_log` — capture network requests (XHR, fetch, etc.)
 - [x] `browser_get_html` — get full page HTML source (for finding selectors)
 
+### Session handoff
+- [x] `browser_list_tabs` — list all user-open tabs with IDs, URLs, titles
+- [x] `browser_use_tab` — switch Claude to controlling a user's existing tab (inherit session/login)
+- [x] `browser_release_tab` — return to Claude's dedicated tab
+
 ### Phase 3 — CDP power tools
 - [x] `browser_get_response_body` — raw response body from any captured network request
 - [x] `browser_save_pdf` — export current page as PDF to disk

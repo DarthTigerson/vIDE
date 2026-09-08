@@ -63,6 +63,52 @@ async function callJson(socketPath: string, windowId: string, path: string, para
 export function buildBrowserTools(socketPath: string, windowId: string): McpToolDef[] {
   return [
     {
+      name: 'browser_list_tabs',
+      description:
+        "List all browser tabs the user currently has open in vIDE's browser panel, along with the " +
+        'currently active tab (the one Claude is targeting). Use this to find a tab the user has ' +
+        'already navigated and logged into, then call browser_use_tab to take it over — so Claude ' +
+        'can continue from the existing session without starting over.',
+      inputSchema: { type: 'object', properties: {} },
+      handler: async () => {
+        const { tabs, activeTabId } = await callJson(socketPath, windowId, '/list-tabs')
+        const list = tabs as Array<{ id: string; url: string; title: string }>
+        if (!list.length) return `No user tabs open. Active target: ${activeTabId as string}`
+        const lines = list.map((t) => `id: ${t.id}\n  title: ${t.title}\n  url:   ${t.url}`)
+        return `Active target: ${activeTabId as string}\n\nOpen user tabs:\n${lines.join('\n\n')}`
+      },
+    },
+    {
+      name: 'browser_use_tab',
+      description:
+        'Switch Claude to controlling a specific user-open browser tab (from browser_list_tabs). ' +
+        'All subsequent browser tool calls will operate on that tab instead of the dedicated Claude tab. ' +
+        'Use this when the user has already navigated to a page and logged in — Claude can take over ' +
+        'and continue from that point without losing the session.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Tab ID from browser_list_tabs' },
+        },
+        required: ['id'],
+      },
+      handler: async (args) => {
+        const { activeTabId } = await callJson(socketPath, windowId, '/use-tab', { id: String(args.id) })
+        return `Now controlling tab: ${activeTabId as string}`
+      },
+    },
+    {
+      name: 'browser_release_tab',
+      description:
+        "Return Claude's browser control back to the dedicated Claude-only tab, releasing any user tab " +
+        'previously taken over with browser_use_tab.',
+      inputSchema: { type: 'object', properties: {} },
+      handler: async () => {
+        await callJson(socketPath, windowId, '/release-tab')
+        return 'Returned to dedicated Claude-controlled tab.'
+      },
+    },
+    {
       name: 'browser_navigate',
       description:
         "Navigate vIDE's dedicated Claude-controlled browser tab to a URL. This is a single tab reserved " +
