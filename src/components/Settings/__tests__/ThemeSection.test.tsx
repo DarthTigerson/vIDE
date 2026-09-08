@@ -56,17 +56,22 @@ describe('ThemeSection', () => {
     expect(screen.getByText('Custom Themes')).toBeInTheDocument()
   })
 
-  it('creating a custom theme via the inline name field adds it to the grid and opens the editor', () => {
+  it('clicking New Custom Theme creates it immediately with an auto-numbered name and opens the editor', () => {
     render(<ThemeSection />)
     fireEvent.click(screen.getByText('New Custom Theme'))
-    const input = screen.getByPlaceholderText('Theme name')
-    fireEvent.change(input, { target: { value: 'My Theme' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
 
     expect(useCustomThemeStore.getState().themes).toHaveLength(1)
-    expect(useCustomThemeStore.getState().themes[0].name).toBe('My Theme')
+    expect(useCustomThemeStore.getState().themes[0].name).toBe('Custom Theme 1')
     // the editor panel opens automatically, showing every colour row
     expect(screen.getByText(CUSTOM_COLOR_VARS[0].label)).toBeInTheDocument()
+  })
+
+  it('auto-numbers past existing "Custom Theme N" names instead of colliding', () => {
+    useCustomThemeStore.getState().createFromActive('Custom Theme 1')
+    useCustomThemeStore.getState().createFromActive('Custom Theme 3')
+    render(<ThemeSection />)
+    fireEvent.click(screen.getByText('New Custom Theme'))
+    expect(useCustomThemeStore.getState().themes.some((t) => t.name === 'Custom Theme 4')).toBe(true)
   })
 
   it('a custom theme appears as its own card once created', () => {

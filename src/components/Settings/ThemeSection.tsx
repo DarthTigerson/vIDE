@@ -66,42 +66,11 @@ function CustomThemeCard({ theme, isActive, variant, onActivate, onEdit, onShare
   )
 }
 
-function NewThemeCard({ onCreate }: { onCreate: (name: string) => void }) {
-  const [naming, setNaming] = useState(false)
-  const [name, setName] = useState('')
-
-  function submit() {
-    const trimmed = name.trim()
-    if (trimmed) onCreate(trimmed)
-    setNaming(false)
-    setName('')
-  }
-
-  if (naming) {
-    return (
-      <div className="rounded-lg border-2 border-dashed border-border p-3 flex flex-col justify-center h-[92px]">
-        <input
-          autoFocus
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') submit()
-            if (e.key === 'Escape') { setNaming(false); setName('') }
-          }}
-          onBlur={submit}
-          placeholder="Theme name"
-          spellCheck={false}
-          className="w-full h-8 px-2 text-sm text-fg bg-bg border border-border rounded focus:outline-none focus:border-accent/60"
-        />
-      </div>
-    )
-  }
-
+function NewThemeCard({ onCreate }: { onCreate: () => void }) {
   return (
     <button
       type="button"
-      onClick={() => setNaming(true)}
+      onClick={onCreate}
       className="rounded-lg border-2 border-dashed border-border hover:border-fg-muted p-3 flex flex-col items-center justify-center h-[92px] gap-1 text-fg-subtle hover:text-fg transition-colors"
     >
       <span className="text-xl leading-none">+</span>
@@ -130,6 +99,7 @@ function ImportThemeCard({ onImport }: { onImport: (json: string) => string | nu
         onClick={() => setImporting(true)}
         className="rounded-lg border-2 border-dashed border-border hover:border-fg-muted p-3 flex flex-col items-center justify-center h-[92px] gap-1 text-fg-subtle hover:text-fg transition-colors"
       >
+        <span className="text-xl leading-none">+</span>
         <span className="text-xs font-medium">Import Theme</span>
       </button>
     )
@@ -195,8 +165,13 @@ export function ThemeSection() {
     setActiveCustom(id)
   }
 
-  function handleCreate(name: string) {
-    setEditingId(createFromActive(name))
+  function handleCreate() {
+    const numbers = customThemes
+      .map((t) => /^Custom Theme (\d+)$/.exec(t.name)?.[1])
+      .filter((n): n is string => n !== undefined)
+      .map(Number)
+    const next = numbers.length ? Math.max(...numbers) + 1 : 1
+    setEditingId(createFromActive(`Custom Theme ${next}`))
   }
 
   function handleImport(json: string): string | null {
