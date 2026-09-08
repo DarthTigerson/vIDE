@@ -2,6 +2,7 @@ import { BrowserWindow } from 'electron'
 import { createServer, IncomingMessage, Server, ServerResponse } from 'http'
 import { mkdirSync, writeFileSync, chmodSync, existsSync, unlinkSync } from 'fs'
 import { join } from 'path'
+import { tmpdir } from 'os'
 import type { BrowserViewManager } from './browserViews'
 
 export const BROWSER_OPEN_EXTERNAL_URL_CHANNEL = 'browser:open-external-url'
@@ -171,6 +172,87 @@ export class BrowserBridge {
       if (!script) throw new Error('Missing script')
       const result = await this.browserViews.evaluateInClaudeTab(windowId, script)
       this.endJson(res, { result })
+      return
+    }
+    if (req.url === '/wait-for-load') {
+      const timeoutMs = Number(new URLSearchParams(body).get('timeout') ?? '10000')
+      await this.browserViews.waitForClaudeTabLoad(windowId, timeoutMs)
+      this.endJson(res, { ok: true })
+      return
+    }
+    if (req.url === '/wait-for-selector') {
+      const params = new URLSearchParams(body)
+      const selector = params.get('selector') ?? ''
+      if (!selector) throw new Error('Missing selector')
+      const timeoutMs = Number(params.get('timeout') ?? '10000')
+      await this.browserViews.waitForSelectorInClaudeTab(windowId, selector, timeoutMs)
+      this.endJson(res, { ok: true })
+      return
+    }
+    if (req.url === '/find-element') {
+      const params = new URLSearchParams(body)
+      const selector = params.get('selector') ?? undefined
+      const text = params.get('text') ?? undefined
+      const result = await this.browserViews.findElementInClaudeTab(windowId, selector, text)
+      this.endJson(res, result)
+      return
+    }
+    if (req.url === '/get-url') {
+      const url = this.browserViews.getClaudeTabUrl(windowId)
+      this.endJson(res, { url })
+      return
+    }
+    if (req.url === '/scroll') {
+      const params = new URLSearchParams(body)
+      const selector = params.get('selector') ?? undefined
+      const x = Number(params.get('x') ?? '0')
+      const y = Number(params.get('y') ?? '0')
+      await this.browserViews.scrollClaudeTab(windowId, x, y, selector)
+      this.endJson(res, { ok: true })
+      return
+    }
+    if (req.url === '/key-press') {
+      const key = new URLSearchParams(body).get('key') ?? ''
+      if (!key) throw new Error('Missing key')
+      await this.browserViews.keyPressInClaudeTab(windowId, key)
+      this.endJson(res, { ok: true })
+      return
+    }
+    if (req.url === '/save-html') {
+      const html = await this.browserViews.readClaudeTabHtml(windowId)
+      const savePath = new URLSearchParams(body).get('path') ?? join(tmpdir(), `vide-page-${Date.now()}.html`)
+      writeFileSync(savePath, html, 'utf-8')
+      this.endJson(res, { path: savePath })
+      return
+    }
+    if (req.url === '/response-body') {
+      const urlMatch = new URLSearchParams(body).get('url') ?? ''
+      if (!urlMatch) throw new Error('Missing url parameter')
+      const result = await this.browserViews.getClaudeTabResponseBody(windowId, urlMatch)
+      this.endJson(res, result)
+      return
+    }
+    if (req.url === '/save-pdf') {
+      const pdf = await this.browserViews.getClaudeTabPdf(windowId)
+      const savePath = new URLSearchParams(body).get('path') ?? join(tmpdir(), `vide-page-${Date.now()}.pdf`)
+      writeFileSync(savePath, pdf)
+      this.endJson(res, { path: savePath })
+      return
+    }
+    if (req.url === '/accessibility-tree') {
+      const tree = await this.browserViews.getClaudeTabAccessibilityTree(windowId)
+      this.endJson(res, { tree })
+      return
+    }
+    if (req.url === '/check-certificate') {
+      const info = await this.browserViews.checkClaudeTabCertificate(windowId)
+      this.endJson(res, info)
+      return
+    }
+    if (req.url === '/set-extra-headers') {
+      const headers = JSON.parse(new URLSearchParams(body).get('headers') ?? '{}') as Record<string, string>
+      await this.browserViews.setClaudeTabExtraHeaders(windowId, headers)
+      this.endJson(res, { ok: true })
       return
     }
     if (req.url === '/network-log') {

@@ -1,4 +1,5 @@
 import { BrowserWindow, WebContentsView, ipcMain, session } from 'electron'
+import { X509Certificate } from 'crypto'
 
 // Guest pages share this dedicated partition with each other (so cookies/logins
 // persist across browser tabs like normal browser tabs would) but NOT with the
@@ -40,11 +41,61 @@ export type BrowserViewEvent =
   | { type: 'open-in-new-tab'; url: string }
 
 export interface NetworkLogEntry {
+  requestId: string
   url: string
   method: string
   status: number
   type: string
   startedAt: number
+}
+
+export interface CertInfo {
+  subject: string
+  issuer: string
+  validFrom: string
+  validTo: string
+  isExpired: boolean
+  daysUntilExpiry: number
+  fingerprint256: string
+}
+
+interface AXNode {
+  nodeId: string
+  ignored?: boolean
+  role?: { value: string }
+  name?: { value: string }
+  value?: { value: string }
+  childIds?: string[]
+  parentId?: string
+}
+
+function formatAccessibilityTree(nodes: AXNode[]): string {
+  const byId = new Map(nodes.map((n) => [n.nodeId, n]))
+  const root = nodes.find((n) => !n.parentId || !byId.has(n.parentId))
+  if (!root) return '(empty tree)'
+
+  const lines: string[] = []
+  function visit(node: AXNode, depth: number): void {
+    if (node.ignored) return
+    const role = node.role?.value ?? ''
+    const isStructural = !role || role === 'none' || role === 'presentation' || role === 'generic'
+    if (!isStructural) {
+      const name = node.name?.value ? ` "${node.name.value}"` : ''
+      const val = node.value?.value ? ` = "${node.value.value}"` : ''
+      lines.push('  '.repeat(depth) + role + name + val)
+    }
+    const nextDepth = isStructural ? depth : depth + 1
+    for (const childId of node.childIds ?? []) {
+      const child = byId.get(childId)
+      if (child) visit(child, nextDepth)
+    }
+  }
+  visit(root, 0)
+  if (lines.length > 300) {
+    lines.splice(300)
+    lines.push('... (truncated — use browser_find_element or browser_get_html for deeper inspection)')
+  }
+  return lines.join('\n')
 }
 
 interface Entry {
@@ -62,6 +113,20 @@ const CLAUDE_TAB_ID = 'claude-controlled'
 const MAX_CONSOLE_LOGS = 200
 const MAX_NETWORK_LOG = 100
 const CONSOLE_LEVELS = ['verbose', 'info', 'warning', 'error'] as const
+
+// Maps common DOM key names to Electron accelerator-style key codes that
+// sendInputEvent expects. Anything not in the map is passed through as-is.
+const KEY_ALIASES: Record<string, string> = {
+  Enter: 'Return',
+  ArrowUp: 'Up',
+  ArrowDown: 'Down',
+  ArrowLeft: 'Left',
+  ArrowRight: 'Right',
+  ' ': 'Space',
+}
+function normalizeKey(key: string): string {
+  return KEY_ALIASES[key] ?? key
+}
 
 // <webview> was dropped in favor of WebContentsView because Electron's <webview>
 // guest never syncs its own window.innerHeight/vh-based layout past the intrinsic
@@ -349,6 +414,7 @@ export class BrowserViewManager {
         const entry = this.viewsByWindow.get(winId)?.get(id)
         if (!entry) return
         entry.networkLog.push({
+          requestId: params.requestId as string,
           url: req.url,
           method: req.method,
           status: (params.response as { status: number }).status,
@@ -452,6 +518,88 @@ export class BrowserViewManager {
     return this.viewsByWindow.get(winId)?.get(CLAUDE_TAB_ID)?.consoleLogs ?? []
   }
 
+  getClaudeTabUrl(winId: number): string {
+    return this.claudeTabWebContents(winId).getURL()
+  }
+
+  async waitForClaudeTabLoad(winId: number, timeoutMs: number): Promise<void> {
+    const wc = this.claudeTabWebContents(winId)
+    if (!wc.isLoading()) return
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        wc.removeListener('did-stop-loading', onLoad)
+        reject(new Error(`Page did not finish loading within ${timeoutMs}ms`))
+      }, timeoutMs)
+      function onLoad() {
+        clearTimeout(timer)
+        resolve()
+      }
+      wc.once('did-stop-loading', onLoad)
+    })
+  }
+
+  async waitForSelectorInClaudeTab(winId: number, selector: string, timeoutMs: number): Promise<void> {
+    const wc = this.claudeTabWebContents(winId)
+    const start = Date.now()
+    while (true) {
+      const found: boolean = await wc.executeJavaScript(`!!document.querySelector(${JSON.stringify(selector)})`)
+      if (found) return
+      if (Date.now() - start >= timeoutMs) throw new Error(`Selector "${selector}" not found within ${timeoutMs}ms`)
+      await new Promise((resolve) => setTimeout(resolve, 250))
+    }
+  }
+
+  async findElementInClaudeTab(
+    winId: number,
+    selector?: string,
+    text?: string
+  ): Promise<{ x: number; y: number; tag: string; description: string }> {
+    const wc = this.claudeTabWebContents(winId)
+    if (selector) {
+      return wc.executeJavaScript(`(() => {
+        const el = document.querySelector(${JSON.stringify(selector)})
+        if (!el) throw new Error('Selector not found: ' + ${JSON.stringify(selector)})
+        el.scrollIntoView({ behavior: 'instant', block: 'center' })
+        const r = el.getBoundingClientRect()
+        if (r.width === 0 && r.height === 0) throw new Error('Element matched but has no size (hidden?): ' + ${JSON.stringify(selector)})
+        const desc = (el.id ? el.tagName + '#' + el.id : el.tagName) + ': ' + (el.textContent?.trim().slice(0, 60) ?? '')
+        return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), tag: el.tagName, description: desc }
+      })()`)
+    } else if (text) {
+      return wc.executeJavaScript(`(() => {
+        const needle = ${JSON.stringify(text.toLowerCase())}
+        const candidates = Array.from(document.querySelectorAll('a,button,input,label,select,textarea,[role="button"],[role="link"],[role="menuitem"],li,td,th,h1,h2,h3,h4,h5,h6,span,p'))
+        const el = candidates.find(el => el.textContent?.trim().toLowerCase().includes(needle))
+        if (!el) throw new Error('No visible element found containing text: ' + ${JSON.stringify(text)})
+        el.scrollIntoView({ behavior: 'instant', block: 'center' })
+        const r = el.getBoundingClientRect()
+        if (r.width === 0 && r.height === 0) throw new Error('Element found but not visible')
+        return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), tag: el.tagName, description: el.tagName + ': ' + (el.textContent?.trim().slice(0, 60) ?? '') }
+      })()`)
+    } else {
+      throw new Error('Provide either selector or text')
+    }
+  }
+
+  async scrollClaudeTab(winId: number, x: number, y: number, selector?: string): Promise<void> {
+    const wc = this.claudeTabWebContents(winId)
+    if (selector) {
+      await wc.executeJavaScript(
+        `(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) throw new Error('Selector not found: ' + ${JSON.stringify(selector)}); el.scrollIntoView({ behavior: 'instant', block: 'center' }) })()`
+      )
+    } else {
+      await wc.executeJavaScript(`window.scrollBy(${x}, ${y})`)
+    }
+  }
+
+  async keyPressInClaudeTab(winId: number, key: string): Promise<void> {
+    const wc = this.claudeTabWebContents(winId)
+    const keyCode = normalizeKey(key)
+    wc.sendInputEvent({ type: 'keyDown', keyCode })
+    wc.sendInputEvent({ type: 'keyUp', keyCode })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
+
   async readClaudeTabText(winId: number): Promise<string> {
     return this.claudeTabWebContents(winId).executeJavaScript('document.body.innerText')
   }
@@ -471,6 +619,57 @@ export class BrowserViewManager {
   clearClaudeTabNetworkLog(winId: number): void {
     const entry = this.viewsByWindow.get(winId)?.get(CLAUDE_TAB_ID)
     if (entry) entry.networkLog = []
+  }
+
+  async getClaudeTabResponseBody(winId: number, urlMatch: string): Promise<{ body: string; base64Encoded: boolean }> {
+    const log = this.getClaudeTabNetworkLog(winId)
+    const entry = [...log].reverse().find((e) => e.url.includes(urlMatch))
+    if (!entry) throw new Error(`No captured request matching "${urlMatch}" — check browser_get_network_log for available URLs`)
+    const wc = this.claudeTabWebContents(winId)
+    try {
+      return (await wc.debugger.sendCommand('Network.getResponseBody', { requestId: entry.requestId })) as {
+        body: string
+        base64Encoded: boolean
+      }
+    } catch (err) {
+      throw new Error(`Could not retrieve body for ${entry.url}: ${err instanceof Error ? err.message : String(err)} (cached responses and streams are not available)`)
+    }
+  }
+
+  async getClaudeTabPdf(winId: number): Promise<Buffer> {
+    return this.claudeTabWebContents(winId).printToPDF({ printBackground: true })
+  }
+
+  async getClaudeTabAccessibilityTree(winId: number): Promise<string> {
+    const wc = this.claudeTabWebContents(winId)
+    await wc.debugger.sendCommand('Accessibility.enable')
+    const { nodes } = (await wc.debugger.sendCommand('Accessibility.getFullAXTree')) as { nodes: AXNode[] }
+    return formatAccessibilityTree(nodes)
+  }
+
+  async checkClaudeTabCertificate(winId: number): Promise<CertInfo> {
+    const wc = this.claudeTabWebContents(winId)
+    const url = wc.getURL()
+    if (!url.startsWith('https://')) throw new Error('Current page is not HTTPS — no certificate to inspect')
+    const origin = new URL(url).origin
+    const { tableNames } = (await wc.debugger.sendCommand('Network.getCertificate', { origin })) as { tableNames: string[] }
+    if (!tableNames?.length) throw new Error('No certificate data available — try navigating to the page first')
+    const cert = new X509Certificate(Buffer.from(tableNames[0], 'base64'))
+    const now = new Date()
+    const validTo = new Date(cert.validTo)
+    return {
+      subject: cert.subject,
+      issuer: cert.issuer,
+      validFrom: cert.validFrom,
+      validTo: cert.validTo,
+      isExpired: validTo < now,
+      daysUntilExpiry: Math.floor((validTo.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
+      fingerprint256: cert.fingerprint256,
+    }
+  }
+
+  async setClaudeTabExtraHeaders(winId: number, headers: Record<string, string>): Promise<void> {
+    await this.claudeTabWebContents(winId).debugger.sendCommand('Network.setExtraHTTPHeaders', { headers })
   }
 
   disposeWindow(winId: number): void {
