@@ -11,6 +11,7 @@ export const CUSTOM_COLOR_VARS = [
   { varName: '--color-panel',     label: 'Panel',       isAccent: false },
   { varName: '--color-sidebar',   label: 'Sidebar',     isAccent: false },
   { varName: '--color-tab-bar',   label: 'Tab Bar',     isAccent: false },
+  { varName: '--color-popover',   label: 'Popover',     isAccent: false },
   { varName: '--color-border',    label: 'Border',      isAccent: false },
   { varName: '--color-fg',        label: 'Text',        isAccent: false },
   { varName: '--color-fg-muted',  label: 'Text Muted',  isAccent: false },
@@ -100,22 +101,47 @@ function readBuiltInPalette(themeId: string): Palette {
   return palette
 }
 
-function isValidPalette(value: unknown): value is Palette {
-  if (typeof value !== 'object' || value === null) return false
-  const palette = value as Record<string, unknown>
-  return CUSTOM_COLOR_VARS.every((def) => typeof palette[def.varName] === 'string')
+interface RawCustomTheme {
+  id: string
+  name: string
+  baseFamily: unknown
+  light: unknown
+  dark: unknown
 }
 
-function isValidCustomTheme(value: unknown): value is CustomTheme {
+function hasCustomThemeShape(value: unknown): value is RawCustomTheme {
   if (typeof value !== 'object' || value === null) return false
-  const theme = value as Record<string, unknown>
-  return (
-    typeof theme.id === 'string' &&
-    typeof theme.name === 'string' &&
-    typeof theme.baseFamily === 'string' &&
-    isValidPalette(theme.light) &&
-    isValidPalette(theme.dark)
-  )
+  const t = value as Record<string, unknown>
+  return typeof t.id === 'string' && typeof t.name === 'string'
+}
+
+// Fills in any var missing from a persisted palette (e.g. one saved before
+// that var was added to CUSTOM_COLOR_VARS) with that var's built-in
+// default. Repairing forward like this — instead of rejecting the whole
+// theme the way importTheme's stricter parsing does for pasted JSON — keeps
+// a user's saved themes usable across a schema change instead of silently
+// dropping them the next time the store loads.
+function repairPalette(baseFamily: string, variant: 'light' | 'dark', raw: unknown): Palette {
+  const fallback = readBuiltInPalette(`${baseFamily}-${variant}`)
+  const source = (typeof raw === 'object' && raw !== null) ? raw as Record<string, unknown> : {}
+  const palette = {} as Palette
+  CUSTOM_COLOR_VARS.forEach((def) => {
+    palette[def.varName] = typeof source[def.varName] === 'string' ? source[def.varName] as string : fallback[def.varName]
+  })
+  return palette
+}
+
+function repairCustomTheme(raw: RawCustomTheme): CustomTheme {
+  const baseFamily = typeof raw.baseFamily === 'string' && THEME_OPTIONS.some((t) => familyOf(t.id) === raw.baseFamily)
+    ? raw.baseFamily
+    : 'claude'
+  return {
+    id: raw.id,
+    name: raw.name,
+    baseFamily,
+    light: repairPalette(baseFamily, 'light', raw.light),
+    dark: repairPalette(baseFamily, 'dark', raw.dark),
+  }
 }
 
 function load(): { themes: CustomTheme[]; activeId: string | null } {
@@ -124,7 +150,9 @@ function load(): { themes: CustomTheme[]; activeId: string | null } {
     if (!raw) return { themes: [], activeId: null }
     const parsed = JSON.parse(raw)
     return {
-      themes: Array.isArray(parsed?.themes) ? parsed.themes.filter(isValidCustomTheme) : [],
+      themes: Array.isArray(parsed?.themes)
+        ? parsed.themes.filter(hasCustomThemeShape).map(repairCustomTheme)
+        : [],
       activeId: typeof parsed?.activeId === 'string' ? parsed.activeId : null,
     }
   } catch {

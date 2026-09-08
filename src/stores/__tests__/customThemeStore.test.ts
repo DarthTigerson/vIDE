@@ -22,22 +22,26 @@ const { localStorageStore, mediaState, domState, CSS_DEFAULTS } = vi.hoisted(() 
   const CSS_DEFAULTS: Record<string, Record<string, string>> = {
     'claude-dark': {
       '--color-accent': '217 119 87', '--color-bg': '#111111', '--color-panel': '#1a1a1a',
-      '--color-sidebar': '#1a1a1a', '--color-tab-bar': '#1a1a1a', '--color-border': '#2a2a2a',
+      '--color-sidebar': '#1a1a1a', '--color-tab-bar': '#1a1a1a', '--color-popover': '#252526',
+      '--color-border': '#2a2a2a',
       '--color-fg': '#cccccc', '--color-fg-muted': '#999999', '--color-fg-subtle': '#666666',
     },
     'claude-light': {
       '--color-accent': '196 97 61', '--color-bg': '#f3f3f3', '--color-panel': '#ececec',
-      '--color-sidebar': '#ececec', '--color-tab-bar': '#ececec', '--color-border': '#dddddd',
+      '--color-sidebar': '#ececec', '--color-tab-bar': '#ececec', '--color-popover': '#ececec',
+      '--color-border': '#dddddd',
       '--color-fg': '#1e1e1e', '--color-fg-muted': '#555555', '--color-fg-subtle': '#888888',
     },
     'thomas-dark': {
       '--color-accent': '245 194 66', '--color-bg': '#1c1712', '--color-panel': '#2b2319',
-      '--color-sidebar': '#2b2319', '--color-tab-bar': '#2b2319', '--color-border': '#4a3d29',
+      '--color-sidebar': '#2b2319', '--color-tab-bar': '#2b2319', '--color-popover': '#2b2319',
+      '--color-border': '#4a3d29',
       '--color-fg': '#e8e0d0', '--color-fg-muted': '#b0a48c', '--color-fg-subtle': '#7d735d',
     },
     'thomas-light': {
       '--color-accent': '173 123 0', '--color-bg': '#f7f1e0', '--color-panel': '#efe6cd',
-      '--color-sidebar': '#efe6cd', '--color-tab-bar': '#efe6cd', '--color-border': '#d8c89a',
+      '--color-sidebar': '#efe6cd', '--color-tab-bar': '#efe6cd', '--color-popover': '#fffcf2',
+      '--color-border': '#d8c89a',
       '--color-fg': '#2a2013', '--color-fg-muted': '#5c5238', '--color-fg-subtle': '#8a8064',
     },
   }
@@ -309,52 +313,58 @@ describe('reacting to theme variant changes', () => {
 // the statically-imported `useCustomThemeStore`/`useThemeStore` above still
 // point at the original (already-evaluated) module instances, so they're
 // untouched by this and safe to keep using in every other describe block.
-describe('load() validation at module-load time (malformed persisted data)', () => {
+describe('load() repairs malformed/incomplete persisted data at module-load time', () => {
   const STORAGE_KEY = 'vide:customThemes'
 
-  it('drops a persisted theme missing light/dark instead of crashing on module load', async () => {
+  it('repairs a persisted theme missing light/dark entirely, backfilling from the built-in default, instead of dropping it', async () => {
     localStorageStore[STORAGE_KEY] = JSON.stringify({
       themes: [{ id: 'bad', name: 'Bad', baseFamily: 'claude' }],
       activeId: 'bad',
     })
     vi.resetModules()
     const mod = await import('../customThemeStore')
-    expect(mod.useCustomThemeStore.getState().themes).toHaveLength(0)
-    // activeId pointed at a now-filtered-out theme; find(...) returns
-    // undefined and the existing `if (active)` guard already handles it.
-    expect(mod.useCustomThemeStore.getState().activeId).toBe('bad')
+    const state = mod.useCustomThemeStore.getState()
+    expect(state.themes).toHaveLength(1)
+    expect(state.themes[0].dark['--color-bg']).toBe('#111111')
+    expect(state.themes[0].light['--color-bg']).toBe('#f3f3f3')
+    expect(state.activeId).toBe('bad')
   })
 
-  it('drops a persisted theme whose light/dark palette is missing some of the 9 vars', async () => {
+  it('backfills only the missing vars in a persisted theme whose palette has some of the 9 vars', async () => {
     localStorageStore[STORAGE_KEY] = JSON.stringify({
       themes: [{
         id: 'bad2', name: 'Bad2', baseFamily: 'claude',
-        light: { '--color-bg': '#111111' }, // missing the other 8 vars
+        light: { '--color-bg': '#123123' }, // missing the other 9 vars
         dark: Object.fromEntries(CUSTOM_COLOR_VARS.map((d) => [d.varName, '#222222'])),
       }],
       activeId: null,
     })
     vi.resetModules()
     const mod = await import('../customThemeStore')
-    expect(mod.useCustomThemeStore.getState().themes).toHaveLength(0)
+    const theme = mod.useCustomThemeStore.getState().themes[0]
+    expect(theme.light['--color-bg']).toBe('#123123') // kept as given
+    expect(theme.light['--color-fg']).toBe('#1e1e1e') // backfilled from claude-light default
+    expect(theme.dark['--color-bg']).toBe('#222222') // already complete, untouched
   })
 
-  it('keeps only the valid theme when storage has a mix of one valid and one malformed theme', async () => {
+  it('drops an entry with no usable id/name, but keeps and repairs a malformed-but-identifiable one alongside it', async () => {
     const validTheme = {
       id: 'good', name: 'Good', baseFamily: 'claude',
       light: Object.fromEntries(CUSTOM_COLOR_VARS.map((d) => [d.varName, '#eeeeee'])),
       dark: Object.fromEntries(CUSTOM_COLOR_VARS.map((d) => [d.varName, '#111111'])),
     }
-    const malformedTheme = { id: 'bad', name: 'Bad', baseFamily: 'claude', light: {} }
+    const malformedButIdentifiable = { id: 'bad', name: 'Bad', baseFamily: 'claude', light: {} }
+    const unusable = { name: 'No id at all' }
     localStorageStore[STORAGE_KEY] = JSON.stringify({
-      themes: [validTheme, malformedTheme],
+      themes: [validTheme, malformedButIdentifiable, unusable],
       activeId: 'good',
     })
     vi.resetModules()
     const mod = await import('../customThemeStore')
     const state = mod.useCustomThemeStore.getState()
-    expect(state.themes).toHaveLength(1)
-    expect(state.themes[0].id).toBe('good')
+    expect(state.themes.map((t) => t.id)).toEqual(['good', 'bad'])
+    expect(state.themes[0].light['--color-bg']).toBe('#eeeeee') // valid theme untouched
+    expect(state.themes[1].light['--color-bg']).toBe('#f3f3f3') // malformed theme repaired
     expect(state.activeId).toBe('good')
   })
 })
