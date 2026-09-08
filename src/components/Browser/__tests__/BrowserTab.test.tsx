@@ -1,0 +1,83 @@
+/// <reference types="@testing-library/jest-dom" />
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { render, cleanup, fireEvent } from '@testing-library/react'
+import { BrowserTab } from '../BrowserTab'
+import { useBrowserStore } from '@/stores/browserStore'
+import { useEditorStore } from '@/stores/editorStore'
+import { useBrowserFavoritesStore } from '@/stores/browserFavoritesStore'
+
+// Captures the most recent onBrowserViewEvent callback so later tasks'
+// tests can simulate main-process events (did-navigate, page-title-updated, ...).
+export let lastEventCallback: ((id: string, event: any) => void) | null = null
+
+function mockWindowApi() {
+  lastEventCallback = null
+  ;(global as any).window = (global as any).window ?? {}
+  ;(global as any).window.api = {
+    browserViewCreate: vi.fn().mockResolvedValue(101),
+    browserViewSetVisible: vi.fn(),
+    browserViewSetBounds: vi.fn(),
+    browserViewNavigate: vi.fn(),
+    browserViewGoBack: vi.fn(),
+    browserViewGoForward: vi.fn(),
+    browserViewReload: vi.fn(),
+    browserViewZoomIn: vi.fn(),
+    browserViewZoomOut: vi.fn(),
+    browserViewZoomReset: vi.fn(),
+    browserViewSetMobileMode: vi.fn(),
+    browserViewClearCache: vi.fn().mockResolvedValue(undefined),
+    browserViewDestroy: vi.fn(),
+    onBrowserViewEvent: vi.fn((cb: (id: string, event: any) => void) => {
+      lastEventCallback = cb
+      return () => {}
+    }),
+  }
+}
+
+beforeEach(() => {
+  mockWindowApi()
+  useBrowserStore.setState({ tabs: {}, fullscreenId: null })
+  useEditorStore.setState({ tabs: [] } as any)
+  useBrowserFavoritesStore.setState({ favorites: {} })
+})
+
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+})
+
+describe('BrowserTab', () => {
+  it('a brand-new tab does not create a native view and shows the landing page', () => {
+    const { getByText } = render(<BrowserTab browserId="tab-1" />)
+    expect(window.api.browserViewCreate).not.toHaveBeenCalled()
+    expect(getByText('Star the address bar on any page to pin it here.')).toBeTruthy()
+  })
+
+  it('a tab that already has a url creates the native view on mount and hides the landing page', () => {
+    useBrowserStore.getState().ensureTab('tab-2', 'https://example.com')
+    const { queryByText } = render(<BrowserTab browserId="tab-2" />)
+    expect(window.api.browserViewCreate).toHaveBeenCalledWith('tab-2', 'https://example.com')
+    expect(queryByText('Star the address bar on any page to pin it here.')).toBeNull()
+  })
+
+  it('submitting the address bar from the landing page creates the view and navigates', () => {
+    const { container } = render(<BrowserTab browserId="tab-3" />)
+    const input = container.querySelector('input') as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'example.com' } })
+    fireEvent.submit(input.closest('form') as HTMLFormElement)
+
+    expect(window.api.browserViewCreate).toHaveBeenCalledWith('tab-3', 'https://example.com')
+    expect(useBrowserStore.getState().tabs['tab-3'].url).toBe('https://example.com')
+  })
+
+  it('clicking a landing-page row navigates the same way as the address bar', () => {
+    useBrowserStore.getState().ensureTab('tab-4', '')
+    // Seed a favorite so the landing page has a clickable row.
+    useBrowserFavoritesStore.getState().toggleFavorite('https://example.com', 'Example Domain')
+
+    const { getByText } = render(<BrowserTab browserId="tab-4" />)
+    fireEvent.click(getByText('Example Domain'))
+
+    expect(window.api.browserViewCreate).toHaveBeenCalledWith('tab-4', 'https://example.com')
+  })
+})

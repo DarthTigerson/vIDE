@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { useBrowserStore } from '@/stores/browserStore'
-import { useBrowserSettingsStore } from '@/stores/browserSettingsStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { buildBrowserPath } from '@/components/Settings/paths'
 import { normalizeUrlInput } from './urlBar'
@@ -9,6 +8,7 @@ import { MOBILE_DEVICES, getMobileDevice } from './mobileDevices'
 import { useStatusMessageStore } from '@/stores/statusMessageStore'
 import { useSearchStore } from '@/stores/searchStore'
 import { useChangelogStore } from '@/stores/changelogStore'
+import { BrowserLandingPage } from './BrowserLandingPage'
 
 interface Props {
   browserId: string
@@ -29,7 +29,7 @@ export function BrowserTab({ browserId }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const editingRef = useRef(false)
   const tabState = useBrowserStore((s) => s.tabs[browserId])
-  const [urlDraft, setUrlDraft] = useState(tabState?.url || useBrowserSettingsStore.getState().defaultUrl)
+  const [urlDraft, setUrlDraft] = useState(tabState?.url ?? '')
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const toggleButtonRef = useRef<HTMLButtonElement>(null)
@@ -40,20 +40,22 @@ export function BrowserTab({ browserId }: Props) {
     if (!containerRef.current) return
     const container = containerRef.current
 
-    useBrowserStore.getState().ensureTab(browserId, useBrowserSettingsStore.getState().defaultUrl)
+    useBrowserStore.getState().ensureTab(browserId, '')
 
     let cancelled = false
-    const isNew = !liveBrowserViews.has(browserId)
-    liveBrowserViews.add(browserId)
+    const initialUrl = useBrowserStore.getState().tabs[browserId]?.url ?? ''
+    const alreadyLive = liveBrowserViews.has(browserId)
 
-    if (isNew) {
-      const initialUrl =
-        useBrowserStore.getState().tabs[browserId]?.url || useBrowserSettingsStore.getState().defaultUrl
+    // A brand-new tab with no url yet (the landing page) gets no native view
+    // at all until goTo() is called — either from the address bar or from a
+    // landing-page row.
+    if (initialUrl && !alreadyLive) {
+      liveBrowserViews.add(browserId)
       window.api.browserViewCreate(browserId, initialUrl).then((webContentsId) => {
         if (cancelled || webContentsId == null) return
         useBrowserStore.getState().updateTab(browserId, { webContentsId })
       })
-    } else {
+    } else if (alreadyLive) {
       window.api.browserViewSetVisible(browserId, true)
     }
 
@@ -228,16 +230,30 @@ export function BrowserTab({ browserId }: Props) {
     }
   }, [deviceMenuOpen])
 
+  // Handles both "still on the landing page" (creates the native view for
+  // the first time) and "already browsing" (plain navigate) with the same
+  // call site — used by the address bar and by clicking a landing-page row.
+  function goTo(url: string) {
+    if (!liveBrowserViews.has(browserId)) {
+      liveBrowserViews.add(browserId)
+      useBrowserStore.getState().updateTab(browserId, { url })
+      window.api.browserViewCreate(browserId, url).then((webContentsId) => {
+        if (webContentsId != null) useBrowserStore.getState().updateTab(browserId, { webContentsId })
+      })
+    } else {
+      window.api.browserViewNavigate(browserId, url)
+    }
+  }
+
   function handleUrlSubmit(e: React.FormEvent) {
     e.preventDefault()
     const url = normalizeUrlInput(urlDraft)
     if (!url) return
-    window.api.browserViewNavigate(browserId, url)
+    goTo(url)
     ;(document.activeElement as HTMLElement | null)?.blur()
   }
 
-  const defaultUrl = useBrowserSettingsStore((s) => s.defaultUrl)
-  const url = tabState?.url ?? defaultUrl
+  const url = tabState?.url ?? ''
   const isLoading = tabState?.isLoading ?? false
   const canGoBack = tabState?.canGoBack ?? false
   const canGoForward = tabState?.canGoForward ?? false
@@ -443,6 +459,7 @@ export function BrowserTab({ browserId }: Props) {
       )}
       <div className="relative flex-1 min-h-0">
         <div ref={containerRef} className="h-full w-full" />
+        {!url && !loadError && <BrowserLandingPage onNavigate={goTo} />}
         {loadError && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-bg px-4 text-center">
             <p className="text-sm text-fg-muted">This page couldn't load</p>
