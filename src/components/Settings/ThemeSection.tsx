@@ -71,7 +71,7 @@ function NewThemeCard({ onCreate }: { onCreate: () => void }) {
     <button
       type="button"
       onClick={onCreate}
-      className="rounded-lg border-2 border-dashed border-border hover:border-fg-muted p-3 flex flex-col items-center justify-center h-[92px] gap-1 text-fg-subtle hover:text-fg transition-colors"
+      className="rounded-lg border-2 border-dashed border-border hover:border-fg-muted p-3 flex flex-col items-center justify-center gap-1 text-fg-subtle hover:text-fg transition-colors"
     >
       <span className="text-xl leading-none">+</span>
       <span className="text-xs font-medium">New Custom Theme</span>
@@ -97,7 +97,7 @@ function ImportThemeCard({ onImport }: { onImport: (json: string) => string | nu
       <button
         type="button"
         onClick={() => setImporting(true)}
-        className="rounded-lg border-2 border-dashed border-border hover:border-fg-muted p-3 flex flex-col items-center justify-center h-[92px] gap-1 text-fg-subtle hover:text-fg transition-colors"
+        className="rounded-lg border-2 border-dashed border-border hover:border-fg-muted p-3 flex flex-col items-center justify-center gap-1 text-fg-subtle hover:text-fg transition-colors"
       >
         <span className="text-xl leading-none">+</span>
         <span className="text-xs font-medium">Import Theme</span>
