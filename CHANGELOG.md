@@ -1,7 +1,24 @@
 # vIDE
 
-## v0.2.9 (2026-09-07)
+## v0.2.9 (2026-09-08)
+- **Multi-instance Claude sessions**: run several Claude Code sessions side by side, each with its own terminal panel; the new-session button moved next to the assistant icon, the busy-session indicator now tints per instance, and a right-click menu on each session tab adds Continue/Resume/Compact/Clear (Previous/Resume moved out of the toolbar into this menu)
+- **Custom Themes**: build your own named theme with independent light/dark palettes, edited with a hue/saturation colour picker (hex/RGB input, a recently-used swatch tray), right-click to edit/delete/share a theme, instant creation with auto-numbered names, a "Copy from Light/Dark" shortcut while editing, and the terminal background now follows the active custom theme
+- **Borahae theme**: a new purple theme family — BTS/ARMY's "I purple you" — with its own background art
+- **Editor Colors**: a new Display setting for the Monaco editor's syntax colours — "High Contrast" (bright, tied to each theme's own accent) and "Mario Mode" (a fixed, maximum-contrast palette) — for easier reading regardless of eyesight
+- **Panel Style**: replaced "Matt" with "Brush Metal", now with a real brushed-metal grain and sheen texture; Glossy and Glass also got visual improvements
+- **Font**: its own Display settings section with a live preview card per font, plus the global UI font-size control moved up from the footer
+- **Backgrounds**: their own Display settings section with card previews; added Atreus, Link, Tech Lines, Borahae, and Wave background images, and the background now swaps automatically to match whichever theme family is active
+- **Settings navigation**: Claude and Bridge split into separate pages under a new grouped sidebar (General / Models / Source Control / Integrations / Productivity); every settings page now shows its own icon next to its title; Bridge, Git, Docker, Mobile, and Graphify settings restyled onto the shared Section/Row/Field layout
+- **"Always open in biggest pane"**: added to Notes, To Do, Jira, Browser, Git Remote, and Settings tabs, and now defaults to on everywhere
 - **Removed Codex support**: vIDE no longer integrates the OpenAI Codex CLI as an agent panel — Claude Code and Bridge remain
+- Renamed the Navbar-on-right toggle to "Navbar on the right (Gabby Style)"
+- The setup wizard's Panel Style and Background pickers now use the same visual card pickers as Display settings, instead of plain dropdowns
+
+**Bug fixes**
+- Fixed right-click context menus (and the theme colour picker's own popover) not taking a custom theme's colours
+- Fixed Panel Style previews in Display settings shifting to match whichever style was actually active, instead of showing their own look
+- Fixed vertical alignment between a Toggle's label and its switch
+- Fixed Docker status flicker under daemon load with debounced events and stale-refresh guarding
 
 
 ## v0.2.8 (2026-09-02)
