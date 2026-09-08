@@ -28,6 +28,15 @@ function boundsEqual(a: DOMRect, b: DOMRect | null): boolean {
 export function BrowserTab({ browserId }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const editingRef = useRef(false)
+  // Shared with the mount effect's rAF bounds-sync loop (below) and with
+  // goTo() (which can create a view well after mount, from a landing-page
+  // navigation) — a ref rather than a plain closure variable so both can
+  // read/reset it.
+  const lastRectRef = useRef<DOMRect | null>(null)
+  // Flips true once the mount effect's cleanup runs, so a goTo()-triggered
+  // browserViewCreate promise that resolves after unmount doesn't write a
+  // phantom entry back into browserStore for a tab that's already gone.
+  const unmountedRef = useRef(false)
   const tabState = useBrowserStore((s) => s.tabs[browserId])
   const [urlDraft, setUrlDraft] = useState(tabState?.url ?? '')
   const [menuOpen, setMenuOpen] = useState(false)
@@ -39,6 +48,7 @@ export function BrowserTab({ browserId }: Props) {
   useEffect(() => {
     if (!containerRef.current) return
     const container = containerRef.current
+    unmountedRef.current = false
 
     useBrowserStore.getState().ensureTab(browserId, '')
 
@@ -113,7 +123,7 @@ export function BrowserTab({ browserId }: Props) {
     // rAF (rather than a ResizeObserver on this element) catches reflows that
     // only move the pane — sidebar toggle, split-divider drag — without
     // changing this element's own size, which a ResizeObserver would miss.
-    let lastRect: DOMRect | null = null
+    lastRectRef.current = null
     let rafId: number
     const syncBounds = () => {
       const containerRect = container.getBoundingClientRect()
@@ -135,8 +145,8 @@ export function BrowserTab({ browserId }: Props) {
           height
         )
       }
-      if (!boundsEqual(rect, lastRect)) {
-        lastRect = rect
+      if (!boundsEqual(rect, lastRectRef.current)) {
+        lastRectRef.current = rect
         if (rect.width > 0 && rect.height > 0) {
           window.api.browserViewSetBounds(browserId, {
             x: rect.x,
@@ -152,6 +162,7 @@ export function BrowserTab({ browserId }: Props) {
 
     return () => {
       cancelled = true
+      unmountedRef.current = true
       cleanupEvent()
       cancelAnimationFrame(rafId)
 
@@ -238,7 +249,27 @@ export function BrowserTab({ browserId }: Props) {
       liveBrowserViews.add(browserId)
       useBrowserStore.getState().updateTab(browserId, { url })
       window.api.browserViewCreate(browserId, url).then((webContentsId) => {
-        if (webContentsId != null) useBrowserStore.getState().updateTab(browserId, { webContentsId })
+        // The mount effect's rAF loop seeds lastRectRef on its very first
+        // frame — before this view exists — and the container's on-screen
+        // rect typically doesn't change once the landing page is replaced,
+        // so that loop alone would never push bounds again. Push them
+        // explicitly now that the view actually exists in the main process,
+        // and keep lastRectRef in sync so the loop doesn't immediately
+        // re-push the same rect on its next tick.
+        if (unmountedRef.current || webContentsId == null) return
+        useBrowserStore.getState().updateTab(browserId, { webContentsId })
+        if (containerRef.current) {
+          const rect = containerRef.current.getBoundingClientRect()
+          if (rect.width > 0 && rect.height > 0) {
+            window.api.browserViewSetBounds(browserId, {
+              x: rect.x,
+              y: rect.y,
+              width: rect.width,
+              height: rect.height,
+            })
+            lastRectRef.current = rect
+          }
+        }
       })
     } else {
       window.api.browserViewNavigate(browserId, url)
