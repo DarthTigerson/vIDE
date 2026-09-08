@@ -450,7 +450,7 @@ export class BrowserViewManager {
     const isFirstUse = !this.get(winId, CLAUDE_TAB_ID)
     if (isFirstUse) {
       this.create(win, CLAUDE_TAB_ID, url) // create() already loads `url` on first creation
-      win.webContents.send('browser:open-claude-tab')
+      win.webContents.send('browser:open-claude-tab', url)
     } else {
       await this.claudeTabWebContents(winId).loadURL(url)
     }

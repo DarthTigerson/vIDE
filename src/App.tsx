@@ -239,7 +239,13 @@ export default function App() {
   // drives on Claude's behalf (VIDE-53) — main process already created and
   // navigated the underlying view by the time this fires; this just surfaces
   // it in the tab strip, same as any other tab, so the user can watch.
-  function openClaudeBrowserTab() {
+  function openClaudeBrowserTab(url: string) {
+    // Seed the store with the URL main just loaded, before the tab (and so
+    // BrowserTab) mounts — same order Jira/git-remote use below. Without it
+    // BrowserTab would mount with an empty url, skip creating/registering the
+    // native view it already has, and silently swallow the first manual
+    // navigation the user types into that tab's address bar.
+    useBrowserStore.getState().ensureTab(CLAUDE_BROWSER_ID, url)
     useEditorStore.getState().openTab({ path: buildBrowserPath(CLAUDE_BROWSER_ID), content: '', dirty: false })
   }
 
@@ -590,8 +596,8 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    return window.api.onOpenClaudeBrowserTab(() => {
-      openClaudeBrowserTab()
+    return window.api.onOpenClaudeBrowserTab((url) => {
+      openClaudeBrowserTab(url)
     })
   }, [])
 

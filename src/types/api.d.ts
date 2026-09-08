@@ -223,7 +223,7 @@ declare global {
       onClaudeData: (cb: (instanceId: string, data: string) => void) => () => void
       onClaudeBusy: (cb: (instanceId: string, busy: boolean, chunkCount: number) => void) => () => void
       onBrowserOpenExternalUrl: (cb: (url: string) => void) => () => void
-      onOpenClaudeBrowserTab: (cb: () => void) => () => void
+      onOpenClaudeBrowserTab: (cb: (url: string) => void) => () => void
 
       onMenuOpenProject: (cb: () => void) => () => void
       getInitialProject: () => Promise<string | null>

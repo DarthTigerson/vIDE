@@ -22,6 +22,13 @@ export function BrowserLandingPage({ onNavigate }: Props) {
 
   const favoriteList = Object.values(favorites).sort((a, b) => b.favoritedAt - a.favoritedAt)
 
+  // Reopening a closed tab un-closes it, so it stops being listed here — the
+  // row body and its hover-revealed restore icon both do exactly this.
+  function reopenClosed(url: string) {
+    onNavigate(url)
+    removeClosedEntry(url)
+  }
+
   return (
     <div className="absolute inset-0 grid grid-cols-[260px_1fr] overflow-hidden bg-bg">
       <div className="overflow-auto border-r border-border bg-sidebar px-4 py-5">
@@ -117,7 +124,7 @@ export function BrowserLandingPage({ onNavigate }: Props) {
                 <div key={entry.url} className="group flex items-center gap-2 rounded px-2 py-1.5 hover:bg-white/5">
                   <button
                     type="button"
-                    onClick={() => onNavigate(entry.url)}
+                    onClick={() => reopenClosed(entry.url)}
                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   >
                     <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-border bg-tab-bar text-[9px] font-semibold text-fg-muted">
@@ -134,10 +141,7 @@ export function BrowserLandingPage({ onNavigate }: Props) {
                   <button
                     type="button"
                     aria-label={`Reopen ${entry.title || entry.url}`}
-                    onClick={() => {
-                      onNavigate(entry.url)
-                      removeClosedEntry(entry.url)
-                    }}
+                    onClick={() => reopenClosed(entry.url)}
                     className="shrink-0 text-fg-subtle opacity-0 hover:text-fg group-hover:opacity-100"
                   >
                     <RestoreIcon />

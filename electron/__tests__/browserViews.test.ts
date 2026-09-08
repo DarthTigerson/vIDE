@@ -231,7 +231,10 @@ describe('BrowserViewManager Claude-controlled tab (VIDE-53)', () => {
     await manager.navigateClaudeTab(30, 'https://example.org')
 
     expect(win.webContents.send).toHaveBeenCalledTimes(1)
-    expect(win.webContents.send).toHaveBeenCalledWith('browser:open-claude-tab')
+    // The url rides along so the renderer can seed the tab's store entry
+    // before BrowserTab mounts — otherwise it mounts with an empty url and
+    // never registers the native view main just created.
+    expect(win.webContents.send).toHaveBeenCalledWith('browser:open-claude-tab', 'https://example.com')
   })
 
   it('navigateClaudeTab reuses the same tab (attaches only once) on a second call, loading each new url', async () => {

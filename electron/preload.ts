@@ -152,8 +152,8 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('browser:open-external-url', handler)
     return () => ipcRenderer.removeListener('browser:open-external-url', handler)
   },
-  onOpenClaudeBrowserTab: (cb: () => void) => {
-    const handler = () => cb()
+  onOpenClaudeBrowserTab: (cb: (url: string) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, url: string) => cb(url)
     ipcRenderer.on('browser:open-claude-tab', handler)
     return () => ipcRenderer.removeListener('browser:open-claude-tab', handler)
   },

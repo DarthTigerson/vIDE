@@ -1,15 +1,24 @@
 // src/components/Settings/__tests__/BrowserSettingsPage.test.tsx
 /// <reference types="@testing-library/jest-dom" />
-import { describe, it, expect, afterEach, beforeEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
+
+// Hoisted so window.api exists before any import runs: browserMcpStore has a
+// module-load-time Promise.resolve().then(...) that calls window.api directly,
+// and that microtask flushes during module collection — long before a
+// beforeEach would.
+vi.hoisted(() => {
+  ;(global as any).window = (global as any).window ?? {}
+  ;(global as any).window.api = {
+    browserMcpEnable: () => Promise.resolve(),
+    browserMcpDisable: () => Promise.resolve(),
+    browserMcpSetEnabled: () => Promise.resolve(),
+  }
+})
+
 import { render, screen, cleanup } from '@testing-library/react'
 import { BrowserSettingsPage } from '../BrowserSettingsPage'
 import { useBrowserSettingsStore } from '@/stores/browserSettingsStore'
 import { useBrowserMcpStore } from '@/stores/browserMcpStore'
-
-beforeEach(() => {
-  ;(global as any).window = (global as any).window ?? {}
-  ;(global as any).window.api = { browserMcpSetEnabled: () => Promise.resolve() }
-})
 
 afterEach(() => {
   cleanup()

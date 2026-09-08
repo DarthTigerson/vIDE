@@ -25,6 +25,14 @@ interface Props {
 // of a DOM node.
 const liveBrowserViews = new Set<string>()
 
+// Must match CLAUDE_TAB_ID in electron/browserViews.ts (and CLAUDE_BROWSER_ID
+// in src/App.tsx) — the reserved id of the tab the vide-browser MCP server
+// drives on Claude's behalf. Its navigations are Claude's, not the user's, so
+// they're excluded from the Recent/Closed-tabs history the landing page shows:
+// one MCP session can fire dozens of did-navigate events and would otherwise
+// flush the user's own list.
+const CLAUDE_BROWSER_ID = 'claude-controlled'
+
 function boundsEqual(a: DOMRect, b: DOMRect | null): boolean {
   return !!b && a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
 }
@@ -57,6 +65,8 @@ export function BrowserTab({ browserId }: Props) {
     useBrowserStore.getState().ensureTab(browserId, '')
 
     let cancelled = false
+    // Claude's own browsing stays out of the user's Recent/Closed history.
+    const isClaudeTab = browserId === CLAUDE_BROWSER_ID
     const initialUrl = useBrowserStore.getState().tabs[browserId]?.url ?? ''
     const alreadyLive = liveBrowserViews.has(browserId)
 
@@ -87,7 +97,7 @@ export function BrowserTab({ browserId }: Props) {
           })
           break
         case 'did-navigate':
-          useBrowserRecentStore.getState().recordVisit(event.url, event.url)
+          if (!isClaudeTab) useBrowserRecentStore.getState().recordVisit(event.url, event.url)
           useBrowserStore.getState().updateTab(browserId, {
             url: event.url,
             canGoBack: event.canGoBack,
@@ -106,7 +116,7 @@ export function BrowserTab({ browserId }: Props) {
         case 'page-title-updated': {
           useBrowserStore.getState().updateTab(browserId, { title: event.title })
           const currentUrl = useBrowserStore.getState().tabs[browserId]?.url
-          if (currentUrl) useBrowserRecentStore.getState().recordVisit(currentUrl, event.title)
+          if (currentUrl && !isClaudeTab) useBrowserRecentStore.getState().recordVisit(currentUrl, event.title)
           break
         }
         case 'did-fail-load':
@@ -185,9 +195,10 @@ export function BrowserTab({ browserId }: Props) {
       const stillOpen = useEditorStore.getState().tabs.some((t) => t.path === tabPath)
       if (!stillOpen) {
         // A landing-page tab that was never navigated has no url — nothing
-        // worth remembering as a "closed tab" in that case.
+        // worth remembering as a "closed tab" in that case. Neither is the
+        // Claude-controlled tab, whose pages the user never chose to open.
         const closingTab = useBrowserStore.getState().tabs[browserId]
-        if (closingTab?.url) {
+        if (closingTab?.url && !isClaudeTab) {
           useBrowserClosedTabsStore.getState().recordClosed(closingTab.url, closingTab.title || closingTab.url)
         }
         liveBrowserViews.delete(browserId)

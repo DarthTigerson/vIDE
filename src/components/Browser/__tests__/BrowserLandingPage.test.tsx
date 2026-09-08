@@ -56,4 +56,13 @@ describe('BrowserLandingPage', () => {
     expect(onNavigate).toHaveBeenCalledWith('https://example.com')
     expect(useBrowserClosedTabsStore.getState().entries).toHaveLength(0)
   })
+
+  it('clicking the closed-tab row body itself also navigates and removes the entry', () => {
+    useBrowserClosedTabsStore.getState().recordClosed('https://example.com', 'Example Domain')
+    const onNavigate = vi.fn()
+    const { getByText } = render(<BrowserLandingPage onNavigate={onNavigate} />)
+    fireEvent.click(getByText('Example Domain'))
+    expect(onNavigate).toHaveBeenCalledWith('https://example.com')
+    expect(useBrowserClosedTabsStore.getState().entries).toHaveLength(0)
+  })
 })

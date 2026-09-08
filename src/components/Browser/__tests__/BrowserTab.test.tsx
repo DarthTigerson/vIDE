@@ -137,4 +137,39 @@ describe('BrowserTab', () => {
     const { queryByLabelText } = render(<BrowserTab browserId="tab-9" />)
     expect(queryByLabelText('Add to favorites')).toBeNull()
   })
+
+  // A tab seeded with a url before mount (Jira, git-remote, and the
+  // Claude-controlled tab) registers its native view at mount, so the next
+  // navigation must go through browserViewNavigate — a second
+  // browserViewCreate would be a no-op in the main process and silently drop
+  // the navigation.
+  it('a tab seeded with a url navigates the existing view instead of re-creating it', () => {
+    useBrowserStore.getState().ensureTab('tab-10', 'https://example.com')
+    const { container } = render(<BrowserTab browserId="tab-10" />)
+    expect(window.api.browserViewCreate).toHaveBeenCalledTimes(1)
+
+    const input = container.querySelector('input') as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'other.com' } })
+    fireEvent.submit(input.closest('form') as HTMLFormElement)
+
+    expect(window.api.browserViewNavigate).toHaveBeenCalledWith('tab-10', 'https://other.com')
+    expect(window.api.browserViewCreate).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not record visits or closed tabs for the Claude-controlled tab', () => {
+    const { unmount } = render(<BrowserTab browserId="claude-controlled" />)
+    lastEventCallback!('claude-controlled', {
+      type: 'did-navigate',
+      url: 'https://example.com',
+      canGoBack: false,
+      canGoForward: false,
+    })
+    lastEventCallback!('claude-controlled', { type: 'page-title-updated', title: 'Example Domain' })
+
+    expect(useBrowserRecentStore.getState().entries).toHaveLength(0)
+
+    unmount()
+
+    expect(useBrowserClosedTabsStore.getState().entries).toHaveLength(0)
+  })
 })
