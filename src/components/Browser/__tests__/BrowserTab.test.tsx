@@ -5,6 +5,7 @@ import { BrowserTab } from '../BrowserTab'
 import { useBrowserStore } from '@/stores/browserStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { useBrowserFavoritesStore } from '@/stores/browserFavoritesStore'
+import { useBrowserRecentStore } from '@/stores/browserRecentStore'
 
 // Captures the most recent onBrowserViewEvent callback so later tasks'
 // tests can simulate main-process events (did-navigate, page-title-updated, ...).
@@ -39,6 +40,7 @@ beforeEach(() => {
   useBrowserStore.setState({ tabs: {}, fullscreenId: null })
   useEditorStore.setState({ tabs: [] } as any)
   useBrowserFavoritesStore.setState({ favorites: {} })
+  useBrowserRecentStore.setState({ entries: [] })
 })
 
 afterEach(() => {
@@ -79,5 +81,22 @@ describe('BrowserTab', () => {
     fireEvent.click(getByText('Example Domain'))
 
     expect(window.api.browserViewCreate).toHaveBeenCalledWith('tab-4', 'https://example.com')
+  })
+
+  it('records a visit in the recent store on navigation, refining the title once known', () => {
+    render(<BrowserTab browserId="tab-5" />)
+    lastEventCallback!('tab-5', { type: 'did-navigate', url: 'https://example.com', canGoBack: false, canGoForward: false })
+
+    expect(useBrowserRecentStore.getState().entries[0]).toMatchObject({
+      url: 'https://example.com',
+      title: 'https://example.com',
+    })
+
+    lastEventCallback!('tab-5', { type: 'page-title-updated', title: 'Example Domain' })
+
+    expect(useBrowserRecentStore.getState().entries[0]).toMatchObject({
+      url: 'https://example.com',
+      title: 'Example Domain',
+    })
   })
 })

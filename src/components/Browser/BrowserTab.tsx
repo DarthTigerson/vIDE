@@ -8,6 +8,7 @@ import { MOBILE_DEVICES, getMobileDevice } from './mobileDevices'
 import { useStatusMessageStore } from '@/stores/statusMessageStore'
 import { useSearchStore } from '@/stores/searchStore'
 import { useChangelogStore } from '@/stores/changelogStore'
+import { useBrowserRecentStore } from '@/stores/browserRecentStore'
 import { BrowserLandingPage } from './BrowserLandingPage'
 
 interface Props {
@@ -83,6 +84,14 @@ export function BrowserTab({ browserId }: Props) {
           })
           break
         case 'did-navigate':
+          useBrowserRecentStore.getState().recordVisit(event.url, event.url)
+          useBrowserStore.getState().updateTab(browserId, {
+            url: event.url,
+            canGoBack: event.canGoBack,
+            canGoForward: event.canGoForward,
+          })
+          if (!editingRef.current) setUrlDraft(event.url)
+          break
         case 'did-navigate-in-page':
           useBrowserStore.getState().updateTab(browserId, {
             url: event.url,
@@ -91,9 +100,12 @@ export function BrowserTab({ browserId }: Props) {
           })
           if (!editingRef.current) setUrlDraft(event.url)
           break
-        case 'page-title-updated':
+        case 'page-title-updated': {
           useBrowserStore.getState().updateTab(browserId, { title: event.title })
+          const currentUrl = useBrowserStore.getState().tabs[browserId]?.url
+          if (currentUrl) useBrowserRecentStore.getState().recordVisit(currentUrl, event.title)
           break
+        }
         case 'did-fail-load':
           useBrowserStore.getState().updateTab(browserId, {
             isLoading: false,
