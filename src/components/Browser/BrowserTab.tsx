@@ -5,7 +5,6 @@ import { buildBrowserPath } from '@/components/Settings/paths'
 import { normalizeUrlInput } from './urlBar'
 import { zoomLevelToPercent } from './zoomLevel'
 import { MOBILE_DEVICES, getMobileDevice } from './mobileDevices'
-import { useStatusMessageStore } from '@/stores/statusMessageStore'
 import { useSearchStore } from '@/stores/searchStore'
 import { useChangelogStore } from '@/stores/changelogStore'
 import { useBrowserRecentStore } from '@/stores/browserRecentStore'
@@ -13,6 +12,7 @@ import { useBrowserClosedTabsStore } from '@/stores/browserClosedTabsStore'
 import { useBrowserFavoritesStore } from '@/stores/browserFavoritesStore'
 import { BrowserLandingPage } from './BrowserLandingPage'
 import { StarIcon } from './StarIcon'
+import { ClearBrowsingDataModal } from './ClearBrowsingDataModal'
 
 interface Props {
   browserId: string
@@ -56,6 +56,7 @@ export function BrowserTab({ browserId }: Props) {
   const toggleButtonRef = useRef<HTMLButtonElement>(null)
   const [deviceMenuOpen, setDeviceMenuOpen] = useState(false)
   const deviceButtonRef = useRef<HTMLButtonElement>(null)
+  const [clearDataOpen, setClearDataOpen] = useState(false)
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -213,6 +214,7 @@ export function BrowserTab({ browserId }: Props) {
   }, [browserId])
 
   const loadError = tabState?.loadError ?? null
+  const url = tabState?.url ?? ''
 
   // The native view always draws on top of this component's own DOM — and, for
   // the same reason, above every other DOM-rendered surface in the window, palettes
@@ -232,8 +234,12 @@ export function BrowserTab({ browserId }: Props) {
   )
   const changelogOpen = useChangelogStore((s) => s.content !== null)
   useEffect(() => {
-    window.api.browserViewSetVisible(browserId, !loadError && !anyOverlayOpen && !changelogOpen)
-  }, [browserId, loadError, anyOverlayOpen, changelogOpen])
+    // Also hides the native view whenever the tab has no url — the landing
+    // page (shown by the JSX below in that case) needs the view out of the
+    // way, same as goHome() relies on this effect rather than calling
+    // setVisible itself.
+    window.api.browserViewSetVisible(browserId, !!url && !loadError && !anyOverlayOpen && !changelogOpen)
+  }, [browserId, url, loadError, anyOverlayOpen, changelogOpen])
 
   useEffect(() => {
     if (!menuOpen) return
@@ -308,6 +314,22 @@ export function BrowserTab({ browserId }: Props) {
     }
   }
 
+  // Returns to the landing page without destroying the native view — it's
+  // just detached from display (the visibility effect above reacts to `url`
+  // going empty), so a later goTo() call finds it still in liveBrowserViews
+  // and navigates it directly instead of re-creating it.
+  function goHome() {
+    useBrowserStore.getState().updateTab(browserId, {
+      url: '',
+      title: '',
+      canGoBack: false,
+      canGoForward: false,
+      loadError: null,
+      isLoading: false,
+    })
+    setUrlDraft('')
+  }
+
   function handleUrlSubmit(e: React.FormEvent) {
     e.preventDefault()
     const url = normalizeUrlInput(urlDraft)
@@ -316,7 +338,6 @@ export function BrowserTab({ browserId }: Props) {
     ;(document.activeElement as HTMLElement | null)?.blur()
   }
 
-  const url = tabState?.url ?? ''
   const isFavorite = useBrowserFavoritesStore((s) => (url ? s.isFavorite(url) : false))
   const isLoading = tabState?.isLoading ?? false
   const canGoBack = tabState?.canGoBack ?? false
@@ -382,6 +403,15 @@ export function BrowserTab({ browserId }: Props) {
         >
           <ReloadIcon spinning={isLoading} />
         </button>
+        <button
+          type="button"
+          aria-label="Home"
+          disabled={!url}
+          onClick={goHome}
+          className="flex h-6 w-6 items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
+        >
+          <HomeIcon />
+        </button>
         <form onSubmit={handleUrlSubmit} className="flex-1 min-w-0">
           <input
             value={urlDraft}
@@ -429,13 +459,10 @@ export function BrowserTab({ browserId }: Props) {
           <div className="flex items-center rounded-full border border-border bg-bg overflow-hidden">
             <button
               type="button"
-              onClick={async () => {
-                await window.api.browserViewClearCache(browserId)
-                useStatusMessageStore.getState().show('Cache cleared')
-              }}
+              onClick={() => setClearDataOpen(true)}
               className="flex h-6 items-center justify-center whitespace-nowrap px-3 text-xs text-fg-muted hover:text-fg hover:bg-white/5"
             >
-              Clear cache
+              Clear browsing data…
             </button>
           </div>
           <div className="flex items-center gap-1.5">
@@ -553,6 +580,9 @@ export function BrowserTab({ browserId }: Props) {
           </div>
         )}
       </div>
+      {clearDataOpen && (
+        <ClearBrowsingDataModal browserId={browserId} onClose={() => setClearDataOpen(false)} />
+      )}
     </div>
   )
 }
@@ -565,6 +595,15 @@ function NavArrowIcon({ direction }: { direction: 'back' | 'forward' }) {
       ) : (
         <path d="M9 5L16 12L9 19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
       )}
+    </svg>
+  )
+}
+
+function HomeIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3 11.5L12 4l9 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }

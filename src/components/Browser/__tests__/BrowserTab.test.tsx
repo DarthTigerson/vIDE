@@ -28,6 +28,7 @@ function mockWindowApi() {
     browserViewZoomReset: vi.fn(),
     browserViewSetMobileMode: vi.fn(),
     browserViewClearCache: vi.fn().mockResolvedValue(undefined),
+    browserViewClearCookies: vi.fn().mockResolvedValue(undefined),
     browserViewDestroy: vi.fn(),
     onBrowserViewEvent: vi.fn((cb: (id: string, event: any) => void) => {
       lastEventCallback = cb
@@ -171,5 +172,34 @@ describe('BrowserTab', () => {
     unmount()
 
     expect(useBrowserClosedTabsStore.getState().entries).toHaveLength(0)
+  })
+
+  it('Home is disabled while already on the landing page', () => {
+    const { getByLabelText } = render(<BrowserTab browserId="tab-11" />)
+    expect(getByLabelText('Home')).toBeDisabled()
+  })
+
+  it('clicking Home returns a browsing tab to the landing page without destroying the view', () => {
+    useBrowserStore.getState().ensureTab('tab-12', 'https://example.com')
+    useBrowserStore.getState().updateTab('tab-12', { title: 'Example Domain', canGoBack: true })
+
+    const { getByLabelText, getByText } = render(<BrowserTab browserId="tab-12" />)
+    fireEvent.click(getByLabelText('Home'))
+
+    expect(useBrowserStore.getState().tabs['tab-12'].url).toBe('')
+    expect(useBrowserStore.getState().tabs['tab-12'].canGoBack).toBe(false)
+    expect(window.api.browserViewDestroy).not.toHaveBeenCalled()
+    expect(getByText('Star the address bar on any page to pin it here.')).toBeTruthy()
+  })
+
+  it('opens the clear browsing data modal from the tools menu', () => {
+    useBrowserStore.getState().ensureTab('tab-13', 'https://example.com')
+    const { getByLabelText, getByText, queryByText } = render(<BrowserTab browserId="tab-13" />)
+
+    expect(queryByText('Clear browsing data')).toBeNull()
+    fireEvent.click(getByLabelText('Zoom controls'))
+    fireEvent.click(getByText('Clear browsing data…'))
+
+    expect(getByText('Clear browsing data')).toBeTruthy()
   })
 })
