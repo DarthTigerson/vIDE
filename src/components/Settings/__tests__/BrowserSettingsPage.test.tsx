@@ -15,14 +15,14 @@ vi.hoisted(() => {
   }
 })
 
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { BrowserSettingsPage } from '../BrowserSettingsPage'
 import { useBrowserSettingsStore } from '@/stores/browserSettingsStore'
 import { useBrowserMcpStore } from '@/stores/browserMcpStore'
 
 afterEach(() => {
   cleanup()
-  useBrowserSettingsStore.setState({ openInBiggestPane: true })
+  useBrowserSettingsStore.setState({ openInBiggestPane: true, closeSidePanelOnOpen: false })
   useBrowserMcpStore.setState({ enabled: false, pending: false, error: null })
 })
 
@@ -36,5 +36,15 @@ describe('BrowserSettingsPage', () => {
   it('still renders the "Always open in biggest window" toggle', () => {
     render(<BrowserSettingsPage />)
     expect(screen.getByRole('switch', { name: 'Always open in biggest window' })).toBeTruthy()
+  })
+
+  it('renders the "Close side panel when opening" toggle, off by default, and toggling it updates the store', () => {
+    render(<BrowserSettingsPage />)
+    const toggle = screen.getByRole('switch', { name: 'Close side panel when opening' })
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+
+    fireEvent.click(toggle)
+
+    expect(useBrowserSettingsStore.getState().closeSidePanelOnOpen).toBe(true)
   })
 })

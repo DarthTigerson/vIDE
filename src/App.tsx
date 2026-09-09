@@ -225,14 +225,13 @@ export default function App() {
   function openNewBrowser() {
     const id = Date.now().toString(36)
     const tab = { path: buildBrowserPath(id), content: '', dirty: false }
-    if (useBrowserSettingsStore.getState().openInBiggestPane) {
-      const biggestPaneId = getBiggestPaneId()
-      if (biggestPaneId) {
-        useEditorStore.getState().openTabInPane(tab, biggestPaneId)
-        return
-      }
+    const biggestPaneId = useBrowserSettingsStore.getState().openInBiggestPane ? getBiggestPaneId() : null
+    if (biggestPaneId) {
+      useEditorStore.getState().openTabInPane(tab, biggestPaneId)
+    } else {
+      useEditorStore.getState().openTab(tab)
     }
-    useEditorStore.getState().openTab(tab)
+    if (useBrowserSettingsStore.getState().closeSidePanelOnOpen) setLeftPanel(null)
   }
 
   // Opens (or focuses, if already open) the tab the vide-browser MCP server
