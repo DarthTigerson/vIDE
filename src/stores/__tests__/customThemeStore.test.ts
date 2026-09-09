@@ -46,11 +46,29 @@ const { localStorageStore, mediaState, domState, CSS_DEFAULTS } = vi.hoisted(() 
     },
   }
 
-  const domState = { attr: null as string | null, inline: {} as Record<string, string> }
+  // Stand-in for index.css's [data-theme="..."][data-panel-style="glossy"/"glass"]
+  // rules — real CSS uses the same alpha per var across every theme family, so
+  // one entry (keyed only by panel style) is enough to exercise it.
+  const PANEL_STYLE_DEFAULTS: Record<string, Record<string, string>> = {
+    glossy: { '--color-bg': 'rgba(26, 26, 26, 0.5)', '--color-panel': 'rgba(30, 30, 30, 0.6)', '--color-sidebar': 'rgba(37, 37, 38, 0.5)', '--color-tab-bar': 'rgba(45, 45, 45, 0.65)' },
+    glass: { '--color-bg': 'rgba(26, 26, 26, 0.2)', '--color-panel': 'rgba(30, 30, 30, 0.25)' },
+  }
+
+  const domState = {
+    attr: null as string | null,
+    panelStyle: null as string | null,
+    inline: {} as Record<string, string>,
+  }
   const el = {
-    getAttribute: (k: string) => (k === 'data-theme' ? domState.attr : null),
-    setAttribute: (k: string, v: string) => { if (k === 'data-theme') domState.attr = v },
-    removeAttribute: (k: string) => { if (k === 'data-theme') domState.attr = null },
+    getAttribute: (k: string) => (k === 'data-theme' ? domState.attr : k === 'data-panel-style' ? domState.panelStyle : null),
+    setAttribute: (k: string, v: string) => {
+      if (k === 'data-theme') domState.attr = v
+      if (k === 'data-panel-style') domState.panelStyle = v
+    },
+    removeAttribute: (k: string) => {
+      if (k === 'data-theme') domState.attr = null
+      if (k === 'data-panel-style') domState.panelStyle = null
+    },
     style: {
       setProperty: (k: string, v: string) => { domState.inline[k] = v },
       removeProperty: (k: string) => { delete domState.inline[k] },
@@ -60,7 +78,9 @@ const { localStorageStore, mediaState, domState, CSS_DEFAULTS } = vi.hoisted(() 
   ;(globalThis as any).document = { documentElement: el }
   ;(globalThis as any).getComputedStyle = (target: typeof el) => ({
     getPropertyValue: (k: string) =>
-      target.style.getPropertyValue(k) || CSS_DEFAULTS[domState.attr ?? 'claude-dark']?.[k] || '',
+      target.style.getPropertyValue(k) ||
+      (domState.panelStyle ? PANEL_STYLE_DEFAULTS[domState.panelStyle]?.[k] : undefined) ||
+      CSS_DEFAULTS[domState.attr ?? 'claude-dark']?.[k] || '',
   })
 
   return { localStorageStore, mediaState, domState, CSS_DEFAULTS }
@@ -68,10 +88,12 @@ const { localStorageStore, mediaState, domState, CSS_DEFAULTS } = vi.hoisted(() 
 
 import { useThemeStore, XTERM_THEMES, glassXtermTheme, XTERM_GLASS_ALPHA } from '../themeStore'
 import { useCustomThemeStore, CUSTOM_COLOR_VARS, effectiveXtermTheme } from '../customThemeStore'
+import { useDisplayStore } from '../displayStore'
 import { hexWithAlpha } from '@/lib/color'
 
 function resetDom() {
   domState.attr = null
+  domState.panelStyle = null
   Object.keys(domState.inline).forEach((k) => delete domState.inline[k])
 }
 
@@ -81,6 +103,7 @@ beforeEach(() => {
   resetDom()
   useThemeStore.setState({ theme: 'claude-dark', matchSystem: false })
   useCustomThemeStore.setState({ themes: [], activeId: null })
+  useDisplayStore.setState({ panelStyle: 'solid' })
 })
 
 describe('createFromActive', () => {
@@ -289,6 +312,82 @@ describe('export / import', () => {
     }
     // the read must have restored the override it temporarily removed
     expect(domState.inline['--color-bg']).toBe('#ff00ff')
+  })
+})
+
+describe('reading built-in defaults while a non-solid panel style is active', () => {
+  it('createFromActive picks up the real base colour, not black, when Glossy is active', () => {
+    domState.panelStyle = 'glossy'
+    useDisplayStore.setState({ panelStyle: 'glossy' })
+    const id = useCustomThemeStore.getState().createFromActive('Under Glossy')
+    const theme = useCustomThemeStore.getState().themes.find((t) => t.id === id)!
+    expect(theme.dark['--color-bg']).toBe('#111111')
+    expect(theme.dark['--color-panel']).toBe('#1a1a1a')
+    expect(theme.dark['--color-sidebar']).toBe('#1a1a1a')
+  })
+
+  it('createFromActive picks up the real base colour, not black, when Glass is active', () => {
+    domState.panelStyle = 'glass'
+    useDisplayStore.setState({ panelStyle: 'glass' })
+    const id = useCustomThemeStore.getState().createFromActive('Under Glass')
+    const theme = useCustomThemeStore.getState().themes.find((t) => t.id === id)!
+    expect(theme.dark['--color-bg']).toBe('#111111')
+    expect(theme.dark['--color-panel']).toBe('#1a1a1a')
+  })
+
+  it('restores the data-panel-style attribute it temporarily removed', () => {
+    domState.panelStyle = 'glossy'
+    useDisplayStore.setState({ panelStyle: 'glossy' })
+    useCustomThemeStore.getState().createFromActive('Under Glossy')
+    expect(domState.panelStyle).toBe('glossy')
+  })
+
+  it('importTheme backfills the real base colour, not black, when Glass is active', () => {
+    domState.panelStyle = 'glass'
+    useDisplayStore.setState({ panelStyle: 'glass' })
+    const json = JSON.stringify({ name: 'Partial under glass', baseFamily: 'claude', light: {}, dark: {} })
+    const result = useCustomThemeStore.getState().importTheme(json)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      const theme = useCustomThemeStore.getState().themes.find((t) => t.id === result.id)!
+      expect(theme.dark['--color-bg']).toBe('#111111')
+    }
+  })
+})
+
+describe('applying a custom theme\'s palette under the active panel style', () => {
+  it('writes the colour unchanged under Solid', () => {
+    useDisplayStore.setState({ panelStyle: 'solid' })
+    const id = useCustomThemeStore.getState().createFromActive('Solid theme')
+    useCustomThemeStore.getState().setSwatch(id, 'dark', '--color-bg', '#123456')
+    expect(domState.inline['--color-bg']).toBe('#123456')
+  })
+
+  it('applies the Glossy alpha to background/panel/sidebar/tab-bar vars', () => {
+    useDisplayStore.setState({ panelStyle: 'glossy' })
+    const id = useCustomThemeStore.getState().createFromActive('Glossy theme')
+    useCustomThemeStore.getState().setSwatch(id, 'dark', '--color-bg', '#123456')
+    expect(domState.inline['--color-bg']).toBe(hexWithAlpha('#123456', 0.5))
+  })
+
+  it('applies the Glass alpha to background/panel vars only', () => {
+    useDisplayStore.setState({ panelStyle: 'glass' })
+    const id = useCustomThemeStore.getState().createFromActive('Glass theme')
+    useCustomThemeStore.getState().setSwatch(id, 'dark', '--color-bg', '#123456')
+    useCustomThemeStore.getState().setSwatch(id, 'dark', '--color-border', '#abcdef')
+    expect(domState.inline['--color-bg']).toBe(hexWithAlpha('#123456', 0.2))
+    // vars glass leaves alone (e.g. border) stay untouched, matching how the
+    // built-in [data-theme][data-panel-style="glass"] rules only redeclare bg/panel
+    expect(domState.inline['--color-border']).toBe('#abcdef')
+  })
+
+  it('re-applies with the new alpha when the panel style changes while a custom theme is active', () => {
+    const id = useCustomThemeStore.getState().createFromActive('Switcheroo')
+    useCustomThemeStore.getState().setSwatch(id, 'dark', '--color-bg', '#123456')
+    expect(domState.inline['--color-bg']).toBe('#123456')
+
+    useDisplayStore.getState().setPanelStyle('glass')
+    expect(domState.inline['--color-bg']).toBe(hexWithAlpha('#123456', 0.2))
   })
 })
 

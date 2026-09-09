@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { ITheme } from '@xterm/xterm'
 import { useThemeStore, familyOf, THEME_OPTIONS, XTERM_THEMES, glassXtermTheme, XTERM_GLASS_ALPHA, type ThemeId } from './themeStore'
+import { useDisplayStore } from './displayStore'
 import { hexWithAlpha } from '@/lib/color'
 
 const STORAGE_KEY = 'vide:customThemes'
@@ -45,10 +46,35 @@ function rgbSpaceToHex(raw: string): string {
     : '#808080'
 }
 
+// Mirrors the alpha values index.css bakes into its per-theme
+// [data-theme][data-panel-style="glossy"/"glass"] rules (e.g. claude-dark's
+// glossy --color-bg: rgba(26, 26, 26, 0.5)) — those rules are keyed by the
+// literal built-in data-theme id, so they never fire once a custom theme's
+// colours land as inline overrides on <html> (inline style always wins over
+// any non-!important selector, however specific). Reapplying the same alpha
+// here keeps Glossy/Glass panels translucent under a custom theme too, instead
+// of always rendering flat opaque colours no matter which panel style is
+// selected. Solid/Brush Metal need no entry: their only CSS effect is a
+// bolder --color-border, and a custom theme's own border pick already stands
+// in for that.
+const GLOSSY_ALPHA: Partial<Record<CustomColorVar, number>> = {
+  '--color-bg': 0.5, '--color-panel': 0.6, '--color-sidebar': 0.5, '--color-tab-bar': 0.65,
+}
+const GLASS_ALPHA: Partial<Record<CustomColorVar, number>> = {
+  '--color-bg': 0.2, '--color-panel': 0.25,
+}
+
+function withPanelStyleAlpha(varName: CustomColorVar, hex: string): string {
+  const panelStyle = useDisplayStore.getState().panelStyle
+  const alphaMap = panelStyle === 'glossy' ? GLOSSY_ALPHA : panelStyle === 'glass' ? GLASS_ALPHA : undefined
+  const alpha = alphaMap?.[varName]
+  return alpha === undefined ? hex : hexWithAlpha(hex, alpha)
+}
+
 function applyToDOM(varName: CustomColorVar, hex: string) {
   document.documentElement.style.setProperty(
     varName,
-    varName === '--color-accent' ? hexToRgbSpace(hex) : hex,
+    varName === '--color-accent' ? hexToRgbSpace(hex) : withPanelStyleAlpha(varName, hex),
   )
 }
 
@@ -77,6 +103,7 @@ function currentVariant(): 'light' | 'dark' {
 function readBuiltInPalette(themeId: string): Palette {
   const el = document.documentElement
   const originalAttr = el.getAttribute('data-theme')
+  const originalPanelStyle = el.getAttribute('data-panel-style')
   const savedInline: Partial<Record<CustomColorVar, string>> = {}
   CUSTOM_COLOR_VARS.forEach((def) => {
     const v = el.style.getPropertyValue(def.varName)
@@ -84,6 +111,15 @@ function readBuiltInPalette(themeId: string): Palette {
     el.style.removeProperty(def.varName)
   })
 
+  // Glossy/Glass redefine several of these vars as translucent rgba() via
+  // [data-theme][data-panel-style] (see withPanelStyleAlpha above) — without
+  // also removing data-panel-style, reading "the built-in default" while one
+  // of those styles is active would pick up an rgba() string here, which
+  // isn't a '#'-prefixed hex and silently became '#000000' below — corrupting
+  // every new/imported/repaired custom theme's background/panel/sidebar to
+  // black whenever Glossy or Glass was the active panel style. Same technique
+  // displayStore.ts's basePanelColors() uses for the analogous problem there.
+  el.removeAttribute('data-panel-style')
   el.setAttribute('data-theme', themeId)
   const styles = getComputedStyle(el)
   const palette = {} as Palette
@@ -96,6 +132,7 @@ function readBuiltInPalette(themeId: string): Palette {
 
   if (originalAttr === null) el.removeAttribute('data-theme')
   else el.setAttribute('data-theme', originalAttr)
+  if (originalPanelStyle !== null) el.setAttribute('data-panel-style', originalPanelStyle)
   Object.entries(savedInline).forEach(([k, v]) => el.style.setProperty(k, v as string))
 
   return palette
@@ -300,6 +337,17 @@ export const useCustomThemeStore = create<CustomThemeStore>((set, get) => ({
 
 useThemeStore.subscribe((state, prevState) => {
   if (state.theme === prevState.theme) return
+  const { activeId, themes } = useCustomThemeStore.getState()
+  if (!activeId) return
+  const theme = themes.find((t) => t.id === activeId)
+  if (theme) applyPalette(theme[currentVariant()])
+})
+
+// Glossy/Glass need a different alpha applied to the active custom theme's
+// colours (see withPanelStyleAlpha) — re-apply so switching panel style while
+// a custom theme is active takes effect immediately, not just on the next edit.
+useDisplayStore.subscribe((state, prevState) => {
+  if (state.panelStyle === prevState.panelStyle) return
   const { activeId, themes } = useCustomThemeStore.getState()
   if (!activeId) return
   const theme = themes.find((t) => t.id === activeId)
