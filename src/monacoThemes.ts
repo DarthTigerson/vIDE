@@ -29,6 +29,8 @@ export const THEME_PALETTES: Record<ThemeId, ThemePalette> = {
   'link-light':   { base: 'vs',      background: '#fffef2', foreground: '#3a2f1e', accent: '#6b8a3d', border: '#c9c093', fgMuted: '#7a6b4f', fgSubtle: '#a89b78' },
   'atreus-dark':  { base: 'vs-dark', background: '#171b28', foreground: '#e4e7f2', accent: '#5468c4', border: '#3a4460', fgMuted: '#8b93b0', fgSubtle: '#4f5670' },
   'atreus-light': { base: 'vs',      background: '#f8f9fc', foreground: '#1c2233', accent: '#2c3a6e', border: '#c2c8dc', fgMuted: '#5c6480', fgSubtle: '#8b93b0' },
+  'gabriele-dark':  { base: 'vs-dark', background: '#4e4e4e', foreground: '#cccccc', accent: '#828282', border: '#3c3c3c', fgMuted: '#a3a3a3', fgSubtle: '#858585' },
+  'gabriele-light': { base: 'vs',      background: '#ffffff', foreground: '#2b2b2b', accent: '#5c5c5c', border: '#d4d4d4', fgMuted: '#737373', fgSubtle: '#999999' },
 }
 
 export interface HighContrastTokens {
@@ -58,6 +60,12 @@ export const HIGH_CONTRAST_TOKENS: Record<ThemeId, HighContrastTokens> = {
   'link-light':    { keyword: '#2d6a1f', string: '#9a6b00', number: '#007a6b', type: '#b33f2e', comment: '#7a6b3d' },
   'atreus-dark':   { keyword: '#5b8cff', string: '#3fe0ff', number: '#ffb43f', type: '#c17bff', comment: '#7a86b8' },
   'atreus-light':  { keyword: '#1a3fcc', string: '#00707a', number: '#a6650a', type: '#6a1fb3', comment: '#5a6486' },
+  // Gabriele's own accent has no hue at all (pure gray, s=0) — run through
+  // deriveHighContrastTokens below anyway rather than picking one by eye,
+  // same formula every custom theme gets: the hue offsets still produce four
+  // distinct real hues even starting from a desaturated accent.
+  'gabriele-dark':  { keyword: '#f25555', string: '#8955f2', number: '#f2cb55', type: '#55f2a4', comment: '#a67070' },
+  'gabriele-light': { keyword: '#991717', string: '#421799', number: '#997817', type: '#179958', comment: '#734242' },
 }
 
 // "Mario Mode" — a single, universal maximum-contrast scheme rather than

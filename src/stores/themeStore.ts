@@ -3,12 +3,13 @@ import type { ITheme } from '@xterm/xterm'
 import { hexWithAlpha } from '@/lib/color'
 
 export type ThemeId =
-  | 'claude-dark'  | 'claude-light'
-  | 'thomas-dark'  | 'thomas-light'
-  | 'luuk-dark'    | 'luuk-light'
-  | 'borahae-dark' | 'borahae-light'
-  | 'link-dark'    | 'link-light'
-  | 'atreus-dark'  | 'atreus-light'
+  | 'claude-dark'   | 'claude-light'
+  | 'thomas-dark'   | 'thomas-light'
+  | 'luuk-dark'     | 'luuk-light'
+  | 'borahae-dark'  | 'borahae-light'
+  | 'link-dark'     | 'link-light'
+  | 'atreus-dark'   | 'atreus-light'
+  | 'gabriele-dark' | 'gabriele-light'
 
 interface ThemeStore {
   theme: ThemeId
@@ -106,6 +107,8 @@ export const MONACO_THEMES: Record<ThemeId, string> = {
   'link-light':   'link-light',
   'atreus-dark':  'atreus-dark',
   'atreus-light': 'atreus-light',
+  'gabriele-dark':  'gabriele-dark',
+  'gabriele-light': 'gabriele-light',
 }
 
 // background/foreground/cursor alone aren't enough for a terminal to feel
@@ -383,6 +386,56 @@ export const XTERM_THEMES: Record<ThemeId, ITheme> = {
     brightCyan:          '#3f9dad',
     brightWhite:         '#0d0f18',
   },
+  // A colleague's own custom theme, "graduated" to a built-in family after he
+  // kept coming back to it — pure neutral grays, no hue at all (unlike every
+  // other family, each tied to a colored accent). Reuses claude-dark/light's
+  // ANSI 16-color palette verbatim, same as Luuk above — a purely gray theme
+  // still needs colorful, legible `git status`/CLI output; only background,
+  // foreground, cursor, selection and the white slots go monochrome.
+  'gabriele-dark': {
+    background:          '#565656',
+    foreground:          '#cccccc',
+    cursor:              '#828282',
+    selectionBackground: '#82828240',
+    black:               '#2a2a2a',
+    red:                 '#e06c75',
+    green:               '#98c379',
+    yellow:              '#e5c07b',
+    blue:                '#61afef',
+    magenta:             '#c678dd',
+    cyan:                '#56b6c2',
+    white:               '#cccccc',
+    brightBlack:         '#5c6370',
+    brightRed:           '#f07178',
+    brightGreen:         '#a8e0a0',
+    brightYellow:        '#f0d090',
+    brightBlue:          '#82c0ff',
+    brightMagenta:       '#d8a0f0',
+    brightCyan:          '#7cd0dc',
+    brightWhite:         '#ffffff',
+  },
+  'gabriele-light': {
+    background:          '#f0f0f0',
+    foreground:          '#2b2b2b',
+    cursor:              '#5c5c5c',
+    selectionBackground: '#5c5c5c40',
+    black:               '#383a42',
+    red:                 '#e45649',
+    green:               '#50a14f',
+    yellow:              '#c18401',
+    blue:                '#4078f2',
+    magenta:             '#a626a4',
+    cyan:                '#0184bc',
+    white:               '#a0a1a7',
+    brightBlack:         '#696c77',
+    brightRed:           '#e06c75',
+    brightGreen:         '#98c379',
+    brightYellow:        '#e5c07b',
+    brightBlue:          '#61afef',
+    brightMagenta:       '#c678dd',
+    brightCyan:          '#56b6c2',
+    brightWhite:         '#2b2b2b',
+  },
 }
 
 // "glass" panel style needs the terminal surface itself to be see-through,
@@ -421,4 +474,7 @@ export const THEME_OPTIONS: ThemeOption[] = [
   // "Borahae" (BTS/ARMY's "I purple you") — see the note on XTERM_THEMES above.
   { id: 'borahae-dark',  name: 'Borahae Dark',  swatches: ['#15111f', '#1f1a2e', '#1b1728', '#8b5cf6', '#3d3552'] },
   { id: 'borahae-light', name: 'Borahae Light', swatches: ['#f5f1fb', '#ece4f9', '#fdfcff', '#6d28d9', '#d4c2ec'] },
+  // "Gabriele" — see the note on XTERM_THEMES above.
+  { id: 'gabriele-dark',  name: 'Gabriele Dark',  swatches: ['#565656', '#565656', '#4e4e4e', '#828282', '#3c3c3c'] },
+  { id: 'gabriele-light', name: 'Gabriele Light', swatches: ['#f0f0f0', '#e6e6e6', '#ffffff', '#5c5c5c', '#d4d4d4'] },
 ]

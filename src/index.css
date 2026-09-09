@@ -190,6 +190,40 @@
   --color-on-accent: #eef0f5;
 }
 
+/* "Gabriele" — a colleague's own custom theme, integrated as a built-in
+   family after he kept coming back to it. Pure neutral grays, no hue at
+   all — unlike every other family here, each tied to a colored accent.
+   Sidebar/tab-bar deliberately match --color-bg exactly rather than each
+   getting their own shade like every other theme — a flat, uniform panel
+   treatment was the actual pick, not an oversight. */
+[data-theme="gabriele-dark"] {
+  --color-bg:        #565656;
+  --color-panel:     #4e4e4e;
+  --color-sidebar:   #565656;
+  --color-popover:   #4e4e4e;
+  --color-tab-bar:   #565656;
+  --color-border:    #3c3c3c;
+  --color-accent:    130 130 130; /* #828282 */
+  --color-fg:        #cccccc;
+  --color-fg-muted:  #a3a3a3;
+  --color-fg-subtle: #858585;
+  --color-on-accent: #565656;
+}
+
+[data-theme="gabriele-light"] {
+  --color-bg:        #f0f0f0;
+  --color-panel:     #ffffff;
+  --color-sidebar:   #e6e6e6;
+  --color-popover:   #ffffff;
+  --color-tab-bar:   #e2e2e2;
+  --color-border:    #d4d4d4;
+  --color-accent:    92 92 92;    /* #5c5c5c */
+  --color-fg:        #2b2b2b;
+  --color-fg-muted:  #737373;
+  --color-fg-subtle: #999999;
+  --color-on-accent: #f0f0f0;
+}
+
 /* Ref/branch badge text — the -200/-300-ish pastel shades read fine on a
    dark panel but wash out to near-invisible against a light one, so each
    hue needs a darker, more saturated variant for light themes. Borders/
@@ -297,6 +331,10 @@ body {
 [data-theme="atreus-dark"][data-panel-style="brushed-metal"]  { --color-border: #4a5580; }
 [data-theme="atreus-light"][data-panel-style="solid"],
 [data-theme="atreus-light"][data-panel-style="brushed-metal"] { --color-border: #9aa2c2; }
+[data-theme="gabriele-dark"][data-panel-style="solid"],
+[data-theme="gabriele-dark"][data-panel-style="brushed-metal"]  { --color-border: #6e6e6e; }
+[data-theme="gabriele-light"][data-panel-style="solid"],
+[data-theme="gabriele-light"][data-panel-style="brushed-metal"] { --color-border: #a0a0a0; }
 
 /* Glossy panel opacity — rgba overrides let native vibrancy show through */
 [data-theme="claude-dark"][data-panel-style="glossy"] {
@@ -366,6 +404,18 @@ body {
   --color-sidebar: rgba(226, 229, 238, 0.6);
   --color-tab-bar: rgba(216, 220, 232, 0.65);
 }
+[data-theme="gabriele-dark"][data-panel-style="glossy"] {
+  --color-bg:      rgba(86,  86,  86,  0.5);
+  --color-panel:   rgba(78,  78,  78,  0.6);
+  --color-sidebar: rgba(86,  86,  86,  0.5);
+  --color-tab-bar: rgba(86,  86,  86,  0.65);
+}
+[data-theme="gabriele-light"][data-panel-style="glossy"] {
+  --color-bg:      rgba(240, 240, 240, 0.55);
+  --color-panel:   rgba(255, 255, 255, 0.7);
+  --color-sidebar: rgba(230, 230, 230, 0.6);
+  --color-tab-bar: rgba(226, 226, 226, 0.65);
+}
 
 /* Glass panel opacity. Unlike glossy, this deliberately only touches
    --color-bg and --color-panel (the editor and every terminal panel's own
@@ -419,6 +469,14 @@ body {
 [data-theme="atreus-light"][data-panel-style="glass"] {
   --color-bg:    rgba(238, 240, 245, 0.25);
   --color-panel: rgba(248, 249, 252, 0.3);
+}
+[data-theme="gabriele-dark"][data-panel-style="glass"] {
+  --color-bg:    rgba(86, 86, 86, 0.2);
+  --color-panel: rgba(78, 78, 78, 0.25);
+}
+[data-theme="gabriele-light"][data-panel-style="glass"] {
+  --color-bg:    rgba(240, 240, 240, 0.25);
+  --color-panel: rgba(255, 255, 255, 0.3);
 }
 
 /* The Display settings page's own Panel Style preview thumbnails set their
