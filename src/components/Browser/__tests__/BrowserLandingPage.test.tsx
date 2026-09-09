@@ -65,4 +65,20 @@ describe('BrowserLandingPage', () => {
     expect(onNavigate).toHaveBeenCalledWith('https://example.com')
     expect(useBrowserClosedTabsStore.getState().entries).toHaveLength(0)
   })
+
+  it('shows the same monogram for two pages on the same origin, preferring whichever title was recorded first', () => {
+    useBrowserRecentStore.setState({
+      entries: [
+        { url: 'https://example.com/a', title: 'Zeta', visitedAt: 200 },
+        { url: 'https://example.com/b', title: 'Alpha', visitedAt: 100 },
+      ],
+    })
+    const { getAllByText, queryByText, getByText } = render(<BrowserLandingPage onNavigate={() => {}} />)
+    // Both rows keep their own distinct text label...
+    expect(getByText('Zeta')).toBeTruthy()
+    expect(getByText('Alpha')).toBeTruthy()
+    // ...but both show the earlier-recorded title's monogram, not their own.
+    expect(getAllByText('AL')).toHaveLength(2)
+    expect(queryByText('ZE')).toBeNull()
+  })
 })

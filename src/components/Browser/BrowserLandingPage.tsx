@@ -1,6 +1,7 @@
-import { useBrowserFavoritesStore } from '@/stores/browserFavoritesStore'
-import { useBrowserRecentStore } from '@/stores/browserRecentStore'
-import { useBrowserClosedTabsStore } from '@/stores/browserClosedTabsStore'
+import { useMemo } from 'react'
+import { useBrowserFavoritesStore, type BrowserFavorite } from '@/stores/browserFavoritesStore'
+import { useBrowserRecentStore, type BrowserRecentEntry } from '@/stores/browserRecentStore'
+import { useBrowserClosedTabsStore, type BrowserClosedTab } from '@/stores/browserClosedTabsStore'
 import { StarIcon } from './StarIcon'
 import { formatRelativeTime } from './formatRelativeTime'
 
@@ -8,8 +9,44 @@ interface Props {
   onNavigate: (url: string) => void
 }
 
-function monogram(title: string, url: string): string {
-  const source = (title || url).replace(/^https?:\/\//, '')
+function originOf(url: string): string {
+  try {
+    return new URL(url).origin
+  } catch {
+    return url
+  }
+}
+
+// Different pages on the same site often carry different <title>s (e.g. a
+// self-hosted app's custom instance name on its dashboard vs. the app's own
+// generic title elsewhere) — grouping by origin keeps every row for that
+// site showing one consistent monogram instead of a different badge per
+// page, preferring whichever title was recorded earliest for that origin.
+function useCanonicalTitles(
+  favorites: Record<string, BrowserFavorite>,
+  recent: BrowserRecentEntry[],
+  closed: BrowserClosedTab[]
+): Map<string, string> {
+  return useMemo(() => {
+    const earliest = new Map<string, { title: string; at: number }>()
+    const consider = (url: string, title: string, at: number) => {
+      if (!title) return
+      const origin = originOf(url)
+      const existing = earliest.get(origin)
+      if (!existing || at < existing.at) earliest.set(origin, { title, at })
+    }
+    for (const fav of Object.values(favorites)) consider(fav.url, fav.title, fav.favoritedAt)
+    for (const entry of recent) consider(entry.url, entry.title, entry.visitedAt)
+    for (const entry of closed) consider(entry.url, entry.title, entry.closedAt)
+
+    const result = new Map<string, string>()
+    for (const [origin, { title }] of earliest) result.set(origin, title)
+    return result
+  }, [favorites, recent, closed])
+}
+
+function monogram(title: string, url: string, canonicalTitles: Map<string, string>): string {
+  const source = (canonicalTitles.get(originOf(url)) || title || url).replace(/^https?:\/\//, '')
   return source.slice(0, 2).toUpperCase()
 }
 
@@ -21,6 +58,7 @@ export function BrowserLandingPage({ onNavigate }: Props) {
   const removeClosedEntry = useBrowserClosedTabsStore((s) => s.removeEntry)
 
   const favoriteList = Object.values(favorites).sort((a, b) => b.favoritedAt - a.favoritedAt)
+  const canonicalTitles = useCanonicalTitles(favorites, recent, closed)
 
   // Reopening a closed tab un-closes it, so it stops being listed here — the
   // row body and its hover-revealed restore icon both do exactly this.
@@ -47,7 +85,7 @@ export function BrowserLandingPage({ onNavigate }: Props) {
                   className="flex min-w-0 flex-1 items-center gap-2 text-left"
                 >
                   <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-accent text-[9px] font-semibold text-on-accent">
-                    {monogram(fav.title, fav.url)}
+                    {monogram(fav.title, fav.url, canonicalTitles)}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-xs text-fg">{fav.title || fav.url}</span>
@@ -85,7 +123,7 @@ export function BrowserLandingPage({ onNavigate }: Props) {
                       className="flex min-w-0 flex-1 items-center gap-2 text-left"
                     >
                       <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-border bg-tab-bar text-[9px] font-semibold text-fg-muted">
-                        {monogram(entry.title, entry.url)}
+                        {monogram(entry.title, entry.url, canonicalTitles)}
                       </span>
                       <span className="flex min-w-0 flex-1 items-baseline gap-2">
                         <span className="shrink truncate text-xs text-fg">{entry.title || entry.url}</span>
@@ -128,7 +166,7 @@ export function BrowserLandingPage({ onNavigate }: Props) {
                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   >
                     <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-border bg-tab-bar text-[9px] font-semibold text-fg-muted">
-                      {monogram(entry.title, entry.url)}
+                      {monogram(entry.title, entry.url, canonicalTitles)}
                     </span>
                     <span className="flex min-w-0 flex-1 items-baseline gap-2">
                       <span className="shrink truncate text-xs text-fg">{entry.title || entry.url}</span>
