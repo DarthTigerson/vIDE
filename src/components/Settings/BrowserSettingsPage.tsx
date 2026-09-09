@@ -1,14 +1,13 @@
 import { useBrowserSettingsStore } from '@/stores/browserSettingsStore'
 import { useBrowserMcpStore } from '@/stores/browserMcpStore'
 import { Toggle } from '@/components/ui/Toggle'
-import { Section, Row, TextField } from './SettingsLayout'
+import { Section, Row } from './SettingsLayout'
 
 export function BrowserSettingsPage() {
-  const defaultUrl = useBrowserSettingsStore((s) => s.defaultUrl)
-  const setDefaultUrl = useBrowserSettingsStore((s) => s.setDefaultUrl)
-
   const openInBiggestPane = useBrowserSettingsStore((s) => s.openInBiggestPane)
   const setOpenInBiggestPane = useBrowserSettingsStore((s) => s.setOpenInBiggestPane)
+  const closeSidePanelOnOpen = useBrowserSettingsStore((s) => s.closeSidePanelOnOpen)
+  const setCloseSidePanelOnOpen = useBrowserSettingsStore((s) => s.setCloseSidePanelOnOpen)
 
   const mcpEnabled = useBrowserMcpStore((s) => s.enabled)
   const mcpPending = useBrowserMcpStore((s) => s.pending)
@@ -22,23 +21,22 @@ export function BrowserSettingsPage() {
 
       <Section label="New Tab">
         <Row>
-          <TextField
-            id="browser-default-url"
-            label="Default URL"
-            value={defaultUrl}
-            onChange={setDefaultUrl}
-            className="max-w-md flex flex-col gap-1.5"
-          />
-        </Row>
-
-        <Row>
-          <Toggle
-            className="max-w-[60ch]"
-            label="Always open in biggest window"
-            description="If the editor is split into multiple panes, open new browser tabs in whichever pane currently has the most space, instead of the focused one."
-            checked={openInBiggestPane}
-            onChange={setOpenInBiggestPane}
-          />
+          <div className="flex flex-col gap-3">
+            <Toggle
+              className="max-w-[60ch]"
+              label="Always open in biggest window"
+              description="If the editor is split into multiple panes, open new browser tabs in whichever pane currently has the most space, instead of the focused one."
+              checked={openInBiggestPane}
+              onChange={setOpenInBiggestPane}
+            />
+            <Toggle
+              className="max-w-[60ch]"
+              label="Close side panel when opening"
+              description="Collapse the currently open sidebar (Files, Git, etc.) when opening a new browser tab, to give it the full width."
+              checked={closeSidePanelOnOpen}
+              onChange={setCloseSidePanelOnOpen}
+            />
+          </div>
         </Row>
       </Section>
 

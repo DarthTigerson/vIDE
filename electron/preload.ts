@@ -152,8 +152,8 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('browser:open-external-url', handler)
     return () => ipcRenderer.removeListener('browser:open-external-url', handler)
   },
-  onOpenClaudeBrowserTab: (cb: () => void) => {
-    const handler = () => cb()
+  onOpenClaudeBrowserTab: (cb: (url: string) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, url: string) => cb(url)
     ipcRenderer.on('browser:open-claude-tab', handler)
     return () => ipcRenderer.removeListener('browser:open-claude-tab', handler)
   },
@@ -330,6 +330,7 @@ contextBridge.exposeInMainWorld('api', {
     device?: { width: number; height: number; pixelRatio: number }
   ) => ipcRenderer.invoke('browserView:setMobileMode', id, enabled, device),
   browserViewClearCache: (id: string) => ipcRenderer.invoke('browserView:clearCache', id),
+  browserViewClearCookies: (id: string) => ipcRenderer.invoke('browserView:clearCookies', id),
   browserViewDestroy: (id: string) => ipcRenderer.invoke('browserView:destroy', id),
   onBrowserViewEvent: (cb: (id: string, event: import('./browserViews').BrowserViewEvent) => void) => {
     const handler = (_: Electron.IpcRendererEvent, id: string, event: import('./browserViews').BrowserViewEvent) =>

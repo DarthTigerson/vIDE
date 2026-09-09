@@ -67,6 +67,32 @@ export function FileIcon({ name, scale = 1 }: { name: string; scale?: number }) 
   )
 }
 
+// Fixed icon for browser tabs — unlike FileIcon (built for editor file
+// tabs, which sniffs a trailing ".ext" off the given name), a browser tab's
+// "name" is the page's title, which has no reliable relationship to a file
+// type. Sniffing it anyway produced misleading badges (e.g. a page titled
+// "app.js" got the JS file icon), so browser tabs always get this instead.
+export function BrowserTabIcon({ scale = 1 }: { scale?: number }) {
+  return (
+    <svg
+      className="shrink-0"
+      width={`${0.9375 * scale}rem`}
+      height={`${0.9375 * scale}rem`}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M3 12h18" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M12 3c2.5 2.5 4 5.5 4 9s-1.5 6.5-4 9c-2.5-2.5-4-5.5-4-9s1.5-6.5 4-9z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+    </svg>
+  )
+}
+
 export function FolderIcon({ open, scale = 1 }: { open: boolean; scale?: number }) {
   return (
     <svg

@@ -1,8 +1,7 @@
 import { create } from 'zustand'
 
-const KEY = 'vide:browser:defaultUrl'
 const OPEN_IN_BIGGEST_PANE_KEY = 'vide:browser:openInBiggestPane'
-export const DEFAULT_BROWSER_URL = 'http://localhost:5173'
+const CLOSE_SIDE_PANEL_KEY = 'vide:browser:closeSidePanel'
 
 function getBool(key: string, def: boolean): boolean {
   const value = localStorage.getItem(key)
@@ -10,24 +9,24 @@ function getBool(key: string, def: boolean): boolean {
 }
 
 interface BrowserSettingsStore {
-  defaultUrl: string
-  setDefaultUrl: (value: string) => void
   openInBiggestPane: boolean
   setOpenInBiggestPane: (value: boolean) => void
+  closeSidePanelOnOpen: boolean
+  setCloseSidePanelOnOpen: (value: boolean) => void
 }
 
 export const useBrowserSettingsStore = create<BrowserSettingsStore>((set) => ({
-  defaultUrl: localStorage.getItem(KEY) || DEFAULT_BROWSER_URL,
-
-  setDefaultUrl: (value) => {
-    localStorage.setItem(KEY, value)
-    set({ defaultUrl: value })
-  },
-
   openInBiggestPane: getBool(OPEN_IN_BIGGEST_PANE_KEY, true),
 
   setOpenInBiggestPane: (value) => {
     localStorage.setItem(OPEN_IN_BIGGEST_PANE_KEY, String(value))
     set({ openInBiggestPane: value })
+  },
+
+  closeSidePanelOnOpen: getBool(CLOSE_SIDE_PANEL_KEY, false),
+
+  setCloseSidePanelOnOpen: (value) => {
+    localStorage.setItem(CLOSE_SIDE_PANEL_KEY, String(value))
+    set({ closeSidePanelOnOpen: value })
   },
 }))

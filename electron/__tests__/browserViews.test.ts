@@ -7,7 +7,7 @@ const { handlers, winsById, fakeSession } = vi.hoisted(() => ({
   // numeric id, not the ipc event). Real Electron provides this statically;
   // here it's backed by whatever fromWebContents has already seen.
   winsById: new Map<number, any>(),
-  fakeSession: { clearCache: vi.fn(() => Promise.resolve()) },
+  fakeSession: { clearCache: vi.fn(() => Promise.resolve()), clearStorageData: vi.fn(() => Promise.resolve()) },
 }))
 
 // Simulates capturePage()'s real confirmed-live behavior: both toPNG() and
@@ -190,6 +190,22 @@ describe('BrowserViewManager clear cache', () => {
     expect(fakeSession.clearCache).toHaveBeenCalledTimes(1)
     expect(view.webContents.reload).toHaveBeenCalledTimes(1)
   })
+
+  it('clears the shared session cookies and reloads the requesting tab', async () => {
+    const manager = new BrowserViewManager()
+    manager.registerHandlers()
+    const win = fakeWin(13)
+
+    handlers['browserView:create']({ sender: win }, 'tab-1', 'https://example.com')
+    const created = (WebContentsView as unknown as ReturnType<typeof vi.fn>).mock.results
+    const view = created[created.length - 1].value
+
+    await handlers['browserView:clearCookies']({ sender: win }, 'tab-1')
+
+    expect(fakeSession.clearStorageData).toHaveBeenCalledTimes(1)
+    expect(fakeSession.clearStorageData).toHaveBeenCalledWith({ storages: ['cookies'] })
+    expect(view.webContents.reload).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('BrowserViewManager Claude-controlled tab (VIDE-53)', () => {
@@ -231,7 +247,10 @@ describe('BrowserViewManager Claude-controlled tab (VIDE-53)', () => {
     await manager.navigateClaudeTab(30, 'https://example.org')
 
     expect(win.webContents.send).toHaveBeenCalledTimes(1)
-    expect(win.webContents.send).toHaveBeenCalledWith('browser:open-claude-tab')
+    // The url rides along so the renderer can seed the tab's store entry
+    // before BrowserTab mounts — otherwise it mounts with an empty url and
+    // never registers the native view main just created.
+    expect(win.webContents.send).toHaveBeenCalledWith('browser:open-claude-tab', 'https://example.com')
   })
 
   it('navigateClaudeTab reuses the same tab (attaches only once) on a second call, loading each new url', async () => {

@@ -2,7 +2,9 @@ import { BrowserWindow } from 'electron'
 import { createServer, IncomingMessage, Server, ServerResponse } from 'http'
 import { mkdirSync, writeFileSync, chmodSync, existsSync, unlinkSync } from 'fs'
 import { join } from 'path'
+import { tmpdir } from 'os'
 import type { BrowserViewManager } from './browserViews'
+import { CLAUDE_TAB_ID } from './browserViews'
 
 export const BROWSER_OPEN_EXTERNAL_URL_CHANNEL = 'browser:open-external-url'
 
@@ -49,6 +51,14 @@ export class BrowserBridge {
   private readonly binDir: string
   readonly socketPath: string
   private server: Server | null = null
+  // Per-window target tab: defaults to the dedicated Claude tab, but Claude
+  // can switch to any user-open tab via browser_use_tab so it can pick up
+  // a session the user already has loaded (e.g. logged-in scraper target).
+  private readonly targetTabIds = new Map<number, string>()
+
+  private getTargetTabId(windowId: number): string {
+    return this.targetTabIds.get(windowId) ?? CLAUDE_TAB_ID
+  }
 
   constructor(userDataDir: string, private readonly browserViews: BrowserViewManager) {
     this.binDir = join(userDataDir, 'bin')
@@ -114,24 +124,55 @@ export class BrowserBridge {
       return
     }
 
-    // Every browser-control route below targets the single dedicated
-    // "Claude" tab (VIDE-53) for the window given by this header — never a
-    // tab the user is manually using.
+    // Every browser-control route below is window-scoped and tab-targeted.
+    // The active tab defaults to the dedicated Claude tab but can be switched
+    // to any user-open tab via /use-tab, so Claude can continue from a
+    // session the user already has loaded (logged-in page, mid-scrape state).
     const windowIdHeader = req.headers['x-vide-window-id']
     const windowId = Number(Array.isArray(windowIdHeader) ? windowIdHeader[0] : windowIdHeader)
     if (!Number.isFinite(windowId)) throw new Error('Missing or invalid X-Vide-Window-Id header')
 
+    // Resolved once; all handlers below use this rather than hardcoding CLAUDE_TAB_ID.
+    const tabId = this.getTargetTabId(windowId)
+
+    if (req.url === '/list-tabs') {
+      const tabs = this.browserViews.listUserTabs(windowId)
+      this.endJson(res, { tabs, activeTabId: tabId })
+      return
+    }
+    if (req.url === '/use-tab') {
+      const id = new URLSearchParams(body).get('id') ?? ''
+      if (!id) throw new Error('Missing id')
+      if (!this.browserViews.hasTab(windowId, id)) throw new Error(`Tab "${id}" not found — use browser_list_tabs to see available tabs`)
+      this.targetTabIds.set(windowId, id)
+      this.endJson(res, { ok: true, activeTabId: id })
+      return
+    }
+    if (req.url === '/release-tab') {
+      this.targetTabIds.delete(windowId)
+      // If the dedicated Claude tab was closed while a user tab was active,
+      // silently recreate it so the next tool call doesn't error.
+      if (!this.browserViews.hasTab(windowId, CLAUDE_TAB_ID)) {
+        await this.browserViews.navigateClaudeTab(windowId, 'about:blank')
+      }
+      this.endJson(res, { ok: true, activeTabId: CLAUDE_TAB_ID })
+      return
+    }
+
     if (req.url === '/navigate') {
       const url = new URLSearchParams(body).get('url')
       if (!url) throw new Error('Missing url')
-      await this.browserViews.navigateClaudeTab(windowId, url)
+      if (tabId === CLAUDE_TAB_ID) {
+        await this.browserViews.navigateClaudeTab(windowId, url)
+      } else {
+        await this.browserViews.navigateUserTab(windowId, tabId, url)
+      }
       this.endJson(res, { ok: true })
       return
     }
     if (req.url === '/screenshot') {
-      const { png, imageSize, viewBounds } = await this.browserViews.captureClaudeTab(windowId)
+      const { png, imageSize, viewBounds } = await this.browserViews.captureClaudeTab(windowId, tabId)
       res.setHeader('Content-Type', 'image/png')
-      // Diagnostic headers (VIDE-53) — see captureClaudeTab's own comment.
       res.setHeader('X-Vide-Image-Size', `${imageSize.width}x${imageSize.height}`)
       res.setHeader('X-Vide-View-Bounds', `${viewBounds.width}x${viewBounds.height}`)
       res.end(png)
@@ -142,23 +183,123 @@ export class BrowserBridge {
       const x = Number(params.get('x'))
       const y = Number(params.get('y'))
       if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error('Missing or invalid x/y')
-      const activeElement = await this.browserViews.clickClaudeTab(windowId, x, y)
+      const activeElement = await this.browserViews.clickClaudeTab(windowId, x, y, tabId)
       this.endJson(res, { ok: true, activeElement })
       return
     }
     if (req.url === '/type') {
       const text = new URLSearchParams(body).get('text') ?? ''
-      await this.browserViews.typeIntoClaudeTab(windowId, text)
+      await this.browserViews.typeIntoClaudeTab(windowId, text, tabId)
       this.endJson(res, { ok: true })
       return
     }
     if (req.url === '/console-logs') {
-      this.endJson(res, { logs: this.browserViews.getClaudeTabConsoleLogs(windowId) })
+      this.endJson(res, { logs: this.browserViews.getClaudeTabConsoleLogs(windowId, tabId) })
       return
     }
     if (req.url === '/read-text') {
-      const text = await this.browserViews.readClaudeTabText(windowId)
+      const text = await this.browserViews.readClaudeTabText(windowId, tabId)
       this.endJson(res, { text })
+      return
+    }
+    if (req.url === '/read-html') {
+      const html = await this.browserViews.readClaudeTabHtml(windowId, tabId)
+      this.endJson(res, { html })
+      return
+    }
+    if (req.url === '/evaluate') {
+      const script = new URLSearchParams(body).get('script') ?? ''
+      if (!script) throw new Error('Missing script')
+      const result = await this.browserViews.evaluateInClaudeTab(windowId, script, tabId)
+      this.endJson(res, { result })
+      return
+    }
+    if (req.url === '/wait-for-load') {
+      const timeoutMs = Number(new URLSearchParams(body).get('timeout') ?? '10000')
+      await this.browserViews.waitForClaudeTabLoad(windowId, timeoutMs, tabId)
+      this.endJson(res, { ok: true })
+      return
+    }
+    if (req.url === '/wait-for-selector') {
+      const params = new URLSearchParams(body)
+      const selector = params.get('selector') ?? ''
+      if (!selector) throw new Error('Missing selector')
+      const timeoutMs = Number(params.get('timeout') ?? '10000')
+      await this.browserViews.waitForSelectorInClaudeTab(windowId, selector, timeoutMs, tabId)
+      this.endJson(res, { ok: true })
+      return
+    }
+    if (req.url === '/find-element') {
+      const params = new URLSearchParams(body)
+      const selector = params.get('selector') ?? undefined
+      const text = params.get('text') ?? undefined
+      const result = await this.browserViews.findElementInClaudeTab(windowId, selector, text, tabId)
+      this.endJson(res, result)
+      return
+    }
+    if (req.url === '/get-url') {
+      const url = this.browserViews.getClaudeTabUrl(windowId, tabId)
+      this.endJson(res, { url })
+      return
+    }
+    if (req.url === '/scroll') {
+      const params = new URLSearchParams(body)
+      const selector = params.get('selector') ?? undefined
+      const x = Number(params.get('x') ?? '0')
+      const y = Number(params.get('y') ?? '0')
+      await this.browserViews.scrollClaudeTab(windowId, x, y, selector, tabId)
+      this.endJson(res, { ok: true })
+      return
+    }
+    if (req.url === '/key-press') {
+      const key = new URLSearchParams(body).get('key') ?? ''
+      if (!key) throw new Error('Missing key')
+      await this.browserViews.keyPressInClaudeTab(windowId, key, tabId)
+      this.endJson(res, { ok: true })
+      return
+    }
+    if (req.url === '/save-html') {
+      const html = await this.browserViews.readClaudeTabHtml(windowId, tabId)
+      const savePath = new URLSearchParams(body).get('path') ?? join(tmpdir(), `vide-page-${Date.now()}.html`)
+      writeFileSync(savePath, html, 'utf-8')
+      this.endJson(res, { path: savePath })
+      return
+    }
+    if (req.url === '/response-body') {
+      const urlMatch = new URLSearchParams(body).get('url') ?? ''
+      if (!urlMatch) throw new Error('Missing url parameter')
+      const result = await this.browserViews.getClaudeTabResponseBody(windowId, urlMatch, tabId)
+      this.endJson(res, result)
+      return
+    }
+    if (req.url === '/save-pdf') {
+      const pdf = await this.browserViews.getClaudeTabPdf(windowId, tabId)
+      const savePath = new URLSearchParams(body).get('path') ?? join(tmpdir(), `vide-page-${Date.now()}.pdf`)
+      writeFileSync(savePath, pdf)
+      this.endJson(res, { path: savePath })
+      return
+    }
+    if (req.url === '/accessibility-tree') {
+      const tree = await this.browserViews.getClaudeTabAccessibilityTree(windowId, tabId)
+      this.endJson(res, { tree })
+      return
+    }
+    if (req.url === '/check-certificate') {
+      const info = await this.browserViews.checkClaudeTabCertificate(windowId, tabId)
+      this.endJson(res, info)
+      return
+    }
+    if (req.url === '/set-extra-headers') {
+      const headers = JSON.parse(new URLSearchParams(body).get('headers') ?? '{}') as Record<string, string>
+      await this.browserViews.setClaudeTabExtraHeaders(windowId, headers, tabId)
+      this.endJson(res, { ok: true })
+      return
+    }
+    if (req.url === '/network-log') {
+      const clear = new URLSearchParams(body).get('clear') === '1'
+      const log = this.browserViews.getClaudeTabNetworkLog(windowId, tabId)
+      if (clear) this.browserViews.clearClaudeTabNetworkLog(windowId, tabId)
+      this.endJson(res, { log })
       return
     }
 

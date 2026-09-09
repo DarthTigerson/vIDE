@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { useBrowserStore } from '@/stores/browserStore'
-import { useBrowserSettingsStore } from '@/stores/browserSettingsStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { buildBrowserPath } from '@/components/Settings/paths'
 import { normalizeUrlInput } from './urlBar'
 import { zoomLevelToPercent } from './zoomLevel'
 import { MOBILE_DEVICES, getMobileDevice } from './mobileDevices'
-import { useStatusMessageStore } from '@/stores/statusMessageStore'
 import { useSearchStore } from '@/stores/searchStore'
 import { useChangelogStore } from '@/stores/changelogStore'
+import { useBrowserRecentStore } from '@/stores/browserRecentStore'
+import { useBrowserClosedTabsStore } from '@/stores/browserClosedTabsStore'
+import { useBrowserFavoritesStore } from '@/stores/browserFavoritesStore'
+import { BrowserLandingPage } from './BrowserLandingPage'
+import { StarIcon } from './StarIcon'
+import { ClearBrowsingDataModal } from './ClearBrowsingDataModal'
 
 interface Props {
   browserId: string
@@ -21,6 +25,14 @@ interface Props {
 // of a DOM node.
 const liveBrowserViews = new Set<string>()
 
+// Must match CLAUDE_TAB_ID in electron/browserViews.ts (and CLAUDE_BROWSER_ID
+// in src/App.tsx) — the reserved id of the tab the vide-browser MCP server
+// drives on Claude's behalf. Its navigations are Claude's, not the user's, so
+// they're excluded from the Recent/Closed-tabs history the landing page shows:
+// one MCP session can fire dozens of did-navigate events and would otherwise
+// flush the user's own list.
+const CLAUDE_BROWSER_ID = 'claude-controlled'
+
 function boundsEqual(a: DOMRect, b: DOMRect | null): boolean {
   return !!b && a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
 }
@@ -28,32 +40,47 @@ function boundsEqual(a: DOMRect, b: DOMRect | null): boolean {
 export function BrowserTab({ browserId }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const editingRef = useRef(false)
+  // Shared with the mount effect's rAF bounds-sync loop (below) and with
+  // goTo() (which can create a view well after mount, from a landing-page
+  // navigation) — a ref rather than a plain closure variable so both can
+  // read/reset it.
+  const lastRectRef = useRef<DOMRect | null>(null)
+  // Flips true once the mount effect's cleanup runs, so a goTo()-triggered
+  // browserViewCreate promise that resolves after unmount doesn't write a
+  // phantom entry back into browserStore for a tab that's already gone.
+  const unmountedRef = useRef(false)
   const tabState = useBrowserStore((s) => s.tabs[browserId])
-  const [urlDraft, setUrlDraft] = useState(tabState?.url || useBrowserSettingsStore.getState().defaultUrl)
+  const [urlDraft, setUrlDraft] = useState(tabState?.url ?? '')
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const toggleButtonRef = useRef<HTMLButtonElement>(null)
   const [deviceMenuOpen, setDeviceMenuOpen] = useState(false)
   const deviceButtonRef = useRef<HTMLButtonElement>(null)
+  const [clearDataOpen, setClearDataOpen] = useState(false)
 
   useEffect(() => {
     if (!containerRef.current) return
     const container = containerRef.current
+    unmountedRef.current = false
 
-    useBrowserStore.getState().ensureTab(browserId, useBrowserSettingsStore.getState().defaultUrl)
+    useBrowserStore.getState().ensureTab(browserId, '')
 
     let cancelled = false
-    const isNew = !liveBrowserViews.has(browserId)
-    liveBrowserViews.add(browserId)
+    // Claude's own browsing stays out of the user's Recent/Closed history.
+    const isClaudeTab = browserId === CLAUDE_BROWSER_ID
+    const initialUrl = useBrowserStore.getState().tabs[browserId]?.url ?? ''
+    const alreadyLive = liveBrowserViews.has(browserId)
 
-    if (isNew) {
-      const initialUrl =
-        useBrowserStore.getState().tabs[browserId]?.url || useBrowserSettingsStore.getState().defaultUrl
+    // A brand-new tab with no url yet (the landing page) gets no native view
+    // at all until goTo() is called — either from the address bar or from a
+    // landing-page row.
+    if (initialUrl && !alreadyLive) {
+      liveBrowserViews.add(browserId)
       window.api.browserViewCreate(browserId, initialUrl).then((webContentsId) => {
         if (cancelled || webContentsId == null) return
         useBrowserStore.getState().updateTab(browserId, { webContentsId })
       })
-    } else {
+    } else if (alreadyLive) {
       window.api.browserViewSetVisible(browserId, true)
     }
 
@@ -71,6 +98,14 @@ export function BrowserTab({ browserId }: Props) {
           })
           break
         case 'did-navigate':
+          if (!isClaudeTab) useBrowserRecentStore.getState().recordVisit(event.url, event.url)
+          useBrowserStore.getState().updateTab(browserId, {
+            url: event.url,
+            canGoBack: event.canGoBack,
+            canGoForward: event.canGoForward,
+          })
+          if (!editingRef.current) setUrlDraft(event.url)
+          break
         case 'did-navigate-in-page':
           useBrowserStore.getState().updateTab(browserId, {
             url: event.url,
@@ -79,9 +114,12 @@ export function BrowserTab({ browserId }: Props) {
           })
           if (!editingRef.current) setUrlDraft(event.url)
           break
-        case 'page-title-updated':
+        case 'page-title-updated': {
           useBrowserStore.getState().updateTab(browserId, { title: event.title })
+          const currentUrl = useBrowserStore.getState().tabs[browserId]?.url
+          if (currentUrl && !isClaudeTab) useBrowserRecentStore.getState().recordVisit(currentUrl, event.title)
           break
+        }
         case 'did-fail-load':
           useBrowserStore.getState().updateTab(browserId, {
             isLoading: false,
@@ -111,7 +149,7 @@ export function BrowserTab({ browserId }: Props) {
     // rAF (rather than a ResizeObserver on this element) catches reflows that
     // only move the pane — sidebar toggle, split-divider drag — without
     // changing this element's own size, which a ResizeObserver would miss.
-    let lastRect: DOMRect | null = null
+    lastRectRef.current = null
     let rafId: number
     const syncBounds = () => {
       const containerRect = container.getBoundingClientRect()
@@ -133,8 +171,8 @@ export function BrowserTab({ browserId }: Props) {
           height
         )
       }
-      if (!boundsEqual(rect, lastRect)) {
-        lastRect = rect
+      if (!boundsEqual(rect, lastRectRef.current)) {
+        lastRectRef.current = rect
         if (rect.width > 0 && rect.height > 0) {
           window.api.browserViewSetBounds(browserId, {
             x: rect.x,
@@ -150,12 +188,20 @@ export function BrowserTab({ browserId }: Props) {
 
     return () => {
       cancelled = true
+      unmountedRef.current = true
       cleanupEvent()
       cancelAnimationFrame(rafId)
 
       const tabPath = buildBrowserPath(browserId)
       const stillOpen = useEditorStore.getState().tabs.some((t) => t.path === tabPath)
       if (!stillOpen) {
+        // A landing-page tab that was never navigated has no url — nothing
+        // worth remembering as a "closed tab" in that case. Neither is the
+        // Claude-controlled tab, whose pages the user never chose to open.
+        const closingTab = useBrowserStore.getState().tabs[browserId]
+        if (closingTab?.url && !isClaudeTab) {
+          useBrowserClosedTabsStore.getState().recordClosed(closingTab.url, closingTab.title || closingTab.url)
+        }
         liveBrowserViews.delete(browserId)
         useBrowserStore.getState().removeTab(browserId)
         window.api.browserViewDestroy(browserId)
@@ -168,6 +214,7 @@ export function BrowserTab({ browserId }: Props) {
   }, [browserId])
 
   const loadError = tabState?.loadError ?? null
+  const url = tabState?.url ?? ''
 
   // The native view always draws on top of this component's own DOM — and, for
   // the same reason, above every other DOM-rendered surface in the window, palettes
@@ -187,8 +234,12 @@ export function BrowserTab({ browserId }: Props) {
   )
   const changelogOpen = useChangelogStore((s) => s.content !== null)
   useEffect(() => {
-    window.api.browserViewSetVisible(browserId, !loadError && !anyOverlayOpen && !changelogOpen)
-  }, [browserId, loadError, anyOverlayOpen, changelogOpen])
+    // Also hides the native view whenever the tab has no url — the landing
+    // page (shown by the JSX below in that case) needs the view out of the
+    // way, same as goHome() relies on this effect rather than calling
+    // setVisible itself.
+    window.api.browserViewSetVisible(browserId, !!url && !loadError && !anyOverlayOpen && !changelogOpen)
+  }, [browserId, url, loadError, anyOverlayOpen, changelogOpen])
 
   useEffect(() => {
     if (!menuOpen) return
@@ -228,16 +279,66 @@ export function BrowserTab({ browserId }: Props) {
     }
   }, [deviceMenuOpen])
 
+  // Handles both "still on the landing page" (creates the native view for
+  // the first time) and "already browsing" (plain navigate) with the same
+  // call site — used by the address bar and by clicking a landing-page row.
+  function goTo(url: string) {
+    if (!liveBrowserViews.has(browserId)) {
+      liveBrowserViews.add(browserId)
+      useBrowserStore.getState().updateTab(browserId, { url })
+      window.api.browserViewCreate(browserId, url).then((webContentsId) => {
+        // The mount effect's rAF loop seeds lastRectRef on its very first
+        // frame — before this view exists — and the container's on-screen
+        // rect typically doesn't change once the landing page is replaced,
+        // so that loop alone would never push bounds again. Push them
+        // explicitly now that the view actually exists in the main process,
+        // and keep lastRectRef in sync so the loop doesn't immediately
+        // re-push the same rect on its next tick.
+        if (unmountedRef.current || webContentsId == null) return
+        useBrowserStore.getState().updateTab(browserId, { webContentsId })
+        if (containerRef.current) {
+          const rect = containerRef.current.getBoundingClientRect()
+          if (rect.width > 0 && rect.height > 0) {
+            window.api.browserViewSetBounds(browserId, {
+              x: rect.x,
+              y: rect.y,
+              width: rect.width,
+              height: rect.height,
+            })
+            lastRectRef.current = rect
+          }
+        }
+      })
+    } else {
+      window.api.browserViewNavigate(browserId, url)
+    }
+  }
+
+  // Returns to the landing page without destroying the native view — it's
+  // just detached from display (the visibility effect above reacts to `url`
+  // going empty), so a later goTo() call finds it still in liveBrowserViews
+  // and navigates it directly instead of re-creating it.
+  function goHome() {
+    useBrowserStore.getState().updateTab(browserId, {
+      url: '',
+      title: '',
+      canGoBack: false,
+      canGoForward: false,
+      loadError: null,
+      isLoading: false,
+    })
+    setUrlDraft('')
+  }
+
   function handleUrlSubmit(e: React.FormEvent) {
     e.preventDefault()
     const url = normalizeUrlInput(urlDraft)
     if (!url) return
-    window.api.browserViewNavigate(browserId, url)
+    goTo(url)
     ;(document.activeElement as HTMLElement | null)?.blur()
   }
 
-  const defaultUrl = useBrowserSettingsStore((s) => s.defaultUrl)
-  const url = tabState?.url ?? defaultUrl
+  const isFavorite = useBrowserFavoritesStore((s) => (url ? s.isFavorite(url) : false))
   const isLoading = tabState?.isLoading ?? false
   const canGoBack = tabState?.canGoBack ?? false
   const canGoForward = tabState?.canGoForward ?? false
@@ -278,6 +379,15 @@ export function BrowserTab({ browserId }: Props) {
       <div className="flex items-center gap-1 px-2 h-9 border-b border-border shrink-0 bg-tab-bar">
         <button
           type="button"
+          aria-label="Home"
+          disabled={!url}
+          onClick={goHome}
+          className="flex h-6 w-6 items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
+        >
+          <HomeIcon />
+        </button>
+        <button
+          type="button"
           aria-label="Back"
           disabled={!canGoBack}
           onClick={() => window.api.browserViewGoBack(browserId)}
@@ -313,6 +423,21 @@ export function BrowserTab({ browserId }: Props) {
             className="w-full h-6 rounded bg-bg border border-border px-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent/60"
           />
         </form>
+        {url && (
+          <button
+            type="button"
+            aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            aria-pressed={isFavorite}
+            onClick={() => useBrowserFavoritesStore.getState().toggleFavorite(url, tabState?.title || url)}
+            className={
+              isFavorite
+                ? 'flex h-6 w-6 items-center justify-center rounded text-accent hover:bg-white/5'
+                : 'flex h-6 w-6 items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-white/5'
+            }
+          >
+            <StarIcon filled={isFavorite} />
+          </button>
+        )}
         <button
           ref={toggleButtonRef}
           type="button"
@@ -334,13 +459,10 @@ export function BrowserTab({ browserId }: Props) {
           <div className="flex items-center rounded-full border border-border bg-bg overflow-hidden">
             <button
               type="button"
-              onClick={async () => {
-                await window.api.browserViewClearCache(browserId)
-                useStatusMessageStore.getState().show('Cache cleared')
-              }}
+              onClick={() => setClearDataOpen(true)}
               className="flex h-6 items-center justify-center whitespace-nowrap px-3 text-xs text-fg-muted hover:text-fg hover:bg-white/5"
             >
-              Clear cache
+              Clear browsing data…
             </button>
           </div>
           <div className="flex items-center gap-1.5">
@@ -443,6 +565,7 @@ export function BrowserTab({ browserId }: Props) {
       )}
       <div className="relative flex-1 min-h-0">
         <div ref={containerRef} className="h-full w-full" />
+        {!url && !loadError && <BrowserLandingPage onNavigate={goTo} />}
         {loadError && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-bg px-4 text-center">
             <p className="text-sm text-fg-muted">This page couldn't load</p>
@@ -457,6 +580,9 @@ export function BrowserTab({ browserId }: Props) {
           </div>
         )}
       </div>
+      {clearDataOpen && (
+        <ClearBrowsingDataModal browserId={browserId} onClose={() => setClearDataOpen(false)} />
+      )}
     </div>
   )
 }
@@ -469,6 +595,15 @@ function NavArrowIcon({ direction }: { direction: 'back' | 'forward' }) {
       ) : (
         <path d="M9 5L16 12L9 19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
       )}
+    </svg>
+  )
+}
+
+function HomeIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3 11.5L12 4l9 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
