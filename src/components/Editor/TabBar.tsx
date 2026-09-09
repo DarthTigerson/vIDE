@@ -3,7 +3,7 @@ import { useEditorStore } from '@/stores/editorStore'
 import { useBrowserStore } from '@/stores/browserStore'
 import { useTodoStore } from '@/stores/todoStore'
 import { useNotesStore } from '@/stores/notesStore'
-import { FileIcon } from '@/components/Sidebar/FileIcon'
+import { FileIcon, BrowserTabIcon } from '@/components/Sidebar/FileIcon'
 import { isTerminalTab, isBrowserTab, getBrowserId, isTodoBoardTab, getTodoBoardProjectId, isTodoDetailTab, getTodoDetailIds } from '@/components/Settings/paths'
 import { orderTabsForDisplay, truncateTabLabel } from './tabDisplay'
 import { TabContextMenu } from './TabContextMenu'
@@ -141,7 +141,7 @@ export function TabBar({ paneId }: { paneId: string }) {
                 ].join(' ')}
               />
             )}
-            <FileIcon name={name} />
+            {isBrowserTab(tab.path) ? <BrowserTabIcon /> : <FileIcon name={name} />}
             <span>{displayName}</span>
             {tab.missing && (
               <span
