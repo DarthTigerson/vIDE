@@ -191,7 +191,7 @@ export function defineCustomDefaultTheme(monaco: Monaco, baseThemeId: ThemeId, c
   })
 }
 
-export function defineCustomHighContrastTheme(monaco: Monaco, palette: CustomHighContrastPalette) {
+export function defineCustomHighContrastTheme(monaco: Monaco, palette: CustomHighContrastPalette, glass: boolean) {
   const base: 'vs' | 'vs-dark' = hexToHsv(palette.background).v < 0.5 ? 'vs-dark' : 'vs'
   const tokens = deriveHighContrastTokens(palette.accent, palette.background)
   monaco.editor.defineTheme(CUSTOM_HIGH_CONTRAST_THEME_ID, {
@@ -208,7 +208,7 @@ export function defineCustomHighContrastTheme(monaco: Monaco, palette: CustomHig
     ],
     colors: {
       'editor.foreground':                   palette.foreground,
-      'editor.background':                   palette.background,
+      'editor.background':                   glass ? hexWithAlpha(palette.background, GLASS_ALPHA) : palette.background,
       'editorCursor.foreground':              palette.accent,
       'editor.selectionBackground':           palette.accent + '40',
       'editor.inactiveSelectionBackground':   palette.accent + '20',
@@ -231,9 +231,21 @@ export function glassMonacoThemeId(id: ThemeId): string {
   return `${id}-glass`
 }
 
-// The High Contrast Editor Colors scheme — see HIGH_CONTRAST_TOKENS above.
+// The Theme Colour Match Editor Colors scheme ('high-contrast' internally —
+// see HIGH_CONTRAST_TOKENS above).
 export function highContrastMonacoThemeId(id: ThemeId): string {
   return `${id}-hc`
+}
+
+// Glass-panel-style variant of the above — only Mario Mode (MARIO_MODE_THEME_ID)
+// always stays fully opaque regardless of panel style, since ignoring the
+// active theme entirely is the point of that one. Theme Colour Match is
+// meant to still read as "this theme, with easier-to-read syntax colours" —
+// forcing it opaque under Glass would silently drop the panel style the user
+// picked, the same bug defineCustomDefaultTheme/CUSTOM_DEFAULT_THEME_ID above
+// already fixed for the Default scheme.
+export function glassHighContrastMonacoThemeId(id: ThemeId): string {
+  return `${id}-hc-glass`
 }
 
 let defined = false
@@ -257,24 +269,30 @@ export function defineMonacoThemes(monaco: Monaco) {
       colors: { ...colors, 'editor.background': hexWithAlpha(p.background, GLASS_ALPHA) },
     })
 
-    // High Contrast keeps this theme's own background/foreground — only the
-    // syntax token colors change — and always stays fully opaque even under
-    // the Glass panel style, since a see-through high-contrast editor would
-    // undermine the whole point of turning it on.
+    // Theme Colour Match keeps this theme's own foreground — only the syntax
+    // token colors change — but, like Default, still follows the Glass panel
+    // style rather than forcing itself opaque (see glassHighContrastMonacoThemeId).
     const hc = HIGH_CONTRAST_TOKENS[id]
+    const hcRules = [
+      { token: 'comment', foreground: stripHash(hc.comment), fontStyle: 'italic' },
+      { token: 'keyword', foreground: stripHash(hc.keyword) },
+      { token: 'string', foreground: stripHash(hc.string) },
+      { token: 'number', foreground: stripHash(hc.number) },
+      { token: 'type.identifier', foreground: stripHash(hc.type) },
+      { token: 'regexp', foreground: stripHash(hc.string) },
+      { token: 'delimiter', foreground: stripHash(p.fgMuted) },
+    ]
     monaco.editor.defineTheme(highContrastMonacoThemeId(id), {
       base: p.base,
       inherit: true,
-      rules: [
-        { token: 'comment', foreground: stripHash(hc.comment), fontStyle: 'italic' },
-        { token: 'keyword', foreground: stripHash(hc.keyword) },
-        { token: 'string', foreground: stripHash(hc.string) },
-        { token: 'number', foreground: stripHash(hc.number) },
-        { token: 'type.identifier', foreground: stripHash(hc.type) },
-        { token: 'regexp', foreground: stripHash(hc.string) },
-        { token: 'delimiter', foreground: stripHash(p.fgMuted) },
-      ],
+      rules: hcRules,
       colors: { ...colors, 'editor.background': p.background },
+    })
+    monaco.editor.defineTheme(glassHighContrastMonacoThemeId(id), {
+      base: p.base,
+      inherit: true,
+      rules: hcRules,
+      colors: { ...colors, 'editor.background': hexWithAlpha(p.background, GLASS_ALPHA) },
     })
   }
 

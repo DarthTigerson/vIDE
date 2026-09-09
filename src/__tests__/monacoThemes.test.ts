@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   deriveHighContrastTokens, defineCustomHighContrastTheme, CUSTOM_HIGH_CONTRAST_THEME_ID,
   defineCustomDefaultTheme, CUSTOM_DEFAULT_THEME_ID, THEME_PALETTES,
+  highContrastMonacoThemeId, glassHighContrastMonacoThemeId, defineMonacoThemes,
 } from '../monacoThemes'
 import { hexToHsv, hexWithAlpha } from '@/lib/color'
 
@@ -50,7 +51,7 @@ describe('defineCustomHighContrastTheme', () => {
     defineCustomHighContrastTheme(monaco as any, {
       background: '#1a1a1a', foreground: '#cccccc', accent: '#d97757',
       border: '#3c3c3c', fgMuted: '#858585', fgSubtle: '#555555',
-    })
+    }, false)
     expect(monaco.defined[CUSTOM_HIGH_CONTRAST_THEME_ID].base).toBe('vs-dark')
     expect(monaco.defined[CUSTOM_HIGH_CONTRAST_THEME_ID].colors['editor.background']).toBe('#1a1a1a')
   })
@@ -60,8 +61,17 @@ describe('defineCustomHighContrastTheme', () => {
     defineCustomHighContrastTheme(monaco as any, {
       background: '#f3f3f3', foreground: '#1e1e1e', accent: '#c4613d',
       border: '#e0e0e0', fgMuted: '#717171', fgSubtle: '#999999',
-    })
+    }, false)
     expect(monaco.defined[CUSTOM_HIGH_CONTRAST_THEME_ID].base).toBe('vs')
+  })
+
+  it('applies the glass alpha to the background when glass is true, same as defineCustomDefaultTheme', () => {
+    const monaco = fakeMonaco()
+    defineCustomHighContrastTheme(monaco as any, {
+      background: '#1a1a1a', foreground: '#cccccc', accent: '#d97757',
+      border: '#3c3c3c', fgMuted: '#858585', fgSubtle: '#555555',
+    }, true)
+    expect(monaco.defined[CUSTOM_HIGH_CONTRAST_THEME_ID].colors['editor.background']).toBe(hexWithAlpha('#1a1a1a', 0.25))
   })
 
   it('is safe to call again with new colours (Monaco redefines the same id in place)', () => {
@@ -69,14 +79,32 @@ describe('defineCustomHighContrastTheme', () => {
     defineCustomHighContrastTheme(monaco as any, {
       background: '#1a1a1a', foreground: '#cccccc', accent: '#d97757',
       border: '#3c3c3c', fgMuted: '#858585', fgSubtle: '#555555',
-    })
+    }, false)
     defineCustomHighContrastTheme(monaco as any, {
       background: '#1a1a1a', foreground: '#cccccc', accent: '#61afef',
       border: '#3c3c3c', fgMuted: '#858585', fgSubtle: '#555555',
-    })
+    }, false)
     expect(Object.keys(monaco.defined)).toEqual([CUSTOM_HIGH_CONTRAST_THEME_ID])
     const keywordRule = monaco.defined[CUSTOM_HIGH_CONTRAST_THEME_ID].rules.find((r: any) => r.token === 'keyword')
     expect(hexToHsv(`#${keywordRule.foreground}`).h).toBeCloseTo(hexToHsv('#61afef').h, 0)
+  })
+})
+
+describe('glassHighContrastMonacoThemeId / defineMonacoThemes (built-in themes)', () => {
+  function fakeMonaco() {
+    const defined: Record<string, any> = {}
+    return { editor: { defineTheme: (id: string, data: any) => { defined[id] = data } }, defined }
+  }
+
+  it('registers a distinct glass-alpha\'d id alongside the opaque Theme Colour Match id', () => {
+    const monaco = fakeMonaco()
+    defineMonacoThemes(monaco as any)
+    const opaque = monaco.defined[highContrastMonacoThemeId('claude-dark')]
+    const glass = monaco.defined[glassHighContrastMonacoThemeId('claude-dark')]
+    expect(opaque.colors['editor.background']).toBe(THEME_PALETTES['claude-dark'].background)
+    expect(glass.colors['editor.background']).toBe(hexWithAlpha(THEME_PALETTES['claude-dark'].background, 0.25))
+    // same syntax token colours either way — only the background differs
+    expect(glass.rules).toEqual(opaque.rules)
   })
 })
 

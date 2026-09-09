@@ -7,7 +7,7 @@ import { useSearchStore } from '@/stores/searchStore'
 import { useThemeStore, MONACO_THEMES } from '@/stores/themeStore'
 import { useCustomThemeStore } from '@/stores/customThemeStore'
 import {
-  defineMonacoThemes, glassMonacoThemeId, highContrastMonacoThemeId, MARIO_MODE_THEME_ID,
+  defineMonacoThemes, glassMonacoThemeId, highContrastMonacoThemeId, glassHighContrastMonacoThemeId, MARIO_MODE_THEME_ID,
   defineCustomHighContrastTheme, CUSTOM_HIGH_CONTRAST_THEME_ID,
   defineCustomDefaultTheme, CUSTOM_DEFAULT_THEME_ID,
 } from '@/monacoThemes'
@@ -156,7 +156,7 @@ export function Editor() {
           border: palette['--color-border'],
           fgMuted: palette['--color-fg-muted'],
           fgSubtle: palette['--color-fg-subtle'],
-        })
+        }, panelStyle === 'glass')
       } else {
         defineCustomDefaultTheme(monaco, themeId, palette['--color-bg'], panelStyle === 'glass')
       }
@@ -254,18 +254,17 @@ function EditorPane({ paneId }: { paneId: string }) {
   const panelStyle = useDisplayStore((s) => s.panelStyle)
   const editorColorScheme = useDisplayStore((s) => s.editorColorScheme)
   const activeCustomId = useCustomThemeStore((s) => s.activeId)
-  // Mario Mode and High Contrast both always win over Glass — a see-through
-  // high-contrast editor would defeat the point of turning either one on.
-  // Both Default and High Contrast use a CUSTOM_*_THEME_ID (kept up to date
-  // by the effect in Editor() above) instead of the per-family id when a
-  // custom theme is active, so the editor's background (Default) or derived
-  // syntax colours (High Contrast) reflect that theme's own colours. The
-  // custom Default id already carries the right glass alpha internally, so
-  // it doesn't need its own glassMonacoThemeId branch.
+  // Mario Mode always wins over Glass — ignoring the active theme (and its
+  // panel style) entirely is the whole point of turning it on. Default and
+  // Theme Colour Match ('high-contrast') both still follow Glass, and both
+  // use a CUSTOM_*_THEME_ID (kept up to date by the effect in Editor() above,
+  // glass alpha included) instead of the per-family id when a custom theme is
+  // active, so the editor's background (Default) or derived syntax colours
+  // (Theme Colour Match) reflect that theme's own colours.
   const monacoTheme = editorColorScheme === 'mario-mode'
     ? MARIO_MODE_THEME_ID
     : editorColorScheme === 'high-contrast'
-    ? (activeCustomId ? CUSTOM_HIGH_CONTRAST_THEME_ID : highContrastMonacoThemeId(themeId))
+    ? (activeCustomId ? CUSTOM_HIGH_CONTRAST_THEME_ID : (panelStyle === 'glass' ? glassHighContrastMonacoThemeId(themeId) : highContrastMonacoThemeId(themeId)))
     : activeCustomId
     ? CUSTOM_DEFAULT_THEME_ID
     : panelStyle === 'glass' ? glassMonacoThemeId(themeId) : MONACO_THEMES[themeId]
