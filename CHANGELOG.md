@@ -1,5 +1,23 @@
 # vIDE
 
+## v0.2.10 (2026-09-09)
+- **Gabriele theme**: a new grayscale theme family — pure neutral grays throughout, no colour tint — with a matching background image
+- **Editor Colors renamed, and smarter with custom themes**: "High Contrast" is now "Theme Colour Match" and auto-derives its syntax colours from a custom theme's own accent instead of falling back to the base family's fixed palette; "Mario Mode" is now "High Contrast (Mario Mode)"; the Default and Theme Colour Match schemes now also follow a custom theme's own background colour
+- **Browser landing page**: opening a browser tab with nothing loaded yet now shows your favorited pages, recently visited pages, and recently closed tabs (with one-click reopen) instead of a blank page — star the toolbar button to favorite/unfavorite the current page
+- **Claude browser tab handoff**: Claude can take over one of your open browser tabs to navigate and interact with it on its own, then hand it back when done
+- **Expanded browser MCP toolset**: added get_html, evaluate, and get_network_log, plus tools for waiting, scrolling, key presses, finding elements, reading response bodies, exporting to PDF, reading the accessibility tree, and inspecting certificates
+- **Clear Browsing Data**: a new toolbar action clears cache/cookies/history, alongside a new Home button (placed before Back)
+- Added a "Close side panel when opening" option to Browser settings — collapses the open sidebar to give a new browser tab the full width
+- Browser tab views are now created only once a tab actually navigates (showing the landing page until then), so the old Default URL setting was removed as redundant
+
+**Bug fixes**
+- Fixed custom theme colours — including the terminal and editor background — not respecting the Glossy/Glass panel style, and occasionally turning solid black when a theme was created or edited while Glossy or Glass was active
+- Fixed "Theme Colour Match" forcing the editor fully opaque under the Glass panel style instead of following it like every other scheme
+- Fixed browser tabs showing a guessed file-extension icon instead of a fixed page icon
+- Fixed landing-page monogram icons showing a different letter per page instead of one per site
+- Fixed assorted navigation, closed-tab-reopen, and view bounds/unmount issues introduced by the tab handoff and deferred-view-creation changes
+
+
 ## v0.2.9 (2026-09-08)
 - **Multi-instance Claude sessions**: run several Claude Code sessions side by side, each with its own terminal panel; the new-session button moved next to the assistant icon, the busy-session indicator now tints per instance, and a right-click menu on each session tab adds Continue/Resume/Compact/Clear (Previous/Resume moved out of the toolbar into this menu)
 - **Custom Themes**: build your own named theme with independent light/dark palettes, edited with a hue/saturation colour picker (hex/RGB input, a recently-used swatch tray), right-click to edit/delete/share a theme, instant creation with auto-numbered names, a "Copy from Light/Dark" shortcut while editing, and the terminal background now follows the active custom theme
