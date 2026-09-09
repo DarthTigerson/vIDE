@@ -181,6 +181,11 @@ export class BrowserViewManager {
       await getBrowserSession().clearCache()
       this.get(this.winIdOf(event), id)?.webContents.reload()
     })
+    ipcMain.handle('browserView:clearCookies', async (event, id: string) => {
+      // Same shared-session/single-tab-reload shape as clearCache above.
+      await getBrowserSession().clearStorageData({ storages: ['cookies'] })
+      this.get(this.winIdOf(event), id)?.webContents.reload()
+    })
     ipcMain.handle('browserView:destroy', (event, id: string) => {
       const win = BrowserWindow.fromWebContents(event.sender)
       if (win) this.destroy(win, id)
