@@ -23,6 +23,7 @@ function getEntries(): BrowserRecentEntry[] {
 interface BrowserRecentStore {
   entries: BrowserRecentEntry[]
   recordVisit: (url: string, title: string) => void
+  clear: () => void
 }
 
 export const useBrowserRecentStore = create<BrowserRecentStore>((set, get) => ({
@@ -33,5 +34,10 @@ export const useBrowserRecentStore = create<BrowserRecentStore>((set, get) => ({
     const next = [{ url, title, visitedAt: Date.now() }, ...withoutExisting].slice(0, MAX_ENTRIES)
     localStorage.setItem(KEY, JSON.stringify(next))
     set({ entries: next })
+  },
+
+  clear: () => {
+    localStorage.setItem(KEY, JSON.stringify([]))
+    set({ entries: [] })
   },
 }))

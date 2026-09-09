@@ -54,4 +54,14 @@ describe('browserRecentStore', () => {
     expect(persisted).toHaveLength(1)
     expect(persisted[0].url).toBe('https://a.com')
   })
+
+  it('clear empties entries and persists the empty state', () => {
+    useBrowserRecentStore.getState().recordVisit('https://a.com', 'A')
+    useBrowserRecentStore.getState().recordVisit('https://b.com', 'B')
+
+    useBrowserRecentStore.getState().clear()
+
+    expect(useBrowserRecentStore.getState().entries).toEqual([])
+    expect(JSON.parse(localStorageStore['vide:browser:recent'])).toEqual([])
+  })
 })

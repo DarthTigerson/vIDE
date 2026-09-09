@@ -24,6 +24,7 @@ interface BrowserClosedTabsStore {
   entries: BrowserClosedTab[]
   recordClosed: (url: string, title: string) => void
   removeEntry: (url: string) => void
+  clear: () => void
 }
 
 export const useBrowserClosedTabsStore = create<BrowserClosedTabsStore>((set, get) => ({
@@ -40,5 +41,10 @@ export const useBrowserClosedTabsStore = create<BrowserClosedTabsStore>((set, ge
     const next = get().entries.filter((e) => e.url !== url)
     localStorage.setItem(KEY, JSON.stringify(next))
     set({ entries: next })
+  },
+
+  clear: () => {
+    localStorage.setItem(KEY, JSON.stringify([]))
+    set({ entries: [] })
   },
 }))

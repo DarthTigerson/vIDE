@@ -53,4 +53,14 @@ describe('browserClosedTabsStore', () => {
     const persisted = JSON.parse(localStorageStore['vide:browser:closedTabs'])
     expect(persisted).toHaveLength(1)
   })
+
+  it('clear empties entries and persists the empty state', () => {
+    useBrowserClosedTabsStore.getState().recordClosed('https://a.com', 'A')
+    useBrowserClosedTabsStore.getState().recordClosed('https://b.com', 'B')
+
+    useBrowserClosedTabsStore.getState().clear()
+
+    expect(useBrowserClosedTabsStore.getState().entries).toEqual([])
+    expect(JSON.parse(localStorageStore['vide:browser:closedTabs'])).toEqual([])
+  })
 })
