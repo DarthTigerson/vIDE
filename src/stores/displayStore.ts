@@ -73,16 +73,20 @@ const FAMILY_BACKGROUND: Record<string, BackgroundImage> = {
 export type NavbarPosition = 'left' | 'right'
 
 // Syntax color scheme for the Monaco editor — independent of the app Theme.
-// 'high-contrast' follows whichever theme family/variant is active rather
-// than being a sticky standalone choice (see monacoThemes.ts's
-// HIGH_CONTRAST_TOKENS); 'mario-mode' ignores the active theme entirely —
-// same fixed black background and palette no matter what (MARIO_MODE_*).
+// Internal values/ids are unchanged from before the user-facing rename below
+// (kept as-is for persisted-settings compatibility and to avoid a purely
+// cosmetic rename through monacoThemes.ts's HIGH_CONTRAST_TOKENS/
+// MARIO_MODE_*/etc.): 'high-contrast' — labeled "Theme Colour Match" —
+// follows whichever theme family/variant is active rather than being a
+// sticky standalone choice; 'mario-mode' — labeled "High Contrast (Mario
+// Mode)" — ignores the active theme entirely, same fixed black background
+// and palette no matter what.
 export type EditorColorScheme = 'default' | 'high-contrast' | 'mario-mode'
 
 export const EDITOR_COLOR_SCHEME_OPTIONS: { value: EditorColorScheme; label: string; description: string }[] = [
-  { value: 'default',       label: 'Default',       description: "Follows the active theme's own syntax colors" },
-  { value: 'high-contrast', label: 'High Contrast', description: 'Bright, high-visibility colors for easier reading' },
-  { value: 'mario-mode',    label: 'Mario Mode',    description: 'Bold primary colors on black — maximum readability' },
+  { value: 'default',       label: 'Default',                     description: "Follows the active theme's own syntax colors" },
+  { value: 'high-contrast', label: 'Theme Colour Match',           description: "High-visibility syntax colors derived from your theme's own accent" },
+  { value: 'mario-mode',    label: 'High Contrast (Mario Mode)',   description: 'Bold primary colors on black — maximum readability' },
 ]
 
 const DEFAULT_FONT = 'Menlo, monospace'

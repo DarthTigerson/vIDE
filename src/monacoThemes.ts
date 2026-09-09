@@ -1,6 +1,6 @@
 import type { Monaco } from '@monaco-editor/react'
 import type { ThemeId } from '@/stores/themeStore'
-import { hexWithAlpha } from '@/lib/color'
+import { hexWithAlpha, hexToHsv, hsvToHex } from '@/lib/color'
 
 interface ThemePalette {
   base: 'vs' | 'vs-dark'
@@ -98,6 +98,130 @@ function stripHash(hex: string): string {
   return hex.replace('#', '')
 }
 
+// Matches --color-panel's glass alpha in index.css so the editor surface
+// blends with the same transparency as its own wrapper panel.
+const GLASS_ALPHA = 0.25
+
+// Shared by every per-family theme in defineMonacoThemes below and by
+// defineCustomDefaultTheme's custom-background variant — everything except
+// 'editor.background' itself, which each caller substitutes separately (the
+// literal family colour, a glass-alpha'd version of it, or a custom theme's
+// own background).
+function baseEditorColors(p: ThemePalette) {
+  return {
+    'editor.foreground':                   p.foreground,
+    'editorCursor.foreground':              p.accent,
+    'editor.selectionBackground':           p.accent + '40',
+    'editor.inactiveSelectionBackground':   p.accent + '20',
+    'editor.lineHighlightBackground':       p.accent + '12',
+    'editorLineNumber.foreground':          p.fgSubtle,
+    'editorLineNumber.activeForeground':    p.fgMuted,
+    'editorIndentGuide.background':         p.border,
+    'editorIndentGuide.activeBackground':   p.fgSubtle,
+    'editorWhitespace.foreground':          p.border,
+  }
+}
+
+// Auto-derives High Contrast Editor Colors for a CUSTOM theme. The per-family
+// HIGH_CONTRAST_TOKENS above are hand-picked and know nothing about a custom
+// theme's own colours, so turning on High Contrast while a custom theme was
+// active used to fall back to the *base family's* fixed bright palette —
+// which could clash with, or barely contrast against, whatever the user
+// actually picked. This computes an equivalent instead of hand-picking one:
+// five token hues spaced around the custom theme's own accent (mirroring how
+// every HIGH_CONTRAST_TOKENS entry above stays tied to its theme's accent),
+// pushed to near-max saturation/value against a dark background or a darker,
+// more saturated value against a light one for legibility either way.
+// Comment stays a desaturated, dimmed version of that same hue rather than a
+// sixth competing one, matching how comments read as supporting colour in
+// every hand-picked palette above rather than a foreground one.
+const TOKEN_HUE_OFFSET = { keyword: 0, type: 150, string: 260, number: 45 } as const
+
+export function deriveHighContrastTokens(accentHex: string, backgroundHex: string): HighContrastTokens {
+  const { h } = hexToHsv(accentHex)
+  const bgIsDark = hexToHsv(backgroundHex).v < 0.5
+  const s = bgIsDark ? 0.65 : 0.85
+  const v = bgIsDark ? 0.95 : 0.6
+  const hue = (offset: number) => (h + offset) % 360
+  return {
+    keyword: hsvToHex(hue(TOKEN_HUE_OFFSET.keyword), s, v),
+    type: hsvToHex(hue(TOKEN_HUE_OFFSET.type), s, v),
+    string: hsvToHex(hue(TOKEN_HUE_OFFSET.string), s, v),
+    number: hsvToHex(hue(TOKEN_HUE_OFFSET.number), s, v),
+    comment: hsvToHex(h, s * 0.5, bgIsDark ? 0.65 : 0.45),
+  }
+}
+
+// Stable id — unlike the per-family ids above, this one theme definition gets
+// redefined in place (monaco.editor.defineTheme() is safe to call again with
+// the same id) whenever the active custom theme's own colours change, rather
+// than one static id per ThemeId.
+export const CUSTOM_HIGH_CONTRAST_THEME_ID = 'custom-theme-hc'
+
+export interface CustomHighContrastPalette {
+  background: string
+  foreground: string
+  accent: string
+  border: string
+  fgMuted: string
+  fgSubtle: string
+}
+
+// Default Editor Colors on a custom theme. Mirrors effectiveXtermTheme in
+// customThemeStore.ts: Monaco's syntax token colours keep following the base
+// family (that IS what "Default — follows the active theme's own syntax
+// colours" means; a custom theme only ever defines the 9 chrome vars, not
+// token colours), but leaving the editor on the base family's own stock
+// background while every other panel follows the custom theme's background
+// reads as a bug, not a design choice — same reasoning that already applies
+// to the terminal below. baseThemeId supplies the inherited family's token/
+// foreground colours; customBackground substitutes only 'editor.background'.
+export const CUSTOM_DEFAULT_THEME_ID = 'custom-theme-default'
+
+export function defineCustomDefaultTheme(monaco: Monaco, baseThemeId: ThemeId, customBackground: string, glass: boolean) {
+  const p = THEME_PALETTES[baseThemeId]
+  monaco.editor.defineTheme(CUSTOM_DEFAULT_THEME_ID, {
+    base: p.base,
+    inherit: true,
+    rules: [],
+    colors: {
+      ...baseEditorColors(p),
+      'editor.background': glass ? hexWithAlpha(customBackground, GLASS_ALPHA) : customBackground,
+    },
+  })
+}
+
+export function defineCustomHighContrastTheme(monaco: Monaco, palette: CustomHighContrastPalette) {
+  const base: 'vs' | 'vs-dark' = hexToHsv(palette.background).v < 0.5 ? 'vs-dark' : 'vs'
+  const tokens = deriveHighContrastTokens(palette.accent, palette.background)
+  monaco.editor.defineTheme(CUSTOM_HIGH_CONTRAST_THEME_ID, {
+    base,
+    inherit: true,
+    rules: [
+      { token: 'comment', foreground: stripHash(tokens.comment), fontStyle: 'italic' },
+      { token: 'keyword', foreground: stripHash(tokens.keyword) },
+      { token: 'string', foreground: stripHash(tokens.string) },
+      { token: 'number', foreground: stripHash(tokens.number) },
+      { token: 'type.identifier', foreground: stripHash(tokens.type) },
+      { token: 'regexp', foreground: stripHash(tokens.string) },
+      { token: 'delimiter', foreground: stripHash(palette.fgMuted) },
+    ],
+    colors: {
+      'editor.foreground':                   palette.foreground,
+      'editor.background':                   palette.background,
+      'editorCursor.foreground':              palette.accent,
+      'editor.selectionBackground':           palette.accent + '40',
+      'editor.inactiveSelectionBackground':   palette.accent + '20',
+      'editor.lineHighlightBackground':       palette.accent + '12',
+      'editorLineNumber.foreground':          palette.fgSubtle,
+      'editorLineNumber.activeForeground':    palette.fgMuted,
+      'editorIndentGuide.background':         palette.border,
+      'editorIndentGuide.activeBackground':   palette.fgSubtle,
+      'editorWhitespace.foreground':          palette.border,
+    },
+  })
+}
+
 // "glass" panel style needs the editor surface itself to be see-through, not
 // just its wrapper div — Monaco paints its own opaque background from this
 // theme's 'editor.background' color, independent of the --color-panel CSS
@@ -112,10 +236,6 @@ export function highContrastMonacoThemeId(id: ThemeId): string {
   return `${id}-hc`
 }
 
-// Matches --color-panel's glass alpha in index.css so the editor surface
-// blends with the same transparency as its own wrapper panel.
-const GLASS_ALPHA = 0.25
-
 let defined = false
 
 export function defineMonacoThemes(monaco: Monaco) {
@@ -123,18 +243,7 @@ export function defineMonacoThemes(monaco: Monaco) {
   defined = true
 
   for (const [id, p] of Object.entries(THEME_PALETTES) as [ThemeId, ThemePalette][]) {
-    const colors = {
-      'editor.foreground':                   p.foreground,
-      'editorCursor.foreground':              p.accent,
-      'editor.selectionBackground':           p.accent + '40',
-      'editor.inactiveSelectionBackground':   p.accent + '20',
-      'editor.lineHighlightBackground':       p.accent + '12',
-      'editorLineNumber.foreground':          p.fgSubtle,
-      'editorLineNumber.activeForeground':    p.fgMuted,
-      'editorIndentGuide.background':         p.border,
-      'editorIndentGuide.activeBackground':   p.fgSubtle,
-      'editorWhitespace.foreground':          p.border,
-    }
+    const colors = baseEditorColors(p)
     monaco.editor.defineTheme(id, {
       base: p.base,
       inherit: true,

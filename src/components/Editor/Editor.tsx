@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import MonacoEditor, { DiffEditor } from '@monaco-editor/react'
+import MonacoEditor, { DiffEditor, loader } from '@monaco-editor/react'
 import type * as Monaco from 'monaco-editor'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { useEditorStore, type EditorLayoutNode } from '@/stores/editorStore'
 import { useSearchStore } from '@/stores/searchStore'
 import { useThemeStore, MONACO_THEMES } from '@/stores/themeStore'
-import { defineMonacoThemes, glassMonacoThemeId, highContrastMonacoThemeId, MARIO_MODE_THEME_ID } from '@/monacoThemes'
+import { useCustomThemeStore } from '@/stores/customThemeStore'
+import {
+  defineMonacoThemes, glassMonacoThemeId, highContrastMonacoThemeId, MARIO_MODE_THEME_ID,
+  defineCustomHighContrastTheme, CUSTOM_HIGH_CONTRAST_THEME_ID,
+  defineCustomDefaultTheme, CUSTOM_DEFAULT_THEME_ID,
+} from '@/monacoThemes'
 import { useFontSizeStore } from '@/stores/fontSizeStore'
 import { useInstanceFontSizeStore } from '@/stores/instanceFontSizeStore'
 import { useDisplayStore } from '@/stores/displayStore'
@@ -123,6 +128,40 @@ export function Editor() {
   const splitActivePane = useEditorStore((s) => s.splitActivePane)
   const autoSaveEnabled = useEditorSettingsStore((s) => s.autoSaveEnabled)
   const activeTab = tabs.find((t) => t.path === activeTabPath) ?? null
+  const editorColorScheme = useDisplayStore((s) => s.editorColorScheme)
+  const panelStyle = useDisplayStore((s) => s.panelStyle)
+  const themeId = useThemeStore((s) => s.theme)
+  const activeCustomId = useCustomThemeStore((s) => s.activeId)
+  const customThemes = useCustomThemeStore((s) => s.themes)
+
+  // Keeps CUSTOM_DEFAULT_THEME_ID/CUSTOM_HIGH_CONTRAST_THEME_ID's definitions
+  // in sync with the active custom theme's own colours (background for
+  // Default — see defineCustomDefaultTheme; derived syntax tokens for High
+  // Contrast — see deriveHighContrastTokens), both in monacoThemes.ts. Only
+  // bothers defining the one matching the current scheme; EditorPane below
+  // only ever selects a custom theme id in that same condition, so defining
+  // the other one here would be invisible until the user actually switched.
+  useEffect(() => {
+    if (!activeCustomId || editorColorScheme === 'mario-mode') return
+    const active = customThemes.find((t) => t.id === activeCustomId)
+    if (!active) return
+    const variant = themeId.endsWith('-dark') ? 'dark' : 'light'
+    const palette = active[variant]
+    loader.init().then((monaco) => {
+      if (editorColorScheme === 'high-contrast') {
+        defineCustomHighContrastTheme(monaco, {
+          background: palette['--color-bg'],
+          foreground: palette['--color-fg'],
+          accent: palette['--color-accent'],
+          border: palette['--color-border'],
+          fgMuted: palette['--color-fg-muted'],
+          fgSubtle: palette['--color-fg-subtle'],
+        })
+      } else {
+        defineCustomDefaultTheme(monaco, themeId, palette['--color-bg'], panelStyle === 'glass')
+      }
+    })
+  }, [editorColorScheme, activeCustomId, customThemes, themeId, panelStyle])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -214,12 +253,21 @@ function EditorPane({ paneId }: { paneId: string }) {
   const themeId = useThemeStore((s) => s.theme)
   const panelStyle = useDisplayStore((s) => s.panelStyle)
   const editorColorScheme = useDisplayStore((s) => s.editorColorScheme)
+  const activeCustomId = useCustomThemeStore((s) => s.activeId)
   // Mario Mode and High Contrast both always win over Glass — a see-through
   // high-contrast editor would defeat the point of turning either one on.
+  // Both Default and High Contrast use a CUSTOM_*_THEME_ID (kept up to date
+  // by the effect in Editor() above) instead of the per-family id when a
+  // custom theme is active, so the editor's background (Default) or derived
+  // syntax colours (High Contrast) reflect that theme's own colours. The
+  // custom Default id already carries the right glass alpha internally, so
+  // it doesn't need its own glassMonacoThemeId branch.
   const monacoTheme = editorColorScheme === 'mario-mode'
     ? MARIO_MODE_THEME_ID
     : editorColorScheme === 'high-contrast'
-    ? highContrastMonacoThemeId(themeId)
+    ? (activeCustomId ? CUSTOM_HIGH_CONTRAST_THEME_ID : highContrastMonacoThemeId(themeId))
+    : activeCustomId
+    ? CUSTOM_DEFAULT_THEME_ID
     : panelStyle === 'glass' ? glassMonacoThemeId(themeId) : MONACO_THEMES[themeId]
   const fontSize = useFontSizeStore((s) => s.fontSize)
   const font = useDisplayStore((s) => s.font)
