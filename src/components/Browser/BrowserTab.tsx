@@ -379,6 +379,15 @@ export function BrowserTab({ browserId }: Props) {
       <div className="flex items-center gap-1 px-2 h-9 border-b border-border shrink-0 bg-tab-bar">
         <button
           type="button"
+          aria-label="Home"
+          disabled={!url}
+          onClick={goHome}
+          className="flex h-6 w-6 items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
+        >
+          <HomeIcon />
+        </button>
+        <button
+          type="button"
           aria-label="Back"
           disabled={!canGoBack}
           onClick={() => window.api.browserViewGoBack(browserId)}
@@ -402,15 +411,6 @@ export function BrowserTab({ browserId }: Props) {
           className="flex h-6 w-6 items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-white/5"
         >
           <ReloadIcon spinning={isLoading} />
-        </button>
-        <button
-          type="button"
-          aria-label="Home"
-          disabled={!url}
-          onClick={goHome}
-          className="flex h-6 w-6 items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
-        >
-          <HomeIcon />
         </button>
         <form onSubmit={handleUrlSubmit} className="flex-1 min-w-0">
           <input
