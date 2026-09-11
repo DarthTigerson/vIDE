@@ -11,6 +11,8 @@ import { useAutocompleteSessionStore } from '@/stores/autocompleteSessionStore'
 import { useAutocompleteStatusStore } from '@/stores/autocompleteStatusStore'
 import { AUTOCOMPLETE_FORCE_DISABLED } from '@/lib/autocompleteEffectiveState'
 import { FooterMessage } from './FooterMessage'
+import { NotificationPanel } from './NotificationPanel'
+import { NotificationCompactToggle } from './NotificationCompactToggle'
 
 export function StatusBar() {
   const { fontSize, increase, decrease, reset } = useFontSizeStore()
@@ -62,6 +64,7 @@ export function StatusBar() {
 
   return (
     <div className="relative h-6 shrink-0 flex items-center justify-between px-3 bg-tab-bar border-t border-border select-none">
+      <NotificationPanel />
       <FooterMessage />
       {showBranch ? (
         <div className="relative min-w-0">
@@ -139,6 +142,7 @@ export function StatusBar() {
             )}
           </div>
         )}
+        <NotificationCompactToggle />
         <div
           className={[
             'flex items-center rounded-full border border-border bg-bg overflow-hidden',

@@ -1,20 +1,32 @@
 import { useEffect, useState } from 'react'
 import { FOOTER_TIPS } from '@/lib/footerTips'
 import { useUpdateStore } from '@/stores/updateStore'
-import { useUsageAlertStore } from '@/stores/usageAlertStore'
 import { useStatusMessageStore } from '@/stores/statusMessageStore'
 import { useDisplayStore } from '@/stores/displayStore'
-import { useEditorStore } from '@/stores/editorStore'
-import { useDockerSettingsStore } from '@/stores/dockerSettingsStore'
-import { useDockerStore } from '@/stores/dockerStore'
-import { useDockerOffAlertStore } from '@/stores/dockerOffAlertStore'
-import { useFileStore } from '@/stores/fileStore'
-import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
-import { formatCountdownClock } from '@/components/UsagePanel/format'
+import { useNotificationPanelStore } from '@/stores/notificationPanelStore'
+import { useNotificationItems } from '@/hooks/useNotificationItems'
+import { useVisibleNotificationItems } from '@/hooks/useVisibleNotificationItems'
 import { Clock } from './Clock'
 
 const ROTATE_INTERVAL_MS = 9000
 const FADE_MS = 200
+
+// Shared by every state the pill can be in (notification / clock / tip) so
+// the footer always reads as the same "notification toggle" element — only
+// its interactivity and text color change depending on whether there's
+// anything active to open the panel for.
+// hidden below 1200px — NotificationCompactToggle (in the right-hand
+// cluster, next to the font-size control) takes over at that width,
+// collapsed to just the top-priority notification's icon. Hints/clock get
+// no compact replacement; they simply go unread at that width.
+const PILL_BASE_CLASSES =
+  'absolute inset-x-0 top-1/2 -translate-y-1/2 mx-auto hidden min-[1200px]:flex h-5 w-[46rem] max-w-[92vw] items-center justify-center rounded-full border border-border bg-bg px-3 text-xs transition-colors'
+
+// The clock (unlike hints/notifications) doesn't need 46rem of room and
+// isn't worth losing below 1200px just to save space — it stays centered
+// and visible at every width, sized to just its own content instead.
+const CLOCK_PILL_CLASSES =
+  'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-5 w-24 items-center justify-center rounded-full border border-border bg-bg px-3 text-xs pointer-events-none select-none text-fg-subtle'
 
 function randomTipIndex(exclude?: number): number {
   if (FOOTER_TIPS.length <= 1) return 0
@@ -25,41 +37,17 @@ function randomTipIndex(exclude?: number): number {
 
 export function FooterMessage() {
   const transientMessage = useStatusMessageStore((s) => s.message)
-  const usageAlert = useUsageAlertStore((s) => s.alert)
-  const available = useUpdateStore((s) => s.available)
-  const status = useUpdateStore((s) => s.status)
+  // Raw (unfiltered) — the toggle stays clickable and the panel shows every
+  // active notification regardless of acknowledgment. Only the loud footer
+  // *text* goes quiet once viewed (visibleItems, below).
+  const rawItems = useNotificationItems()
+  const visibleItems = useVisibleNotificationItems()
+  const toggleNotificationPanel = useNotificationPanelStore((s) => s.toggle)
   const upToDateVersion = useUpdateStore((s) => s.upToDateVersion)
-  const startUpdate = useUpdateStore((s) => s.startUpdate)
-  const restart = useUpdateStore((s) => s.restart)
   const footerContent = useDisplayStore((s) => s.footerContent)
-  const dockerEnabled = useDockerSettingsStore((s) => s.enabled)
-  const dockerStatus = useDockerStore((s) => s.status)
-  const dockerOffIgnored = useDockerOffAlertStore((s) => s.ignored)
-  const ignoreDockerOff = useDockerOffAlertStore((s) => s.ignore)
-  const resetDockerOffIgnore = useDockerOffAlertStore((s) => s.reset)
-  const requestDockerOpen = useDockerOffAlertStore((s) => s.requestOpen)
-  const projectRoot = useFileStore((s) => s.projectRoot)
-  // Only for someone who normally works with Docker (enabled in settings)
-  // and has it installed but not currently running — "not-installed" is a
-  // different situation (nothing to turn back on) and isn't nagged about here.
-  const dockerOff = dockerEnabled && dockerStatus === 'stopped' && !dockerOffIgnored
-
-  // "Ignore" only covers the current off-stretch in the current project —
-  // Docker coming back up (even briefly) or switching/reopening the project
-  // both clear it, so a stale ignore from a different situation never hides
-  // a fresh one.
-  useEffect(() => {
-    if (dockerStatus !== 'stopped') resetDockerOffIgnore()
-  }, [dockerStatus, resetDockerOffIgnore])
-
-  useEffect(() => {
-    resetDockerOffIgnore()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectRoot])
 
   const [tipIndex, setTipIndex] = useState(() => randomTipIndex())
   const [fading, setFading] = useState(false)
-  const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -72,12 +60,6 @@ export function FooterMessage() {
     return () => clearInterval(interval)
   }, [])
 
-  useEffect(() => {
-    if (!usageAlert) return
-    const interval = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(interval)
-  }, [usageAlert])
-
   const positionClasses = 'absolute left-1/2 -translate-x-1/2 max-w-[45%] truncate text-xs'
 
   if (transientMessage) {
@@ -85,70 +67,6 @@ export function FooterMessage() {
       <span className={[positionClasses, 'text-accent select-none pointer-events-none'].join(' ')}>
         {transientMessage}
       </span>
-    )
-  }
-
-  if (usageAlert) {
-    const scopeLabel = usageAlert.scope === 'session' ? 'Session' : 'Weekly'
-    return (
-      <button
-        type="button"
-        onClick={() => useEditorStore.getState().openTab({ path: USAGE_GRAPH_TAB_PATH, content: '', dirty: false })}
-        className={[positionClasses, 'text-amber-400 hover:underline cursor-pointer'].join(' ')}
-      >
-        {`${scopeLabel} usage may run out in ${formatCountdownClock(usageAlert.cutoffAt, now)} — click to view`}
-      </button>
-    )
-  }
-
-  if (dockerOff) {
-    return (
-      <span className="absolute left-1/2 -translate-x-1/2 max-w-[45%] flex items-center gap-1.5 text-xs">
-        <span className="truncate text-fg-muted">Docker isn't running</span>
-        <button
-          type="button"
-          onClick={requestDockerOpen}
-          className="shrink-0 rounded-full border border-amber-400 text-amber-400 px-2 py-0.5 text-[10.5px] leading-none hover:bg-amber-400/10 cursor-pointer"
-        >
-          Open panel
-        </button>
-        <button
-          type="button"
-          onClick={ignoreDockerOff}
-          className="shrink-0 rounded-full border border-border text-fg-muted px-2 py-0.5 text-[10.5px] leading-none hover:bg-white/5 hover:text-fg cursor-pointer"
-        >
-          Ignore
-        </button>
-      </span>
-    )
-  }
-
-  if (available) {
-    const label =
-      status === 'ready'
-        ? 'Update installed — click to restart'
-        : status === 'updating'
-          ? 'Updating vIDE… (see terminal)'
-          : status === 'failed'
-            ? `Update failed — click to retry (v${available.version} available)`
-            : `vIDE v${available.version} is available — click to update`
-
-    const onClick = status === 'ready' ? restart : status === 'updating' ? undefined : startUpdate
-
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={status === 'updating'}
-        className={[
-          positionClasses,
-          status === 'updating'
-            ? 'text-fg-subtle cursor-default'
-            : 'text-accent hover:underline cursor-pointer',
-        ].join(' ')}
-      >
-        {label}
-      </button>
     )
   }
 
@@ -160,24 +78,51 @@ export function FooterMessage() {
     )
   }
 
+  const pillContent =
+    visibleItems.length > 0 ? (
+      <span className="truncate">{visibleItems[0].text}</span>
+    ) : footerContent === 'clock' ? (
+      <Clock />
+    ) : (
+      <span
+        className={['truncate transition-opacity', fading ? 'opacity-0' : 'opacity-100'].join(' ')}
+        style={{ transitionDuration: `${FADE_MS}ms` }}
+      >
+        {FOOTER_TIPS[tipIndex]}
+      </span>
+    )
+
+  if (rawItems.length > 0) {
+    return (
+      <button
+        type="button"
+        data-testid="notification-teaser"
+        // onMouseUp rather than onClick (VIDE-91): the countdown re-renders
+        // this button every second, and a real click that straddles one of
+        // those re-renders can fail the browser's mousedown/mouseup ==
+        // same-target check that click synthesis depends on. mouseup has no
+        // such requirement.
+        onMouseUp={(e) => {
+          if (e.button === 0) toggleNotificationPanel()
+        }}
+        className={[
+          PILL_BASE_CLASSES,
+          'cursor-pointer hover:border-fg-subtle',
+          visibleItems.length > 0 ? 'text-accent' : 'text-fg-muted',
+        ].join(' ')}
+      >
+        {pillContent}
+      </button>
+    )
+  }
+
   if (footerContent === 'clock') {
     return (
-      <span className={[positionClasses, 'pointer-events-none'].join(' ')}>
+      <span className={CLOCK_PILL_CLASSES}>
         <Clock />
       </span>
     )
   }
 
-  return (
-    <span
-      className={[
-        positionClasses,
-        'text-fg-subtle select-none pointer-events-none transition-opacity',
-        fading ? 'opacity-0' : 'opacity-100',
-      ].join(' ')}
-      style={{ transitionDuration: `${FADE_MS}ms` }}
-    >
-      {FOOTER_TIPS[tipIndex]}
-    </span>
-  )
+  return <span className={[PILL_BASE_CLASSES, 'pointer-events-none select-none text-fg-subtle'].join(' ')}>{pillContent}</span>
 }
