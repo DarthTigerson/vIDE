@@ -6,6 +6,7 @@ import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitStore, emptyRepoGitState } from '@/stores/gitStore'
 import { useGitFavoriteReposStore } from '@/stores/gitFavoriteReposStore'
 import { useGitOpenReposStore } from '@/stores/gitOpenReposStore'
+import { useSearchStore } from '@/stores/searchStore'
 
 window.HTMLElement.prototype.scrollIntoView = vi.fn()
 
@@ -19,6 +20,7 @@ beforeEach(() => {
   useFileStore.setState({ projectRoot: '/proj' })
   useGitFavoriteReposStore.setState({ favorites: {} })
   useGitOpenReposStore.setState({ open: {} })
+  useSearchStore.setState({ repoPaletteOpen: false })
 })
 
 afterEach(() => {
@@ -65,10 +67,11 @@ describe('GitPanel — multi-repo open/close', () => {
     setTwoUnopenedRepos()
     render(<GitPanel />)
     fireEvent.click(screen.getByText('Show All Repos'))
-    fireEvent.click(screen.getByText('repoB'))
+    fireEvent.mouseDown(screen.getByText('repoB'))
     expect(screen.getByText('repoB')).toBeTruthy()
     expect(screen.queryByText('repoA')).toBeNull()
     expect(useGitOpenReposStore.getState().isOpen('/proj/repoB')).toBe(true)
+    expect(useSearchStore.getState().repoPaletteOpen).toBe(false)
   })
 
   it('right-clicking a header and picking "Close Repo" removes it from the panel without touching discovery or its git data, and activates a remaining open repo', () => {

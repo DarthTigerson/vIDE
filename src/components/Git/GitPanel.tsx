@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitFavoriteReposStore, sortReposByFavorite } from '@/stores/gitFavoriteReposStore'
 import { useGitOpenReposStore } from '@/stores/gitOpenReposStore'
-import { RepoOverviewList } from './RepoOverviewList'
+import { useSearchStore } from '@/stores/searchStore'
+import { RepoPalette } from './RepoPalette'
 import { RepoSection } from './RepoSection'
 
 export function GitPanel() {
@@ -11,7 +12,7 @@ export function GitPanel() {
   const selectRepo = useGitReposStore((s) => s.selectRepo)
   const favorites = useGitFavoriteReposStore((s) => s.favorites)
   const openRepos = useGitOpenReposStore((s) => s.open)
-  const [showAllRepos, setShowAllRepos] = useState(false)
+  const repoPaletteOpen = useSearchStore((s) => s.repoPaletteOpen)
 
   // A single discovered repo has nothing to choose between — same bypass
   // as today's solo mode, just renamed now that it gates more than the
@@ -27,7 +28,7 @@ export function GitPanel() {
     if (!pendingScrollTo) return
     sectionRefs.current.get(pendingScrollTo)?.scrollIntoView({ block: 'start' })
     setPendingScrollTo(null)
-  }, [pendingScrollTo, showAllRepos])
+  }, [pendingScrollTo])
 
   // Only one repo's body is ever expanded at a time (RepoSection derives
   // isExpanded straight from selectedRepo), so selectedRepo must always
@@ -50,20 +51,15 @@ export function GitPanel() {
         {!soloMode && (
           <button
             type="button"
-            onClick={() => setShowAllRepos((v) => !v)}
+            onClick={() => useSearchStore.getState().openRepoPalette()}
             className="text-[0.6875rem] text-fg-muted hover:text-fg transition-colors"
           >
-            {showAllRepos ? 'Back to Repo' : 'Show All Repos'}
+            Show All Repos
           </button>
         )}
       </div>
 
-      {/* soloMode gates the overlay as well as the toggle button: if the repo
-          count drops to 1 mid-session an already-open overview would be
-          stranded with no way back. */}
-      {showAllRepos && !soloMode ? (
-        <RepoOverviewList onClose={(repo) => { setShowAllRepos(false); if (repo) setPendingScrollTo(repo) }} />
-      ) : !soloMode && openList.length === 0 ? (
+      {!soloMode && openList.length === 0 ? (
         <div className="flex-1 flex items-center justify-center px-6 text-center text-xs text-fg-subtle">
           No repos open. Use "Show All Repos" to open one.
         </div>
@@ -84,6 +80,15 @@ export function GitPanel() {
             </div>
           ))}
         </div>
+      )}
+
+      {repoPaletteOpen && (
+        <RepoPalette
+          onClose={(repo) => {
+            useSearchStore.getState().closeRepoPalette()
+            if (repo) setPendingScrollTo(repo)
+          }}
+        />
       )}
     </div>
   )

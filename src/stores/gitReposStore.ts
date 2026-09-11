@@ -8,10 +8,10 @@ interface GitReposStore {
   repos: string[]
   selectedRepo: string | null
   // True once the user (via a repo's accordion section in the Git panel or
-  // the "Show All Repos" overview) or auto-follow has actually picked a
+  // the "Show All Repos" palette) or auto-follow has actually picked a
   // repo — distinct from setRepos'
   // internal default-selection, which populates selectedRepo immediately on
-  // project open purely so GitPanel/RepoOverviewList have data ready. The
+  // project open purely so GitPanel/RepoPalette have data ready. The
   // footer uses this to stay silent in multi-repo projects until a repo has
   // genuinely been chosen, rather than showing the arbitrary first repo's
   // branch with no indication of which repo it belongs to.

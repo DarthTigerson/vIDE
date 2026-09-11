@@ -85,9 +85,9 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
   }
 
   // "/" jumps straight into the search box without needing to click first —
-  // matches the convention already used for the repo filter in
-  // RepoOverviewList.tsx. Only fires when focus isn't already in a text
-  // field, so it doesn't eat a literal "/" typed into a title/description.
+  // matches the Gmail/GitHub/Slack convention. Only fires when focus isn't
+  // already in a text field, so it doesn't eat a literal "/" typed into a
+  // title/description.
   function handleContainerKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key !== '/') return
     const active = document.activeElement

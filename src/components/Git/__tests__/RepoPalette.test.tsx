@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
-import { RepoOverviewList } from '../RepoOverviewList'
+import { RepoPalette } from '../RepoPalette'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitStore, emptyRepoGitState } from '@/stores/gitStore'
 import { useGitFavoriteReposStore } from '@/stores/gitFavoriteReposStore'
@@ -34,9 +34,9 @@ afterEach(() => {
   cleanup()
 })
 
-describe('RepoOverviewList', () => {
+describe('RepoPalette', () => {
   it('lists every repo with its name, branch, and staged/unstaged counts', () => {
-    render(<RepoOverviewList onClose={vi.fn()} />)
+    render(<RepoPalette onClose={vi.fn()} />)
     expect(screen.getByText('repoA')).toBeTruthy()
     expect(screen.getByText('main')).toBeTruthy()
     expect(screen.getByText('repoB')).toBeTruthy()
@@ -44,83 +44,75 @@ describe('RepoOverviewList', () => {
   })
 
   it('shows ahead/behind counts when present', () => {
-    render(<RepoOverviewList onClose={vi.fn()} />)
+    render(<RepoPalette onClose={vi.fn()} />)
     expect(screen.getByText('↓2')).toBeTruthy()
     expect(screen.getByText('↑1')).toBeTruthy()
   })
 
   it('re-fetches every repo on mount', async () => {
-    render(<RepoOverviewList onClose={vi.fn()} />)
+    render(<RepoPalette onClose={vi.fn()} />)
     await waitFor(() => {
       expect(window.api.gitBranch).toHaveBeenCalledWith('/proj/repoA')
       expect(window.api.gitBranch).toHaveBeenCalledWith('/proj/repoB')
     })
   })
 
-  it('clicking a row selects that repo and closes the overview', () => {
-    const onClose = vi.fn()
-    render(<RepoOverviewList onClose={onClose} />)
-    fireEvent.click(screen.getByText('repoB'))
-    expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoB')
-    expect(onClose).toHaveBeenCalled()
+  it('auto-focuses the search input on mount', () => {
+    render(<RepoPalette onClose={vi.fn()} />)
+    expect(document.activeElement).toBe(screen.getByPlaceholderText('Find a repo…'))
   })
 
-  it('typing in the filter box narrows the list to matching repo names', () => {
-    render(<RepoOverviewList onClose={vi.fn()} />)
-    fireEvent.change(screen.getByPlaceholderText('Find a repo (press / to search)'), { target: { value: 'B' } })
+  it('clicking (mousedown on) a row selects that repo, opens it, and passes it to onClose', () => {
+    const onClose = vi.fn()
+    render(<RepoPalette onClose={onClose} />)
+    fireEvent.mouseDown(screen.getByText('repoB'))
+    expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoB')
+    expect(useGitOpenReposStore.getState().isOpen('/proj/repoB')).toBe(true)
+    expect(onClose).toHaveBeenCalledWith('/proj/repoB')
+  })
+
+  it('typing in the search box narrows the list to matching repo names', () => {
+    render(<RepoPalette onClose={vi.fn()} />)
+    fireEvent.change(screen.getByPlaceholderText('Find a repo…'), { target: { value: 'B' } })
     expect(screen.queryByText('repoA')).toBeNull()
     expect(screen.getByText('repoB')).toBeTruthy()
   })
 
-  it('pressing "/" focuses the filter box when nothing else has focus', () => {
-    const { container } = render(<RepoOverviewList onClose={vi.fn()} />)
-    const root = container.firstElementChild as HTMLElement
-    const input = screen.getByPlaceholderText('Find a repo (press / to search)') as HTMLInputElement
-    fireEvent.keyDown(root, { key: '/' })
-    expect(document.activeElement).toBe(input)
+  it('Escape closes the palette', () => {
+    const onClose = vi.fn()
+    render(<RepoPalette onClose={onClose} />)
+    fireEvent.keyDown(screen.getByPlaceholderText('Find a repo…'), { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledWith()
+  })
+
+  it('ArrowDown/ArrowUp move the active row, and Enter selects it', () => {
+    const onClose = vi.fn()
+    render(<RepoPalette onClose={onClose} />)
+    const input = screen.getByPlaceholderText('Find a repo…')
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoB')
+    expect(onClose).toHaveBeenCalledWith('/proj/repoB')
   })
 
   it('starring a repo marks it favorite and sorts it to the top of the list', () => {
-    render(<RepoOverviewList onClose={vi.fn()} />)
-    fireEvent.click(screen.getByLabelText('Favorite repoB'))
+    render(<RepoPalette onClose={vi.fn()} />)
+    fireEvent.mouseDown(screen.getByLabelText('Favorite repoB'))
 
     expect(useGitFavoriteReposStore.getState().isFavorite('/proj/repoB')).toBe(true)
     const rowTexts = screen.getAllByText(/^repo[AB]$/).map((el) => el.textContent)
     expect(rowTexts).toEqual(['repoB', 'repoA'])
   })
 
-  it('clicking the star does not also select the repo', () => {
-    render(<RepoOverviewList onClose={vi.fn()} />)
-    fireEvent.click(screen.getByLabelText('Favorite repoB'))
+  it('starring a repo does not also select it', () => {
+    render(<RepoPalette onClose={vi.fn()} />)
+    fireEvent.mouseDown(screen.getByLabelText('Favorite repoB'))
     expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoA')
   })
 
-  it('clicking a row selects that repo (making it the expanded one) and passes it to onClose', () => {
+  it('right-clicking a row shows a context menu with "Go to File Tree", which requests a reveal and closes the palette', () => {
     const onClose = vi.fn()
-    render(<RepoOverviewList onClose={onClose} />)
-    fireEvent.click(screen.getByText('repoB'))
-    expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoB')
-    expect(onClose).toHaveBeenCalledWith('/proj/repoB')
-  })
-
-  it('clicking a row opens that repo', () => {
-    const onClose = vi.fn()
-    render(<RepoOverviewList onClose={onClose} />)
-    fireEvent.click(screen.getByText('repoB'))
-    expect(useGitOpenReposStore.getState().isOpen('/proj/repoB')).toBe(true)
-  })
-
-  it('right-clicking "Go to File Tree" closes with no repo argument (does not force-expand)', () => {
-    const onClose = vi.fn()
-    render(<RepoOverviewList onClose={onClose} />)
-    fireEvent.contextMenu(screen.getByText('repoB'))
-    fireEvent.click(screen.getByText('Go to File Tree'))
-    expect(onClose).toHaveBeenCalledWith()
-  })
-
-  it('right-clicking a row shows a context menu with "Go to File Tree", which requests a reveal and closes the overview', () => {
-    const onClose = vi.fn()
-    render(<RepoOverviewList onClose={onClose} />)
+    render(<RepoPalette onClose={onClose} />)
     fireEvent.contextMenu(screen.getByText('repoB'))
 
     const item = screen.getByText('Go to File Tree')
@@ -130,7 +122,22 @@ describe('RepoOverviewList', () => {
     expect(useSidebarUiStore.getState().revealRequest).toEqual({ path: '/proj/repoB', expandTarget: true })
     expect(onClose).toHaveBeenCalled()
     // Right-click navigates via the file tree, not the git scope — it
-    // shouldn't also change which repo the Git Panel is scoped to.
+    // shouldn't also change which repo the panel is scoped to.
     expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoA')
+  })
+
+  it('right-clicking "Go to File Tree" closes with no repo argument (does not force-select)', () => {
+    const onClose = vi.fn()
+    render(<RepoPalette onClose={onClose} />)
+    fireEvent.contextMenu(screen.getByText('repoB'))
+    fireEvent.click(screen.getByText('Go to File Tree'))
+    expect(onClose).toHaveBeenCalledWith()
+  })
+
+  it('clicking the backdrop closes the palette', () => {
+    const onClose = vi.fn()
+    const { container } = render(<RepoPalette onClose={onClose} />)
+    fireEvent.mouseDown(container.firstElementChild as HTMLElement)
+    expect(onClose).toHaveBeenCalledWith()
   })
 })

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, cleanup, fireEvent, act, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, act, waitFor, within } from '@testing-library/react'
 import { GitPanel } from '../GitPanel'
 import { useFileStore } from '@/stores/fileStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
@@ -7,6 +7,7 @@ import { useGitStore, emptyRepoGitState } from '@/stores/gitStore'
 import { useGitFavoriteReposStore } from '@/stores/gitFavoriteReposStore'
 import { useGitOpenReposStore } from '@/stores/gitOpenReposStore'
 import { useSidebarUiStore } from '@/stores/sidebarUiStore'
+import { useSearchStore } from '@/stores/searchStore'
 
 window.HTMLElement.prototype.scrollIntoView = vi.fn()
 
@@ -44,6 +45,7 @@ beforeEach(() => {
   useGitFavoriteReposStore.setState({ favorites: {} })
   useGitOpenReposStore.setState({ open: {} })
   useSidebarUiStore.setState({ revealRequest: null })
+  useSearchStore.setState({ repoPaletteOpen: false })
 })
 
 afterEach(() => {
@@ -194,7 +196,10 @@ describe('GitPanel — multi-repo accordion', () => {
     setTwoRepos('/proj/repoA')
     render(<GitPanel />)
     fireEvent.click(screen.getByText('Show All Repos'))
-    fireEvent.click(screen.getAllByText('repoB')[0])
+    // Scope to the palette itself — the panel behind it still renders its own
+    // "repoB" header (collapsed) at the same time the overlay is open.
+    const palette = screen.getByPlaceholderText('Find a repo…').closest('.fixed') as HTMLElement
+    fireEvent.mouseDown(within(palette).getByText('repoB'))
 
     // Back in the accordion, repoB is now selected and therefore the only
     // one expanded — repoA collapses, since exactly one repo's body is ever

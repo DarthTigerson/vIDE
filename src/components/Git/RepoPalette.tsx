@@ -9,7 +9,7 @@ import { useSidebarUiStore } from '@/stores/sidebarUiStore'
 import { clampToViewport } from '@/components/ui/clampToViewport'
 import { ContextMenuButton } from './ContextMenu'
 
-export function StarIcon({ filled }: { filled: boolean }) {
+function StarIcon({ filled }: { filled: boolean }) {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3z" />
@@ -27,9 +27,11 @@ interface ContextMenuState {
   repo: string
 }
 
-function RepoRow({ repo, onSelect, onContextMenu }: {
+function RepoRow({ repo, active, onSelect, onHover, onContextMenu }: {
   repo: string
+  active: boolean
   onSelect: (repo: string) => void
+  onHover: () => void
   onContextMenu: (event: MouseEvent, repo: string) => void
 }) {
   const { branch, status, aheadBehind } = useRepoGitState(repo)
@@ -41,23 +43,29 @@ function RepoRow({ repo, onSelect, onContextMenu }: {
     <div
       role="button"
       tabIndex={0}
-      onClick={() => onSelect(repo)}
+      onMouseDown={() => onSelect(repo)}
+      onMouseEnter={onHover}
       onKeyDown={(e) => { if (e.key === 'Enter') onSelect(repo) }}
       onContextMenu={(e) => onContextMenu(e, repo)}
-      className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-white/5 transition-colors border-b border-border last:border-b-0 cursor-pointer"
+      className={[
+        'w-full flex items-center gap-2 px-4 py-2 text-left text-sm transition-colors cursor-pointer',
+        active ? 'bg-accent/20' : 'hover:bg-white/5',
+      ].join(' ')}
     >
-      <button
-        type="button"
+      <span
+        role="button"
+        tabIndex={0}
         aria-label={isFavorite ? `Unfavorite ${name}` : `Favorite ${name}`}
         aria-pressed={isFavorite}
-        onClick={(e) => { e.stopPropagation(); toggleFavorite(repo) }}
+        onMouseDown={(e) => { e.stopPropagation(); toggleFavorite(repo) }}
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); toggleFavorite(repo) } }}
         className={[
           'shrink-0 p-0.5 rounded transition-colors',
           isFavorite ? 'text-accent' : 'text-fg-subtle hover:text-fg-muted',
         ].join(' ')}
       >
         <StarIcon filled={isFavorite} />
-      </button>
+      </span>
       <span className="flex flex-col min-w-0 flex-1">
         <span className="truncate text-fg">{name}</span>
         <span className="truncate text-xs text-fg-muted">{branch ?? '—'}</span>
@@ -75,26 +83,34 @@ function RepoRow({ repo, onSelect, onContextMenu }: {
   )
 }
 
-// Re-fetches every repo on each open rather than continuously polling
-// repos that aren't selected — matches the refresh strategy in the design
-// doc (only selectedRepo stays "live" via the git file watcher; this list
-// is a point-in-time snapshot, refreshed on demand).
-export function RepoOverviewList({ onClose }: Props) {
+// Re-fetches every repo on each open rather than continuously polling repos
+// that aren't selected — matches RepoOverviewList's old refresh strategy:
+// only selectedRepo stays "live" via the git file watcher, this palette is a
+// point-in-time snapshot, refreshed on demand.
+export function RepoPalette({ onClose }: Props) {
   const repos = useGitReposStore((s) => s.repos)
   const selectRepo = useGitReposStore((s) => s.selectRepo)
   const refresh = useGitStore((s) => s.refresh)
   const favorites = useGitFavoriteReposStore((s) => s.favorites)
-  const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const [query, setQuery] = useState('')
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [menu, setMenu] = useState<ContextMenuState | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
-  const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     repos.forEach((repo) => refresh(repo))
-    // Re-fetch every time this view mounts (i.e. every time it's opened),
-    // not on every repos-array identity change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
+
+  useEffect(() => {
+    setActiveIndex(0)
+  }, [query])
 
   const visibleRepos = useMemo(() => {
     const sorted = sortReposByFavorite(repos, favorites)
@@ -103,23 +119,15 @@ export function RepoOverviewList({ onClose }: Props) {
     return sorted.filter((repo) => (repo.split('/').pop() ?? repo).toLowerCase().includes(needle))
   }, [repos, favorites, query])
 
-  // "/" jumps straight into the filter box without needing to click first —
-  // matches the convention in Gmail/GitHub/Slack list views. Only fires
-  // when focus isn't already in a text field, so it doesn't eat a literal
-  // "/" the user is typing into the box itself.
-  function handleContainerKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key !== '/') return
-    const active = document.activeElement
-    const isTyping = active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement
-    if (isTyping) return
-    event.preventDefault()
-    searchRef.current?.focus()
-  }
+  useEffect(() => {
+    const el = listRef.current?.children[activeIndex] as HTMLElement | undefined
+    el?.scrollIntoView({ block: 'nearest' })
+  }, [activeIndex])
 
   useEffect(() => {
     if (!menu) return
     const close = () => setMenu(null)
-    const closeOnEscape = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenu(null) }
+    const closeOnEscape = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape') setMenu(null) }
     window.addEventListener('click', close)
     window.addEventListener('keydown', closeOnEscape)
     return () => {
@@ -128,9 +136,9 @@ export function RepoOverviewList({ onClose }: Props) {
     }
   }, [menu])
 
-  // Same clamp-after-measure approach as GitPanel's file context menu —
-  // a hardcoded size guess at the click site can under-guess it and let
-  // the menu overhang the window.
+  // Same clamp-after-measure approach as the Git panel's own context menus —
+  // a hardcoded size guess at the click site can under-guess it and let the
+  // menu overhang the window.
   useLayoutEffect(() => {
     if (!menu || !menuRef.current) return
     const rect = menuRef.current.getBoundingClientRect()
@@ -156,26 +164,54 @@ export function RepoOverviewList({ onClose }: Props) {
     onClose()
   }
 
+  function onKeyDown(e: KeyboardEvent) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setActiveIndex((i) => Math.min(i + 1, visibleRepos.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActiveIndex((i) => Math.max(i - 1, 0))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      const repo = visibleRepos[activeIndex]
+      if (repo) handleSelect(repo)
+    } else if (e.key === 'Escape') {
+      onClose()
+    }
+  }
+
   return (
-    <div className="flex-1 flex flex-col min-h-0" tabIndex={-1} onKeyDown={handleContainerKeyDown}>
-      <div className="p-1.5 border-b border-border shrink-0">
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="w-[480px] max-h-[60vh] flex flex-col bg-popover border border-border rounded-xl shadow-2xl shadow-black/60 overflow-hidden">
         <input
-          ref={searchRef}
+          ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Find a repo (press / to search)"
-          className="w-full h-6 rounded border border-border bg-bg px-1.5 text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-1 focus:ring-accent/50"
-          onKeyDown={(e) => { if (e.key === 'Escape') { setQuery(''); (e.target as HTMLInputElement).blur() } }}
+          onKeyDown={onKeyDown}
+          placeholder="Find a repo…"
+          className="w-full bg-transparent px-4 py-3 border-b border-border text-sm text-fg placeholder:text-fg-subtle outline-none"
         />
-      </div>
-      <div className="flex-1 overflow-y-auto">
-        {visibleRepos.length === 0 ? (
-          <div className="px-3 py-3 text-xs text-fg-subtle">No repos found</div>
-        ) : (
-          visibleRepos.map((repo) => (
-            <RepoRow key={repo} repo={repo} onSelect={handleSelect} onContextMenu={openContextMenu} />
-          ))
-        )}
+        <div ref={listRef} className="overflow-y-auto flex-1 py-1">
+          {visibleRepos.length === 0 ? (
+            <div className="px-4 py-6 text-sm text-fg-subtle text-center">
+              No repos matching "{query}"
+            </div>
+          ) : (
+            visibleRepos.map((repo, i) => (
+              <RepoRow
+                key={repo}
+                repo={repo}
+                active={i === activeIndex}
+                onSelect={handleSelect}
+                onHover={() => setActiveIndex(i)}
+                onContextMenu={openContextMenu}
+              />
+            ))
+          )}
+        </div>
       </div>
 
       {menu && createPortal(
