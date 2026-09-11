@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useEditorStore } from '@/stores/editorStore'
+import { useGitReposStore } from '@/stores/gitReposStore'
 import { useBrowserStore } from '@/stores/browserStore'
 import { useTodoStore } from '@/stores/todoStore'
 import { useNotesStore } from '@/stores/notesStore'
@@ -93,7 +94,18 @@ export function TabBar({ paneId }: { paneId: string }) {
                 ? 'bg-panel text-fg border-t-2 border-t-accent -mt-px'
                 : 'text-fg-muted hover:text-fg hover:bg-white/5'
             } ${isDragging ? 'opacity-45' : ''}`}
-            onClick={() => setPaneActive(paneId, tab.path)}
+            onClick={() => {
+              setPaneActive(paneId, tab.path)
+              // Re-asserts the tab's repo as current even when this tab was
+              // already active (App.tsx's activeTabPath-change effect can't
+              // catch that case — Zustand skips notifying subscribers when a
+              // selector's value doesn't change, so re-clicking an
+              // already-active tab never fires it). Without this, clicking a
+              // different repo's action button in the Git panel could leave
+              // the footer/selectedRepo "stuck" on that repo even after
+              // returning to an editor tab from a different one.
+              useGitReposStore.getState().followFilePath(tab.path)
+            }}
             onContextMenu={(e) => {
               e.preventDefault()
               openTabContextMenu(paneId, tab.path, e.clientX, e.clientY)

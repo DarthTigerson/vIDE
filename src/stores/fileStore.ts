@@ -65,9 +65,10 @@ export const useFileStore = create<FileState>((set, get) => {
   // tells gitReposStore about it (which auto-selects), points the git file
   // watcher at whichever repo ends up selected instead of always the
   // project root, and fetches just that one repo up front. The rest stay
-  // unloaded (name-only) until something actually needs them — RepoSelect/
-  // RepoOverviewList fetch on demand — so opening a project with many
-  // nested repos doesn't fire a git status/branch call per repo.
+  // unloaded (name-only) until something actually needs them — the Git
+  // panel's accordion sections and RepoPalette each refresh their repo
+  // on mount — so merely opening a project with many nested repos doesn't
+  // fire a git status/branch call per repo.
   const discoverAndWatchRepos = async (root: string) => {
     const depth = useGitSettingsStore.getState().repoScanDepth
     const repos = await window.api.gitDiscoverRepos(root, depth)

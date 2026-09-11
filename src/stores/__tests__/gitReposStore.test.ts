@@ -1,9 +1,21 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+
+const showMock = vi.hoisted(() => vi.fn())
+const { localStorageStore } = vi.hoisted(() => {
+  const localStorageStore: Record<string, string> = {}
+  ;(global as any).localStorage = {
+    getItem: (k: string) => localStorageStore[k] ?? null,
+    setItem: (k: string, v: string) => { localStorageStore[k] = v },
+    removeItem: (k: string) => { delete localStorageStore[k] },
+  }
+  return { localStorageStore }
+})
+
 import { useGitReposStore } from '../gitReposStore'
 import { useGitStore, emptyRepoGitState } from '../gitStore'
 import { useGitFavoriteReposStore } from '../gitFavoriteReposStore'
+import { useGitOpenReposStore } from '../gitOpenReposStore'
 
-const showMock = vi.hoisted(() => vi.fn())
 vi.mock('@/stores/statusMessageStore', () => ({
   useStatusMessageStore: { getState: () => ({ show: showMock }) },
 }))
@@ -11,9 +23,11 @@ vi.mock('@/stores/statusMessageStore', () => ({
 describe('gitReposStore', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    Object.keys(localStorageStore).forEach((k) => delete localStorageStore[k])
     useGitReposStore.setState({ repos: [], selectedRepo: null, hasExplicitSelection: false })
     useGitStore.setState({ repos: {} })
     useGitFavoriteReposStore.setState({ favorites: {} })
+    useGitOpenReposStore.setState({ open: {} })
   })
 
   it('starts with no repos and no selection', () => {
@@ -134,5 +148,24 @@ describe('gitReposStore', () => {
     expect(useGitReposStore.getState().selectedRepo).toBe('/parent/repoA')
     expect(useGitReposStore.getState().hasExplicitSelection).toBe(false)
     expect(showMock).not.toHaveBeenCalled()
+  })
+
+  it('setRepos resets the open set to empty even if repos were previously open', () => {
+    useGitOpenReposStore.getState().openRepo('/parent/repoA')
+    useGitReposStore.getState().setRepos(['/parent/repoA', '/parent/repoB'])
+    expect(useGitOpenReposStore.getState().isOpen('/parent/repoA')).toBe(false)
+  })
+
+  it('followFilePath opens the followed repo when switching to it', () => {
+    useGitReposStore.setState({ repos: ['/parent/repoA', '/parent/repoB'], selectedRepo: '/parent/repoA' })
+    useGitReposStore.getState().followFilePath('/parent/repoB/src/x.ts')
+    expect(useGitOpenReposStore.getState().isOpen('/parent/repoB')).toBe(true)
+  })
+
+  it('followFilePath opens the repo even when it is already the selected repo', () => {
+    useGitReposStore.setState({ repos: ['/parent/repoA', '/parent/repoB'], selectedRepo: '/parent/repoA' })
+    expect(useGitOpenReposStore.getState().isOpen('/parent/repoA')).toBe(false)
+    useGitReposStore.getState().followFilePath('/parent/repoA/src/x.ts')
+    expect(useGitOpenReposStore.getState().isOpen('/parent/repoA')).toBe(true)
   })
 })

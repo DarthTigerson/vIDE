@@ -58,7 +58,7 @@ import { useBridgeSettingsStore } from './stores/bridgeSettingsStore'
 import { useModelSettingsStore } from './stores/modelSettingsStore'
 import { useGitStore, useRepoGitState } from './stores/gitStore'
 import { useTodoStore } from './stores/todoStore'
-import { useGitReposStore } from './stores/gitReposStore'
+import { useGitReposStore, useActiveRepo } from './stores/gitReposStore'
 import { useGitSettingsStore } from './stores/gitSettingsStore'
 import { useMobileStore } from './stores/mobileStore'
 import { useMobileSettingsStore } from './stores/mobileSettingsStore'
@@ -85,6 +85,7 @@ import { useDockerLiveUpdates } from './hooks/useDockerLiveUpdates'
 import { useTodoSettingsStore } from './stores/todoSettingsStore'
 import { useNotesSettingsStore } from './stores/notesSettingsStore'
 import { useGraphifySettingsStore } from './stores/graphifySettingsStore'
+import { useGraphifyAutoBuild } from './hooks/useGraphifyAutoBuild'
 import { useNotesStore } from './stores/notesStore'
 import { detectGitRemoteProvider, gitRemoteIcon, gitRemoteLabel } from './lib/gitRemoteProvider'
 import { evaluateCmdWForPinnedTab, type PendingClose } from './lib/pinnedTabCloseGuard'
@@ -131,7 +132,6 @@ function loadChatSize(): number {
 export default function App() {
   const projectRoot = useFileStore((s) => s.projectRoot)
   const selectedRepo = useGitReposStore((s) => s.selectedRepo)
-  const gitStatus = useRepoGitState(selectedRepo).status
   const refreshGitStatus = useGitStore((s) => s.refreshStatus)
   const assistant = useClaudeStore((s) => s.assistant)
   const instances = useClaudeStore((s) => s.instances)
@@ -161,9 +161,18 @@ export default function App() {
   const assistantLabel = assistant === 'claude' ? 'Claude Code' : 'Bridge'
   const newSessionTitle = assistant === 'claude' ? 'New Claude Session' : 'New Bridge Session'
   const previousSessionTitle = assistant === 'claude' ? 'Continue Claude Session' : 'Restore Previous Bridge Session'
+  // useActiveRepo() matches what the Git panel itself actually shows: a
+  // single discovered repo has no open/close chrome, so it always counts
+  // (VIDE-18/open-close); in a multi-repo project it's the one repo whose
+  // body is expanded (GitPanel's single-expand accordion), or null once
+  // nothing is open — never a stale count for a repo the panel shows
+  // nothing for (VIDE-87), and never a sum across every open repo (that
+  // reads as "everything that changed everywhere," not "what's on screen").
+  const activeRepo = useActiveRepo()
+  const badgeStatus = useRepoGitState(activeRepo).status
   const uncommittedChangeCount = new Set([
-    ...gitStatus.staged.map((file) => file.path),
-    ...gitStatus.unstaged.map((file) => file.path),
+    ...badgeStatus.staged.map((file) => file.path),
+    ...badgeStatus.unstaged.map((file) => file.path),
   ]).size
   const gitBadge = uncommittedChangeCount > 99 ? '99+' : uncommittedChangeCount || undefined
   const mobileState = useMobileStore((s) => s.state)
@@ -446,6 +455,8 @@ export default function App() {
     if (!activeTabPath) return
     useGitReposStore.getState().followFilePath(activeTabPath)
   }, [activeTabPath])
+
+  useGraphifyAutoBuild(activeRepo)
 
   useEffect(() => {
     // Catches git state changes made outside the app's own UI — most

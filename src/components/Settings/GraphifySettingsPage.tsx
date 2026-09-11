@@ -9,6 +9,8 @@ export function GraphifySettingsPage() {
   const { installingSkill, skillInstallResult, installClaudeSkill } = useGraphifyStore()
   const enabled = useGraphifySettingsStore((s) => s.enabled)
   const setEnabled = useGraphifySettingsStore((s) => s.setEnabled)
+  const autoBuildOnOpen = useGraphifySettingsStore((s) => s.autoBuildOnOpen)
+  const setAutoBuildOnOpen = useGraphifySettingsStore((s) => s.setAutoBuildOnOpen)
 
   return (
     <div className="h-full overflow-auto p-6 bg-panel">
@@ -26,6 +28,22 @@ export function GraphifySettingsPage() {
             checked={enabled}
             onChange={setEnabled}
           />
+        </Row>
+        <Row>
+          <Toggle
+            className="max-w-[60ch]"
+            label="Auto-build graph when a repo is opened"
+            description="Runs graphify automatically the first time you open a repo each session, instead of waiting for a manual click."
+            checked={autoBuildOnOpen}
+            onChange={setAutoBuildOnOpen}
+          />
+          {autoBuildOnOpen && (
+            <p className="mt-2 max-w-[60ch] text-xs text-amber-400 border border-amber-400/30 rounded p-2">
+              Building a graph spawns a real CLI process and uses CPU — on a large repo or a slower
+              machine this can be noticeable. Turn this off if you'd rather trigger builds manually
+              from the Graphify panel.
+            </p>
+          )}
         </Row>
       </Section>
 

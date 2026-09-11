@@ -2,14 +2,16 @@ import { create } from 'zustand'
 import { useGitStore } from './gitStore'
 import { useStatusMessageStore } from './statusMessageStore'
 import { useGitFavoriteReposStore } from './gitFavoriteReposStore'
+import { useGitOpenReposStore } from './gitOpenReposStore'
 
 interface GitReposStore {
   repos: string[]
   selectedRepo: string | null
-  // True once the user (via the Git Panel dropdown or "Show All Repos") or
-  // auto-follow has actually picked a repo — distinct from setRepos'
+  // True once the user (via a repo's accordion section in the Git panel or
+  // the "Show All Repos" palette) or auto-follow has actually picked a
+  // repo — distinct from setRepos'
   // internal default-selection, which populates selectedRepo immediately on
-  // project open purely so GitPanel/RepoOverviewList have data ready. The
+  // project open purely so GitPanel/RepoPalette have data ready. The
   // footer uses this to stay silent in multi-repo projects until a repo has
   // genuinely been chosen, rather than showing the arbitrary first repo's
   // branch with no indication of which repo it belongs to.
@@ -38,6 +40,11 @@ export const useGitReposStore = create<GitReposStore>((set, get) => ({
     const favorites = useGitFavoriteReposStore.getState().favorites
     const fallback = repos.find((repo) => favorites[repo]) ?? repos[0] ?? null
     const selectedRepo = current && repos.includes(current) ? current : fallback
+    // setRepos only ever fires at a project-open/close boundary (see
+    // fileStore.ts's discoverAndWatchRepos/closeProject) — never mid-session
+    // for the same project — so unconditionally clearing the open set here
+    // is exactly the "always starts empty" behavior the spec calls for.
+    useGitOpenReposStore.getState().closeAll()
     set({ repos, selectedRepo, hasExplicitSelection: false })
   },
 
@@ -53,12 +60,20 @@ export const useGitReposStore = create<GitReposStore>((set, get) => ({
   },
 
   // The ONLY call site that should fire the "Switched to…" footer notice —
-  // manual picks (Git Panel dropdown, "Show All Repos" row) call
-  // selectRepo() directly and stay silent, since the click itself is
-  // already the user's confirmation.
+  // manual picks call selectRepo() directly and stay silent, since the click
+  // itself is already the user's confirmation. Those are a RepoSection's own
+  // action buttons (Branch/Graph/List Diff/Fetch/Pull/Push/Commit, which
+  // point the panel-external Git Log, Graph and Branch-diff tabs at the repo
+  // being acted on) and picking a row in the "Show All Repos" overview.
   followFilePath: (absPath) => {
     const repo = get().resolveRepoForPath(absPath)
     if (!repo) return
+    // Unconditional, before the early-return below: the *first* file a user
+    // opens usually resolves to the repo setRepos already auto-selected (its
+    // favorite/first-repo fallback) — which is "selected" but not yet "open"
+    // under the open/close model, so the already-selected path needs to open
+    // it too, not just the switching path.
+    useGitOpenReposStore.getState().openRepo(repo)
     // An open file within the already-selected repo (the common case, e.g.
     // the auto-selected first repo in a multi-repo project) still counts
     // as an explicit selection for the footer's purposes — there's just no
@@ -73,3 +88,19 @@ export const useGitReposStore = create<GitReposStore>((set, get) => ({
     useStatusMessageStore.getState().show(branch ? `Switched to ${name} on ${branch}` : `Switched to ${name}`)
   },
 }))
+
+// The one "which repo is the user actually working on right now" concept,
+// shared by anything that needs to scope itself the same way the Git panel
+// does (single-repo projects always count; multi-repo projects only once
+// something is actually open — selectedRepo alone isn't enough, since
+// setRepos populates it internally before the user has opened anything).
+// Consumed by the activity-bar badge and GraphifyPanel; callers that want a
+// non-git fallback (e.g. GraphifyPanel falling back to projectRoot) apply it
+// themselves on the returned value.
+export function useActiveRepo(): string | null {
+  const repos = useGitReposStore((s) => s.repos)
+  const selectedRepo = useGitReposStore((s) => s.selectedRepo)
+  const openRepos = useGitOpenReposStore((s) => s.open)
+  if (repos.length <= 1) return repos[0] ?? null
+  return Object.keys(openRepos).length > 0 ? selectedRepo : null
+}

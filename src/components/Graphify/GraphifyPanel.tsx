@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { useGraphifyStore } from '@/stores/graphifyStore'
 import { useFileStore } from '@/stores/fileStore'
+import { useGitReposStore, useActiveRepo } from '@/stores/gitReposStore'
 import { useEditorStore } from '@/stores/editorStore'
-import { GRAPHIFY_GRAPH_TAB_PATH } from '@/components/Settings/paths'
+import { GRAPHIFY_GRAPH_TAB_PATH, buildTerminalPath } from '@/components/Settings/paths'
 import { buildMarkdownPreviewPath } from '@/components/Viewer/paths'
 
 // Matches GitPanel's pill button styling so Graphify's controls read as part
@@ -12,6 +13,24 @@ const pillButtonClass =
 
 export function GraphifyPanel() {
   const projectRoot = useFileStore((s) => s.projectRoot)
+  // A project root can be an umbrella folder holding many independent git
+  // repos (a devops monorepo-of-repos layout) — running graphify against it
+  // recursively indexes every repo underneath, not just the one the user is
+  // working in, which is what made it slow enough to be reported as a real
+  // performance problem on some machines. useActiveRepo() is the same "which
+  // repo is actually being worked on" signal the Git panel and the
+  // activity-bar badge use (VIDE-87) — it's null in a multi-repo project
+  // until something is actually open, even though selectedRepo may already
+  // hold an internally auto-picked value. projectRoot is the fallback only
+  // for a project with no discovered git repo at all.
+  const repos = useGitReposStore((s) => s.repos)
+  const resolvedActiveRepo = useActiveRepo()
+  // Only fall back to projectRoot when there's no discovered git repo at
+  // all — a multi-repo project with nothing open must stay null, not
+  // silently fall back to the umbrella root (that's the exact bug this
+  // scoping exists to prevent).
+  const activeRepo = repos.length === 0 ? projectRoot : resolvedActiveRepo
+  const activeRepoName = activeRepo?.split('/').pop() ?? null
   const {
     available, checking, running, progress, error, graph, checkAvailable, run, loadGraph,
   } = useGraphifyStore()
@@ -32,12 +51,25 @@ export function GraphifyPanel() {
     wasRunningRef.current = running
   }, [running, error, graph, openTab])
 
+  const INSTALL_COMMAND = 'uv tool install graphifyy && graphify install'
+
+  // VIDE-10: one click gets a terminal open with the install command already
+  // on the clipboard, ready to paste — instead of leaving the user to copy
+  // it by hand and go find a terminal themselves.
+  function launchInstall() {
+    navigator.clipboard?.writeText(INSTALL_COMMAND).catch(() => {})
+    openTab({ path: buildTerminalPath(`graphify-install-${Date.now().toString(36)}`), content: '', dirty: false })
+  }
+
   if (available === false) {
     return (
       <div className="h-full flex items-center justify-center p-6 text-center bg-sidebar border-r border-border">
         <div>
           <p className="text-sm text-fg mb-2">graphify isn't installed.</p>
-          <p className="text-xs text-fg-subtle font-mono">uv tool install graphifyy && graphify install</p>
+          <p className="text-xs text-fg-subtle font-mono mb-3">{INSTALL_COMMAND}</p>
+          <button type="button" className={pillButtonClass} onClick={launchInstall}>
+            Open Terminal & Copy Install Command
+          </button>
         </div>
       </div>
     )
@@ -45,18 +77,18 @@ export function GraphifyPanel() {
 
   function openGraph() {
     openTab({ path: GRAPHIFY_GRAPH_TAB_PATH, content: '', dirty: false })
-    // Always re-read graphify-out/graph.json for the current project from
-    // disk at click time, rather than relying on stale in-memory state —
-    // this is what lets the panel pick up a graph that already existed on
-    // disk (built in a prior session, or via the CLI directly) and keeps a
-    // project switch from showing a previous project's graph.
-    if (projectRoot) loadGraph(projectRoot)
+    // Always re-read graphify-out/graph.json for the active repo from disk
+    // at click time, rather than relying on stale in-memory state — this is
+    // what lets the panel pick up a graph that already existed on disk
+    // (built in a prior session, or via the CLI directly) and keeps
+    // switching repos from showing a previous repo's graph.
+    if (activeRepo) loadGraph(activeRepo)
   }
 
   function openReport() {
-    if (!projectRoot) return
+    if (!activeRepo) return
     openTab({
-      path: buildMarkdownPreviewPath(`${projectRoot}/graphify-out/GRAPH_REPORT.md`),
+      path: buildMarkdownPreviewPath(`${activeRepo}/graphify-out/GRAPH_REPORT.md`),
       content: '',
       dirty: false,
     })
@@ -64,25 +96,51 @@ export function GraphifyPanel() {
 
   return (
     <div className="h-full flex flex-col bg-sidebar border-r border-border overflow-hidden">
-      <div className="h-9 px-3 border-b border-border shrink-0 flex items-center">
+      <div className="h-9 px-3 border-b border-border shrink-0 flex items-center justify-between">
         <span className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
           Graphify
         </span>
+        {activeRepoName && (
+          <span className="text-[0.6875rem] text-fg-muted truncate">{activeRepoName}</span>
+        )}
       </div>
 
-      <div className="shrink-0 px-3 py-2 flex flex-col gap-1.5 border-b border-border">
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+        {!activeRepo && repos.length > 1 && (
+          <div className="flex-1 flex items-center justify-center px-6 text-center text-xs text-fg-subtle">
+            No repo open. Open one from the Git panel first.
+          </div>
+        )}
+
+        {(running || (error && !running)) && (
+          <div className="shrink-0 px-3 py-2 flex flex-col gap-2">
+            {running && (
+              <div className="text-xs text-fg-muted font-mono whitespace-pre-wrap border border-border rounded p-2 max-h-64 overflow-y-auto">
+                {progress || `Running graphify on ${activeRepoName ?? 'this project'}…`}
+              </div>
+            )}
+            {error && !running && (
+              <div className="text-xs text-red-400 whitespace-pre-wrap border border-red-400/30 rounded p-2 max-h-64 overflow-y-auto">
+                {error}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="shrink-0 px-3 py-2 flex flex-col gap-1.5 border-t border-border">
         <button
           type="button"
           className={pillButtonClass}
-          disabled={!projectRoot || running}
-          onClick={() => projectRoot && run(projectRoot)}
+          disabled={!activeRepo || running}
+          onClick={() => activeRepo && run(activeRepo)}
         >
           {graph ? 'Rebuild graph' : 'Build graph'}
         </button>
         <button
           type="button"
           className={pillButtonClass}
-          disabled={!projectRoot}
+          disabled={!activeRepo}
           onClick={openGraph}
         >
           Open Graph
@@ -90,27 +148,12 @@ export function GraphifyPanel() {
         <button
           type="button"
           className={pillButtonClass}
-          disabled={!projectRoot}
+          disabled={!activeRepo}
           onClick={openReport}
         >
           Open Report
         </button>
       </div>
-
-      {(running || (error && !running)) && (
-        <div className="shrink-0 px-3 py-2 flex flex-col gap-2 overflow-y-auto">
-          {running && (
-            <div className="text-xs text-fg-muted font-mono whitespace-pre-wrap border border-border rounded p-2 max-h-64 overflow-y-auto">
-              {progress || 'Running graphify…'}
-            </div>
-          )}
-          {error && !running && (
-            <div className="text-xs text-red-400 whitespace-pre-wrap border border-red-400/30 rounded p-2 max-h-64 overflow-y-auto">
-              {error}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }

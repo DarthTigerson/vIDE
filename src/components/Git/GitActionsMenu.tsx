@@ -1,6 +1,7 @@
 import { useGitStore, useRepoGitState } from '@/stores/gitStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
-import { useGitFavoriteReposStore } from '@/stores/gitFavoriteReposStore'
+import { useGitFavoriteReposStore, sortReposByFavorite } from '@/stores/gitFavoriteReposStore'
+import { useGitOpenReposStore } from '@/stores/gitOpenReposStore'
 import { useSearchStore } from '@/stores/searchStore'
 import type { GitCommandAction } from '@/types/index'
 
@@ -16,6 +17,7 @@ export function GitActionsMenu({ onClose, onRequestForce }: Props) {
   const selectedRepo = useGitReposStore((s) => s.selectedRepo)
   const selectRepo = useGitReposStore((s) => s.selectRepo)
   const favorites = useGitFavoriteReposStore((s) => s.favorites)
+  const openRepoSet = useGitOpenReposStore((s) => s.open)
   const { branch, commandStatus } = useRepoGitState(selectedRepo)
   const fetch = useGitStore((s) => s.fetch)
   const pull = useGitStore((s) => s.pull)
@@ -23,11 +25,11 @@ export function GitActionsMenu({ onClose, onRequestForce }: Props) {
   const publishBranch = useGitStore((s) => s.publishBranch)
 
   const disabled = commandStatus === 'running' || !selectedRepo
-  // Quick-switch list here is deliberately just the repos you've starred in
-  // the Git panel — a multi-repo project can easily have more repos than
-  // fit comfortably in a footer menu, favorites keep it to the ones you
-  // actually jump between.
-  const favoriteRepos = repos.filter((repo) => favorites[repo]).sort()
+  // Quick-switch list mirrors the Git panel's own open set (same sort order,
+  // favorites first) — those are the repos the user is actually working on
+  // right now, and picking one here just moves the panel's single-expand
+  // accordion over to it, same as clicking its header would.
+  const openRepos = sortReposByFavorite(repos.filter((repo) => openRepoSet[repo]), favorites)
 
   async function run(action: () => Promise<void>) {
     onClose()
@@ -63,12 +65,12 @@ export function GitActionsMenu({ onClose, onRequestForce }: Props) {
 
   return (
     <div className="absolute bottom-full left-0 mb-1 w-56 max-h-[70vh] overflow-y-auto rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50 z-50">
-      {repos.length > 1 && favoriteRepos.length > 0 && (
+      {repos.length > 1 && openRepos.length > 0 && (
         <>
           <div className="px-2 pt-1 pb-0.5 text-[0.625rem] font-semibold text-fg-subtle uppercase tracking-wider">
-            Favorite Repos
+            Open Repos
           </div>
-          {favoriteRepos.map((repo) => (
+          {openRepos.map((repo) => (
             <button
               key={repo}
               type="button"
