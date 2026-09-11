@@ -117,4 +117,18 @@ describe('UsagePanel', () => {
       if (originalDescriptor) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', originalDescriptor)
     }
   })
+
+  it('clips instead of shrinking columns when the panel narrows', async () => {
+    mockApi({ usageGetLatest: vi.fn().mockResolvedValue(SAMPLE) })
+    const { container } = render(<UsagePanel />)
+    await waitFor(() => expect(screen.getByText('Est. run out')).toBeTruthy())
+
+    // Overflow is clipped (no scrollbar), and each column refuses to shrink
+    // below its natural width — that's what keeps stat text on one line
+    // instead of wrapping and pushing shorter columns' content apart.
+    expect(container.firstElementChild?.className ?? '').toMatch(/overflow-x-hidden/)
+    const columns = container.querySelectorAll(':scope > div > div > div')
+    expect(columns.length).toBeGreaterThan(0)
+    columns.forEach((col) => expect(col.className).toMatch(/shrink-0/))
+  })
 })

@@ -8,7 +8,7 @@ export function Gauge({ pct, label }: { pct: number | null; label: string }) {
   const offset = CIRCUMFERENCE * (1 - clamped / 100)
 
   return (
-    <svg viewBox="0 0 100 100" width={92} height={92}>
+    <svg viewBox="0 0 100 100" className="w-[5.75rem] h-[5.75rem] shrink-0">
       <circle cx="50" cy="50" r={RADIUS} fill="none" stroke="var(--color-border)" strokeWidth="9" />
       <circle
         cx="50"
@@ -35,7 +35,7 @@ export function Gauge({ pct, label }: { pct: number | null; label: string }) {
 
 export function ResetInfo({ label, resetAt, now }: { label: string; resetAt: number | null; now: number }) {
   return (
-    <div>
+    <div className="whitespace-nowrap">
       <div className="text-xs text-fg-muted">{label}</div>
       <div className="text-sm text-fg font-medium">{formatResetTime(resetAt)}</div>
       <div className="text-xs text-accent font-mono">{formatCountdown(resetAt, now)}</div>
@@ -45,7 +45,7 @@ export function ResetInfo({ label, resetAt, now }: { label: string; resetAt: num
 
 export function BurnRateStat({ label, ratePerHour }: { label: string; ratePerHour: number | null }) {
   return (
-    <div>
+    <div className="whitespace-nowrap">
       <div className="text-sm text-fg font-mono">{formatBurnRate(ratePerHour)}</div>
       <div className="text-[0.625rem] text-fg-muted uppercase tracking-wider">{label}</div>
     </div>
@@ -54,7 +54,7 @@ export function BurnRateStat({ label, ratePerHour }: { label: string; ratePerHou
 
 export function RequestsStat({ label, value }: { label: string; value: number }) {
   return (
-    <div>
+    <div className="whitespace-nowrap">
       <div className="text-2xl text-fg font-bold font-mono">{value.toLocaleString()}</div>
       <div className="text-[0.625rem] text-fg-muted uppercase tracking-wider">{label}</div>
     </div>
@@ -63,7 +63,7 @@ export function RequestsStat({ label, value }: { label: string; value: number })
 
 export function SpendStat({ label, spendUsd, ratePerHour }: { label: string; spendUsd: number; ratePerHour: number | null }) {
   return (
-    <div>
+    <div className="whitespace-nowrap">
       <div className="text-2xl text-fg font-bold font-mono">{formatSpend(spendUsd)}</div>
       <div className="text-xs text-accent font-mono">{formatSpendRate(ratePerHour)}</div>
       <div className="text-[0.625rem] text-fg-muted uppercase tracking-wider">{label}</div>
@@ -73,7 +73,7 @@ export function SpendStat({ label, spendUsd, ratePerHour }: { label: string; spe
 
 export function CutoffStat({ label, cutoffAt, now }: { label: string; cutoffAt: number | null; now: number }) {
   return (
-    <div>
+    <div className="whitespace-nowrap">
       {cutoffAt == null ? (
         <div className="text-sm text-fg-muted font-mono">on track</div>
       ) : (
