@@ -4,6 +4,7 @@ import type { LatestUsage } from '@/types/api'
 export interface UsageAlert {
   scope: 'session' | 'week'
   cutoffAt: number
+  resetAt: number | null
 }
 
 interface UsageAlertState {
@@ -17,8 +18,12 @@ interface UsageAlertState {
 // at risk.
 function pickAlert(latest: LatestUsage): UsageAlert | null {
   const candidates: UsageAlert[] = []
-  if (latest.sessionCutoffAt != null) candidates.push({ scope: 'session', cutoffAt: latest.sessionCutoffAt })
-  if (latest.weeklyCutoffAt != null) candidates.push({ scope: 'week', cutoffAt: latest.weeklyCutoffAt })
+  if (latest.sessionCutoffAt != null) {
+    candidates.push({ scope: 'session', cutoffAt: latest.sessionCutoffAt, resetAt: latest.sessionResetAt })
+  }
+  if (latest.weeklyCutoffAt != null) {
+    candidates.push({ scope: 'week', cutoffAt: latest.weeklyCutoffAt, resetAt: latest.weeklyResetAt })
+  }
   if (candidates.length === 0) return null
   return candidates.sort((a, b) => a.cutoffAt - b.cutoffAt)[0]
 }

@@ -7,6 +7,8 @@ import { useAutocompleteStatusStore } from '@/stores/autocompleteStatusStore'
 import { useGitStore, emptyRepoGitState } from '@/stores/gitStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useFileStore } from '@/stores/fileStore'
+import { useUsageAlertStore } from '@/stores/usageAlertStore'
+import { useNotificationPanelStore } from '@/stores/notificationPanelStore'
 
 beforeEach(() => {
   ;(global as any).window.api = {
@@ -155,5 +157,24 @@ describe('StatusBar — multi-repo branch display', () => {
 
     expect(screen.getByText('main')).toBeTruthy()
     expect(screen.getByText('proj')).toBeTruthy()
+  })
+})
+
+describe('StatusBar — notification teaser opens the real panel', () => {
+  afterEach(() => {
+    useUsageAlertStore.setState({ alert: null })
+    useNotificationPanelStore.setState({ open: false })
+  })
+
+  it('clicking the footer teaser makes the notification panel visible in the same render tree', () => {
+    useUsageAlertStore.setState({ alert: { scope: 'session', cutoffAt: Date.now() + 1000, resetAt: null } })
+    render(<StatusBar />)
+
+    const panel = screen.getByTestId('notification-panel')
+    expect(panel.className).toMatch(/opacity-0/)
+
+    fireEvent.mouseUp(screen.getByTestId('notification-teaser'), { button: 0 })
+
+    expect(panel.className).toMatch(/opacity-100/)
   })
 })

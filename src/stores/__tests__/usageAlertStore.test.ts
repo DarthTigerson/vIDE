@@ -32,17 +32,17 @@ describe('usageAlertStore', () => {
 
   it('sets a session alert when only sessionCutoffAt is set', () => {
     useUsageAlertStore.getState().handleUpdate(makeLatest({ sessionCutoffAt: 5000 }))
-    expect(useUsageAlertStore.getState().alert).toEqual({ scope: 'session', cutoffAt: 5000 })
+    expect(useUsageAlertStore.getState().alert).toEqual({ scope: 'session', cutoffAt: 5000, resetAt: null })
   })
 
   it('sets a week alert when only weeklyCutoffAt is set', () => {
     useUsageAlertStore.getState().handleUpdate(makeLatest({ weeklyCutoffAt: 9000 }))
-    expect(useUsageAlertStore.getState().alert).toEqual({ scope: 'week', cutoffAt: 9000 })
+    expect(useUsageAlertStore.getState().alert).toEqual({ scope: 'week', cutoffAt: 9000, resetAt: null })
   })
 
   it('picks whichever window is projected to run out sooner when both are at risk', () => {
     useUsageAlertStore.getState().handleUpdate(makeLatest({ sessionCutoffAt: 9000, weeklyCutoffAt: 5000 }))
-    expect(useUsageAlertStore.getState().alert).toEqual({ scope: 'week', cutoffAt: 5000 })
+    expect(useUsageAlertStore.getState().alert).toEqual({ scope: 'week', cutoffAt: 5000, resetAt: null })
   })
 
   it('clears a previous alert once a later update reports both windows back on track', () => {
@@ -56,6 +56,16 @@ describe('usageAlertStore', () => {
   it('leaves an existing alert untouched when fed a null payload (e.g. the poller has no snapshot yet)', () => {
     useUsageAlertStore.getState().handleUpdate(makeLatest({ sessionCutoffAt: 5000 }))
     useUsageAlertStore.getState().handleUpdate(null)
-    expect(useUsageAlertStore.getState().alert).toEqual({ scope: 'session', cutoffAt: 5000 })
+    expect(useUsageAlertStore.getState().alert).toEqual({ scope: 'session', cutoffAt: 5000, resetAt: null })
+  })
+
+  it('carries the session reset time through when a session alert is picked', () => {
+    useUsageAlertStore.getState().handleUpdate(makeLatest({ sessionCutoffAt: 5000, sessionResetAt: 8000, weeklyResetAt: 9000 }))
+    expect(useUsageAlertStore.getState().alert).toEqual({ scope: 'session', cutoffAt: 5000, resetAt: 8000 })
+  })
+
+  it('carries the weekly reset time through when a week alert is picked', () => {
+    useUsageAlertStore.getState().handleUpdate(makeLatest({ weeklyCutoffAt: 9000, sessionResetAt: 8000, weeklyResetAt: 12000 }))
+    expect(useUsageAlertStore.getState().alert).toEqual({ scope: 'week', cutoffAt: 9000, resetAt: 12000 })
   })
 })
