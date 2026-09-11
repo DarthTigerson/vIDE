@@ -56,9 +56,10 @@ import { useClaudeStore } from './stores/claudeStore'
 import { useBridgeStore } from './stores/bridgeStore'
 import { useBridgeSettingsStore } from './stores/bridgeSettingsStore'
 import { useModelSettingsStore } from './stores/modelSettingsStore'
-import { useGitStore, useRepoGitState } from './stores/gitStore'
+import { useGitStore, emptyRepoGitState } from './stores/gitStore'
 import { useTodoStore } from './stores/todoStore'
 import { useGitReposStore } from './stores/gitReposStore'
+import { useGitOpenReposStore } from './stores/gitOpenReposStore'
 import { useGitSettingsStore } from './stores/gitSettingsStore'
 import { useMobileStore } from './stores/mobileStore'
 import { useMobileSettingsStore } from './stores/mobileSettingsStore'
@@ -131,7 +132,9 @@ function loadChatSize(): number {
 export default function App() {
   const projectRoot = useFileStore((s) => s.projectRoot)
   const selectedRepo = useGitReposStore((s) => s.selectedRepo)
-  const gitStatus = useRepoGitState(selectedRepo).status
+  const discoveredRepos = useGitReposStore((s) => s.repos)
+  const openRepos = useGitOpenReposStore((s) => s.open)
+  const allRepoGitStates = useGitStore((s) => s.repos)
   const refreshGitStatus = useGitStore((s) => s.refreshStatus)
   const assistant = useClaudeStore((s) => s.assistant)
   const instances = useClaudeStore((s) => s.instances)
@@ -161,10 +164,22 @@ export default function App() {
   const assistantLabel = assistant === 'claude' ? 'Claude Code' : 'Bridge'
   const newSessionTitle = assistant === 'claude' ? 'New Claude Session' : 'New Bridge Session'
   const previousSessionTitle = assistant === 'claude' ? 'Continue Claude Session' : 'Restore Previous Bridge Session'
-  const uncommittedChangeCount = new Set([
-    ...gitStatus.staged.map((file) => file.path),
-    ...gitStatus.unstaged.map((file) => file.path),
-  ]).size
+  // Matches what the Git panel itself actually shows: a single discovered
+  // repo has no open/close chrome (VIDE-18/open-close), so it always
+  // counts; a multi-repo project counts only the repos the user has
+  // opened, not every repo ever discovered (VIDE-87) — with nothing
+  // open, the badge stays hidden rather than showing a number for a repo
+  // that isn't even visible in the panel.
+  const badgeRepos = discoveredRepos.length <= 1 ? discoveredRepos : discoveredRepos.filter((repo) => openRepos[repo])
+  const uncommittedChangeCount = new Set(
+    badgeRepos.flatMap((repo) => {
+      const status = (allRepoGitStates[repo] ?? emptyRepoGitState).status
+      return [
+        ...status.staged.map((file) => `${repo}:${file.path}`),
+        ...status.unstaged.map((file) => `${repo}:${file.path}`),
+      ]
+    })
+  ).size
   const gitBadge = uncommittedChangeCount > 99 ? '99+' : uncommittedChangeCount || undefined
   const mobileState = useMobileStore((s) => s.state)
   const mobileBadge = mobileState.running && mobileState.connectedCount > 0 ? mobileState.connectedCount : undefined
