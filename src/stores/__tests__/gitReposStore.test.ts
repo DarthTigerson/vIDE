@@ -14,7 +14,6 @@ const { localStorageStore } = vi.hoisted(() => {
 import { useGitReposStore } from '../gitReposStore'
 import { useGitStore, emptyRepoGitState } from '../gitStore'
 import { useGitFavoriteReposStore } from '../gitFavoriteReposStore'
-import { useGitExpandedReposStore } from '../gitExpandedReposStore'
 import { useGitOpenReposStore } from '../gitOpenReposStore'
 
 vi.mock('@/stores/statusMessageStore', () => ({
@@ -28,7 +27,6 @@ describe('gitReposStore', () => {
     useGitReposStore.setState({ repos: [], selectedRepo: null, hasExplicitSelection: false })
     useGitStore.setState({ repos: {} })
     useGitFavoriteReposStore.setState({ favorites: {} })
-    useGitExpandedReposStore.setState({ expanded: {} })
     useGitOpenReposStore.setState({ open: {} })
   })
 
@@ -150,19 +148,6 @@ describe('gitReposStore', () => {
     expect(useGitReposStore.getState().selectedRepo).toBe('/parent/repoA')
     expect(useGitReposStore.getState().hasExplicitSelection).toBe(false)
     expect(showMock).not.toHaveBeenCalled()
-  })
-
-  it('followFilePath marks the newly-followed repo explicitly expanded', () => {
-    useGitReposStore.setState({ repos: ['/parent/repoA', '/parent/repoB'], selectedRepo: '/parent/repoA' })
-    useGitReposStore.getState().followFilePath('/parent/repoB/src/x.ts')
-    expect(useGitExpandedReposStore.getState().isExpanded('/parent/repoB', '/parent/repoA')).toBe(true)
-  })
-
-  it('followFilePath does not collapse the repo it switches away from', () => {
-    useGitReposStore.setState({ repos: ['/parent/repoA', '/parent/repoB'], selectedRepo: '/parent/repoA' })
-    useGitExpandedReposStore.getState().setExpanded('/parent/repoA', true)
-    useGitReposStore.getState().followFilePath('/parent/repoB/src/x.ts')
-    expect(useGitExpandedReposStore.getState().isExpanded('/parent/repoA', '/parent/repoB')).toBe(true)
   })
 
   it('setRepos resets the open set to empty even if repos were previously open', () => {

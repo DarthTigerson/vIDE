@@ -4,7 +4,6 @@ import type { KeyboardEvent, MouseEvent } from 'react'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitStore, useRepoGitState } from '@/stores/gitStore'
 import { useGitFavoriteReposStore, sortReposByFavorite } from '@/stores/gitFavoriteReposStore'
-import { useGitExpandedReposStore } from '@/stores/gitExpandedReposStore'
 import { useGitOpenReposStore } from '@/stores/gitOpenReposStore'
 import { useSidebarUiStore } from '@/stores/sidebarUiStore'
 import { clampToViewport } from '@/components/ui/clampToViewport'
@@ -142,7 +141,6 @@ export function RepoOverviewList({ onClose }: Props) {
 
   function handleSelect(repo: string) {
     selectRepo(repo)
-    useGitExpandedReposStore.getState().setExpanded(repo, true)
     useGitOpenReposStore.getState().openRepo(repo)
     onClose(repo)
   }

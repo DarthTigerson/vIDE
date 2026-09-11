@@ -1,10 +1,9 @@
 import { create } from 'zustand'
 
 interface GitOpenReposStore {
-  // Deliberately NOT persisted to localStorage, unlike gitFavoriteReposStore/
-  // gitExpandedReposStore: the open set must always reset to empty on a
-  // fresh project open (see gitReposStore.setRepos), never survive a
-  // restart.
+  // Deliberately NOT persisted to localStorage, unlike gitFavoriteReposStore:
+  // the open set must always reset to empty on a fresh project open (see
+  // gitReposStore.setRepos), never survive a restart.
   open: Record<string, true>
   isOpen: (repo: string) => boolean
   openRepo: (repo: string) => void

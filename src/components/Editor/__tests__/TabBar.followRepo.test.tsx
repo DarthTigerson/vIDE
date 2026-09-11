@@ -4,7 +4,6 @@ import { TabBar } from '../TabBar'
 import { useEditorStore } from '@/stores/editorStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitOpenReposStore } from '@/stores/gitOpenReposStore'
-import { useGitExpandedReposStore } from '@/stores/gitExpandedReposStore'
 
 afterEach(() => {
   cleanup()
@@ -34,7 +33,6 @@ describe('TabBar — re-clicking a tab resyncs the current git repo', () => {
   it('re-clicking the already-active tab reasserts its repo as selectedRepo', () => {
     useGitReposStore.setState({ repos: ['/proj/repoA', '/proj/repoB'], selectedRepo: '/proj/repoB', hasExplicitSelection: true })
     useGitOpenReposStore.setState({ open: {} })
-    useGitExpandedReposStore.setState({ expanded: {} })
     setupSingleTab('/proj/repoA/file.ts')
 
     render(<TabBar paneId="pane-1" />)
@@ -50,7 +48,6 @@ describe('TabBar — re-clicking a tab resyncs the current git repo', () => {
   it('clicking a tab that resolves to no repo (e.g. a non-file tab) leaves selectedRepo untouched', () => {
     useGitReposStore.setState({ repos: ['/proj/repoA'], selectedRepo: '/proj/repoA', hasExplicitSelection: true })
     useGitOpenReposStore.setState({ open: {} })
-    useGitExpandedReposStore.setState({ expanded: {} })
     setupSingleTab('vide://settings')
 
     render(<TabBar paneId="pane-1" />)

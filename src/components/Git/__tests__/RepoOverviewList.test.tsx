@@ -4,7 +4,6 @@ import { RepoOverviewList } from '../RepoOverviewList'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitStore, emptyRepoGitState } from '@/stores/gitStore'
 import { useGitFavoriteReposStore } from '@/stores/gitFavoriteReposStore'
-import { useGitExpandedReposStore } from '@/stores/gitExpandedReposStore'
 import { useGitOpenReposStore } from '@/stores/gitOpenReposStore'
 import { useSidebarUiStore } from '@/stores/sidebarUiStore'
 import type { GitStatus, GitAheadBehind } from '@/types/index'
@@ -28,7 +27,6 @@ beforeEach(() => {
     },
   })
   useGitFavoriteReposStore.setState({ favorites: {} })
-  useGitExpandedReposStore.setState({ expanded: {} })
   useGitOpenReposStore.setState({ open: {} })
 })
 
@@ -97,11 +95,11 @@ describe('RepoOverviewList', () => {
     expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoA')
   })
 
-  it('clicking a row marks that repo explicitly expanded and passes it to onClose', () => {
+  it('clicking a row selects that repo (making it the expanded one) and passes it to onClose', () => {
     const onClose = vi.fn()
     render(<RepoOverviewList onClose={onClose} />)
     fireEvent.click(screen.getByText('repoB'))
-    expect(useGitExpandedReposStore.getState().isExpanded('/proj/repoB', '/proj/repoA')).toBe(true)
+    expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoB')
     expect(onClose).toHaveBeenCalledWith('/proj/repoB')
   })
 

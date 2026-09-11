@@ -7,6 +7,8 @@ import { RepoSection } from './RepoSection'
 
 export function GitPanel() {
   const repos = useGitReposStore((s) => s.repos)
+  const selectedRepo = useGitReposStore((s) => s.selectedRepo)
+  const selectRepo = useGitReposStore((s) => s.selectRepo)
   const favorites = useGitFavoriteReposStore((s) => s.favorites)
   const openRepos = useGitOpenReposStore((s) => s.open)
   const [showAllRepos, setShowAllRepos] = useState(false)
@@ -26,6 +28,18 @@ export function GitPanel() {
     sectionRefs.current.get(pendingScrollTo)?.scrollIntoView({ block: 'start' })
     setPendingScrollTo(null)
   }, [pendingScrollTo, showAllRepos])
+
+  // Only one repo's body is ever expanded at a time (RepoSection derives
+  // isExpanded straight from selectedRepo), so selectedRepo must always
+  // point at something in openList whenever anything is open — otherwise no
+  // card would show as expanded at all. This repairs that invariant when it
+  // was closed out from under the panel (e.g. "Close Repo" on the repo that
+  // was currently active), falling back to another open repo rather than
+  // leaving everything collapsed with no indication of what happened.
+  useEffect(() => {
+    if (soloMode || openList.length === 0) return
+    if (!openList.includes(selectedRepo ?? '')) selectRepo(openList[0])
+  }, [soloMode, openList, selectedRepo, selectRepo])
 
   return (
     <div className="h-full flex flex-col bg-sidebar border-r border-border overflow-hidden">

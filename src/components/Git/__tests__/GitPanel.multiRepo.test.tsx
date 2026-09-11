@@ -5,7 +5,6 @@ import { useFileStore } from '@/stores/fileStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitStore, emptyRepoGitState } from '@/stores/gitStore'
 import { useGitFavoriteReposStore } from '@/stores/gitFavoriteReposStore'
-import { useGitExpandedReposStore } from '@/stores/gitExpandedReposStore'
 import { useGitOpenReposStore } from '@/stores/gitOpenReposStore'
 import { useSidebarUiStore } from '@/stores/sidebarUiStore'
 
@@ -43,7 +42,6 @@ beforeEach(() => {
   }
   useFileStore.setState({ projectRoot: '/proj' })
   useGitFavoriteReposStore.setState({ favorites: {} })
-  useGitExpandedReposStore.setState({ expanded: {} })
   useGitOpenReposStore.setState({ open: {} })
   useSidebarUiStore.setState({ revealRequest: null })
 })
@@ -112,29 +110,32 @@ describe('GitPanel — multi-repo accordion', () => {
     expect(messageBoxes).toHaveLength(1)
   })
 
-  it('clicking a collapsed repo\'s header expands it without collapsing the other', () => {
+  it('clicking a collapsed repo\'s header expands it and collapses the previously-expanded one', () => {
     setTwoRepos('/proj/repoA')
     render(<GitPanel />)
     fireEvent.click(screen.getByText('repoB'))
-    expect(screen.getAllByPlaceholderText('Message')).toHaveLength(2)
+    // Only one repo's body is ever expanded at a time — expanding repoB
+    // collapses repoA, rather than both being open simultaneously.
+    expect(screen.getAllByPlaceholderText('Message')).toHaveLength(1)
+    expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoB')
   })
 
-  it('collapsing the previously-expanded repo leaves a manually-expanded one open', () => {
+  it('clicking back on the original repo\'s header re-expands it and collapses the other', () => {
     setTwoRepos('/proj/repoA')
     render(<GitPanel />)
     fireEvent.click(screen.getByText('repoB'))
     fireEvent.click(screen.getByText('repoA'))
     expect(screen.getAllByPlaceholderText('Message')).toHaveLength(1)
-    expect(useGitExpandedReposStore.getState().isExpanded('/proj/repoB', '/proj/repoA')).toBe(true)
+    expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoA')
   })
 
-  it('each expanded repo\'s commit-options popover is independent', () => {
+  it('switching to a different repo does not leave the previous repo\'s commit-options popover open', () => {
     setTwoRepos('/proj/repoA')
     render(<GitPanel />)
+    fireEvent.click(screen.getByLabelText('Commit options'))
+    expect(screen.getByText('Commit --no-verify')).toBeTruthy()
     fireEvent.click(screen.getByText('repoB'))
-    const optionButtons = screen.getAllByLabelText('Commit options')
-    fireEvent.click(optionButtons[0])
-    expect(screen.getAllByText('Commit --no-verify')).toHaveLength(1)
+    expect(screen.queryByText('Commit --no-verify')).toBeNull()
   })
 
   it('right-clicking a header and picking "Reveal in File Tree" requests a reveal for that specific repo', () => {
@@ -153,34 +154,7 @@ describe('GitPanel — multi-repo accordion', () => {
     expect(names).toEqual(['repoB', 'repoA'])
   })
 
-  it('clicking a non-selected repo\'s Branch button makes it the selected repo', () => {
-    setTwoRepos('/proj/repoA')
-    render(<GitPanel />)
-    fireEvent.click(screen.getByText('repoB'))
-    const branchButtons = screen.getAllByText(/^Branch:/)
-    fireEvent.click(branchButtons[1])
-    expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoB')
-  })
-
-  it('clicking a non-selected repo\'s Graph button makes it the selected repo', () => {
-    setTwoRepos('/proj/repoA')
-    render(<GitPanel />)
-    fireEvent.click(screen.getByText('repoB'))
-    const graphButtons = screen.getAllByText('Graph')
-    fireEvent.click(graphButtons[1])
-    expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoB')
-  })
-
-  it('clicking a non-selected repo\'s List Diff button makes it the selected repo', () => {
-    setTwoRepos('/proj/repoA')
-    render(<GitPanel />)
-    fireEvent.click(screen.getByText('repoB'))
-    const listDiffButtons = screen.getAllByText('List Diff')
-    fireEvent.click(listDiffButtons[1])
-    expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoB')
-  })
-
-  it('a non-selected repo\'s header fills in its branch and ahead/behind on mount', async () => {
+  it('a non-selected (collapsed) repo\'s header fills in its branch and ahead/behind on mount', async () => {
     // The real post-project-open shape: fileStore only refreshes the selected
     // repo, so every other repo starts with no git state at all. Each section's
     // mount refresh (branch + ahead/behind, not just status) is what fills the
@@ -197,48 +171,22 @@ describe('GitPanel — multi-repo accordion', () => {
     expect(useGitStore.getState().repos['/proj/repoB'].aheadBehind).toEqual(repoBAheadBehind)
   })
 
-  it('clicking a non-selected repo\'s Fetch button makes it the selected repo', () => {
+  it('acting on the currently-expanded repo (not the initial default) still targets that repo\'s own path', () => {
     setTwoRepos('/proj/repoA')
     render(<GitPanel />)
     fireEvent.click(screen.getByText('repoB'))
-    fireEvent.click(screen.getAllByText('Fetch')[1])
-    expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoB')
+    fireEvent.click(screen.getByText('Fetch'))
     expect(window.api.gitRunCommand).toHaveBeenCalledWith(
       expect.any(String), '/proj/repoB', 'fetch'
     )
   })
 
-  it('clicking a non-selected repo\'s Pull button makes it the selected repo', () => {
+  it('committing with --no-verify on the currently-expanded repo targets that repo\'s own path and message', () => {
     setTwoRepos('/proj/repoA')
     render(<GitPanel />)
     fireEvent.click(screen.getByText('repoB'))
-    fireEvent.click(screen.getAllByText('Pull')[1])
-    expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoB')
-  })
-
-  it('clicking a non-selected repo\'s Push button makes it the selected repo', () => {
-    setTwoRepos('/proj/repoA')
-    render(<GitPanel />)
-    fireEvent.click(screen.getByText('repoB'))
-    fireEvent.click(screen.getAllByText('Push')[1])
-    expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoB')
-  })
-
-  it('clicking a non-selected repo\'s Commit button makes it the selected repo', () => {
-    setTwoRepos('/proj/repoA')
-    render(<GitPanel />)
-    fireEvent.click(screen.getByText('repoB'))
-    fireEvent.click(screen.getAllByText('Commit')[1])
-    expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoB')
-  })
-
-  it('committing with --no-verify on a non-selected repo makes it the selected repo', () => {
-    setTwoRepos('/proj/repoA')
-    render(<GitPanel />)
-    fireEvent.click(screen.getByText('repoB'))
-    fireEvent.click(screen.getAllByLabelText('Commit options')[1])
+    fireEvent.click(screen.getByLabelText('Commit options'))
     fireEvent.click(screen.getByText('Commit --no-verify'))
-    expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoB')
     expect(window.api.gitCommit).toHaveBeenCalledWith('/proj/repoB', 'wip B', true)
   })
 
@@ -248,14 +196,9 @@ describe('GitPanel — multi-repo accordion', () => {
     fireEvent.click(screen.getByText('Show All Repos'))
     fireEvent.click(screen.getAllByText('repoB')[0])
 
-    // Back in the accordion, repoB (previously collapsed) is now explicitly
-    // expanded. repoA collapses — it was only ever implicitly expanded via
-    // gitExpandedReposStore's "expanded if selected, else not" fallback
-    // (Task 1), and selection has now moved to repoB, so repoA's fallback
-    // flips false. This matches the store's documented, approved semantics:
-    // only an explicit setExpanded (a manual toggle, or an auto-expand-on-
-    // follow/-select) survives a selection change: an implicit-only repo
-    // does not.
+    // Back in the accordion, repoB is now selected and therefore the only
+    // one expanded — repoA collapses, since exactly one repo's body is ever
+    // shown at a time.
     expect(screen.getAllByPlaceholderText('Message')).toHaveLength(1)
     // Its section was scrolled into view.
     expect(window.HTMLElement.prototype.scrollIntoView).toHaveBeenCalled()

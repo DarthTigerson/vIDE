@@ -5,7 +5,6 @@ import { useFileStore } from '@/stores/fileStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitStore, emptyRepoGitState } from '@/stores/gitStore'
 import { useGitFavoriteReposStore } from '@/stores/gitFavoriteReposStore'
-import { useGitExpandedReposStore } from '@/stores/gitExpandedReposStore'
 import { useGitOpenReposStore } from '@/stores/gitOpenReposStore'
 
 window.HTMLElement.prototype.scrollIntoView = vi.fn()
@@ -19,7 +18,6 @@ beforeEach(() => {
   }
   useFileStore.setState({ projectRoot: '/proj' })
   useGitFavoriteReposStore.setState({ favorites: {} })
-  useGitExpandedReposStore.setState({ expanded: {} })
   useGitOpenReposStore.setState({ open: {} })
 })
 
@@ -73,7 +71,7 @@ describe('GitPanel — multi-repo open/close', () => {
     expect(useGitOpenReposStore.getState().isOpen('/proj/repoB')).toBe(true)
   })
 
-  it('right-clicking a header and picking "Close Repo" removes it from the panel without touching discovery, selection, or its git data', () => {
+  it('right-clicking a header and picking "Close Repo" removes it from the panel without touching discovery or its git data, and activates a remaining open repo', () => {
     setTwoUnopenedRepos('/proj/repoA')
     useGitOpenReposStore.setState({ open: { '/proj/repoA': true, '/proj/repoB': true } })
     render(<GitPanel />)
@@ -82,7 +80,10 @@ describe('GitPanel — multi-repo open/close', () => {
     expect(screen.queryByText('repoA')).toBeNull()
     expect(screen.getByText('repoB')).toBeTruthy()
     expect(useGitReposStore.getState().repos).toEqual(['/proj/repoA', '/proj/repoB'])
-    expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoA')
+    // repoA (closed, and previously the active/expanded one) can't stay
+    // selected — nothing would show as expanded at all — so repoB, the only
+    // remaining open repo, becomes active instead.
+    expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoB')
     expect(useGitStore.getState().repos['/proj/repoA']).toEqual({ ...emptyRepoGitState, branch: 'main' })
   })
 

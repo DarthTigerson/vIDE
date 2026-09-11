@@ -18,7 +18,6 @@ import { ClaudeIcon } from '@/components/ActivityBar/ActivityBar'
 import { ContextMenuButton, ContextMenuDivider } from './ContextMenu'
 import { pickClaudeGif } from '@/assets/claudeGifs'
 import { useGitReposStore } from '@/stores/gitReposStore'
-import { useGitExpandedReposStore } from '@/stores/gitExpandedReposStore'
 import { useGitOpenReposStore } from '@/stores/gitOpenReposStore'
 import { useSidebarUiStore } from '@/stores/sidebarUiStore'
 
@@ -135,8 +134,10 @@ function SplitCommandButton({
 export function RepoSection({ repo, showHeader }: { repo: string; showHeader: boolean }) {
   const selectedRepo = useGitReposStore((s) => s.selectedRepo)
   const selectRepo = useGitReposStore((s) => s.selectRepo)
-  const isExpanded = useGitExpandedReposStore((s) => (showHeader ? s.isExpanded(repo, selectedRepo) : true))
-  const setExpanded = useGitExpandedReposStore((s) => s.setExpanded)
+  // "Expanded" and "active" are the same concept: only the selected repo's
+  // body is ever shown, so there's never a mismatch between which card looks
+  // open and which one the footer/highlight refers to.
+  const isExpanded = !showHeader || repo === selectedRepo
   const closeRepo = useGitOpenReposStore((s) => s.closeRepo)
   const closeAll = useGitOpenReposStore((s) => s.closeAll)
   const { branch, status, commitMessage, commitError, commandStatus, aheadBehind } = useRepoGitState(repo)
@@ -647,20 +648,14 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
 
   if (!showHeader) return body
 
-  // Highlights whichever repo the currently active editor tab belongs to
-  // (kept in sync by followFilePath, including on every tab click — see
-  // TabBar.tsx) — a visual anchor for "which repo am I editing right now"
-  // that's easy to lose track of once several repos are open at once.
-  const isActiveRepo = repo === selectedRepo
-
   return (
-    <div className={['mx-2 rounded-md border', isActiveRepo ? 'border-accent/70' : 'border-border'].join(' ')}>
+    <div className={['mx-2 rounded-md border', isExpanded ? 'border-accent/70' : 'border-border'].join(' ')}>
       <div
         role="button"
         tabIndex={0}
         aria-expanded={isExpanded}
-        onClick={() => setExpanded(repo, !isExpanded)}
-        onKeyDown={(e) => { if (e.key === 'Enter') setExpanded(repo, !isExpanded) }}
+        onClick={() => selectRepo(repo)}
+        onKeyDown={(e) => { if (e.key === 'Enter') selectRepo(repo) }}
         onContextMenu={openHeaderMenu}
         className="w-full flex items-center gap-2 px-3 py-2 text-left rounded-t-md hover:bg-white/5 transition-colors cursor-pointer"
       >
