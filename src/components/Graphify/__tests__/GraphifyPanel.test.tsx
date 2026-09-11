@@ -54,6 +54,19 @@ describe('GraphifyPanel', () => {
     expect(screen.getByText(/uv tool install graphifyy/)).toBeInTheDocument()
   })
 
+  it('the quick-launch button opens a terminal tab and copies the install command', () => {
+    const writeTextMock = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText: writeTextMock } })
+    useGraphifyStore.setState({ available: false })
+    render(<GraphifyPanel />)
+
+    fireEvent.click(screen.getByRole('button', { name: /open terminal.*copy install command/i }))
+
+    expect(writeTextMock).toHaveBeenCalledWith('uv tool install graphifyy && graphify install')
+    expect(openTabMock).toHaveBeenCalledTimes(1)
+    expect(openTabMock.mock.calls[0][0].path).toMatch(/^terminal:/)
+  })
+
   it('shows a build button when available but no graph yet', () => {
     useGraphifyStore.setState({ available: true, graph: null })
     render(<GraphifyPanel />)
