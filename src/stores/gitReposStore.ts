@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { useGitStore } from './gitStore'
 import { useStatusMessageStore } from './statusMessageStore'
 import { useGitFavoriteReposStore } from './gitFavoriteReposStore'
+import { useGitExpandedReposStore } from './gitExpandedReposStore'
 
 interface GitReposStore {
   repos: string[]
@@ -68,6 +69,7 @@ export const useGitReposStore = create<GitReposStore>((set, get) => ({
       return
     }
     set({ selectedRepo: repo, hasExplicitSelection: true })
+    useGitExpandedReposStore.getState().setExpanded(repo, true)
     const name = repo.split('/').pop()
     const branch = useGitStore.getState().repos[repo]?.branch
     useStatusMessageStore.getState().show(branch ? `Switched to ${name} on ${branch}` : `Switched to ${name}`)
