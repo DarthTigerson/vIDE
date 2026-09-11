@@ -61,14 +61,14 @@ export function NotificationPanel() {
         // fragile. bottom-full alone leaves this fully visible either way
         // (it only ever repositions within visible space), so the closed
         // state also fades to opacity-0 to actually hide it.
-        'absolute bottom-full inset-x-0 mx-auto w-[26rem] max-w-[92vw] z-40',
+        'absolute bottom-full inset-x-0 mx-auto w-[34rem] max-w-[92vw] z-40',
         'rounded-t border border-b-0 border-border bg-popover shadow-lg shadow-black/40',
         'origin-bottom transition-[opacity,transform] duration-200 ease-out',
         open ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1 pointer-events-none',
       ].join(' ')}
     >
       {mounted && (
-        <ul>
+        <ul className="h-40 overflow-y-auto overscroll-contain">
           {items.map((item) => (
             <li key={item.id}>
               <button

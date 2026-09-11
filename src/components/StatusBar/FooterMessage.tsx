@@ -61,9 +61,11 @@ export function FooterMessage() {
         onMouseUp={(e) => {
           if (e.button === 0) toggleNotificationPanel()
         }}
-        className={[positionClasses, 'text-accent hover:underline cursor-pointer'].join(' ')}
+        // Same width as NotificationPanel (w-[34rem]) so the pill reads as
+        // the panel's own collapsed state, sitting flush beneath it.
+        className="absolute inset-x-0 top-1/2 -translate-y-1/2 mx-auto flex h-5 w-[34rem] max-w-[92vw] items-center justify-center rounded-full border border-border bg-bg px-3 text-xs text-accent transition-colors hover:border-fg-subtle cursor-pointer"
       >
-        {items[0].text}
+        <span className="truncate">{items[0].text}</span>
       </button>
     )
   }
