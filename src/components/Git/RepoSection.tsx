@@ -647,7 +647,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
   if (!showHeader) return body
 
   return (
-    <div className="border-b border-border">
+    <div className="mx-2 rounded-md border border-border">
       <div
         role="button"
         tabIndex={0}
@@ -655,7 +655,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
         onClick={() => setExpanded(repo, !isExpanded)}
         onKeyDown={(e) => { if (e.key === 'Enter') setExpanded(repo, !isExpanded) }}
         onContextMenu={openHeaderMenu}
-        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/5 transition-colors cursor-pointer"
+        className="w-full flex items-center gap-2 px-3 py-2 text-left rounded-t-md hover:bg-white/5 transition-colors cursor-pointer"
       >
         <svg
           width="10"

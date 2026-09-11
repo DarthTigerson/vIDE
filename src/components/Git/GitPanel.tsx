@@ -66,7 +66,7 @@ export function GitPanel() {
           No repos open. Use "Show All Repos" to open one.
         </div>
       ) : (
-        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+        <div className={soloMode ? 'flex-1 min-h-0 overflow-y-auto flex flex-col' : 'flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 py-2'}>
           {openList.map((repo) => (
             // Solo mode renders RepoSection as a bare fragment whose children
             // (commit box, flex-1 file list, footer) expect to be flex items of
