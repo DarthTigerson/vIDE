@@ -8,6 +8,8 @@ import { useGitFavoriteReposStore } from '@/stores/gitFavoriteReposStore'
 import { useGitExpandedReposStore } from '@/stores/gitExpandedReposStore'
 import { useSidebarUiStore } from '@/stores/sidebarUiStore'
 
+window.HTMLElement.prototype.scrollIntoView = vi.fn()
+
 beforeEach(() => {
   ;(global as any).window.api = {
     gitStatus: vi.fn().mockResolvedValue({ staged: [], unstaged: [] }),
@@ -138,5 +140,24 @@ describe('GitPanel — multi-repo accordion', () => {
     const listDiffButtons = screen.getAllByText('List Diff')
     fireEvent.click(listDiffButtons[1])
     expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoB')
+  })
+
+  it('picking a repo from "Show All Repos" expands it and scrolls to its section', () => {
+    setTwoRepos('/proj/repoA')
+    render(<GitPanel />)
+    fireEvent.click(screen.getByText('Show All Repos'))
+    fireEvent.click(screen.getAllByText('repoB')[0])
+
+    // Back in the accordion, repoB (previously collapsed) is now explicitly
+    // expanded. repoA collapses — it was only ever implicitly expanded via
+    // gitExpandedReposStore's "expanded if selected, else not" fallback
+    // (Task 1), and selection has now moved to repoB, so repoA's fallback
+    // flips false. This matches the store's documented, approved semantics:
+    // only an explicit setExpanded (a manual toggle, or an auto-expand-on-
+    // follow/-select) survives a selection change: an implicit-only repo
+    // does not.
+    expect(screen.getAllByPlaceholderText('Message')).toHaveLength(1)
+    // Its section was scrolled into view.
+    expect(window.HTMLElement.prototype.scrollIntoView).toHaveBeenCalled()
   })
 })

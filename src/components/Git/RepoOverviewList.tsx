@@ -4,6 +4,7 @@ import type { KeyboardEvent, MouseEvent } from 'react'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitStore, useRepoGitState } from '@/stores/gitStore'
 import { useGitFavoriteReposStore, sortReposByFavorite } from '@/stores/gitFavoriteReposStore'
+import { useGitExpandedReposStore } from '@/stores/gitExpandedReposStore'
 import { useSidebarUiStore } from '@/stores/sidebarUiStore'
 import { clampToViewport } from '@/components/ui/clampToViewport'
 import { ContextMenuButton } from './ContextMenu'
@@ -17,7 +18,7 @@ export function StarIcon({ filled }: { filled: boolean }) {
 }
 
 interface Props {
-  onClose: () => void
+  onClose: (repo?: string) => void
 }
 
 interface ContextMenuState {
@@ -140,7 +141,8 @@ export function RepoOverviewList({ onClose }: Props) {
 
   function handleSelect(repo: string) {
     selectRepo(repo)
-    onClose()
+    useGitExpandedReposStore.getState().setExpanded(repo, true)
+    onClose(repo)
   }
 
   function openContextMenu(event: MouseEvent, repo: string) {

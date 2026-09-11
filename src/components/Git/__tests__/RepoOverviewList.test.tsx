@@ -4,6 +4,7 @@ import { RepoOverviewList } from '../RepoOverviewList'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitStore, emptyRepoGitState } from '@/stores/gitStore'
 import { useGitFavoriteReposStore } from '@/stores/gitFavoriteReposStore'
+import { useGitExpandedReposStore } from '@/stores/gitExpandedReposStore'
 import { useSidebarUiStore } from '@/stores/sidebarUiStore'
 import type { GitStatus, GitAheadBehind } from '@/types/index'
 
@@ -26,6 +27,7 @@ beforeEach(() => {
     },
   })
   useGitFavoriteReposStore.setState({ favorites: {} })
+  useGitExpandedReposStore.setState({ expanded: {} })
 })
 
 afterEach(() => {
@@ -91,6 +93,22 @@ describe('RepoOverviewList', () => {
     render(<RepoOverviewList onClose={vi.fn()} />)
     fireEvent.click(screen.getByLabelText('Favorite repoB'))
     expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoA')
+  })
+
+  it('clicking a row marks that repo explicitly expanded and passes it to onClose', () => {
+    const onClose = vi.fn()
+    render(<RepoOverviewList onClose={onClose} />)
+    fireEvent.click(screen.getByText('repoB'))
+    expect(useGitExpandedReposStore.getState().isExpanded('/proj/repoB', '/proj/repoA')).toBe(true)
+    expect(onClose).toHaveBeenCalledWith('/proj/repoB')
+  })
+
+  it('right-clicking "Go to File Tree" closes with no repo argument (does not force-expand)', () => {
+    const onClose = vi.fn()
+    render(<RepoOverviewList onClose={onClose} />)
+    fireEvent.contextMenu(screen.getByText('repoB'))
+    fireEvent.click(screen.getByText('Go to File Tree'))
+    expect(onClose).toHaveBeenCalledWith()
   })
 
   it('right-clicking a row shows a context menu with "Go to File Tree", which requests a reveal and closes the overview', () => {
