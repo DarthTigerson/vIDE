@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useGraphifyStore } from '@/stores/graphifyStore'
 import { useFileStore } from '@/stores/fileStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
+import { useGitOpenReposStore } from '@/stores/gitOpenReposStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { GRAPHIFY_GRAPH_TAB_PATH } from '@/components/Settings/paths'
 import { buildMarkdownPreviewPath } from '@/components/Viewer/paths'
@@ -17,12 +18,20 @@ export function GraphifyPanel() {
   // repos (a devops monorepo-of-repos layout) — running graphify against it
   // recursively indexes every repo underneath, not just the one the user is
   // working in, which is what made it slow enough to be reported as a real
-  // performance problem on some machines. Scoping to selectedRepo (already
-  // kept in sync with whichever repo is actually active — see the Git
-  // panel's single-expand accordion) fixes that; projectRoot remains the
-  // fallback for a project with no discovered git repo at all.
+  // performance problem on some machines. Scoping to selectedRepo fixes that
+  // — but selectedRepo alone isn't enough: setRepos auto-populates it
+  // internally (for the Git panel/palette to have data ready) even when the
+  // user hasn't opened anything, so it can hold a repo name the Git panel
+  // itself shows nothing for. Mirrors the activity-bar badge's fix for the
+  // exact same gap (VIDE-87): trust selectedRepo only once at least one repo
+  // is actually open, falling back to projectRoot only when there's no
+  // discovered repo at all (a non-git or single-repo project).
+  const repos = useGitReposStore((s) => s.repos)
   const selectedRepo = useGitReposStore((s) => s.selectedRepo)
-  const activeRepo = selectedRepo ?? projectRoot
+  const openRepos = useGitOpenReposStore((s) => s.open)
+  const activeRepo = repos.length <= 1
+    ? (repos[0] ?? projectRoot)
+    : (Object.keys(openRepos).length > 0 ? selectedRepo : null)
   const activeRepoName = activeRepo?.split('/').pop() ?? null
   const {
     available, checking, running, progress, error, graph, checkAvailable, run, loadGraph,
@@ -111,6 +120,12 @@ export function GraphifyPanel() {
           Open Report
         </button>
       </div>
+
+      {!activeRepo && repos.length > 1 && (
+        <div className="flex-1 flex items-center justify-center px-6 text-center text-xs text-fg-subtle">
+          No repo open. Open one from the Git panel first.
+        </div>
+      )}
 
       {(running || (error && !running)) && (
         <div className="shrink-0 px-3 py-2 flex flex-col gap-2 overflow-y-auto">
