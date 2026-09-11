@@ -112,4 +112,31 @@ describe('GitPanel — multi-repo accordion', () => {
     const names = screen.getAllByText(/^repo[AB]$/).map((el) => el.textContent)
     expect(names).toEqual(['repoB', 'repoA'])
   })
+
+  it('clicking a non-selected repo\'s Branch button makes it the selected repo', () => {
+    setTwoRepos('/proj/repoA')
+    render(<GitPanel />)
+    fireEvent.click(screen.getByText('repoB'))
+    const branchButtons = screen.getAllByText(/^Branch:/)
+    fireEvent.click(branchButtons[1])
+    expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoB')
+  })
+
+  it('clicking a non-selected repo\'s Graph button makes it the selected repo', () => {
+    setTwoRepos('/proj/repoA')
+    render(<GitPanel />)
+    fireEvent.click(screen.getByText('repoB'))
+    const graphButtons = screen.getAllByText('Graph')
+    fireEvent.click(graphButtons[1])
+    expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoB')
+  })
+
+  it('clicking a non-selected repo\'s List Diff button makes it the selected repo', () => {
+    setTwoRepos('/proj/repoA')
+    render(<GitPanel />)
+    fireEvent.click(screen.getByText('repoB'))
+    const listDiffButtons = screen.getAllByText('List Diff')
+    fireEvent.click(listDiffButtons[1])
+    expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoB')
+  })
 })

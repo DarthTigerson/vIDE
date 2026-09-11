@@ -125,6 +125,7 @@ function SplitCommandButton({
 
 export function RepoSection({ repo, showHeader }: { repo: string; showHeader: boolean }) {
   const selectedRepo = useGitReposStore((s) => s.selectedRepo)
+  const selectRepo = useGitReposStore((s) => s.selectRepo)
   const isExpanded = useGitExpandedReposStore((s) => (showHeader ? s.isExpanded(repo, selectedRepo) : true))
   const setExpanded = useGitExpandedReposStore((s) => s.setExpanded)
   const { branch, status, commitMessage, commitError, commandStatus, aheadBehind } = useRepoGitState(repo)
@@ -378,7 +379,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
           type="button"
           className={`${pillButtonClass} px-2 overflow-hidden`}
           disabled={remoteActionDisabled}
-          onClick={() => useSearchStore.getState().openBranchPalette()}
+          onClick={() => { selectRepo(repo); useSearchStore.getState().openBranchPalette() }}
         >
           <span className="truncate min-w-0">Branch: {branch ?? '—'}</span>
         </button>
@@ -452,6 +453,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
             type="button"
             className={pillButtonClass}
             onClick={() => {
+              selectRepo(repo)
               openTab({ path: GIT_GRAPH_TAB_PATH, content: '', dirty: false })
               loadGraph(repo)
             }}
@@ -461,7 +463,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
           <button
             type="button"
             className={pillButtonClass}
-            onClick={() => openTab({ path: GIT_BRANCH_DIFF_TAB_PATH, content: '', dirty: false })}
+            onClick={() => { selectRepo(repo); openTab({ path: GIT_BRANCH_DIFF_TAB_PATH, content: '', dirty: false }) }}
           >
             List Diff
           </button>
