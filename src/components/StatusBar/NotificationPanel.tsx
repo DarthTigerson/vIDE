@@ -94,11 +94,12 @@ export function NotificationPanel() {
                   close()
                 }}
                 className={[
-                  'w-full text-left px-3 py-1.5 text-xs transition-colors',
+                  'flex w-full items-center gap-2 text-left px-3 py-1.5 text-xs transition-colors',
                   item.disabled ? 'text-fg-subtle cursor-default' : 'text-fg hover:bg-white/5 cursor-pointer',
                 ].join(' ')}
               >
-                {item.text}
+                <span className="shrink-0 [&_svg]:h-3.5 [&_svg]:w-3.5">{item.icon}</span>
+                <span className="truncate">{item.text}</span>
               </button>
             </li>
           ))}

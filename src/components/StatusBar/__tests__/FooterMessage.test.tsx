@@ -12,7 +12,7 @@ import { FOOTER_TIPS } from '@/lib/footerTips'
 
 beforeEach(() => {
   useUpdateStore.setState({ available: null, status: 'idle', upToDateVersion: null })
-  useUsageAlertStore.setState({ alert: null })
+  useUsageAlertStore.setState({ alerts: [] })
   useDisplayStore.setState({ footerContent: 'hints' })
   useDockerSettingsStore.setState({ enabled: false })
   useDockerStore.setState({ status: 'unknown' })
@@ -23,7 +23,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   useUpdateStore.setState({ available: null, status: 'idle', upToDateVersion: null })
-  useUsageAlertStore.setState({ alert: null })
+  useUsageAlertStore.setState({ alerts: [] })
   useDisplayStore.setState({ footerContent: 'hints' })
   useDockerSettingsStore.setState({ enabled: false })
   useDockerStore.setState({ status: 'unknown' })
@@ -76,7 +76,7 @@ describe('FooterMessage — notification teaser', () => {
   })
 
   it('shows the top-priority notification text and opens the panel on mouseup (not click — see VIDE-91)', () => {
-    useUsageAlertStore.setState({ alert: { scope: 'session', cutoffAt: new Date(2026, 0, 1, 16, 0, 0).getTime(), resetAt: null } })
+    useUsageAlertStore.setState({ alerts: [{ scope: 'session', cutoffAt: new Date(2026, 0, 1, 16, 0, 0).getTime(), resetAt: null }] })
     render(<FooterMessage />)
     const button = screen.getByRole('button', { name: /Session usage may run out in 02:00:00/ })
     fireEvent.mouseUp(button, { button: 0 })
@@ -84,7 +84,7 @@ describe('FooterMessage — notification teaser', () => {
   })
 
   it('ignores a non-primary mouse button release', () => {
-    useUsageAlertStore.setState({ alert: { scope: 'session', cutoffAt: new Date(2026, 0, 1, 16, 0, 0).getTime(), resetAt: null } })
+    useUsageAlertStore.setState({ alerts: [{ scope: 'session', cutoffAt: new Date(2026, 0, 1, 16, 0, 0).getTime(), resetAt: null }] })
     render(<FooterMessage />)
     const button = screen.getByRole('button', { name: /Session usage may run out in 02:00:00/ })
     fireEvent.mouseUp(button, { button: 2 })
@@ -92,7 +92,7 @@ describe('FooterMessage — notification teaser', () => {
   })
 
   it('ticks the countdown down every second', () => {
-    useUsageAlertStore.setState({ alert: { scope: 'session', cutoffAt: new Date(2026, 0, 1, 16, 0, 0).getTime(), resetAt: null } })
+    useUsageAlertStore.setState({ alerts: [{ scope: 'session', cutoffAt: new Date(2026, 0, 1, 16, 0, 0).getTime(), resetAt: null }] })
     render(<FooterMessage />)
     expect(screen.getByRole('button', { name: /run out in 02:00:00/ })).toBeInTheDocument()
     act(() => {
@@ -102,7 +102,7 @@ describe('FooterMessage — notification teaser', () => {
   })
 
   it('prioritizes the usage alert over an available update in the teaser', () => {
-    useUsageAlertStore.setState({ alert: { scope: 'session', cutoffAt: new Date(2026, 0, 1, 16, 0, 0).getTime(), resetAt: null } })
+    useUsageAlertStore.setState({ alerts: [{ scope: 'session', cutoffAt: new Date(2026, 0, 1, 16, 0, 0).getTime(), resetAt: null }] })
     useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com' }, status: 'idle' })
     render(<FooterMessage />)
     expect(screen.getByRole('button', { name: /Session usage may run out/ })).toBeInTheDocument()
@@ -132,9 +132,9 @@ describe('FooterMessage — notification teaser', () => {
   })
 
   it('stays a clickable toggle showing hints once acknowledged, even though the notification is still active', () => {
-    useUsageAlertStore.setState({ alert: { scope: 'session', cutoffAt: new Date(2026, 0, 1, 16, 0, 0).getTime(), resetAt: null } })
+    useUsageAlertStore.setState({ alerts: [{ scope: 'session', cutoffAt: new Date(2026, 0, 1, 16, 0, 0).getTime(), resetAt: null }] })
     act(() => {
-      useNotificationAcknowledgedStore.getState().acknowledge(['usage'])
+      useNotificationAcknowledgedStore.getState().acknowledge(['usage-session'])
     })
     render(<FooterMessage />)
     expect(screen.queryByText(/Session usage may run out/)).toBeNull()

@@ -8,7 +8,7 @@ import { useDockerStore } from '@/stores/dockerStore'
 import { useNotificationAcknowledgedStore } from '@/stores/notificationAcknowledgedStore'
 
 beforeEach(() => {
-  useUsageAlertStore.setState({ alert: { scope: 'session', cutoffAt: Date.now() + 1000, resetAt: null } })
+  useUsageAlertStore.setState({ alerts: [{ scope: 'session', cutoffAt: Date.now() + 1000, resetAt: null }] })
   useUpdateStore.setState({ available: null, status: 'idle', upToDateVersion: null })
   useDockerSettingsStore.setState({ enabled: false })
   useDockerStore.setState({ status: 'unknown' })
@@ -22,12 +22,12 @@ afterEach(() => {
 describe('useVisibleNotificationItems', () => {
   it('shows an item that has not been acknowledged', () => {
     const { result } = renderHook(() => useVisibleNotificationItems())
-    expect(result.current.map((i) => i.id)).toEqual(['usage'])
+    expect(result.current.map((i) => i.id)).toEqual(['usage-session'])
   })
 
   it('hides an item once it has been acknowledged', () => {
     act(() => {
-      useNotificationAcknowledgedStore.getState().acknowledge(['usage'])
+      useNotificationAcknowledgedStore.getState().acknowledge(['usage-session'])
     })
     const { result } = renderHook(() => useVisibleNotificationItems())
     expect(result.current).toEqual([])
@@ -35,14 +35,14 @@ describe('useVisibleNotificationItems', () => {
 
   it('re-shows an item after it clears and re-triggers, even though it was acknowledged before', () => {
     act(() => {
-      useNotificationAcknowledgedStore.getState().acknowledge(['usage'])
+      useNotificationAcknowledgedStore.getState().acknowledge(['usage-session'])
     })
     const { result, rerender } = renderHook(() => useVisibleNotificationItems())
     expect(result.current).toEqual([])
 
     // clears
     act(() => {
-      useUsageAlertStore.setState({ alert: null })
+      useUsageAlertStore.setState({ alerts: [] })
     })
     rerender()
     expect(result.current).toEqual([])
@@ -51,15 +51,15 @@ describe('useVisibleNotificationItems', () => {
 
     // re-triggers
     act(() => {
-      useUsageAlertStore.setState({ alert: { scope: 'session', cutoffAt: Date.now() + 1000, resetAt: null } })
+      useUsageAlertStore.setState({ alerts: [{ scope: 'session', cutoffAt: Date.now() + 1000, resetAt: null }] })
     })
     rerender()
-    expect(result.current.map((i) => i.id)).toEqual(['usage'])
+    expect(result.current.map((i) => i.id)).toEqual(['usage-session'])
   })
 
   it('does not let an acknowledged id block an unrelated, unacknowledged one', () => {
     act(() => {
-      useNotificationAcknowledgedStore.getState().acknowledge(['usage'])
+      useNotificationAcknowledgedStore.getState().acknowledge(['usage-session'])
       useDockerSettingsStore.setState({ enabled: true })
       useDockerStore.setState({ status: 'stopped' })
     })

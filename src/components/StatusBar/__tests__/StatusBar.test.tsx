@@ -163,13 +163,13 @@ describe('StatusBar — multi-repo branch display', () => {
 
 describe('StatusBar — notification teaser opens the real panel', () => {
   afterEach(() => {
-    useUsageAlertStore.setState({ alert: null })
+    useUsageAlertStore.setState({ alerts: [] })
     useNotificationPanelStore.setState({ open: false })
     useNotificationAcknowledgedStore.setState({ acknowledgedIds: [] })
   })
 
   it('clicking the footer teaser makes the notification panel visible in the same render tree', () => {
-    useUsageAlertStore.setState({ alert: { scope: 'session', cutoffAt: Date.now() + 1000, resetAt: null } })
+    useUsageAlertStore.setState({ alerts: [{ scope: 'session', cutoffAt: Date.now() + 1000, resetAt: null }] })
     render(<StatusBar />)
 
     const panel = screen.getByTestId('notification-panel')
@@ -181,7 +181,7 @@ describe('StatusBar — notification teaser opens the real panel', () => {
   })
 
   it('quiets the footer text after closing (reverts to hints) but stays a clickable toggle, and the panel still lists the acknowledged item', () => {
-    useUsageAlertStore.setState({ alert: { scope: 'session', cutoffAt: Date.now() + 1000, resetAt: null } })
+    useUsageAlertStore.setState({ alerts: [{ scope: 'session', cutoffAt: Date.now() + 1000, resetAt: null }] })
     render(<StatusBar />)
 
     fireEvent.mouseUp(screen.getByTestId('notification-teaser'), { button: 0 })

@@ -12,7 +12,7 @@ import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
 
 beforeEach(() => {
   useNotificationPanelStore.setState({ open: true })
-  useUsageAlertStore.setState({ alert: { scope: 'session', cutoffAt: Date.now() + 1000, resetAt: null } })
+  useUsageAlertStore.setState({ alerts: [{ scope: 'session', cutoffAt: Date.now() + 1000, resetAt: null }] })
   useUpdateStore.setState({ available: null, status: 'idle', upToDateVersion: null })
   useDockerSettingsStore.setState({ enabled: false })
   useDockerStore.setState({ status: 'unknown' })
@@ -74,7 +74,7 @@ describe('NotificationPanel', () => {
   it('closes itself if the last notification clears while open', () => {
     render(<NotificationPanel />)
     act(() => {
-      useUsageAlertStore.setState({ alert: null })
+      useUsageAlertStore.setState({ alerts: [] })
     })
     expect(useNotificationPanelStore.getState().open).toBe(false)
   })
