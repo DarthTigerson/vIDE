@@ -14,9 +14,12 @@ import { FileRow } from './FileRow'
 import { ConfirmForcePushModal } from './ConfirmForcePushModal'
 import { useForcePushConfirm } from './useForcePushConfirm'
 import { useCommitMessageSettingsStore } from '@/stores/commitMessageSettingsStore'
-import { ClaudeIcon } from '@/components/ActivityBar/ActivityBar'
+import { FilesIcon, ClaudeIcon } from '@/components/ActivityBar/ActivityBar'
 import { ContextMenuButton, ContextMenuDivider } from './ContextMenu'
 import { pickClaudeGif } from '@/assets/claudeGifs'
+import { useGitReposStore } from '@/stores/gitReposStore'
+import { useGitExpandedReposStore } from '@/stores/gitExpandedReposStore'
+import { useSidebarUiStore } from '@/stores/sidebarUiStore'
 
 const accentSolidColor = 'bg-accent/80 text-on-accent hover:bg-accent'
 
@@ -120,8 +123,11 @@ function SplitCommandButton({
   )
 }
 
-export function RepoSection({ repo }: { repo: string }) {
-  const { branch, status, commitMessage, commitError, commandStatus } = useRepoGitState(repo)
+export function RepoSection({ repo, showHeader }: { repo: string; showHeader: boolean }) {
+  const selectedRepo = useGitReposStore((s) => s.selectedRepo)
+  const isExpanded = useGitExpandedReposStore((s) => (showHeader ? s.isExpanded(repo, selectedRepo) : true))
+  const setExpanded = useGitExpandedReposStore((s) => s.setExpanded)
+  const { branch, status, commitMessage, commitError, commandStatus, aheadBehind } = useRepoGitState(repo)
   const {
     refreshStatus,
     stage,
@@ -239,7 +245,7 @@ export function RepoSection({ repo }: { repo: string }) {
   const hasDiscardableChanges =
     status.staged.length > 0 || status.unstaged.some((file) => file.status !== '?')
 
-  return (
+  const body = (
     <>
       <div className="px-3 py-2 border-b border-border shrink-0 flex flex-col gap-1.5">
         <div className="relative">
@@ -304,7 +310,7 @@ export function RepoSection({ repo }: { repo: string }) {
         </SplitCommandButton>
       </div>
 
-      <div className="flex-1 overflow-y-auto py-1">
+      <div className={showHeader ? 'overflow-y-auto py-1' : 'flex-1 overflow-y-auto py-1'}>
         <div className="mb-2">
           <div className="flex items-center justify-between px-3 py-1">
             <span className="text-[0.6875rem] font-semibold text-fg-muted uppercase tracking-wider">
@@ -572,5 +578,53 @@ export function RepoSection({ repo }: { repo: string }) {
         <ConfirmForcePushModal action={forceAction} cwd={repo} onClose={closeForce} />
       )}
     </>
+  )
+
+  if (!showHeader) return body
+
+  return (
+    <div className="border-b border-border">
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={isExpanded}
+        onClick={() => setExpanded(repo, !isExpanded)}
+        onKeyDown={(e) => { if (e.key === 'Enter') setExpanded(repo, !isExpanded) }}
+        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/5 transition-colors cursor-pointer"
+      >
+        <svg
+          width="10"
+          height="10"
+          viewBox="0 0 24 24"
+          fill="none"
+          className={['shrink-0 text-fg-subtle transition-transform', isExpanded ? 'rotate-180' : ''].join(' ')}
+        >
+          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <span className="flex flex-col min-w-0 flex-1">
+          <span className="truncate text-sm text-fg">{repo.split('/').pop()}</span>
+          <span className="truncate text-xs text-fg-muted">{branch ?? '—'}</span>
+        </span>
+        <span className="flex items-center gap-2 shrink-0 text-xs text-fg-muted tabular-nums">
+          {aheadBehind && (
+            <span className="flex items-center gap-1">
+              <span>↓{aheadBehind.behind}</span>
+              <span>↑{aheadBehind.ahead}</span>
+            </span>
+          )}
+          <span>{status.staged.length + status.unstaged.length}</span>
+        </span>
+        <button
+          type="button"
+          aria-label="Reveal in File Tree"
+          title="Reveal in File Tree"
+          onClick={(e) => { e.stopPropagation(); useSidebarUiStore.getState().requestReveal(repo, true) }}
+          className="shrink-0 h-6 w-6 rounded border border-border bg-bg flex items-center justify-center text-fg-muted hover:text-fg hover:border-fg-subtle transition-colors [&_svg]:w-3.5 [&_svg]:h-3.5"
+        >
+          <FilesIcon />
+        </button>
+      </div>
+      {isExpanded && body}
+    </div>
   )
 }
