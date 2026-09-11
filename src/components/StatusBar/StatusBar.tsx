@@ -75,7 +75,7 @@ export function StatusBar() {
                 gitBusy ? 'text-accent animate-pulse' : '',
               ].join(' ')}
             />
-            {isMultiRepo && selectedRepoName && (
+            {selectedRepoName && (
               <>
                 <span className="font-bold text-fg truncate shrink-0">{selectedRepoName}</span>
                 <span className="text-fg-subtle shrink-0">›</span>

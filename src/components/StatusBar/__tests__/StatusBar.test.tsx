@@ -147,13 +147,13 @@ describe('StatusBar — multi-repo branch display', () => {
     expect(screen.getByText('main')).toBeTruthy()
   })
 
-  it('single-repo projects show the branch immediately with no repo name prefix, regardless of hasExplicitSelection', () => {
+  it('single-repo projects show "repoName › branch" immediately too, regardless of hasExplicitSelection', () => {
     useGitReposStore.setState({ repos: ['/proj'], selectedRepo: '/proj', hasExplicitSelection: false })
     useGitStore.setState({ repos: { '/proj': { ...emptyRepoGitState, branch: 'main' } } })
 
     render(<StatusBar />)
 
     expect(screen.getByText('main')).toBeTruthy()
-    expect(screen.queryByText('proj')).toBeNull()
+    expect(screen.getByText('proj')).toBeTruthy()
   })
 })
