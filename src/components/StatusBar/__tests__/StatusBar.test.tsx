@@ -9,6 +9,7 @@ import { useGitReposStore } from '@/stores/gitReposStore'
 import { useFileStore } from '@/stores/fileStore'
 import { useUsageAlertStore } from '@/stores/usageAlertStore'
 import { useNotificationPanelStore } from '@/stores/notificationPanelStore'
+import { useNotificationAcknowledgedStore } from '@/stores/notificationAcknowledgedStore'
 
 beforeEach(() => {
   ;(global as any).window.api = {
@@ -164,6 +165,7 @@ describe('StatusBar — notification teaser opens the real panel', () => {
   afterEach(() => {
     useUsageAlertStore.setState({ alert: null })
     useNotificationPanelStore.setState({ open: false })
+    useNotificationAcknowledgedStore.setState({ acknowledgedIds: [] })
   })
 
   it('clicking the footer teaser makes the notification panel visible in the same render tree', () => {
@@ -176,5 +178,29 @@ describe('StatusBar — notification teaser opens the real panel', () => {
     fireEvent.mouseUp(screen.getByTestId('notification-teaser'), { button: 0 })
 
     expect(panel.className).toMatch(/opacity-100/)
+  })
+
+  it('quiets the footer text after closing (reverts to hints) but stays a clickable toggle, and the panel still lists the acknowledged item', () => {
+    useUsageAlertStore.setState({ alert: { scope: 'session', cutoffAt: Date.now() + 1000, resetAt: null } })
+    render(<StatusBar />)
+
+    fireEvent.mouseUp(screen.getByTestId('notification-teaser'), { button: 0 })
+    expect(useNotificationPanelStore.getState().open).toBe(true)
+
+    // close without picking a row (outside mousedown)
+    fireEvent.mouseDown(document.body)
+    expect(useNotificationPanelStore.getState().open).toBe(false)
+
+    // still the same alert, unchanged — the teaser's OWN text goes quiet (no
+    // longer the loud message), even though the panel (mid close-transition,
+    // still showing its last content) still mentions it elsewhere in the DOM
+    const teaser = screen.getByTestId('notification-teaser')
+    expect(teaser.tagName).toBe('BUTTON')
+    expect(teaser.textContent).not.toMatch(/Session usage may run out/)
+
+    // reopening still lists it — acknowledgment never hides it from the panel
+    fireEvent.mouseUp(teaser, { button: 0 })
+    expect(useNotificationPanelStore.getState().open).toBe(true)
+    expect(screen.getByTestId('notification-panel').textContent).toMatch(/Session usage may run out/)
   })
 })

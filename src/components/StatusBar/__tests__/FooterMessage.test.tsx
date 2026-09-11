@@ -7,6 +7,7 @@ import { useDisplayStore } from '@/stores/displayStore'
 import { useDockerSettingsStore } from '@/stores/dockerSettingsStore'
 import { useDockerStore } from '@/stores/dockerStore'
 import { useNotificationPanelStore } from '@/stores/notificationPanelStore'
+import { useNotificationAcknowledgedStore } from '@/stores/notificationAcknowledgedStore'
 import { FOOTER_TIPS } from '@/lib/footerTips'
 
 beforeEach(() => {
@@ -16,6 +17,7 @@ beforeEach(() => {
   useDockerSettingsStore.setState({ enabled: false })
   useDockerStore.setState({ status: 'unknown' })
   useNotificationPanelStore.setState({ open: false })
+  useNotificationAcknowledgedStore.setState({ acknowledgedIds: [] })
 })
 
 afterEach(() => {
@@ -26,6 +28,7 @@ afterEach(() => {
   useDockerSettingsStore.setState({ enabled: false })
   useDockerStore.setState({ status: 'unknown' })
   useNotificationPanelStore.setState({ open: false })
+  useNotificationAcknowledgedStore.setState({ acknowledgedIds: [] })
 })
 
 describe('FooterMessage — tip rotation', () => {
@@ -126,6 +129,18 @@ describe('FooterMessage — notification teaser', () => {
     useDockerStore.setState({ status: 'stopped' })
     render(<FooterMessage />)
     expect(screen.queryByText("Docker isn't running")).toBeNull()
+  })
+
+  it('stays a clickable toggle showing hints once acknowledged, even though the notification is still active', () => {
+    useUsageAlertStore.setState({ alert: { scope: 'session', cutoffAt: new Date(2026, 0, 1, 16, 0, 0).getTime(), resetAt: null } })
+    act(() => {
+      useNotificationAcknowledgedStore.getState().acknowledge(['usage'])
+    })
+    render(<FooterMessage />)
+    expect(screen.queryByText(/Session usage may run out/)).toBeNull()
+    const teaser = screen.getByTestId('notification-teaser')
+    expect(teaser.tagName).toBe('BUTTON')
+    expect(screen.getByText((content) => FOOTER_TIPS.includes(content))).toBeInTheDocument()
   })
 })
 

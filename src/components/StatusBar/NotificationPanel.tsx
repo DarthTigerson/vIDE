@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNotificationPanelStore } from '@/stores/notificationPanelStore'
 import { useNotificationItems } from '@/hooks/useNotificationItems'
+import { useNotificationAcknowledgedStore } from '@/stores/notificationAcknowledgedStore'
 
 // Matches the duration-200 slide/fade below. The row buttons are only kept
 // in the DOM while open or mid-close-transition — closed-and-settled means
@@ -11,9 +12,22 @@ const CLOSE_TRANSITION_MS = 200
 export function NotificationPanel() {
   const open = useNotificationPanelStore((s) => s.open)
   const close = useNotificationPanelStore((s) => s.close)
+  // Raw/unfiltered — the panel always lists every currently-active
+  // notification, viewed or not. Acknowledgment only quiets the footer's
+  // loud text (see useVisibleNotificationItems), never hides anything here.
   const items = useNotificationItems()
+  const acknowledge = useNotificationAcknowledgedStore((s) => s.acknowledge)
   const panelRef = useRef<HTMLDivElement>(null)
   const [mounted, setMounted] = useState(open)
+
+  // Closing (any path — row pick, outside click, Escape, auto-close) marks
+  // whatever was showing as acknowledged, quieting the footer's loud text
+  // until it clears and re-triggers — it stays listed here regardless.
+  const wasOpenRef = useRef(open)
+  useEffect(() => {
+    if (wasOpenRef.current && !open) acknowledge(items.map((item) => item.id))
+    wasOpenRef.current = open
+  }, [open, items, acknowledge])
 
   useEffect(() => {
     if (open) {

@@ -7,6 +7,7 @@ import { useUpdateStore } from '@/stores/updateStore'
 import { useDockerSettingsStore } from '@/stores/dockerSettingsStore'
 import { useDockerStore } from '@/stores/dockerStore'
 import { useEditorStore } from '@/stores/editorStore'
+import { useNotificationAcknowledgedStore } from '@/stores/notificationAcknowledgedStore'
 import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
 
 beforeEach(() => {
@@ -16,6 +17,7 @@ beforeEach(() => {
   useDockerSettingsStore.setState({ enabled: false })
   useDockerStore.setState({ status: 'unknown' })
   useEditorStore.setState({ activeTabPath: null })
+  useNotificationAcknowledgedStore.setState({ acknowledgedIds: [] })
 })
 
 afterEach(() => {
