@@ -52,7 +52,6 @@ describe('GitPanel — multi-repo open/close', () => {
     useGitStore.setState({ repos: { '/proj': { ...emptyRepoGitState } } })
     render(<GitPanel />)
     expect(screen.queryByText('Show All Repos')).toBeNull()
-    expect(screen.queryByText('Close All')).toBeNull()
     expect(screen.getByPlaceholderText('Message')).toBeTruthy()
   })
 
@@ -61,7 +60,6 @@ describe('GitPanel — multi-repo open/close', () => {
     render(<GitPanel />)
     expect(screen.queryByText(/No repos open/)).toBeNull()
     expect(screen.queryByText('Show All Repos')).toBeNull()
-    expect(screen.queryByText('Close All')).toBeNull()
     expect(screen.queryByPlaceholderText('Message')).toBeNull()
   })
 
@@ -88,11 +86,12 @@ describe('GitPanel — multi-repo open/close', () => {
     expect(useGitStore.getState().repos['/proj/repoA']).toEqual({ ...emptyRepoGitState, branch: 'main' })
   })
 
-  it('"Close All" bulk-closes every open repo back to the empty state', () => {
+  it('right-clicking a header and picking "Close All Repos" bulk-closes every open repo back to the empty state', () => {
     setTwoUnopenedRepos()
     useGitOpenReposStore.setState({ open: { '/proj/repoA': true, '/proj/repoB': true } })
     render(<GitPanel />)
-    fireEvent.click(screen.getByText('Close All'))
+    fireEvent.contextMenu(screen.getByText('repoA'))
+    fireEvent.click(screen.getByText('Close All Repos'))
     expect(screen.queryByText('repoA')).toBeNull()
     expect(screen.queryByText('repoB')).toBeNull()
     expect(screen.getByText(/No repos open/)).toBeTruthy()

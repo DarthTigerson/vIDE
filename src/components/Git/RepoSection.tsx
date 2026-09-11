@@ -138,6 +138,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
   const isExpanded = useGitExpandedReposStore((s) => (showHeader ? s.isExpanded(repo, selectedRepo) : true))
   const setExpanded = useGitExpandedReposStore((s) => s.setExpanded)
   const closeRepo = useGitOpenReposStore((s) => s.closeRepo)
+  const closeAll = useGitOpenReposStore((s) => s.closeAll)
   const { branch, status, commitMessage, commitError, commandStatus, aheadBehind } = useRepoGitState(repo)
   const {
     refresh,
@@ -694,6 +695,9 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
           <ContextMenuDivider />
           <ContextMenuButton danger onClick={() => { closeRepo(repo); setHeaderMenu(null) }}>
             Close Repo
+          </ContextMenuButton>
+          <ContextMenuButton danger onClick={() => { closeAll(); setHeaderMenu(null) }}>
+            Close All Repos
           </ContextMenuButton>
         </div>,
         document.body

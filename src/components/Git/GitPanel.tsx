@@ -9,7 +9,6 @@ export function GitPanel() {
   const repos = useGitReposStore((s) => s.repos)
   const favorites = useGitFavoriteReposStore((s) => s.favorites)
   const openRepos = useGitOpenReposStore((s) => s.open)
-  const closeAll = useGitOpenReposStore((s) => s.closeAll)
   const [showAllRepos, setShowAllRepos] = useState(false)
 
   // A single discovered repo has nothing to choose between — same bypass
@@ -35,24 +34,13 @@ export function GitPanel() {
           Git Panel
         </span>
         {!soloMode && (
-          <span className="flex items-center gap-3">
-            {!showAllRepos && openList.length > 0 && (
-              <button
-                type="button"
-                onClick={closeAll}
-                className="text-[0.6875rem] text-fg-muted hover:text-fg transition-colors"
-              >
-                Close All
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setShowAllRepos((v) => !v)}
-              className="text-[0.6875rem] text-fg-muted hover:text-fg transition-colors"
-            >
-              {showAllRepos ? 'Back to Repo' : 'Show All Repos'}
-            </button>
-          </span>
+          <button
+            type="button"
+            onClick={() => setShowAllRepos((v) => !v)}
+            className="text-[0.6875rem] text-fg-muted hover:text-fg transition-colors"
+          >
+            {showAllRepos ? 'Back to Repo' : 'Show All Repos'}
+          </button>
         )}
       </div>
 
