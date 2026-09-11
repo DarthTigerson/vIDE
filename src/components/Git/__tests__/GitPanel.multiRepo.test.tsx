@@ -96,6 +96,15 @@ describe('GitPanel — multi-repo accordion', () => {
     expect(screen.getByText('dev')).toBeTruthy()
   })
 
+  it('highlights only the section matching selectedRepo (the active editor tab\'s repo)', () => {
+    setTwoRepos('/proj/repoA')
+    render(<GitPanel />)
+    const cardA = screen.getByText('repoA').closest('[role="button"]')?.parentElement
+    const cardB = screen.getByText('repoB').closest('[role="button"]')?.parentElement
+    expect(cardA?.className).toContain('border-accent')
+    expect(cardB?.className).not.toContain('border-accent')
+  })
+
   it('only the selected repo starts expanded; the other starts collapsed', () => {
     setTwoRepos('/proj/repoA')
     render(<GitPanel />)

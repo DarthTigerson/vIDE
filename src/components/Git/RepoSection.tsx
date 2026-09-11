@@ -647,8 +647,14 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
 
   if (!showHeader) return body
 
+  // Highlights whichever repo the currently active editor tab belongs to
+  // (kept in sync by followFilePath, including on every tab click — see
+  // TabBar.tsx) — a visual anchor for "which repo am I editing right now"
+  // that's easy to lose track of once several repos are open at once.
+  const isActiveRepo = repo === selectedRepo
+
   return (
-    <div className="mx-2 rounded-md border border-border">
+    <div className={['mx-2 rounded-md border', isActiveRepo ? 'border-accent/70' : 'border-border'].join(' ')}>
       <div
         role="button"
         tabIndex={0}
