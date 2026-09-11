@@ -4,6 +4,7 @@ import { GitActionsMenu } from '../GitActionsMenu'
 import { useGitStore, emptyRepoGitState } from '@/stores/gitStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitFavoriteReposStore } from '@/stores/gitFavoriteReposStore'
+import { useGitOpenReposStore } from '@/stores/gitOpenReposStore'
 import { useSearchStore } from '@/stores/searchStore'
 
 beforeEach(() => {
@@ -21,6 +22,7 @@ beforeEach(() => {
     repos: { '/proj': { ...emptyRepoGitState, branch: 'main' } },
   })
   useGitFavoriteReposStore.setState({ favorites: {} })
+  useGitOpenReposStore.setState({ open: {} })
   useSearchStore.setState({ branchPaletteOpen: false })
 })
 
@@ -29,12 +31,12 @@ afterEach(() => {
 })
 
 describe('GitActionsMenu', () => {
-  it('does not show a Favorite Repos section for a single-repo project', () => {
+  it('does not show an Open Repos section for a single-repo project', () => {
     render(<GitActionsMenu onClose={vi.fn()} onRequestForce={vi.fn()} />)
-    expect(screen.queryByText('Favorite Repos')).toBeNull()
+    expect(screen.queryByText('Open Repos')).toBeNull()
   })
 
-  it('does not show a Favorite Repos section in a multi-repo project when nothing is favorited', () => {
+  it('does not show an Open Repos section in a multi-repo project when nothing is open', () => {
     useGitReposStore.setState({ repos: ['/proj/repoA', '/proj/repoB'], selectedRepo: '/proj/repoA' })
     useGitStore.setState({
       repos: {
@@ -43,10 +45,10 @@ describe('GitActionsMenu', () => {
       },
     })
     render(<GitActionsMenu onClose={vi.fn()} onRequestForce={vi.fn()} />)
-    expect(screen.queryByText('Favorite Repos')).toBeNull()
+    expect(screen.queryByText('Open Repos')).toBeNull()
   })
 
-  it('shows a Favorite Repos section listing only starred repos, not every repo', () => {
+  it('shows an Open Repos section listing only repos open in the Git panel, not every discovered repo', () => {
     useGitReposStore.setState({ repos: ['/proj/repoA', '/proj/repoB', '/proj/repoC'], selectedRepo: '/proj/repoA' })
     useGitStore.setState({
       repos: {
@@ -55,15 +57,15 @@ describe('GitActionsMenu', () => {
         '/proj/repoC': { ...emptyRepoGitState, branch: 'dev' },
       },
     })
-    useGitFavoriteReposStore.setState({ favorites: { '/proj/repoB': true } })
+    useGitOpenReposStore.setState({ open: { '/proj/repoB': true } })
     render(<GitActionsMenu onClose={vi.fn()} onRequestForce={vi.fn()} />)
-    expect(screen.getByText('Favorite Repos')).toBeTruthy()
+    expect(screen.getByText('Open Repos')).toBeTruthy()
     expect(screen.getByText('repoB')).toBeTruthy()
     expect(screen.queryByText('repoA')).toBeNull()
     expect(screen.queryByText('repoC')).toBeNull()
   })
 
-  it('clicking a favorited repo selects it and closes the menu', () => {
+  it('lists open repos favorites-first, matching the Git panel\'s own order', () => {
     useGitReposStore.setState({ repos: ['/proj/repoA', '/proj/repoB'], selectedRepo: '/proj/repoA' })
     useGitStore.setState({
       repos: {
@@ -71,7 +73,22 @@ describe('GitActionsMenu', () => {
         '/proj/repoB': { ...emptyRepoGitState, branch: 'dev' },
       },
     })
+    useGitOpenReposStore.setState({ open: { '/proj/repoA': true, '/proj/repoB': true } })
     useGitFavoriteReposStore.setState({ favorites: { '/proj/repoB': true } })
+    render(<GitActionsMenu onClose={vi.fn()} onRequestForce={vi.fn()} />)
+    const names = screen.getAllByText(/^repo[AB]$/).map((el) => el.textContent)
+    expect(names).toEqual(['repoB', 'repoA'])
+  })
+
+  it('clicking an open repo selects it and closes the menu', () => {
+    useGitReposStore.setState({ repos: ['/proj/repoA', '/proj/repoB'], selectedRepo: '/proj/repoA' })
+    useGitStore.setState({
+      repos: {
+        '/proj/repoA': { ...emptyRepoGitState, branch: 'main' },
+        '/proj/repoB': { ...emptyRepoGitState, branch: 'dev' },
+      },
+    })
+    useGitOpenReposStore.setState({ open: { '/proj/repoB': true } })
     const onClose = vi.fn()
     render(<GitActionsMenu onClose={onClose} onRequestForce={vi.fn()} />)
     fireEvent.click(screen.getByText('repoB'))
