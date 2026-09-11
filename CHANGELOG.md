@@ -1,5 +1,18 @@
 # vIDE
 
+## v0.2.11 (2026-09-11)
+- **Multi-repo Git panel rework**: repos now start closed in a multi-repo project — pick which ones you're working on from a new "Show All Repos" palette (search, star-to-favorite, matching the Branch/Command Palette look) instead of an inline overview; an opened repo's header gets a right-click menu for Reveal in File Tree, Close Repo, and Close All Repos, replacing the old always-visible icon buttons and header button
+- Repos now expand one at a time (opening one collapses whichever was open before), and that expanded repo is always what the footer, activity-bar badge, and header highlight agree is "active" — switching editor tabs or expanding a different repo's section keeps everything in sync instead of drifting apart
+- The footer's quick-switch menu now lists your open repos instead of favorites; the repo name now shows before the branch in single-repo projects too
+- **Graphify scoped to the active repo**: building or viewing a graph in a multi-repo project now only scans the repo you're actually working on instead of the whole project folder — fixes a real performance problem on large umbrella-folder setups. The panel shows which repo it's targeting, and Build/Open Graph/Open Report moved to the bottom
+- New opt-in "Auto-build graph when a repo is opened" setting in Settings > Graphify (off by default, with a resource-usage warning when enabled)
+- Graphify's "not installed" state now has a quick-launch button that opens a terminal with the install command copied and ready to paste
+
+**Bug fixes**
+- Fixed the Git panel, footer, and activity-bar badge showing a repo's name or change count before any repo was actually opened in a multi-repo project
+- Fixed switching editor tabs, or expanding a different repo's header, not updating which repo the footer and active-repo highlight pointed at
+
+
 ## v0.2.10 (2026-09-09)
 - **Gabriele theme**: a new grayscale theme family — pure neutral grays throughout, no colour tint — with a matching background image
 - **Editor Colors renamed, and smarter with custom themes**: "High Contrast" is now "Theme Colour Match" and auto-derives its syntax colours from a custom theme's own accent instead of falling back to the base family's fixed palette; "Mario Mode" is now "High Contrast (Mario Mode)"; the Default and Theme Colour Match schemes now also follow a custom theme's own background colour
