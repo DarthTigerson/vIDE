@@ -1,8 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useGraphifyStore } from '@/stores/graphifyStore'
 import { useFileStore } from '@/stores/fileStore'
-import { useGitReposStore } from '@/stores/gitReposStore'
-import { useGitOpenReposStore } from '@/stores/gitOpenReposStore'
+import { useGitReposStore, useActiveRepo } from '@/stores/gitReposStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { GRAPHIFY_GRAPH_TAB_PATH } from '@/components/Settings/paths'
 import { buildMarkdownPreviewPath } from '@/components/Viewer/paths'
@@ -18,20 +17,19 @@ export function GraphifyPanel() {
   // repos (a devops monorepo-of-repos layout) — running graphify against it
   // recursively indexes every repo underneath, not just the one the user is
   // working in, which is what made it slow enough to be reported as a real
-  // performance problem on some machines. Scoping to selectedRepo fixes that
-  // — but selectedRepo alone isn't enough: setRepos auto-populates it
-  // internally (for the Git panel/palette to have data ready) even when the
-  // user hasn't opened anything, so it can hold a repo name the Git panel
-  // itself shows nothing for. Mirrors the activity-bar badge's fix for the
-  // exact same gap (VIDE-87): trust selectedRepo only once at least one repo
-  // is actually open, falling back to projectRoot only when there's no
-  // discovered repo at all (a non-git or single-repo project).
+  // performance problem on some machines. useActiveRepo() is the same "which
+  // repo is actually being worked on" signal the Git panel and the
+  // activity-bar badge use (VIDE-87) — it's null in a multi-repo project
+  // until something is actually open, even though selectedRepo may already
+  // hold an internally auto-picked value. projectRoot is the fallback only
+  // for a project with no discovered git repo at all.
   const repos = useGitReposStore((s) => s.repos)
-  const selectedRepo = useGitReposStore((s) => s.selectedRepo)
-  const openRepos = useGitOpenReposStore((s) => s.open)
-  const activeRepo = repos.length <= 1
-    ? (repos[0] ?? projectRoot)
-    : (Object.keys(openRepos).length > 0 ? selectedRepo : null)
+  const resolvedActiveRepo = useActiveRepo()
+  // Only fall back to projectRoot when there's no discovered git repo at
+  // all — a multi-repo project with nothing open must stay null, not
+  // silently fall back to the umbrella root (that's the exact bug this
+  // scoping exists to prevent).
+  const activeRepo = repos.length === 0 ? projectRoot : resolvedActiveRepo
   const activeRepoName = activeRepo?.split('/').pop() ?? null
   const {
     available, checking, running, progress, error, graph, checkAvailable, run, loadGraph,

@@ -58,8 +58,7 @@ import { useBridgeSettingsStore } from './stores/bridgeSettingsStore'
 import { useModelSettingsStore } from './stores/modelSettingsStore'
 import { useGitStore, useRepoGitState } from './stores/gitStore'
 import { useTodoStore } from './stores/todoStore'
-import { useGitReposStore } from './stores/gitReposStore'
-import { useGitOpenReposStore } from './stores/gitOpenReposStore'
+import { useGitReposStore, useActiveRepo } from './stores/gitReposStore'
 import { useGitSettingsStore } from './stores/gitSettingsStore'
 import { useMobileStore } from './stores/mobileStore'
 import { useMobileSettingsStore } from './stores/mobileSettingsStore'
@@ -86,6 +85,7 @@ import { useDockerLiveUpdates } from './hooks/useDockerLiveUpdates'
 import { useTodoSettingsStore } from './stores/todoSettingsStore'
 import { useNotesSettingsStore } from './stores/notesSettingsStore'
 import { useGraphifySettingsStore } from './stores/graphifySettingsStore'
+import { useGraphifyAutoBuild } from './hooks/useGraphifyAutoBuild'
 import { useNotesStore } from './stores/notesStore'
 import { detectGitRemoteProvider, gitRemoteIcon, gitRemoteLabel } from './lib/gitRemoteProvider'
 import { evaluateCmdWForPinnedTab, type PendingClose } from './lib/pinnedTabCloseGuard'
@@ -132,8 +132,6 @@ function loadChatSize(): number {
 export default function App() {
   const projectRoot = useFileStore((s) => s.projectRoot)
   const selectedRepo = useGitReposStore((s) => s.selectedRepo)
-  const discoveredRepos = useGitReposStore((s) => s.repos)
-  const openRepos = useGitOpenReposStore((s) => s.open)
   const refreshGitStatus = useGitStore((s) => s.refreshStatus)
   const assistant = useClaudeStore((s) => s.assistant)
   const instances = useClaudeStore((s) => s.instances)
@@ -163,19 +161,15 @@ export default function App() {
   const assistantLabel = assistant === 'claude' ? 'Claude Code' : 'Bridge'
   const newSessionTitle = assistant === 'claude' ? 'New Claude Session' : 'New Bridge Session'
   const previousSessionTitle = assistant === 'claude' ? 'Continue Claude Session' : 'Restore Previous Bridge Session'
-  // Matches what the Git panel itself actually shows: a single discovered
-  // repo has no open/close chrome, so it always counts (VIDE-18/open-close);
-  // in a multi-repo project, selectedRepo is always the one repo whose body
-  // is expanded (GitPanel's single-expand accordion keeps the two in
-  // lockstep), so the badge mirrors just that repo rather than summing
-  // across every open one (VIDE-87 originally did that, but summing reads
-  // as "everything that changed everywhere," not "what's on screen") — and
-  // it hides entirely once nothing is open, rather than showing a stale
-  // count for a repo that isn't visible in the panel.
-  const badgeRepo = discoveredRepos.length <= 1
-    ? (discoveredRepos[0] ?? null)
-    : (Object.keys(openRepos).length > 0 ? selectedRepo : null)
-  const badgeStatus = useRepoGitState(badgeRepo).status
+  // useActiveRepo() matches what the Git panel itself actually shows: a
+  // single discovered repo has no open/close chrome, so it always counts
+  // (VIDE-18/open-close); in a multi-repo project it's the one repo whose
+  // body is expanded (GitPanel's single-expand accordion), or null once
+  // nothing is open — never a stale count for a repo the panel shows
+  // nothing for (VIDE-87), and never a sum across every open repo (that
+  // reads as "everything that changed everywhere," not "what's on screen").
+  const activeRepo = useActiveRepo()
+  const badgeStatus = useRepoGitState(activeRepo).status
   const uncommittedChangeCount = new Set([
     ...badgeStatus.staged.map((file) => file.path),
     ...badgeStatus.unstaged.map((file) => file.path),
@@ -461,6 +455,8 @@ export default function App() {
     if (!activeTabPath) return
     useGitReposStore.getState().followFilePath(activeTabPath)
   }, [activeTabPath])
+
+  useGraphifyAutoBuild(activeRepo)
 
   useEffect(() => {
     // Catches git state changes made outside the app's own UI — most

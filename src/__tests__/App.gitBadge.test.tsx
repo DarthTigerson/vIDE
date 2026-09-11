@@ -1,24 +1,19 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useGitReposStore } from '@/stores/gitReposStore'
+import { useGitReposStore, useActiveRepo } from '@/stores/gitReposStore'
 import { useGitOpenReposStore } from '@/stores/gitOpenReposStore'
 import { useGitStore, useRepoGitState, emptyRepoGitState } from '@/stores/gitStore'
 
 // A full <App/> render isn't practical in jsdom (see App.autoFollow.test.tsx's
 // note on Monaco/xterm/react-resizable-panels needing real browser APIs), so
-// this reproduces App.tsx's gitBadge computation verbatim in isolation
-// (VIDE-87): the activity-bar Git icon's change-count badge should mirror
-// exactly the one repo currently expanded in the Git panel, not a sum across
-// every open repo, and should hide entirely when nothing is open.
+// this exercises App.tsx's actual gitBadge computation in isolation (VIDE-87):
+// the activity-bar Git icon's change-count badge should mirror exactly the
+// one repo currently expanded in the Git panel (useActiveRepo, shared with
+// GraphifyPanel), not a sum across every open repo, and should hide entirely
+// when nothing is open.
 function useGitBadge() {
-  const discoveredRepos = useGitReposStore((s) => s.repos)
-  const selectedRepo = useGitReposStore((s) => s.selectedRepo)
-  const openRepos = useGitOpenReposStore((s) => s.open)
-
-  const badgeRepo = discoveredRepos.length <= 1
-    ? (discoveredRepos[0] ?? null)
-    : (Object.keys(openRepos).length > 0 ? selectedRepo : null)
-  const badgeStatus = useRepoGitState(badgeRepo).status
+  const activeRepo = useActiveRepo()
+  const badgeStatus = useRepoGitState(activeRepo).status
   const uncommittedChangeCount = new Set([
     ...badgeStatus.staged.map((file) => file.path),
     ...badgeStatus.unstaged.map((file) => file.path),

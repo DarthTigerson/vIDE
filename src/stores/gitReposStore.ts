@@ -88,3 +88,19 @@ export const useGitReposStore = create<GitReposStore>((set, get) => ({
     useStatusMessageStore.getState().show(branch ? `Switched to ${name} on ${branch}` : `Switched to ${name}`)
   },
 }))
+
+// The one "which repo is the user actually working on right now" concept,
+// shared by anything that needs to scope itself the same way the Git panel
+// does (single-repo projects always count; multi-repo projects only once
+// something is actually open — selectedRepo alone isn't enough, since
+// setRepos populates it internally before the user has opened anything).
+// Consumed by the activity-bar badge and GraphifyPanel; callers that want a
+// non-git fallback (e.g. GraphifyPanel falling back to projectRoot) apply it
+// themselves on the returned value.
+export function useActiveRepo(): string | null {
+  const repos = useGitReposStore((s) => s.repos)
+  const selectedRepo = useGitReposStore((s) => s.selectedRepo)
+  const openRepos = useGitOpenReposStore((s) => s.open)
+  if (repos.length <= 1) return repos[0] ?? null
+  return Object.keys(openRepos).length > 0 ? selectedRepo : null
+}
