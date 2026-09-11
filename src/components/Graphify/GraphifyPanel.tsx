@@ -94,7 +94,30 @@ export function GraphifyPanel() {
         )}
       </div>
 
-      <div className="shrink-0 px-3 py-2 flex flex-col gap-1.5 border-b border-border">
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+        {!activeRepo && repos.length > 1 && (
+          <div className="flex-1 flex items-center justify-center px-6 text-center text-xs text-fg-subtle">
+            No repo open. Open one from the Git panel first.
+          </div>
+        )}
+
+        {(running || (error && !running)) && (
+          <div className="shrink-0 px-3 py-2 flex flex-col gap-2">
+            {running && (
+              <div className="text-xs text-fg-muted font-mono whitespace-pre-wrap border border-border rounded p-2 max-h-64 overflow-y-auto">
+                {progress || `Running graphify on ${activeRepoName ?? 'this project'}…`}
+              </div>
+            )}
+            {error && !running && (
+              <div className="text-xs text-red-400 whitespace-pre-wrap border border-red-400/30 rounded p-2 max-h-64 overflow-y-auto">
+                {error}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="shrink-0 px-3 py-2 flex flex-col gap-1.5 border-t border-border">
         <button
           type="button"
           className={pillButtonClass}
@@ -120,27 +143,6 @@ export function GraphifyPanel() {
           Open Report
         </button>
       </div>
-
-      {!activeRepo && repos.length > 1 && (
-        <div className="flex-1 flex items-center justify-center px-6 text-center text-xs text-fg-subtle">
-          No repo open. Open one from the Git panel first.
-        </div>
-      )}
-
-      {(running || (error && !running)) && (
-        <div className="shrink-0 px-3 py-2 flex flex-col gap-2 overflow-y-auto">
-          {running && (
-            <div className="text-xs text-fg-muted font-mono whitespace-pre-wrap border border-border rounded p-2 max-h-64 overflow-y-auto">
-              {progress || `Running graphify on ${activeRepoName ?? 'this project'}…`}
-            </div>
-          )}
-          {error && !running && (
-            <div className="text-xs text-red-400 whitespace-pre-wrap border border-red-400/30 rounded p-2 max-h-64 overflow-y-auto">
-              {error}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }
