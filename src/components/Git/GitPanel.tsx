@@ -1,15 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitFavoriteReposStore, sortReposByFavorite } from '@/stores/gitFavoriteReposStore'
+import { useGitOpenReposStore } from '@/stores/gitOpenReposStore'
 import { RepoOverviewList } from './RepoOverviewList'
 import { RepoSection } from './RepoSection'
 
 export function GitPanel() {
   const repos = useGitReposStore((s) => s.repos)
   const favorites = useGitFavoriteReposStore((s) => s.favorites)
+  const openRepos = useGitOpenReposStore((s) => s.open)
+  const closeAll = useGitOpenReposStore((s) => s.closeAll)
   const [showAllRepos, setShowAllRepos] = useState(false)
+
+  // A single discovered repo has nothing to choose between — same bypass
+  // as today's solo mode, just renamed now that it gates more than the
+  // header (it also skips the open/close filtering below).
+  const soloMode = repos.length <= 1
   const sortedRepos = sortReposByFavorite(repos, favorites)
-  const showHeader = repos.length > 1
+  const openList = soloMode ? sortedRepos : sortedRepos.filter((repo) => openRepos[repo])
 
   const [pendingScrollTo, setPendingScrollTo] = useState<string | null>(null)
   const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -26,25 +34,40 @@ export function GitPanel() {
         <span className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
           Git Panel
         </span>
-        {showHeader && (
-          <button
-            type="button"
-            onClick={() => setShowAllRepos((v) => !v)}
-            className="text-[0.6875rem] text-fg-muted hover:text-fg transition-colors"
-          >
-            {showAllRepos ? 'Back to Repo' : 'Show All Repos'}
-          </button>
+        {!soloMode && (
+          <span className="flex items-center gap-3">
+            {!showAllRepos && openList.length > 0 && (
+              <button
+                type="button"
+                onClick={closeAll}
+                className="text-[0.6875rem] text-fg-muted hover:text-fg transition-colors"
+              >
+                Close All
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowAllRepos((v) => !v)}
+              className="text-[0.6875rem] text-fg-muted hover:text-fg transition-colors"
+            >
+              {showAllRepos ? 'Back to Repo' : 'Show All Repos'}
+            </button>
+          </span>
         )}
       </div>
 
-      {/* showHeader gates the overlay as well as the toggle button: if the repo
-          count drops to 1 mid-session the button disappears, and without this
-          guard an already-open overview would be stranded with no way back. */}
-      {showAllRepos && showHeader ? (
+      {/* soloMode gates the overlay as well as the toggle button: if the repo
+          count drops to 1 mid-session an already-open overview would be
+          stranded with no way back. */}
+      {showAllRepos && !soloMode ? (
         <RepoOverviewList onClose={(repo) => { setShowAllRepos(false); if (repo) setPendingScrollTo(repo) }} />
+      ) : !soloMode && openList.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center px-6 text-center text-xs text-fg-subtle">
+          No repos open. Use "Show All Repos" to open one.
+        </div>
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
-          {sortedRepos.map((repo) => (
+          {openList.map((repo) => (
             // Solo mode renders RepoSection as a bare fragment whose children
             // (commit box, flex-1 file list, footer) expect to be flex items of
             // this column, so this scroll-target wrapper has to be a
@@ -53,9 +76,9 @@ export function GitPanel() {
             <div
               key={repo}
               ref={(el) => { if (el) sectionRefs.current.set(repo, el); else sectionRefs.current.delete(repo) }}
-              className={showHeader ? undefined : 'flex-1 min-h-0 flex flex-col'}
+              className={soloMode ? 'flex-1 min-h-0 flex flex-col' : undefined}
             >
-              <RepoSection repo={repo} showHeader={showHeader} />
+              <RepoSection repo={repo} showHeader={!soloMode} />
             </div>
           ))}
         </div>

@@ -15,6 +15,7 @@ import { useGitReposStore } from '../gitReposStore'
 import { useGitStore, emptyRepoGitState } from '../gitStore'
 import { useGitFavoriteReposStore } from '../gitFavoriteReposStore'
 import { useGitExpandedReposStore } from '../gitExpandedReposStore'
+import { useGitOpenReposStore } from '../gitOpenReposStore'
 
 vi.mock('@/stores/statusMessageStore', () => ({
   useStatusMessageStore: { getState: () => ({ show: showMock }) },
@@ -28,6 +29,7 @@ describe('gitReposStore', () => {
     useGitStore.setState({ repos: {} })
     useGitFavoriteReposStore.setState({ favorites: {} })
     useGitExpandedReposStore.setState({ expanded: {} })
+    useGitOpenReposStore.setState({ open: {} })
   })
 
   it('starts with no repos and no selection', () => {
@@ -161,5 +163,24 @@ describe('gitReposStore', () => {
     useGitExpandedReposStore.getState().setExpanded('/parent/repoA', true)
     useGitReposStore.getState().followFilePath('/parent/repoB/src/x.ts')
     expect(useGitExpandedReposStore.getState().isExpanded('/parent/repoA', '/parent/repoB')).toBe(true)
+  })
+
+  it('setRepos resets the open set to empty even if repos were previously open', () => {
+    useGitOpenReposStore.getState().openRepo('/parent/repoA')
+    useGitReposStore.getState().setRepos(['/parent/repoA', '/parent/repoB'])
+    expect(useGitOpenReposStore.getState().isOpen('/parent/repoA')).toBe(false)
+  })
+
+  it('followFilePath opens the followed repo when switching to it', () => {
+    useGitReposStore.setState({ repos: ['/parent/repoA', '/parent/repoB'], selectedRepo: '/parent/repoA' })
+    useGitReposStore.getState().followFilePath('/parent/repoB/src/x.ts')
+    expect(useGitOpenReposStore.getState().isOpen('/parent/repoB')).toBe(true)
+  })
+
+  it('followFilePath opens the repo even when it is already the selected repo', () => {
+    useGitReposStore.setState({ repos: ['/parent/repoA', '/parent/repoB'], selectedRepo: '/parent/repoA' })
+    expect(useGitOpenReposStore.getState().isOpen('/parent/repoA')).toBe(false)
+    useGitReposStore.getState().followFilePath('/parent/repoA/src/x.ts')
+    expect(useGitOpenReposStore.getState().isOpen('/parent/repoA')).toBe(true)
   })
 })

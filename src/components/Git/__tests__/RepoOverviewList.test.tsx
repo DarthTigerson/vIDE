@@ -5,6 +5,7 @@ import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitStore, emptyRepoGitState } from '@/stores/gitStore'
 import { useGitFavoriteReposStore } from '@/stores/gitFavoriteReposStore'
 import { useGitExpandedReposStore } from '@/stores/gitExpandedReposStore'
+import { useGitOpenReposStore } from '@/stores/gitOpenReposStore'
 import { useSidebarUiStore } from '@/stores/sidebarUiStore'
 import type { GitStatus, GitAheadBehind } from '@/types/index'
 
@@ -28,6 +29,7 @@ beforeEach(() => {
   })
   useGitFavoriteReposStore.setState({ favorites: {} })
   useGitExpandedReposStore.setState({ expanded: {} })
+  useGitOpenReposStore.setState({ open: {} })
 })
 
 afterEach(() => {
@@ -101,6 +103,13 @@ describe('RepoOverviewList', () => {
     fireEvent.click(screen.getByText('repoB'))
     expect(useGitExpandedReposStore.getState().isExpanded('/proj/repoB', '/proj/repoA')).toBe(true)
     expect(onClose).toHaveBeenCalledWith('/proj/repoB')
+  })
+
+  it('clicking a row opens that repo', () => {
+    const onClose = vi.fn()
+    render(<RepoOverviewList onClose={onClose} />)
+    fireEvent.click(screen.getByText('repoB'))
+    expect(useGitOpenReposStore.getState().isOpen('/proj/repoB')).toBe(true)
   })
 
   it('right-clicking "Go to File Tree" closes with no repo argument (does not force-expand)', () => {

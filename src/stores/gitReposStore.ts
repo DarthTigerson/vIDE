@@ -3,6 +3,7 @@ import { useGitStore } from './gitStore'
 import { useStatusMessageStore } from './statusMessageStore'
 import { useGitFavoriteReposStore } from './gitFavoriteReposStore'
 import { useGitExpandedReposStore } from './gitExpandedReposStore'
+import { useGitOpenReposStore } from './gitOpenReposStore'
 
 interface GitReposStore {
   repos: string[]
@@ -40,6 +41,11 @@ export const useGitReposStore = create<GitReposStore>((set, get) => ({
     const favorites = useGitFavoriteReposStore.getState().favorites
     const fallback = repos.find((repo) => favorites[repo]) ?? repos[0] ?? null
     const selectedRepo = current && repos.includes(current) ? current : fallback
+    // setRepos only ever fires at a project-open/close boundary (see
+    // fileStore.ts's discoverAndWatchRepos/closeProject) — never mid-session
+    // for the same project — so unconditionally clearing the open set here
+    // is exactly the "always starts empty" behavior the spec calls for.
+    useGitOpenReposStore.getState().closeAll()
     set({ repos, selectedRepo, hasExplicitSelection: false })
   },
 
@@ -63,6 +69,12 @@ export const useGitReposStore = create<GitReposStore>((set, get) => ({
   followFilePath: (absPath) => {
     const repo = get().resolveRepoForPath(absPath)
     if (!repo) return
+    // Unconditional, before the early-return below: the *first* file a user
+    // opens usually resolves to the repo setRepos already auto-selected (its
+    // favorite/first-repo fallback) — which is "selected" but not yet "open"
+    // under the open/close model, so the already-selected path needs to open
+    // it too, not just the switching path.
+    useGitOpenReposStore.getState().openRepo(repo)
     // An open file within the already-selected repo (the common case, e.g.
     // the auto-selected first repo in a multi-repo project) still counts
     // as an explicit selection for the footer's purposes — there's just no

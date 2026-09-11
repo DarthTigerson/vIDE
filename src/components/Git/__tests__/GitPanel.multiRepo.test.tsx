@@ -6,6 +6,7 @@ import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitStore, emptyRepoGitState } from '@/stores/gitStore'
 import { useGitFavoriteReposStore } from '@/stores/gitFavoriteReposStore'
 import { useGitExpandedReposStore } from '@/stores/gitExpandedReposStore'
+import { useGitOpenReposStore } from '@/stores/gitOpenReposStore'
 import { useSidebarUiStore } from '@/stores/sidebarUiStore'
 
 window.HTMLElement.prototype.scrollIntoView = vi.fn()
@@ -43,6 +44,7 @@ beforeEach(() => {
   useFileStore.setState({ projectRoot: '/proj' })
   useGitFavoriteReposStore.setState({ favorites: {} })
   useGitExpandedReposStore.setState({ expanded: {} })
+  useGitOpenReposStore.setState({ open: {} })
   useSidebarUiStore.setState({ revealRequest: null })
 })
 
@@ -54,6 +56,7 @@ afterEach(() => {
 // Commit-options chevron isn't disabled in tests that need to click it.
 function setTwoRepos(selectedRepo = '/proj/repoA') {
   useGitReposStore.setState({ repos: ['/proj/repoA', '/proj/repoB'], selectedRepo })
+  useGitOpenReposStore.setState({ open: { '/proj/repoA': true, '/proj/repoB': true } })
   useGitStore.setState({
     repos: {
       '/proj/repoA': {
@@ -174,6 +177,7 @@ describe('GitPanel — multi-repo accordion', () => {
     // mount refresh (branch + ahead/behind, not just status) is what fills the
     // header in — otherwise repoB would sit on '—' with no counts forever.
     useGitReposStore.setState({ repos: ['/proj/repoA', '/proj/repoB'], selectedRepo: '/proj/repoA' })
+    useGitOpenReposStore.setState({ open: { '/proj/repoA': true, '/proj/repoB': true } })
     useGitStore.setState({ repos: {} })
     render(<GitPanel />)
 

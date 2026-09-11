@@ -19,6 +19,7 @@ import { ContextMenuButton, ContextMenuDivider } from './ContextMenu'
 import { pickClaudeGif } from '@/assets/claudeGifs'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitExpandedReposStore } from '@/stores/gitExpandedReposStore'
+import { useGitOpenReposStore } from '@/stores/gitOpenReposStore'
 import { useSidebarUiStore } from '@/stores/sidebarUiStore'
 
 // Solid fill matching the Commit button's active look — every action pill in
@@ -34,6 +35,14 @@ interface ContextMenuState {
   y: number
   file: GitFileEntry
   staged: boolean
+}
+
+function CloseRepoIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
 }
 
 function DiscardAllIcon() {
@@ -131,6 +140,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
   const selectRepo = useGitReposStore((s) => s.selectRepo)
   const isExpanded = useGitExpandedReposStore((s) => (showHeader ? s.isExpanded(repo, selectedRepo) : true))
   const setExpanded = useGitExpandedReposStore((s) => s.setExpanded)
+  const closeRepo = useGitOpenReposStore((s) => s.closeRepo)
   const { branch, status, commitMessage, commitError, commandStatus, aheadBehind } = useRepoGitState(repo)
   const {
     refresh,
@@ -651,6 +661,15 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
           className="shrink-0 h-6 w-6 rounded border border-border bg-bg flex items-center justify-center text-fg-muted hover:text-fg hover:border-fg-subtle transition-colors [&_svg]:w-3.5 [&_svg]:h-3.5"
         >
           <FilesIcon />
+        </button>
+        <button
+          type="button"
+          aria-label="Close Repo"
+          title="Close Repo"
+          onClick={(e) => { e.stopPropagation(); closeRepo(repo) }}
+          className="shrink-0 h-6 w-6 rounded border border-border bg-bg flex items-center justify-center text-fg-muted hover:text-red-400 hover:border-fg-subtle transition-colors [&_svg]:w-3.5 [&_svg]:h-3.5"
+        >
+          <CloseRepoIcon />
         </button>
       </div>
       {isExpanded && body}
