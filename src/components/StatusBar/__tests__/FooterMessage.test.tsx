@@ -56,6 +56,14 @@ describe('FooterMessage — footer content setting', () => {
     expect(screen.queryByText((content) => FOOTER_TIPS.includes(content))).toBeNull()
   })
 
+  it('keeps the clock narrow and always visible, unlike the wide hint/notification pill', () => {
+    useDisplayStore.setState({ footerContent: 'clock' })
+    render(<FooterMessage />)
+    const clockPill = screen.getByText('2:32 PM').parentElement
+    expect(clockPill?.className).toMatch(/w-24/)
+    expect(clockPill?.className).not.toMatch(/min-\[1200px\]/)
+  })
+
   it('an active notification still overrides the clock, same as it overrides tips', () => {
     useDisplayStore.setState({ footerContent: 'clock' })
     useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com' }, status: 'idle' })

@@ -262,6 +262,21 @@ export function UpdateAvailableIcon({ className }: { className?: string } = {}) 
   )
 }
 
+export function BellIcon({ className }: { className?: string } = {}) {
+  return (
+    <svg className={className} width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M6 10a6 6 0 1 1 12 0c0 3.5 1 5 2 6H4c1-1 2-2.5 2-6Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M10 19a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 // "Abc" reads instantly as "text suggestions" — the previous cursor+arc
 // design was too abstract for people to place at a glance. Rendered as real
 // text (not drawn inside a scaled-down SVG viewBox, which was shrinking it

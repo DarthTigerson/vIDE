@@ -15,8 +15,18 @@ const FADE_MS = 200
 // the footer always reads as the same "notification toggle" element — only
 // its interactivity and text color change depending on whether there's
 // anything active to open the panel for.
+// hidden below 1200px — NotificationCompactToggle (in the right-hand
+// cluster, next to the font-size control) takes over at that width,
+// collapsed to just the top-priority notification's icon. Hints/clock get
+// no compact replacement; they simply go unread at that width.
 const PILL_BASE_CLASSES =
-  'absolute inset-x-0 top-1/2 -translate-y-1/2 mx-auto flex h-5 w-[46rem] max-w-[92vw] items-center justify-center rounded-full border border-border bg-bg px-3 text-xs transition-colors'
+  'absolute inset-x-0 top-1/2 -translate-y-1/2 mx-auto hidden min-[1200px]:flex h-5 w-[46rem] max-w-[92vw] items-center justify-center rounded-full border border-border bg-bg px-3 text-xs transition-colors'
+
+// The clock (unlike hints/notifications) doesn't need 46rem of room and
+// isn't worth losing below 1200px just to save space — it stays centered
+// and visible at every width, sized to just its own content instead.
+const CLOCK_PILL_CLASSES =
+  'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-5 w-24 items-center justify-center rounded-full border border-border bg-bg px-3 text-xs pointer-events-none select-none text-fg-subtle'
 
 function randomTipIndex(exclude?: number): number {
   if (FOOTER_TIPS.length <= 1) return 0
@@ -103,6 +113,14 @@ export function FooterMessage() {
       >
         {pillContent}
       </button>
+    )
+  }
+
+  if (footerContent === 'clock') {
+    return (
+      <span className={CLOCK_PILL_CLASSES}>
+        <Clock />
+      </span>
     )
   }
 
