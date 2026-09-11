@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { GraphifyPanel } from '../GraphifyPanel'
 import { useGraphifyStore } from '@/stores/graphifyStore'
+import { useGitReposStore } from '@/stores/gitReposStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { GRAPHIFY_GRAPH_TAB_PATH } from '@/components/Settings/paths'
 import { buildMarkdownPreviewPath } from '@/components/Viewer/paths'
@@ -38,6 +39,10 @@ describe('GraphifyPanel', () => {
     resetStore()
     openTabMock.mockClear()
     setProjectRoot('/project')
+    // No discovered repo by default — activeRepo falls back to projectRoot,
+    // matching every pre-existing test's expectations below. Tests that
+    // specifically exercise the multi-repo scoping set this explicitly.
+    useGitReposStore.setState({ repos: [], selectedRepo: null })
     useEditorStore.setState({ openTab: openTabMock })
   })
 
@@ -62,7 +67,7 @@ describe('GraphifyPanel', () => {
     expect(screen.getByRole('button', { name: /rebuild graph/i })).toBeInTheDocument()
   })
 
-  it('clicking build graph calls run with the project root', () => {
+  it('clicking build graph calls run with the project root when no repo is discovered', () => {
     const runMock = vi.fn()
     useGraphifyStore.setState({ available: true, graph: null, run: runMock })
     render(<GraphifyPanel />)
@@ -70,10 +75,37 @@ describe('GraphifyPanel', () => {
     expect(runMock).toHaveBeenCalledWith('/project')
   })
 
+  it('clicking build graph calls run with the active repo, not the whole project root, in a multi-repo project', () => {
+    // The bug this guards: projectRoot can be an umbrella folder holding many
+    // independent repos, and running graphify against it recursively indexes
+    // every repo underneath — real reported performance problem. It must
+    // scope to whichever repo is actually active instead.
+    const runMock = vi.fn()
+    useGitReposStore.setState({ repos: ['/project/repoA', '/project/repoB'], selectedRepo: '/project/repoB' })
+    useGraphifyStore.setState({ available: true, graph: null, run: runMock })
+    render(<GraphifyPanel />)
+    fireEvent.click(screen.getByRole('button', { name: /build graph/i }))
+    expect(runMock).toHaveBeenCalledWith('/project/repoB')
+  })
+
+  it('shows the active repo\'s name in the panel header', () => {
+    useGitReposStore.setState({ repos: ['/project/repoA', '/project/repoB'], selectedRepo: '/project/repoB' })
+    useGraphifyStore.setState({ available: true })
+    render(<GraphifyPanel />)
+    expect(screen.getByText('repoB')).toBeInTheDocument()
+  })
+
   it('shows progress text while running', () => {
     useGraphifyStore.setState({ available: true, running: true, progress: 'extracting files...' })
     render(<GraphifyPanel />)
     expect(screen.getByText('extracting files...')).toBeInTheDocument()
+  })
+
+  it('the default running placeholder (before any progress output arrives) names the active repo', () => {
+    useGitReposStore.setState({ repos: ['/project/repoA', '/project/repoB'], selectedRepo: '/project/repoB' })
+    useGraphifyStore.setState({ available: true, running: true, progress: '' })
+    render(<GraphifyPanel />)
+    expect(screen.getByText('Running graphify on repoB…')).toBeInTheDocument()
   })
 
   it('shows an error message (including folded stderr tail) when the last run failed', () => {
@@ -110,6 +142,23 @@ describe('GraphifyPanel', () => {
 
     expect(openTabMock).toHaveBeenCalledWith({
       path: buildMarkdownPreviewPath('/project/graphify-out/GRAPH_REPORT.md'),
+      content: '',
+      dirty: false,
+    })
+  })
+
+  it('"Open Graph" and "Open Report" read from the active repo\'s own graphify-out, not the project root, in a multi-repo project', () => {
+    const loadGraphMock = vi.fn()
+    useGitReposStore.setState({ repos: ['/project/repoA', '/project/repoB'], selectedRepo: '/project/repoB' })
+    useGraphifyStore.setState({ available: true, loadGraph: loadGraphMock })
+    render(<GraphifyPanel />)
+
+    fireEvent.click(screen.getByRole('button', { name: /open graph/i }))
+    expect(loadGraphMock).toHaveBeenCalledWith('/project/repoB')
+
+    fireEvent.click(screen.getByRole('button', { name: /open report/i }))
+    expect(openTabMock).toHaveBeenCalledWith({
+      path: buildMarkdownPreviewPath('/project/repoB/graphify-out/GRAPH_REPORT.md'),
       content: '',
       dirty: false,
     })
