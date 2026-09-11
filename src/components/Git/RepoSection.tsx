@@ -21,6 +21,9 @@ import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitExpandedReposStore } from '@/stores/gitExpandedReposStore'
 import { useSidebarUiStore } from '@/stores/sidebarUiStore'
 
+// Solid fill matching the Commit button's active look — every action pill in
+// the Git panel (Branch, Fetch, Pull, Push, Graph, List Diff) shares this
+// now, instead of each having its own translucent-gradient-and-ring style.
 const accentSolidColor = 'bg-accent/80 text-on-accent hover:bg-accent'
 
 const pillButtonClass =
@@ -130,6 +133,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
   const setExpanded = useGitExpandedReposStore((s) => s.setExpanded)
   const { branch, status, commitMessage, commitError, commandStatus, aheadBehind } = useRepoGitState(repo)
   const {
+    refresh,
     refreshStatus,
     stage,
     unstage,
@@ -178,12 +182,18 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
   const [commitOptionsOpen, setCommitOptionsOpen] = useState(false)
   const [pushOptionsOpen, setPushOptionsOpen] = useState(false)
 
+  // Mount does a full refresh (branch + ahead/behind + status): every section's
+  // header shows branch and ahead/behind, not just the selected repo's, and
+  // refresh() is the only action that populates those. Refocus deliberately
+  // drops back to refreshStatus() — working-tree state is what goes stale while
+  // the window is in the background, and a full refresh here would add two
+  // extra IPC round-trips per open repo every time the window is focused.
   useEffect(() => {
-    refreshStatus(repo)
+    refresh(repo)
     const onFocus = () => refreshStatus(repo)
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
-  }, [repo, refreshStatus])
+  }, [repo, refresh, refreshStatus])
 
   useEffect(() => {
     if (!menu) return
@@ -235,6 +245,21 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
     await refreshStatus(repo)
   }
 
+  // Fetch/Pull/Push/force-push/Publish Branch route through gitStore's
+  // runCommand(), which can reveal the Git Log tab (always, or on failure,
+  // per the gitLogAutoShow setting). That tab renders whichever repo is
+  // *globally* selected, so acting on a non-selected repo would pop open a
+  // log showing a different repo's buffer — worst on failure, where the user
+  // sees an empty or unrelated log and can't tell why the action failed.
+  // Commit goes through its own IPC path rather than runCommand, but it
+  // refreshes the Graph tab for its repo, so it follows the same rule.
+  // Selecting this repo first keeps those panels pointed at the repo being
+  // acted on, same as the Branch/Graph/List Diff buttons already do.
+  function runOnThisRepo(run: () => void) {
+    selectRepo(repo)
+    run()
+  }
+
   const isUntracked = menu?.file.status === '?'
   const isTrackedChange = menu && !menu.staged && menu.file.status !== '?'
   const remoteActionDisabled = commandStatus === 'running'
@@ -274,6 +299,8 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
               ].join(' ')}
             >
               {generatingMessage && generatingGif ? (
+                // Randomly picked per generation in generateCommitMessage() — GIFs
+                // loop natively, so this just plays until the request resolves.
                 <img src={generatingGif} alt="Generating…" className="w-full h-full object-contain" />
               ) : (
                 <ClaudeIcon />
@@ -286,7 +313,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
         <SplitCommandButton
           label="Commit"
           disabled={!commitMessage.trim() || status.staged.length === 0}
-          onClick={() => commit(repo)}
+          onClick={() => runOnThisRepo(() => commit(repo))}
           colorClassName={accentSolidColor}
           open={commitOptionsOpen}
           onToggleOptions={() => setCommitOptionsOpen((v) => !v)}
@@ -297,7 +324,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
               type="button"
               disabled={!commitMessage.trim() || status.staged.length === 0}
               onClick={() => {
-                commit(repo, true)
+                runOnThisRepo(() => commit(repo, true))
                 setCommitOptionsOpen(false)
               }}
               className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-fg transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -388,7 +415,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
             type="button"
             className={pillButtonClass}
             disabled={remoteActionDisabled}
-            onClick={() => gitFetch(repo)}
+            onClick={() => runOnThisRepo(() => gitFetch(repo))}
           >
             Fetch
           </button>
@@ -396,7 +423,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
             type="button"
             className={pillButtonClass}
             disabled={remoteActionDisabled}
-            onClick={() => pull(repo)}
+            onClick={() => runOnThisRepo(() => pull(repo))}
           >
             Pull
           </button>
@@ -404,7 +431,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
         <SplitCommandButton
           label="Push"
           disabled={remoteActionDisabled}
-          onClick={() => push(repo)}
+          onClick={() => runOnThisRepo(() => push(repo))}
           colorClassName={accentSolidColor}
           open={pushOptionsOpen}
           onToggleOptions={() => setPushOptionsOpen((v) => !v)}
@@ -416,7 +443,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
                 type="button"
                 disabled={remoteActionDisabled || !branch}
                 onClick={() => {
-                  if (branch) publishBranch(repo, branch)
+                  if (branch) runOnThisRepo(() => publishBranch(repo, branch))
                   setPushOptionsOpen(false)
                 }}
                 className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-fg transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -428,7 +455,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
               <button
                 type="button"
                 disabled={remoteActionDisabled}
-                onClick={() => { requestForce('forcePush'); setPushOptionsOpen(false) }}
+                onClick={() => { runOnThisRepo(() => requestForce('forcePush')); setPushOptionsOpen(false) }}
                 className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <span className="font-semibold">Force Push</span>
@@ -437,7 +464,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
               <button
                 type="button"
                 disabled={remoteActionDisabled}
-                onClick={() => { requestForce('forcePushLease'); setPushOptionsOpen(false) }}
+                onClick={() => { runOnThisRepo(() => requestForce('forcePushLease')); setPushOptionsOpen(false) }}
                 className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <span className="font-semibold">Force Push with Lease</span>

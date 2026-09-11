@@ -44,8 +44,8 @@ export const useGitFavoriteReposStore = create<GitFavoriteReposStore>((set, get)
 }))
 
 // Favorites first (alphabetical within each group), then the rest
-// (alphabetical) — shared by RepoSelect and RepoOverviewList so both sort
-// consistently.
+// (alphabetical) — shared by the Git panel's accordion (GitPanel) and
+// RepoOverviewList so both sort consistently.
 export function sortReposByFavorite(repos: string[], favorites: Record<string, true>): string[] {
   return [...repos].sort((a, b) => {
     const favA = !!favorites[a]

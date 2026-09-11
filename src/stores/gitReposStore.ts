@@ -7,8 +7,9 @@ import { useGitExpandedReposStore } from './gitExpandedReposStore'
 interface GitReposStore {
   repos: string[]
   selectedRepo: string | null
-  // True once the user (via the Git Panel dropdown or "Show All Repos") or
-  // auto-follow has actually picked a repo — distinct from setRepos'
+  // True once the user (via a repo's accordion section in the Git panel or
+  // the "Show All Repos" overview) or auto-follow has actually picked a
+  // repo — distinct from setRepos'
   // internal default-selection, which populates selectedRepo immediately on
   // project open purely so GitPanel/RepoOverviewList have data ready. The
   // footer uses this to stay silent in multi-repo projects until a repo has
@@ -54,9 +55,11 @@ export const useGitReposStore = create<GitReposStore>((set, get) => ({
   },
 
   // The ONLY call site that should fire the "Switched to…" footer notice —
-  // manual picks (Git Panel dropdown, "Show All Repos" row) call
-  // selectRepo() directly and stay silent, since the click itself is
-  // already the user's confirmation.
+  // manual picks call selectRepo() directly and stay silent, since the click
+  // itself is already the user's confirmation. Those are a RepoSection's own
+  // action buttons (Branch/Graph/List Diff/Fetch/Pull/Push/Commit, which
+  // point the panel-external Git Log, Graph and Branch-diff tabs at the repo
+  // being acted on) and picking a row in the "Show All Repos" overview.
   followFilePath: (absPath) => {
     const repo = get().resolveRepoForPath(absPath)
     if (!repo) return

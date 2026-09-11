@@ -16,6 +16,9 @@ const nothingStaged: GitStatus = { staged: [], unstaged: [] }
 
 beforeEach(() => {
   ;(global as any).window.api = {
+    // RepoSection does a full refresh (branch + ahead/behind + status) on mount.
+    gitBranch: vi.fn().mockResolvedValue('main'),
+    gitAheadBehind: vi.fn().mockResolvedValue(null),
     gitStatus: vi.fn().mockResolvedValue(staged),
     gitListIgnored: vi.fn().mockResolvedValue([]),
     gitStagedDiff: vi.fn().mockResolvedValue('diff --git a/x b/x'),

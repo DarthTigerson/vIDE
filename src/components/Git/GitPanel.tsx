@@ -37,12 +37,24 @@ export function GitPanel() {
         )}
       </div>
 
-      {showAllRepos ? (
+      {/* showHeader gates the overlay as well as the toggle button: if the repo
+          count drops to 1 mid-session the button disappears, and without this
+          guard an already-open overview would be stranded with no way back. */}
+      {showAllRepos && showHeader ? (
         <RepoOverviewList onClose={(repo) => { setShowAllRepos(false); if (repo) setPendingScrollTo(repo) }} />
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
           {sortedRepos.map((repo) => (
-            <div key={repo} ref={(el) => { if (el) sectionRefs.current.set(repo, el); else sectionRefs.current.delete(repo) }}>
+            // Solo mode renders RepoSection as a bare fragment whose children
+            // (commit box, flex-1 file list, footer) expect to be flex items of
+            // this column, so this scroll-target wrapper has to be a
+            // pass-through flex item there. Multi-repo sections size to their
+            // content instead — the column above is what scrolls.
+            <div
+              key={repo}
+              ref={(el) => { if (el) sectionRefs.current.set(repo, el); else sectionRefs.current.delete(repo) }}
+              className={showHeader ? undefined : 'flex-1 min-h-0 flex flex-col'}
+            >
               <RepoSection repo={repo} showHeader={showHeader} />
             </div>
           ))}
