@@ -75,14 +75,17 @@ describe('GitPanel — multi-repo open/close', () => {
     expect(useGitOpenReposStore.getState().isOpen('/proj/repoB')).toBe(true)
   })
 
-  it('closing an open repo removes it from the panel without touching discovery', () => {
-    setTwoUnopenedRepos()
+  it('right-clicking a header and picking "Close Repo" removes it from the panel without touching discovery, selection, or its git data', () => {
+    setTwoUnopenedRepos('/proj/repoA')
     useGitOpenReposStore.setState({ open: { '/proj/repoA': true, '/proj/repoB': true } })
     render(<GitPanel />)
-    fireEvent.click(screen.getAllByLabelText('Close Repo')[0])
+    fireEvent.contextMenu(screen.getByText('repoA'))
+    fireEvent.click(screen.getByText('Close Repo'))
     expect(screen.queryByText('repoA')).toBeNull()
     expect(screen.getByText('repoB')).toBeTruthy()
     expect(useGitReposStore.getState().repos).toEqual(['/proj/repoA', '/proj/repoB'])
+    expect(useGitReposStore.getState().selectedRepo).toBe('/proj/repoA')
+    expect(useGitStore.getState().repos['/proj/repoA']).toEqual({ ...emptyRepoGitState, branch: 'main' })
   })
 
   it('"Close All" bulk-closes every open repo back to the empty state', () => {

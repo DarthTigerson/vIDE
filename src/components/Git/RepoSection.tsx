@@ -14,7 +14,7 @@ import { FileRow } from './FileRow'
 import { ConfirmForcePushModal } from './ConfirmForcePushModal'
 import { useForcePushConfirm } from './useForcePushConfirm'
 import { useCommitMessageSettingsStore } from '@/stores/commitMessageSettingsStore'
-import { FilesIcon, ClaudeIcon } from '@/components/ActivityBar/ActivityBar'
+import { ClaudeIcon } from '@/components/ActivityBar/ActivityBar'
 import { ContextMenuButton, ContextMenuDivider } from './ContextMenu'
 import { pickClaudeGif } from '@/assets/claudeGifs'
 import { useGitReposStore } from '@/stores/gitReposStore'
@@ -37,12 +37,9 @@ interface ContextMenuState {
   staged: boolean
 }
 
-function CloseRepoIcon() {
-  return (
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  )
+interface HeaderMenuState {
+  x: number
+  y: number
 }
 
 function DiscardAllIcon() {
@@ -187,6 +184,8 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
 
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const [headerMenu, setHeaderMenu] = useState<HeaderMenuState | null>(null)
+  const headerMenuRef = useRef<HTMLDivElement>(null)
   const [discardTarget, setDiscardTarget] = useState<GitFileEntry | null>(null)
   const [discardAllConfirmOpen, setDiscardAllConfirmOpen] = useState(false)
   const [commitOptionsOpen, setCommitOptionsOpen] = useState(false)
@@ -227,6 +226,32 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
     menuRef.current.style.left = `${clamped.x}px`
     menuRef.current.style.top = `${clamped.y}px`
   }, [menu])
+
+  useEffect(() => {
+    if (!headerMenu) return
+    const close = () => setHeaderMenu(null)
+    const closeOnEscape = (e: KeyboardEvent) => { if (e.key === 'Escape') setHeaderMenu(null) }
+    window.addEventListener('click', close)
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      window.removeEventListener('click', close)
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [headerMenu])
+
+  useLayoutEffect(() => {
+    if (!headerMenu || !headerMenuRef.current) return
+    const rect = headerMenuRef.current.getBoundingClientRect()
+    const clamped = clampToViewport(headerMenu.x, headerMenu.y, rect.width, rect.height)
+    headerMenuRef.current.style.left = `${clamped.x}px`
+    headerMenuRef.current.style.top = `${clamped.y}px`
+  }, [headerMenu])
+
+  function openHeaderMenu(event: MouseEvent) {
+    event.preventDefault()
+    event.stopPropagation()
+    setHeaderMenu({ x: event.clientX, y: event.clientY })
+  }
 
   function openContextMenu(event: MouseEvent, file: GitFileEntry, staged: boolean) {
     event.preventDefault()
@@ -629,6 +654,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
         aria-expanded={isExpanded}
         onClick={() => setExpanded(repo, !isExpanded)}
         onKeyDown={(e) => { if (e.key === 'Enter') setExpanded(repo, !isExpanded) }}
+        onContextMenu={openHeaderMenu}
         className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/5 transition-colors cursor-pointer"
       >
         <svg
@@ -653,25 +679,25 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
           )}
           <span>{status.staged.length + status.unstaged.length}</span>
         </span>
-        <button
-          type="button"
-          aria-label="Reveal in File Tree"
-          title="Reveal in File Tree"
-          onClick={(e) => { e.stopPropagation(); useSidebarUiStore.getState().requestReveal(repo, true) }}
-          className="shrink-0 h-6 w-6 rounded border border-border bg-bg flex items-center justify-center text-fg-muted hover:text-fg hover:border-fg-subtle transition-colors [&_svg]:w-3.5 [&_svg]:h-3.5"
-        >
-          <FilesIcon />
-        </button>
-        <button
-          type="button"
-          aria-label="Close Repo"
-          title="Close Repo"
-          onClick={(e) => { e.stopPropagation(); closeRepo(repo) }}
-          className="shrink-0 h-6 w-6 rounded border border-border bg-bg flex items-center justify-center text-fg-muted hover:text-red-400 hover:border-fg-subtle transition-colors [&_svg]:w-3.5 [&_svg]:h-3.5"
-        >
-          <CloseRepoIcon />
-        </button>
       </div>
+
+      {headerMenu && createPortal(
+        <div
+          ref={headerMenuRef}
+          className="fixed z-[200] w-44 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50"
+          style={{ left: headerMenu.x, top: headerMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <ContextMenuButton onClick={() => { useSidebarUiStore.getState().requestReveal(repo, true); setHeaderMenu(null) }}>
+            Reveal in File Tree
+          </ContextMenuButton>
+          <ContextMenuDivider />
+          <ContextMenuButton danger onClick={() => { closeRepo(repo); setHeaderMenu(null) }}>
+            Close Repo
+          </ContextMenuButton>
+        </div>,
+        document.body
+      )}
       {isExpanded && body}
     </div>
   )

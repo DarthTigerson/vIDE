@@ -128,11 +128,11 @@ describe('GitPanel — multi-repo accordion', () => {
     expect(screen.getAllByText('Commit --no-verify')).toHaveLength(1)
   })
 
-  it('the reveal-in-file-tree button on a header requests a reveal for that specific repo', () => {
+  it('right-clicking a header and picking "Reveal in File Tree" requests a reveal for that specific repo', () => {
     setTwoRepos('/proj/repoA')
     render(<GitPanel />)
-    const revealButtons = screen.getAllByLabelText('Reveal in File Tree')
-    fireEvent.click(revealButtons[1])
+    fireEvent.contextMenu(screen.getByText('repoB'))
+    fireEvent.click(screen.getByText('Reveal in File Tree'))
     expect(useSidebarUiStore.getState().revealRequest).toEqual({ path: '/proj/repoB', expandTarget: true })
   })
 
