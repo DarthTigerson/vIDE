@@ -39,7 +39,7 @@ export const PANEL_STYLE_OPTIONS: { value: PanelStyle; label: string; descriptio
 // don't need reshaping when that happens.
 export type FooterContent = 'hints' | 'clock'
 
-export type BackgroundImage = 'none' | 'vide' | 'clawd' | 'atreus' | 'link' | 'techLines' | 'borahae' | 'wave' | 'gabriele'
+export type BackgroundImage = 'none' | 'vide' | 'clawd' | 'atreus' | 'link' | 'techLines' | 'borahae' | 'wave' | 'gabriele' | 'rockhoppers' | 'goodGirl'
 
 // Shared between DisplayPage and the setup wizard's theme step, same as
 // PANEL_STYLE_OPTIONS below.
@@ -51,14 +51,16 @@ export const BACKGROUND_IMAGE_OPTIONS: { value: BackgroundImage; label: string }
   { value: 'atreus',    label: 'Atreus' },
   { value: 'borahae',   label: 'Borahae' },
   { value: 'gabriele',  label: 'Gabriele' },
+  { value: 'rockhoppers', label: 'Rockhoppers' },
+  { value: 'goodGirl',    label: 'Good Girl' },
   { value: 'techLines', label: 'Tech Lines' },
   { value: 'wave',      label: 'Wave' },
 ]
 
 // Each built-in theme family's matching background — swapping the active
 // theme family swaps the background to follow (see the useThemeStore
-// subscription below). Luuk has no artwork of its own, so it clears the
-// background rather than leaving whatever was previously selected.
+// subscription below). Luuk has no artwork of its own, so it uses
+// Rockhoppers rather than leaving whatever was previously selected.
 const FAMILY_BACKGROUND: Record<string, BackgroundImage> = {
   claude: 'clawd',
   thomas: 'vide',
@@ -66,7 +68,7 @@ const FAMILY_BACKGROUND: Record<string, BackgroundImage> = {
   atreus: 'atreus',
   borahae: 'borahae',
   gabriele: 'gabriele',
-  luuk: 'none',
+  luuk: 'rockhoppers',
 }
 
 // Which physical side the primary (Explorer/Git/Settings) activity bar and
