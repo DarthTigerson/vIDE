@@ -643,7 +643,16 @@ app.whenReady().then(async () => {
   // correct target — their state is account-level (pairing PIN, usage stats),
   // not tied to any one project — so give them a fake win-shaped object whose
   // webContents.send() broadcasts to every currently-open window instead.
+  // `id`/`isDestroyed()` are also faked out — a fixed id no real
+  // BrowserWindow can ever have (Electron assigns positive ids), and
+  // "never destroyed" since this object outlives any single real window —
+  // so PtyManager/ClaudeManager (which key their per-window state off
+  // `win.id` and guard sends with `win.isDestroyed()`) can treat mobile
+  // relay sessions as just another window's worth of state, independent
+  // from and outliving any single real desktop window.
   const broadcastWin = {
+    id: -1,
+    isDestroyed: () => false,
     webContents: {
       send: (...args: unknown[]) => {
         for (const w of windows.values()) {
@@ -661,7 +670,7 @@ app.whenReady().then(async () => {
   )
   usageMgr.registerHandlers()
 
-  const mobileSrv = new MobileServer(broadcastWin, usageMgr)
+  const mobileSrv = new MobileServer(broadcastWin, usageMgr, ptyMgr, claudeMgr)
   mobileSrv.registerHandlers()
 
   updateChecker = new UpdateChecker(app.getVersion(), (info) => {

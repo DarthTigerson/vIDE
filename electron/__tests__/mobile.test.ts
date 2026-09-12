@@ -40,6 +40,14 @@ function fakeWin() {
   return { webContents: { send: vi.fn() } } as any
 }
 
+function fakePtyManager() {
+  return { spawn: vi.fn(), kill: vi.fn(), write: vi.fn(), resize: vi.fn() } as any
+}
+
+function fakeClaudeManager() {
+  return { spawn: vi.fn(), write: vi.fn(), resize: vi.fn(), kill: vi.fn() } as any
+}
+
 function newServer(): MobileServer {
   const usageManager = new UsageManager(
     join(userDataDir, 'usage-history.jsonl'),
@@ -47,7 +55,7 @@ function newServer(): MobileServer {
     join(userDataDir, 'usage-passive-settings.json'),
     fakeWin()
   )
-  return new MobileServer(fakeWin(), usageManager)
+  return new MobileServer(fakeWin(), usageManager, fakePtyManager(), fakeClaudeManager())
 }
 
 function authenticate(port: number, pin: string): Promise<string> {

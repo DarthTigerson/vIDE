@@ -10,6 +10,8 @@ import { createRelayServer, RelayConnection, RelayServer } from './mobileRelay/r
 import { dispatch } from './mobileRelay/dispatch'
 import { registerAllRelayChannels } from './mobileRelay/registerAll'
 import { createBroadcaster, Broadcaster } from './mobileRelay/broadcast'
+import type { PtyManager } from './pty'
+import type { ClaudeManager } from './claude'
 
 export interface MobileNetworkInterface {
   name: string
@@ -151,9 +153,14 @@ export class MobileServer {
     devices: [],
   }
 
-  constructor(win: BrowserWindow, private readonly usageManager: UsageManager) {
+  constructor(
+    win: BrowserWindow,
+    private readonly usageManager: UsageManager,
+    ptyManager: PtyManager,
+    claudeManager: ClaudeManager
+  ) {
     this.win = win
-    registerAllRelayChannels()
+    registerAllRelayChannels({ ptyManager, claudeManager, win })
   }
 
   private pushState(): void {
