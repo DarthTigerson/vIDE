@@ -1,5 +1,6 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import * as pty from 'node-pty'
+import { getMobileBroadcaster } from './mobile'
 
 type SessionMode = 'attach' | 'new' | 'continue' | 'resume'
 
@@ -63,109 +64,124 @@ export class ClaudeManager {
   registerHandlers(): void {
     ipcMain.handle('claude:spawn', (event, cwd: string, instanceId: string, mode: SessionMode = 'attach') => {
       const win = BrowserWindow.fromWebContents(event.sender)
-      if (!win) return
-      const state = this.stateFor(win.id)
-      const inst = state.instances.get(instanceId) ?? newInstanceState()
-      state.instances.set(instanceId, inst)
-      const selectedMode = mode === 'continue' || mode === 'new' || mode === 'resume' ? mode : 'attach'
-
-      const attachingToSameCwd = inst.proc && inst.cwd === cwd
-      if (selectedMode === 'attach' && attachingToSameCwd) return
-
-      inst.proc?.kill()
-      inst.proc = undefined
-      inst.cwd = undefined
-
-      try {
-        const shell = process.env.SHELL ?? '/bin/zsh'
-        // Lets a login flow's `open`/`xdg-open` call route into vIDE's own
-        // Browser panel (VIDE-7) instead of escaping to the OS browser.
-        // Every instance managed here is a Claude instance, so this applies
-        // unconditionally now.
-        const shimEnv = this.browserBridge?.getSpawnEnv(win.id)
-        // `-lic` makes this a login shell, which re-derives PATH from scratch
-        // via macOS's path_helper — clobbering anything we set in `env`
-        // before the shell body runs, so /usr/bin/open would always win over
-        // our shim dir if we relied on the env var alone. Re-exporting PATH
-        // here, inside the command string, runs after that clobbering.
-        const baseCommand = COMMANDS[selectedMode === 'attach' ? 'new' : selectedMode]
-        const command = shimEnv ? `export PATH="${shimEnv.VIDE_BROWSER_SHIM_BIN}:$PATH"; ${baseCommand}` : baseCommand
-        const proc = pty.spawn(shell, ['-lic', command], {
-          name: 'xterm-color',
-          cols: 80,
-          rows: 24,
-          cwd,
-          env: { ...(process.env as Record<string, string>), ...shimEnv },
-        })
-        inst.proc = proc
-        inst.cwd = cwd
-        proc.onData((data) => {
-          if (!win.isDestroyed()) win.webContents.send('claude:data', instanceId, data)
-
-          const now = Date.now()
-          const sinceInput = now - inst.lastInputAt
-          if (sinceInput <= ECHO_WINDOW_MS) return // likely an echo of our own input, not real activity
-
-          if (!inst.busy) inst.busyChunkCount = 0
-          inst.busyChunkCount += 1
-
-          this.setBusy(win, inst, instanceId, true)
-          clearTimeout(inst.busyTimer)
-          inst.busyTimer = setTimeout(() => {
-            this.setBusy(win, inst, instanceId, false)
-          }, IDLE_TIMEOUT_MS)
-        })
-        proc.onExit(() => {
-          if (inst.proc === proc) {
-            inst.proc = undefined
-            inst.cwd = undefined
-          }
-          clearTimeout(inst.busyTimer)
-          inst.busyTimer = undefined
-          this.setBusy(win, inst, instanceId, false)
-        })
-      } catch {
-        if (!win.isDestroyed()) {
-          win.webContents.send(
-            'claude:data',
-            instanceId,
-            `\r\nError: 'claude' not found in PATH.\r\n${INSTALL_MESSAGE}\r\n`
-          )
-        }
-      }
+      if (win) this.spawn(win, cwd, instanceId, mode)
     })
 
     ipcMain.on('claude:write', (event, instanceId: string, data: string) => {
       const win = BrowserWindow.fromWebContents(event.sender)
-      if (!win) return
-      const inst = this.stateFor(win.id).instances.get(instanceId)
-      if (!inst) return
-      inst.lastInputAt = Date.now()
-      inst.proc?.write(data)
+      if (win) this.write(win, instanceId, data)
     })
 
     ipcMain.on('claude:resize', (event, instanceId: string, cols: number, rows: number) => {
       const win = BrowserWindow.fromWebContents(event.sender)
-      if (!win || !hasValidSize(cols, rows)) return
-      this.stateFor(win.id).instances.get(instanceId)?.proc?.resize(Math.floor(cols), Math.floor(rows))
+      if (win) this.resize(win, instanceId, cols, rows)
     })
 
     ipcMain.on('claude:kill', (event, instanceId: string) => {
       const win = BrowserWindow.fromWebContents(event.sender)
-      if (!win) return
-      const state = this.stateFor(win.id)
-      const inst = state.instances.get(instanceId)
-      if (!inst) return
-      clearTimeout(inst.busyTimer)
-      inst.proc?.kill()
-      state.instances.delete(instanceId)
+      if (win) this.kill(win, instanceId)
     })
+  }
+
+  spawn(win: BrowserWindow, cwd: string, instanceId: string, mode: SessionMode = 'attach'): void {
+    const state = this.stateFor(win.id)
+    const inst = state.instances.get(instanceId) ?? newInstanceState()
+    state.instances.set(instanceId, inst)
+    const selectedMode = mode === 'continue' || mode === 'new' || mode === 'resume' ? mode : 'attach'
+
+    const attachingToSameCwd = inst.proc && inst.cwd === cwd
+    if (selectedMode === 'attach' && attachingToSameCwd) return
+
+    inst.proc?.kill()
+    inst.proc = undefined
+    inst.cwd = undefined
+
+    try {
+      const shell = process.env.SHELL ?? '/bin/zsh'
+      // Lets a login flow's `open`/`xdg-open` call route into vIDE's own
+      // Browser panel (VIDE-7) instead of escaping to the OS browser.
+      // Every instance managed here is a Claude instance, so this applies
+      // unconditionally now.
+      const shimEnv = this.browserBridge?.getSpawnEnv(win.id)
+      // `-lic` makes this a login shell, which re-derives PATH from scratch
+      // via macOS's path_helper — clobbering anything we set in `env`
+      // before the shell body runs, so /usr/bin/open would always win over
+      // our shim dir if we relied on the env var alone. Re-exporting PATH
+      // here, inside the command string, runs after that clobbering.
+      const baseCommand = COMMANDS[selectedMode === 'attach' ? 'new' : selectedMode]
+      const command = shimEnv ? `export PATH="${shimEnv.VIDE_BROWSER_SHIM_BIN}:$PATH"; ${baseCommand}` : baseCommand
+      const proc = pty.spawn(shell, ['-lic', command], {
+        name: 'xterm-color',
+        cols: 80,
+        rows: 24,
+        cwd,
+        env: { ...(process.env as Record<string, string>), ...shimEnv },
+      })
+      inst.proc = proc
+      inst.cwd = cwd
+      proc.onData((data) => {
+        if (!win.isDestroyed()) win.webContents.send('claude:data', instanceId, data)
+        getMobileBroadcaster().emit('claude:data', instanceId, data)
+
+        const now = Date.now()
+        const sinceInput = now - inst.lastInputAt
+        if (sinceInput <= ECHO_WINDOW_MS) return // likely an echo of our own input, not real activity
+
+        if (!inst.busy) inst.busyChunkCount = 0
+        inst.busyChunkCount += 1
+
+        this.setBusy(win, inst, instanceId, true)
+        clearTimeout(inst.busyTimer)
+        inst.busyTimer = setTimeout(() => {
+          this.setBusy(win, inst, instanceId, false)
+        }, IDLE_TIMEOUT_MS)
+      })
+      proc.onExit(() => {
+        if (inst.proc === proc) {
+          inst.proc = undefined
+          inst.cwd = undefined
+        }
+        clearTimeout(inst.busyTimer)
+        inst.busyTimer = undefined
+        this.setBusy(win, inst, instanceId, false)
+      })
+    } catch {
+      if (!win.isDestroyed()) {
+        win.webContents.send(
+          'claude:data',
+          instanceId,
+          `\r\nError: 'claude' not found in PATH.\r\n${INSTALL_MESSAGE}\r\n`
+        )
+      }
+    }
+  }
+
+  write(win: BrowserWindow, instanceId: string, data: string): void {
+    const inst = this.stateFor(win.id).instances.get(instanceId)
+    if (!inst) return
+    inst.lastInputAt = Date.now()
+    inst.proc?.write(data)
+  }
+
+  resize(win: BrowserWindow, instanceId: string, cols: number, rows: number): void {
+    if (!hasValidSize(cols, rows)) return
+    this.stateFor(win.id).instances.get(instanceId)?.proc?.resize(Math.floor(cols), Math.floor(rows))
+  }
+
+  kill(win: BrowserWindow, instanceId: string): void {
+    const state = this.stateFor(win.id)
+    const inst = state.instances.get(instanceId)
+    if (!inst) return
+    clearTimeout(inst.busyTimer)
+    inst.proc?.kill()
+    state.instances.delete(instanceId)
   }
 
   private setBusy(win: BrowserWindow, inst: InstanceState, instanceId: string, busy: boolean): void {
     if (inst.busy === busy) return
     inst.busy = busy
     if (!win.isDestroyed()) win.webContents.send('claude:busy', instanceId, busy, inst.busyChunkCount)
+    getMobileBroadcaster().emit('claude:busy', instanceId, busy, inst.busyChunkCount)
   }
 
   private stateFor(winId: number): WindowState {
