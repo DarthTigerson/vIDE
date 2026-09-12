@@ -81,6 +81,7 @@ import { useGitRemoteSettingsStore } from './stores/gitRemoteSettingsStore'
 import { useDockerSettingsStore } from './stores/dockerSettingsStore'
 import { useDockerStore } from './stores/dockerStore'
 import { useDockerOffAlertStore } from './stores/dockerOffAlertStore'
+import { useGitPanelOpenAlertStore } from './stores/gitPanelOpenAlertStore'
 import { useDockerLiveUpdates } from './hooks/useDockerLiveUpdates'
 import { useTodoSettingsStore } from './stores/todoSettingsStore'
 import { useNotesSettingsStore } from './stores/notesSettingsStore'
@@ -212,6 +213,11 @@ export default function App() {
     if (!dockerOpenRequest) return
     setLeftPanel('docker')
   }, [dockerOpenRequest])
+  const gitPanelOpenRequest = useGitPanelOpenAlertStore((s) => s.openRequest)
+  useEffect(() => {
+    if (!gitPanelOpenRequest) return
+    setLeftPanel('git')
+  }, [gitPanelOpenRequest])
   const runningDockerCount =
     dockerBadgeMode === 'projects'
       ? new Set(
