@@ -61,7 +61,15 @@ function registerFsHandlers(): void {
 }
 
 function registerSystemHandlers(): void {
-  ipcMain.handle('system:getMemoryUsage', () => getSystemMemoryUsage())
+  ipcMain.handle('system:getMemoryUsage', async () => {
+    const system = await getSystemMemoryUsage()
+    // app.getAppMetrics() covers every one of vIDE's own OS processes - main,
+    // every renderer window, GPU, and any utility/zygote helpers - so this is
+    // vIDE's real total footprint, not just the process serving this window.
+    // workingSetSize is in KB on both platforms vIDE ships (see systemMemory.ts).
+    const appBytes = app.getAppMetrics().reduce((sum, p) => sum + p.memory.workingSetSize * 1024, 0)
+    return { ...system, appBytes }
+  })
 }
 
 function registerDevtoolsHandlers(): void {

@@ -150,7 +150,7 @@ export default function App() {
   const [chatSize, setChatSize] = useState(loadChatSize)
   const [assistantMenuOpen, setAssistantMenuOpen] = useState(false)
   const [sessionMenu, setSessionMenu] = useState<{ x: number; y: number; instanceId: string } | null>(null)
-  const [memoryUsage, setMemoryUsage] = useState<{ usedBytes: number; totalBytes: number } | null>(null)
+  const [memoryUsage, setMemoryUsage] = useState<{ usedBytes: number; totalBytes: number; appBytes: number } | null>(null)
   const commandPaletteOpen = useSearchStore((s) => s.commandPaletteOpen)
   const searchOpen = useSearchStore((s) => s.searchOpen)
   const actionPaletteOpen = useSearchStore((s) => s.actionPaletteOpen)
@@ -1217,14 +1217,50 @@ function formatGb(bytes: number): string {
   return (bytes / 1024 ** 3).toFixed(1)
 }
 
-function MemoryPill({ usage }: { usage: { usedBytes: number; totalBytes: number } }) {
+function MemoryPill({ usage }: { usage: { usedBytes: number; totalBytes: number; appBytes: number } }) {
+  const [hovered, setHovered] = useState(false)
+  // docker stats --no-stream takes a real CPU sample (~1s) - see
+  // getContainerStats()'s own comment in electron/docker.ts - so this is
+  // fetched lazily on hover rather than folded into the regular memory poll.
+  // Left undefined (not fetched yet), null (no docker / no running
+  // containers - row hidden), or a total across every running container.
+  const [dockerBytes, setDockerBytes] = useState<number | null | undefined>(undefined)
+
+  function handleEnter() {
+    setHovered(true)
+    if (dockerBytes !== undefined) return
+    window.api.dockerGetContainerStats().then((stats) => {
+      const ids = Object.keys(stats)
+      setDockerBytes(ids.length === 0 ? null : ids.reduce((sum, id) => sum + stats[id].usedBytes, 0))
+    }).catch(() => setDockerBytes(null))
+  }
+
   return (
     <span
-      className="flex items-center gap-1 text-xs font-medium text-fg-muted tabular-nums"
-      title="System memory used / total"
+      className="relative flex items-center gap-1 text-xs font-medium text-fg-muted tabular-nums"
+      onMouseEnter={handleEnter}
+      onMouseLeave={() => setHovered(false)}
     >
       <RamIcon />
       {formatGb(usage.usedBytes)}/{formatGb(usage.totalBytes)} GB
+      {hovered && (
+        <div className="absolute right-0 top-[calc(100%+6px)] z-30 w-48 rounded-md border border-border bg-popover p-2.5 shadow-2xl shadow-black/40">
+          <div className="flex items-center justify-between gap-3 text-xs">
+            <span className="text-fg-muted">System</span>
+            <span className="font-medium text-fg tabular-nums">{formatGb(usage.usedBytes)}/{formatGb(usage.totalBytes)} GB</span>
+          </div>
+          <div className="mt-1.5 flex items-center justify-between gap-3 text-xs">
+            <span className="text-fg-muted">vIDE</span>
+            <span className="font-medium text-fg tabular-nums">{formatGb(usage.appBytes)} GB</span>
+          </div>
+          {dockerBytes != null && (
+            <div className="mt-1.5 flex items-center justify-between gap-3 text-xs">
+              <span className="text-fg-muted">Docker</span>
+              <span className="font-medium text-fg tabular-nums">{formatGb(dockerBytes)} GB</span>
+            </div>
+          )}
+        </div>
+      )}
     </span>
   )
 }

@@ -155,7 +155,7 @@ declare global {
       listAllFiles: (root: string) => Promise<string[]>
       searchText: (root: string, query: string, caseSensitive: boolean) => Promise<SearchMatch[]>
       openFolder: () => Promise<string | null>
-      getSystemMemoryUsage: () => Promise<{ usedBytes: number; totalBytes: number }>
+      getSystemMemoryUsage: () => Promise<{ usedBytes: number; totalBytes: number; appBytes: number }>
       fsWatchRoot: (cwd: string | null) => void
       onFsChanged: (cb: (cwd: string) => void) => () => void
 
