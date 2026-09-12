@@ -1,19 +1,26 @@
 import { describe, it, expect, vi, afterEach, beforeAll, afterAll } from 'vitest'
 import { get, request } from 'http'
-import { mkdirSync, writeFileSync, rmSync } from 'fs'
+import { mkdirSync, writeFileSync, rmSync, mkdtempSync, cpSync } from 'fs'
+import { tmpdir } from 'os'
 
-const { ipcOnHandlers, userDataDir } = vi.hoisted(() => {
+const { ipcOnHandlers, userDataDir, appPathRef } = vi.hoisted(() => {
   const { mkdtempSync } = require('fs')
   const { tmpdir } = require('os')
   const { join } = require('path')
   return {
     ipcOnHandlers: {} as Record<string, (...args: any[]) => unknown>,
     userDataDir: mkdtempSync(join(tmpdir(), 'vide-mobile-test-')) as string,
+    // Mutable so a describe block can point app.getAppPath() at an isolated
+    // temp directory for the duration of its own tests (see the 'MobileServer
+    // vIDE mode' block below, which needs a fake out/renderer it can freely
+    // write to and delete — never the real project's build output at
+    // <repo>/out/renderer, which process.cwd() would otherwise resolve to).
+    appPathRef: { current: process.cwd() },
   }
 })
 
 vi.mock('electron', () => ({
-  app: { getAppPath: () => process.cwd(), getPath: () => userDataDir },
+  app: { getAppPath: () => appPathRef.current, getPath: () => userDataDir },
   ipcMain: {
     handle: () => {},
     on: (channel: string, fn: (...args: any[]) => unknown) => { ipcOnHandlers[channel] = fn },
@@ -365,18 +372,27 @@ describe('MobileServer relay session teardown', () => {
   })
 })
 
-// MOBILE_RENDERER_DIR resolves to `<app.getAppPath()>/out/renderer`, which
-// under this suite's electron mock is `<cwd>/out/renderer` — the real
-// `npm run build:mobile` output directory. It's gitignored (build output,
-// not source), so rather than depending on a prior real build being present
-// on disk (flaky: fails on a fresh checkout / in CI without that build
-// step), this block seeds a minimal fixture there itself and tears it back
-// down, independent of whatever real bundle may or may not already exist.
+// MOBILE_RENDERER_DIR resolves to `<app.getAppPath()>/out/renderer`. Under
+// this file's *default* electron mock that's `<cwd>/out/renderer` — the
+// real `npm run build:mobile` output directory, which must never be
+// written to or deleted by a test (it's a real developer/CI build
+// artifact, not something this suite owns). So this block instead points
+// `appPathRef.current` (see the top of this file) at its own throwaway
+// temp directory for the duration of its tests, with a copy of the real
+// electron/mobileWeb templates (needed by readPage()/renderPage() for the
+// /app chooser) plus a minimal fixture renderer bundle underneath a fake
+// out/renderer — fully disjoint from the project's real out/renderer, so a
+// real prior build survives this suite untouched regardless of what's on
+// disk when it runs.
 describe('MobileServer vIDE mode', () => {
   let server: MobileServer
-  const rendererDir = join(process.cwd(), 'out', 'renderer')
+  let fakeAppRoot: string
+  let rendererDir: string
 
   beforeAll(() => {
+    fakeAppRoot = mkdtempSync(join(tmpdir(), 'vide-mobile-vide-test-app-'))
+    cpSync(join(process.cwd(), 'electron', 'mobileWeb'), join(fakeAppRoot, 'electron', 'mobileWeb'), { recursive: true })
+    rendererDir = join(fakeAppRoot, 'out', 'renderer')
     mkdirSync(join(rendererDir, 'assets'), { recursive: true })
     writeFileSync(
       join(rendererDir, 'index.html'),
@@ -386,10 +402,12 @@ describe('MobileServer vIDE mode', () => {
     )
     writeFileSync(join(rendererDir, 'assets', 'index-test.js'), 'console.log("fixture")')
     writeFileSync(join(rendererDir, 'assets', 'index-test.css'), 'body{margin:0}')
+    appPathRef.current = fakeAppRoot
   })
 
   afterAll(() => {
-    rmSync(rendererDir, { recursive: true, force: true })
+    appPathRef.current = process.cwd()
+    rmSync(fakeAppRoot, { recursive: true, force: true })
   })
 
   afterEach(() => {
