@@ -7,6 +7,7 @@ import { join } from 'path'
 import QRCode from 'qrcode'
 import { UsageManager } from './usageManager'
 import { createRelayServer, RelayConnection, RelayServer } from './mobileRelay/relayServer'
+import { dispatch } from './mobileRelay/dispatch'
 
 export interface MobileNetworkInterface {
   name: string
@@ -363,7 +364,10 @@ export class MobileServer {
   }
 
   private handleRelayConnection(conn: RelayConnection): void {
-    // Filled in by Task 2: request dispatch and channel mappings.
+    conn.onMessage(async (msg) => {
+      const response = await dispatch(msg)
+      if (response) conn.send(response)
+    })
   }
 
   stop(): void {
