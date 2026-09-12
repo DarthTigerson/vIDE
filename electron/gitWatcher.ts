@@ -2,6 +2,7 @@ import { BrowserWindow, ipcMain } from 'electron'
 import { watch, type FSWatcher } from 'chokidar'
 import { existsSync } from 'fs'
 import { join } from 'path'
+import { getMobileBroadcaster } from './mobile'
 
 interface WindowState {
   watcher: FSWatcher | null
@@ -56,6 +57,7 @@ export class GitWatcher {
     if (state.debounceTimer) clearTimeout(state.debounceTimer)
     state.debounceTimer = setTimeout(() => {
       if (!win.isDestroyed()) win.webContents.send('git:changed', cwd)
+      getMobileBroadcaster().emit('git:changed', cwd)
     }, 300)
   }
 

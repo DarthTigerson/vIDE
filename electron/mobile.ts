@@ -9,6 +9,7 @@ import { UsageManager } from './usageManager'
 import { createRelayServer, RelayConnection, RelayServer } from './mobileRelay/relayServer'
 import { dispatch } from './mobileRelay/dispatch'
 import { registerAllRelayChannels } from './mobileRelay/registerAll'
+import { createBroadcaster, Broadcaster } from './mobileRelay/broadcast'
 
 export interface MobileNetworkInterface {
   name: string
@@ -78,7 +79,12 @@ function parseCookies(header: string | undefined): Record<string, string> {
   )
 }
 
-const MOBILE_WEB_DIR = join(app.getAppPath(), 'electron', 'mobileWeb')
+// Computed lazily (not at module load) so importing this module — e.g. for
+// getMobileBroadcaster() from gitWatcher/fileWatcher — doesn't require
+// Electron's `app` to be ready/mocked.
+function getMobileWebDir(): string {
+  return join(app.getAppPath(), 'electron', 'mobileWeb')
+}
 
 const ASSET_TYPES: Record<string, string> = {
   'style.css': 'text/css; charset=utf-8',
@@ -87,7 +93,7 @@ const ASSET_TYPES: Record<string, string> = {
 }
 
 function readPage(name: string): string {
-  return readFileSync(join(MOBILE_WEB_DIR, name), 'utf-8')
+  return readFileSync(join(getMobileWebDir(), name), 'utf-8')
 }
 
 function renderPage(name: string, vars: { theme: string; pinError?: string }): string {
@@ -110,6 +116,16 @@ const USAGE_RANGE_MS: Record<string, number> = {
 
 const BASE_PORT = 7842
 
+// Set by the one MobileServer instance main.ts constructs, so other
+// main-process modules (git/file watchers) can push change events to
+// mobile clients without importing MobileServer itself.
+let sharedBroadcaster: Broadcaster | null = null
+
+export function getMobileBroadcaster(): Broadcaster {
+  if (!sharedBroadcaster) sharedBroadcaster = createBroadcaster()
+  return sharedBroadcaster
+}
+
 export class MobileServer {
   private win: BrowserWindow
   private server: Server | null = null
@@ -122,6 +138,7 @@ export class MobileServer {
   private rotateInterval: ReturnType<typeof setInterval> | null = null
   private currentTheme = 'claude-dark'
   private currentFont = 'Menlo, monospace'
+  private broadcaster = getMobileBroadcaster()
   private state: MobileState = {
     running: false,
     port: BASE_PORT,
@@ -366,6 +383,7 @@ export class MobileServer {
   }
 
   private handleRelayConnection(conn: RelayConnection): void {
+    this.broadcaster.addConnection(conn)
     conn.onMessage(async (msg) => {
       const response = await dispatch(msg)
       if (response) conn.send(response)
