@@ -196,5 +196,9 @@ export function createMobileApi(wsUrl: string) {
 
     // window — mirrors electron/mobileRelay/channels/windowChannels.ts
     windowSetTitle: doSend('window:setTitle'),
+
+    // Placeholder event handlers for excluded features — excluded from relay but needed for API compatibility
+    onTodosChanged: on('todos:changed'),
+    onNotesChanged: on('notes:changed'),
   }
 }
