@@ -1,26 +1,11 @@
 import { registerChannel } from '../dispatch'
 import { app } from 'electron'
 import * as store from '../../todosStore'
-import { readImageDataUrl } from '../../fsOps'
-import { mkdir, writeFile } from 'fs/promises'
-import { join } from 'path'
+import { saveAttachment, readAttachmentDataUrl } from '../../todos'
 import type { TodoPatch, TodoStatus } from '../../todosStore'
 
 function dataDir(): string {
   return app.getPath('userData')
-}
-
-async function saveAttachment(dataUrl: string): Promise<string> {
-  const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1)
-  const id = crypto.randomUUID()
-  const dir = store.attachmentsDir(dataDir())
-  await mkdir(dir, { recursive: true })
-  await writeFile(join(dir, `${id}.png`), Buffer.from(base64, 'base64'))
-  return id
-}
-
-async function readAttachmentDataUrl(id: string): Promise<string> {
-  return readImageDataUrl(join(store.attachmentsDir(dataDir()), `${id}.png`))
 }
 
 export function registerTodosRelayChannels(): void {

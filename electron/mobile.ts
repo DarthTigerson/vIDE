@@ -12,6 +12,10 @@ import { registerAllRelayChannels } from './mobileRelay/registerAll'
 import { createBroadcaster, Broadcaster } from './mobileRelay/broadcast'
 import type { PtyManager } from './pty'
 import type { ClaudeManager } from './claude'
+import type { BridgeManager } from './bridge'
+import type { AutocompleteManager } from './autocomplete'
+import type { InlineEditManager } from './inlineEdit'
+import type { CommitMessageManager } from './commitMessage'
 
 export interface MobileNetworkInterface {
   name: string
@@ -247,10 +251,22 @@ export class MobileServer {
     private readonly usageManager: UsageManager,
     private readonly ptyManager: PtyManager,
     private readonly claudeManager: ClaudeManager,
-    private readonly bridgeManager: any
+    private readonly bridgeManager: BridgeManager,
+    private readonly autocompleteManager: AutocompleteManager,
+    private readonly inlineEditManager: InlineEditManager,
+    private readonly commitMessageManager: CommitMessageManager
   ) {
     this.win = win
-    registerAllRelayChannels({ ptyManager, claudeManager, win, usageManager, bridgeManager })
+    registerAllRelayChannels({
+      ptyManager,
+      claudeManager,
+      win,
+      usageManager,
+      bridgeManager,
+      autocompleteManager,
+      inlineEditManager,
+      commitMessageManager,
+    })
   }
 
   private pushState(): void {
@@ -538,6 +554,10 @@ export class MobileServer {
     // would kill other still-connected devices' sessions too.
     this.ptyManager.disposeWindow(MOBILE_RELAY_WINDOW_ID)
     this.claudeManager.disposeWindow(MOBILE_RELAY_WINDOW_ID)
+    this.bridgeManager.disposeWindow(MOBILE_RELAY_WINDOW_ID)
+    this.autocompleteManager.disposeWindow(MOBILE_RELAY_WINDOW_ID)
+    this.inlineEditManager.disposeWindow(MOBILE_RELAY_WINDOW_ID)
+    this.commitMessageManager.disposeWindow(MOBILE_RELAY_WINDOW_ID)
     this.state = {
       running: false,
       port: this.port,

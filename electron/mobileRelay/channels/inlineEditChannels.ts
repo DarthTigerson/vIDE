@@ -1,21 +1,18 @@
-import { registerChannel } from '../dispatch'
-import { InlineEditManager } from '../../inlineEdit'
 import type { BrowserWindow } from 'electron'
+import { registerChannel } from '../dispatch'
+import type { InlineEditManager, InlineEditStartPayload } from '../../inlineEdit'
 
-// Inline edit requires an InlineEditManager instance for Monaco editor integration.
-// We create and maintain a single manager for the relay to handle mobile client requests.
-let inlineEditManager: InlineEditManager | null = null
-
-function ensureManager(win: BrowserWindow): InlineEditManager {
-  if (!inlineEditManager) {
-    inlineEditManager = new InlineEditManager()
-  }
-  return inlineEditManager
-}
-
-export function registerInlineEditRelayChannels(win: BrowserWindow): void {
-  const manager = ensureManager(win)
-  registerChannel('inlineEdit:start', (code: string, language: string) =>
-    manager.start(code, language))
-  registerChannel('inlineEdit:cancel', () => manager.cancel())
+// Inline-edit channels, mirroring the ipcMain wiring in
+// electron/inlineEdit.ts's InlineEditManager.registerHandlers() — same
+// channel names, same argument shape (inlineEdit:start takes a single
+// InlineEditStartPayload object, not separate code/language args), same
+// delegation to InlineEditManager's public start(win, payload) and
+// cancel(win) methods (cancel is a thin wrapper extracted alongside start —
+// see inlineEdit.ts — mirroring the ipcMain.on('inlineEdit:cancel', ...)
+// closure body). The manager instance is the same one electron/main.ts
+// constructs and disposes for the real desktop window (threaded through
+// RelayChannelDeps), not a private instance owned by this file.
+export function registerInlineEditRelayChannels(inlineEditManager: InlineEditManager, win: BrowserWindow): void {
+  registerChannel('inlineEdit:start', (payload: InlineEditStartPayload) => inlineEditManager.start(win, payload))
+  registerChannel('inlineEdit:cancel', () => inlineEditManager.cancel(win))
 }

@@ -56,6 +56,22 @@ function fakeClaudeManager() {
   return { spawn: vi.fn(), write: vi.fn(), resize: vi.fn(), kill: vi.fn(), disposeWindow: vi.fn() } as any
 }
 
+function fakeBridgeManager() {
+  return { send: vi.fn(), approve: vi.fn(), reject: vi.fn(), cancel: vi.fn(), testConnection: vi.fn(), disposeWindow: vi.fn() } as any
+}
+
+function fakeAutocompleteManager() {
+  return { complete: vi.fn(), disposeWindow: vi.fn() } as any
+}
+
+function fakeInlineEditManager() {
+  return { start: vi.fn(), cancel: vi.fn(), disposeWindow: vi.fn() } as any
+}
+
+function fakeCommitMessageManager() {
+  return { generate: vi.fn(), disposeWindow: vi.fn() } as any
+}
+
 function newServer(): MobileServer {
   const usageManager = new UsageManager(
     join(userDataDir, 'usage-history.jsonl'),
@@ -63,7 +79,16 @@ function newServer(): MobileServer {
     join(userDataDir, 'usage-passive-settings.json'),
     fakeWin()
   )
-  return new MobileServer(fakeWin(), usageManager, fakePtyManager(), fakeClaudeManager())
+  return new MobileServer(
+    fakeWin(),
+    usageManager,
+    fakePtyManager(),
+    fakeClaudeManager(),
+    fakeBridgeManager(),
+    fakeAutocompleteManager(),
+    fakeInlineEditManager(),
+    fakeCommitMessageManager()
+  )
 }
 
 function newServerWithManagers(): { server: MobileServer; ptyManager: ReturnType<typeof fakePtyManager>; claudeManager: ReturnType<typeof fakeClaudeManager> } {
@@ -75,7 +100,16 @@ function newServerWithManagers(): { server: MobileServer; ptyManager: ReturnType
   )
   const ptyManager = fakePtyManager()
   const claudeManager = fakeClaudeManager()
-  const server = new MobileServer(fakeWin(), usageManager, ptyManager, claudeManager)
+  const server = new MobileServer(
+    fakeWin(),
+    usageManager,
+    ptyManager,
+    claudeManager,
+    fakeBridgeManager(),
+    fakeAutocompleteManager(),
+    fakeInlineEditManager(),
+    fakeCommitMessageManager()
+  )
   return { server, ptyManager, claudeManager }
 }
 

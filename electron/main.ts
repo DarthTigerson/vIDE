@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog, Menu, webContents, nativeImage } from 'electron'
 import { basename, join } from 'path'
 import { is } from '@electron-toolkit/utils'
-import { access, cp, readFile, writeFile } from 'fs/promises'
+import { access, cp } from 'fs/promises'
 import { PtyManager } from './pty'
 import { ClaudeManager } from './claude'
 import { BrowserBridge } from './browserBridge'
@@ -13,7 +13,7 @@ import { DockerWatcher } from './dockerWatcher'
 import { FileWatcher } from './fileWatcher'
 import { MobileServer, MOBILE_RELAY_WINDOW_ID } from './mobile'
 import { UsageManager } from './usageManager'
-import { BridgeManager } from './bridge'
+import { BridgeManager, getBridgeSettings, setBridgeSettings } from './bridge'
 import { AutocompleteManager } from './autocomplete'
 import { InlineEditManager } from './inlineEdit'
 import { CommitMessageManager } from './commitMessage'
@@ -251,22 +251,10 @@ async function migrateUserDataFromHuginn(): Promise<void> {
 }
 
 function registerBridgeSettingsHandlers(): void {
-  const settingsPath = join(app.getPath('userData'), 'bridge-settings.json')
-
-  ipcMain.handle('bridge:getSettings', async () => {
-    try {
-      const data = await readFile(settingsPath, 'utf-8')
-      return JSON.parse(data)
-    } catch {
-      return null
-    }
-  })
-
-  ipcMain.handle('bridge:setSettings', async (_e, settings: { endpoint: string; apiKey: string; modelId: string }) => {
-    try {
-      await writeFile(settingsPath, JSON.stringify(settings), 'utf-8')
-    } catch {}
-  })
+  ipcMain.handle('bridge:getSettings', () => getBridgeSettings())
+  ipcMain.handle('bridge:setSettings', (_e, settings: { endpoint: string; apiKey: string; modelId: string }) =>
+    setBridgeSettings(settings)
+  )
 }
 
 // nativeImage.createFromPath/createFromDataURL silently drop the alpha
@@ -670,7 +658,16 @@ app.whenReady().then(async () => {
   )
   usageMgr.registerHandlers()
 
-  const mobileSrv = new MobileServer(broadcastWin, usageMgr, ptyMgr, claudeMgr, bridgeMgr)
+  const mobileSrv = new MobileServer(
+    broadcastWin,
+    usageMgr,
+    ptyMgr,
+    claudeMgr,
+    bridgeMgr,
+    autocompleteMgr,
+    inlineEditMgr,
+    commitMessageMgr
+  )
   mobileSrv.registerHandlers()
 
   updateChecker = new UpdateChecker(app.getVersion(), (info) => {

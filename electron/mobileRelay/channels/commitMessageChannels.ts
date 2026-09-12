@@ -1,20 +1,16 @@
-import { registerChannel } from '../dispatch'
-import { CommitMessageManager } from '../../commitMessage'
 import type { BrowserWindow } from 'electron'
+import { registerChannel } from '../dispatch'
+import type { CommitMessageManager } from '../../commitMessage'
 
-// CommitMessage:generate requires a CommitMessageManager instance for Claude process spawning.
-// We create and maintain a single manager for the relay to handle mobile client requests.
-let commitMessageManager: CommitMessageManager | null = null
-
-function ensureManager(win: BrowserWindow): CommitMessageManager {
-  if (!commitMessageManager) {
-    commitMessageManager = new CommitMessageManager()
-  }
-  return commitMessageManager
-}
-
-export function registerCommitMessageRelayChannels(win: BrowserWindow): void {
-  const manager = ensureManager(win)
+// CommitMessage channel, mirroring the ipcMain wiring in
+// electron/commitMessage.ts's CommitMessageManager.registerHandlers() — same
+// channel name, same argument order, same delegation to
+// CommitMessageManager's public generate(windowId, diff, model,
+// customPrompt) method. The manager instance is the same one
+// electron/main.ts constructs and disposes for the real desktop window
+// (threaded through RelayChannelDeps), not a private instance owned by this
+// file.
+export function registerCommitMessageRelayChannels(commitMessageManager: CommitMessageManager, win: BrowserWindow): void {
   registerChannel('commitMessage:generate', (diff: string, model: string, customPrompt: string) =>
-    manager.generate(0, diff, model, customPrompt))
+    commitMessageManager.generate(win.id, diff, model, customPrompt))
 }

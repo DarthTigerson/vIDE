@@ -22,7 +22,6 @@ export const EXCLUDED_CHANNELS = new Set<string>([
   'menu:resetZoom', 'menu:openSettings', 'menu:newFile', 'menu:newFolder',
   'menu:newTerminal', 'menu:reopenClosedTab', 'menu:save',  // native Electron Menu events
   'window:getInitialProject', 'window:openInNewWindow', 'window:focusProjectIfOpen',  // desktop window management
-  'session:load', 'session:save',  // dead code — zero callers in the app
 
   'mobile:start', 'mobile:stop', 'mobile:getState', 'mobile:addDevice', 'mobile:selectInterface',
   'mobile:disconnectDevice', 'mobile:disconnectAll', 'mobile:setDisplay', 'mobile:setDefaultMode',

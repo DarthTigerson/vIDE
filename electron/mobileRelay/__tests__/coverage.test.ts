@@ -28,6 +28,35 @@ describe('mobile relay channel coverage', () => {
         resize: vi.fn(),
       } as never,
       win: { id: 1 } as never,
+      usageManager: {
+        acquire: vi.fn(),
+        release: vi.fn(),
+        getLatest: vi.fn(),
+        getRange: vi.fn(),
+        getPassiveEnabled: vi.fn(),
+        setPassiveEnabled: vi.fn(),
+      } as never,
+      bridgeManager: {
+        send: vi.fn(),
+        approve: vi.fn(),
+        reject: vi.fn(),
+        cancel: vi.fn(),
+        testConnection: vi.fn(),
+        disposeWindow: vi.fn(),
+      } as never,
+      autocompleteManager: {
+        complete: vi.fn(),
+        disposeWindow: vi.fn(),
+      } as never,
+      inlineEditManager: {
+        start: vi.fn(),
+        cancel: vi.fn(),
+        disposeWindow: vi.fn(),
+      } as never,
+      commitMessageManager: {
+        generate: vi.fn(),
+        disposeWindow: vi.fn(),
+      } as never,
     }
     registerAllRelayChannels(fakeDeps)
     const registered = new Set(allChannelNames())
