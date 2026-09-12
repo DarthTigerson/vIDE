@@ -253,6 +253,62 @@ describe('TodoBoardPage', () => {
     expect(createTodoMock).not.toHaveBeenCalled()
   })
 
+  it('blurring the composer hides it without creating a todo, but keeps the typed text as a draft', () => {
+    render(<TodoBoardPage projectId="p1" />)
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Add issue' })[2]) // In Progress column
+    const input = screen.getByPlaceholderText('What needs to be done?')
+    fireEvent.change(input, { target: { value: 'this is a test' } })
+    fireEvent.blur(input)
+
+    expect(screen.queryByPlaceholderText('What needs to be done?')).not.toBeInTheDocument()
+    expect(createTodoMock).not.toHaveBeenCalled()
+
+    // Reopening the same column's composer restores the draft rather than
+    // starting blank.
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Add issue' })[2])
+    expect(screen.getByPlaceholderText('What needs to be done?')).toHaveValue('this is a test')
+    expect(createTodoMock).not.toHaveBeenCalled()
+  })
+
+  it('pressing Escape discards the draft — reopening that column starts blank again', () => {
+    render(<TodoBoardPage projectId="p1" />)
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Add issue' })[0])
+    fireEvent.change(screen.getByPlaceholderText('What needs to be done?'), {
+      target: { value: 'scrapped idea' },
+    })
+    fireEvent.keyDown(screen.getByPlaceholderText('What needs to be done?'), { key: 'Escape' })
+
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Add issue' })[0])
+    expect(screen.getByPlaceholderText('What needs to be done?')).toHaveValue('')
+  })
+
+  it('each column keeps its own independent draft', () => {
+    render(<TodoBoardPage projectId="p1" />)
+    const addButton = (index: number) => screen.getAllByRole('button', { name: '+ Add issue' })[index]
+
+    fireEvent.click(addButton(0)) // Backlog
+    fireEvent.change(screen.getByPlaceholderText('What needs to be done?'), {
+      target: { value: 'backlog draft' },
+    })
+    fireEvent.blur(screen.getByPlaceholderText('What needs to be done?'))
+
+    fireEvent.click(addButton(2)) // In Progress — its own composer, unaffected by Backlog's draft
+    expect(screen.getByPlaceholderText('What needs to be done?')).toHaveValue('')
+    fireEvent.blur(screen.getByPlaceholderText('What needs to be done?'))
+
+    fireEvent.click(addButton(0))
+    expect(screen.getByPlaceholderText('What needs to be done?')).toHaveValue('backlog draft')
+  })
+
+  it('blurring an empty composer just closes it without creating a todo', () => {
+    render(<TodoBoardPage projectId="p1" />)
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Add issue' })[0])
+    fireEvent.blur(screen.getByPlaceholderText('What needs to be done?'))
+
+    expect(screen.queryByPlaceholderText('What needs to be done?')).not.toBeInTheDocument()
+    expect(createTodoMock).not.toHaveBeenCalled()
+  })
+
   it('switching to Archive view shows archived todos instead of the board', () => {
     render(<TodoBoardPage projectId="p1" />)
     fireEvent.click(screen.getByRole('button', { name: 'Archive' }))

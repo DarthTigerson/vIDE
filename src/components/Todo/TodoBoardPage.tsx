@@ -32,8 +32,11 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
   const [addingStatus, setAddingStatus] = useState<TodoStatus | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
-  const [newTitle, setNewTitle] = useState('')
-  const newTitleInputRef = useRef<HTMLTextAreaElement>(null)
+  // Keyed per column so each column's in-progress "+ Add issue" text survives
+  // closing the composer (blur, switching columns) without being committed —
+  // only Enter actually creates a todo; Escape is the one thing that clears it.
+  const [drafts, setDrafts] = useState<Partial<Record<TodoStatus, string>>>({})
+  const newTitleInputRef = useRef<HTMLTextAreaElement | null>(null)
   const [sortModes, setSortModes] = useState<Record<TodoStatus, TodoSortMode>>({
     backlog: 'manual',
     todo: 'manual',
@@ -92,9 +95,15 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
     reorderTodo(projectId, draggedId, status, beforeId)
   }
 
-  function closeComposer() {
+  // Explicit cancel (Escape) — throws away the draft, unlike just clicking
+  // away, which only hides the composer and keeps the draft for next time.
+  function discardDraft(status: TodoStatus) {
+    setDrafts((prev) => {
+      const next = { ...prev }
+      delete next[status]
+      return next
+    })
     setAddingStatus(null)
-    setNewTitle('')
   }
 
   // "/" jumps straight into the search box without needing to click first —
@@ -130,16 +139,25 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
   }
 
   async function handleCreate(status: TodoStatus) {
-    const title = newTitle.trim()
+    const title = (drafts[status] ?? '').trim()
     if (!title) return
     const todo = await createTodo(projectId, title)
     if (status !== 'backlog') await updateTodo(todo.id, { status })
-    setNewTitle('')
+    setDrafts((prev) => ({ ...prev, [status]: '' }))
     const el = newTitleInputRef.current
     if (el) {
       el.style.height = 'auto'
       el.focus()
     }
+  }
+
+  // Clicking away from the composer is usually accidental (a stray click,
+  // Tab, switching windows), not "throw this away" — only Escape means
+  // that. So blur just hides the composer; the draft stays in `drafts` and
+  // reappears if this column's composer is reopened, but nothing is created
+  // until Enter is actually pressed.
+  function handleComposerBlur() {
+    setAddingStatus(null)
   }
 
   return (
@@ -240,12 +258,18 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
                 {addingStatus === col.status ? (
                   <div className="rounded border border-accent/60 bg-sidebar p-2">
                     <textarea
-                      ref={newTitleInputRef}
+                      ref={(el) => {
+                        newTitleInputRef.current = el
+                        // Restoring a multi-line draft needs the same resize
+                        // the onChange handler does, but that only fires on
+                        // typing — so size it once when the composer mounts.
+                        if (el) autoGrow(el)
+                      }}
                       autoFocus
                       rows={1}
-                      value={newTitle}
+                      value={drafts[col.status] ?? ''}
                       onChange={(e) => {
-                        setNewTitle(e.target.value)
+                        setDrafts((prev) => ({ ...prev, [col.status]: e.target.value }))
                         autoGrow(e.target)
                       }}
                       onKeyDown={(e) => {
@@ -253,10 +277,10 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
                           e.preventDefault()
                           handleCreate(col.status)
                         } else if (e.key === 'Escape') {
-                          closeComposer()
+                          discardDraft(col.status)
                         }
                       }}
-                      onBlur={closeComposer}
+                      onBlur={handleComposerBlur}
                       placeholder="What needs to be done?"
                       className="w-full bg-transparent text-sm leading-5 text-fg placeholder:text-fg-subtle resize-none outline-none max-h-10 overflow-y-auto"
                     />
