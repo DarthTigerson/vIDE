@@ -24,4 +24,33 @@ describe('createBroadcaster', () => {
     broadcaster.emit('git:changed', '/repo')
     expect(sentTo).toEqual([])
   })
+
+  it('keeps delivering to other connections and does not throw when one connection\'s send throws', () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const sentTo: unknown[] = []
+    const badConn = {
+      id: 'bad',
+      send: () => { throw new Error('socket is closing') },
+      onMessage: vi.fn(),
+      onClose: vi.fn(),
+    }
+    const goodConn = {
+      id: 'good',
+      send: (msg: unknown) => sentTo.push(msg),
+      onMessage: vi.fn(),
+      onClose: vi.fn(),
+    }
+    const broadcaster = createBroadcaster()
+    broadcaster.addConnection(badConn as never)
+    broadcaster.addConnection(goodConn as never)
+
+    expect(() => broadcaster.emit('git:changed', '/repo')).not.toThrow()
+
+    expect(sentTo).toEqual([{ type: 'event', event: 'git:changed', args: ['/repo'] }])
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "[relay:broadcast] error sending 'git:changed' to connection 'bad':",
+      'socket is closing'
+    )
+    consoleErrorSpy.mockRestore()
+  })
 })

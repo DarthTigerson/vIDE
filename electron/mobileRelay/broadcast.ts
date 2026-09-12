@@ -13,7 +13,16 @@ export function createBroadcaster(): Broadcaster {
       conn.onClose(() => connections.delete(conn))
     },
     emit(event, ...args) {
-      for (const conn of connections) conn.send({ type: 'event', event, args })
+      for (const conn of connections) {
+        try {
+          conn.send({ type: 'event', event, args })
+        } catch (err) {
+          console.error(
+            `[relay:broadcast] error sending '${event}' to connection '${conn.id}':`,
+            err instanceof Error ? err.message : String(err)
+          )
+        }
+      }
     },
   }
 }
