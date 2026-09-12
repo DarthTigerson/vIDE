@@ -158,5 +158,8 @@ export function createMobileApi(wsUrl: string) {
     claudeKill: doSend('claude:kill'),
     onClaudeData: on('claude:data'),
     onClaudeBusy: on('claude:busy'),
+
+    // system — mirrors electron/mobileRelay/channels/systemChannels.ts
+    getSystemMemoryUsage: invoke('system:getMemoryUsage'),
   }
 }
