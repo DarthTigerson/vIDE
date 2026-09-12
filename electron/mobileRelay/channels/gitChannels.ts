@@ -11,10 +11,9 @@ import {
 // Plain request/response git channels, mirroring the ipcMain.handle wiring in
 // electron/gitRunner.ts's GitRunner.registerHandlers() — same channel names,
 // same argument order, same delegation to electron/git.ts's exported
-// functions. `git:runCommand` and the `git:log:data`/`git:log:exit` streaming
-// pair are stream-shaped (backed by a long-lived PTY), not plain
-// request/response, so they're intentionally excluded here; they're handled
-// by the push-event work in Task 5, along with `git:watchRoot`/`git:changed`.
+// functions. Streaming channels (git:runCommand, git:log:resize, git:watchRoot)
+// require stateful PTY/watcher management tied to BrowserWindow and are
+// excluded from the relay for now as desktop-only.
 export function registerGitRelayChannels(): void {
   registerChannel('git:branch', (cwd: string) => getGitBranch(cwd))
   registerChannel('git:aheadBehind', (cwd: string) => getAheadBehind(cwd))
