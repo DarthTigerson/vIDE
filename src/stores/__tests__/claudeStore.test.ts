@@ -241,7 +241,9 @@ describe('claudeStore.closeInstance', () => {
     expect(useClaudeStore.getState().activeInstanceId).toBe('b')
   })
 
-  it('is a no-op when only one instance remains', () => {
+  // Closing the last remaining instance is allowed — the "+" button is the
+  // way back in, same as before any session ever existed.
+  it('closes the last remaining instance too, clearing activeInstanceId', () => {
     useClaudeStore.getState().closeInstance('/project', 'a')
     useClaudeStore.getState().closeInstance('/project', 'c')
     expect(useClaudeStore.getState().instances).toHaveLength(1)
@@ -249,8 +251,38 @@ describe('claudeStore.closeInstance', () => {
     const killMock = (window.api as any).claudeKill as ReturnType<typeof vi.fn>
     killMock.mockClear()
     useClaudeStore.getState().closeInstance('/project', useClaudeStore.getState().instances[0].id)
-    expect(useClaudeStore.getState().instances).toHaveLength(1)
-    expect(killMock).not.toHaveBeenCalled()
+
+    const state = useClaudeStore.getState()
+    expect(state.instances).toHaveLength(0)
+    expect(state.activeInstanceId).toBe('')
+    expect(killMock).toHaveBeenCalledWith('b')
+  })
+})
+
+describe('claudeStore.closeAllInstances', () => {
+  it('kills every instance and clears the list and active id', () => {
+    useClaudeStore.getState().loadInstancesFromSession([
+      { id: 'a', hue: '#111111' },
+      { id: 'b', hue: '#222222' },
+      { id: 'c', hue: '#333333' },
+    ])
+
+    useClaudeStore.getState().closeAllInstances('/project')
+
+    const state = useClaudeStore.getState()
+    expect(state.instances).toHaveLength(0)
+    expect(state.activeInstanceId).toBe('')
+    const killMock = (window.api as any).claudeKill as ReturnType<typeof vi.fn>
+    expect(killMock).toHaveBeenCalledWith('a')
+    expect(killMock).toHaveBeenCalledWith('b')
+    expect(killMock).toHaveBeenCalledWith('c')
+  })
+
+  it('persists the now-empty instance list', () => {
+    useClaudeStore.getState().loadInstancesFromSession([{ id: 'a', hue: '#111111' }])
+    useClaudeStore.getState().closeAllInstances('/project')
+    const saveMock = (window.api as any).sessionSave as ReturnType<typeof vi.fn>
+    expect(saveMock).toHaveBeenCalledWith('/project', { claudeInstances: [] })
   })
 })
 

@@ -48,6 +48,7 @@ interface ClaudeState {
   previousSession: (cwd: string) => void
   resumeSession: (cwd: string) => void
   closeInstance: (cwd: string, id: string) => void
+  closeAllInstances: (cwd: string) => void
   setActiveInstance: (id: string) => void
   compact: () => void
   clearContext: () => void
@@ -131,22 +132,32 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
 
   setActiveInstance: (id) => set({ activeInstanceId: id }),
 
+  // Closing the last remaining instance is allowed — there's nothing left
+  // to switch to, so the "+" in the activity bar becomes the only way back
+  // in, same as before any session ever existed.
   closeInstance: (cwd: string, id: string) => {
     const { instances, activeInstanceId } = get()
-    if (instances.length <= 1) return
     const closedIndex = instances.findIndex((inst) => inst.id === id)
     if (closedIndex === -1) return
 
     const nextInstances = instances.filter((inst) => inst.id !== id)
     window.api.claudeKill(id)
 
-    const nextActiveId = activeInstanceId === id
-      ? nextInstances[Math.min(closedIndex, nextInstances.length - 1)].id
-      : activeInstanceId
+    const nextActiveId =
+      activeInstanceId !== id
+        ? activeInstanceId
+        : (nextInstances[Math.min(closedIndex, nextInstances.length - 1)]?.id ?? '')
 
     set({ instances: nextInstances, activeInstanceId: nextActiveId })
     // Whole-file overwrite — see the comment in newSession() above.
     window.api.sessionSave(cwd, { claudeInstances: nextInstances } as any)
+  },
+
+  closeAllInstances: (cwd: string) => {
+    const { instances } = get()
+    for (const inst of instances) window.api.claudeKill(inst.id)
+    set({ instances: [], activeInstanceId: '' })
+    window.api.sessionSave(cwd, { claudeInstances: [] } as any)
   },
 
   compact: () => {
