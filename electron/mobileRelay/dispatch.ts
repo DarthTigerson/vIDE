@@ -23,7 +23,13 @@ export function resetChannelsForTest(): void {
 export async function dispatch(msg: InboundMessage): Promise<OutboundMessage | null> {
   const handler = channels.get(msg.method)
   if (msg.type === 'send') {
-    if (handler) await handler(...msg.args)
+    if (handler) {
+      try {
+        await handler(...msg.args)
+      } catch (err) {
+        console.error(`[relay:send] error in handler for '${msg.method}':`, err instanceof Error ? err.message : String(err))
+      }
+    }
     return null
   }
   if (!handler) {
