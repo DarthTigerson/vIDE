@@ -270,4 +270,43 @@ describe('buildTodoTools', () => {
 
     expect(result).toContain('[claude] Looks good')
   })
+
+  it('get_todo reports whether a todo is archived', async () => {
+    const project = await createProject(DATA_DIR, 'vIDE', 'H')
+    await createTodo(DATA_DIR, project.id, 'Something')
+    const tools = buildTodoTools(DATA_DIR)
+
+    const beforeArchiving = await findTool(tools, 'get_todo').handler({ id: 'H-1' })
+    expect(beforeArchiving).toContain('Archived: no')
+  })
+
+  it('archive_todo archives a todo by default and it is reflected in get_todo', async () => {
+    const project = await createProject(DATA_DIR, 'vIDE', 'H')
+    await createTodo(DATA_DIR, project.id, 'Something')
+    const tools = buildTodoTools(DATA_DIR)
+
+    const result = await findTool(tools, 'archive_todo').handler({ id: 'H-1' })
+    expect(result).toContain('Archived H-1')
+
+    const detail = await findTool(tools, 'get_todo').handler({ id: 'H-1' })
+    expect(detail).toContain('Archived: yes')
+  })
+
+  it('archive_todo can unarchive when archived is passed as false', async () => {
+    const project = await createProject(DATA_DIR, 'vIDE', 'H')
+    await createTodo(DATA_DIR, project.id, 'Something')
+    const tools = buildTodoTools(DATA_DIR)
+    await findTool(tools, 'archive_todo').handler({ id: 'H-1' })
+
+    const result = await findTool(tools, 'archive_todo').handler({ id: 'H-1', archived: false })
+    expect(result).toContain('Unarchived H-1')
+
+    const detail = await findTool(tools, 'get_todo').handler({ id: 'H-1' })
+    expect(detail).toContain('Archived: no')
+  })
+
+  it('archive_todo throws for an unknown id', async () => {
+    const tools = buildTodoTools(DATA_DIR)
+    await expect(findTool(tools, 'archive_todo').handler({ id: 'NOPE-1' })).rejects.toThrow(/no such todo/i)
+  })
 })

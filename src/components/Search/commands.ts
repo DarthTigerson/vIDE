@@ -1,5 +1,7 @@
 import { useEditorStore } from '@/stores/editorStore'
 import { useClaudeStore } from '@/stores/claudeStore'
+import { useGitSettingsStore } from '@/stores/gitSettingsStore'
+import { getBiggestPaneId } from '@/lib/paneLayout'
 import { isMac } from '@/lib/platform'
 import {
   GIT_GRAPH_TAB_PATH,
@@ -27,6 +29,20 @@ function openTab(path: string) {
   useEditorStore.getState().openTab({ path, content: '', dirty: false })
 }
 
+// Shared by the Git Graph and Git Branch Diff commands — mirrors the
+// "open in biggest pane" pattern used elsewhere for these tabs.
+function openGitTab(path: string) {
+  const tab = { path, content: '', dirty: false }
+  if (useGitSettingsStore.getState().openInBiggestPane) {
+    const biggestPaneId = getBiggestPaneId()
+    if (biggestPaneId) {
+      useEditorStore.getState().openTabInPane(tab, biggestPaneId)
+      return
+    }
+  }
+  useEditorStore.getState().openTab(tab)
+}
+
 export const COMMANDS: Command[] = [
   {
     id: 'new-terminal',
@@ -44,7 +60,7 @@ export const COMMANDS: Command[] = [
     label: 'Git: Graph',
     description: 'Open the git commit graph',
     keywords: ['commits', 'history', 'log', 'tree'],
-    action: () => openTab(GIT_GRAPH_TAB_PATH),
+    action: () => openGitTab(GIT_GRAPH_TAB_PATH),
   },
   {
     id: 'git-log',
@@ -58,7 +74,7 @@ export const COMMANDS: Command[] = [
     label: 'Git: Branch Diff',
     description: 'Compare branches',
     keywords: ['compare', 'diff', 'branch'],
-    action: () => openTab(GIT_BRANCH_DIFF_TAB_PATH),
+    action: () => openGitTab(GIT_BRANCH_DIFF_TAB_PATH),
   },
   {
     id: 'settings-display',

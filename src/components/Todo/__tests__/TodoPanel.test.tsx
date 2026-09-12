@@ -91,4 +91,41 @@ describe('TodoPanel', () => {
 
     expect(screen.getByRole('button', { name: 'Create' })).toBeInTheDocument()
   })
+
+  describe('project context menu', () => {
+    async function renderWithProject() {
+      mockApi({
+        todosListProjects: vi.fn().mockResolvedValue([
+          { id: 'p1', name: 'vIDE', key: 'H', nextNumber: 1, createdAt: 1 },
+        ]),
+      })
+      render(<TodoPanel />)
+      await waitFor(() => screen.getByText('vIDE'))
+    }
+
+    it('right-clicking a project shows Rename and Move to Trash', async () => {
+      await renderWithProject()
+      fireEvent.contextMenu(screen.getByText('vIDE'))
+
+      expect(screen.getByRole('button', { name: 'Rename' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Move to Trash' })).toBeInTheDocument()
+    })
+
+    it('choosing Rename opens the rename modal prefilled with the project', async () => {
+      await renderWithProject()
+      fireEvent.contextMenu(screen.getByText('vIDE'))
+      fireEvent.click(screen.getByRole('button', { name: 'Rename' }))
+
+      expect(screen.getByLabelText('Name')).toHaveValue('vIDE')
+      expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
+    })
+
+    it('choosing Move to Trash opens the delete confirmation modal for the project', async () => {
+      await renderWithProject()
+      fireEvent.contextMenu(screen.getByText('vIDE'))
+      fireEvent.click(screen.getByRole('button', { name: 'Move to Trash' }))
+
+      expect(screen.getByLabelText(/type.*vIDE.*to confirm/i)).toBeInTheDocument()
+    })
+  })
 })

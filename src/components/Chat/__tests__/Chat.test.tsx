@@ -259,4 +259,22 @@ describe('Chat (claude terminal)', () => {
     })
     expect(killMock).toHaveBeenCalledWith(TEST_INSTANCE_ID)
   })
+
+  it('tears down the last terminal when every instance is closed, without crashing', async () => {
+    const { container } = render(<Chat />)
+    await waitFor(() => {
+      expect(container.querySelectorAll('.xterm-helper-textarea').length).toBe(1)
+    })
+
+    // closeAllInstances() leaves nothing behind and no active id.
+    act(() => {
+      useClaudeStore.setState({ instances: [], activeInstanceId: '' })
+    })
+
+    await waitFor(() => {
+      expect(container.querySelectorAll('.xterm-helper-textarea').length).toBe(0)
+    })
+    const killMock = (window.api as any).claudeKill as ReturnType<typeof vi.fn>
+    expect(killMock).toHaveBeenCalledWith(TEST_INSTANCE_ID)
+  })
 })

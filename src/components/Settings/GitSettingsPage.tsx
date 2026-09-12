@@ -18,6 +18,7 @@ export function GitSettingsPage() {
     periodicFetchIntervalMinutes, setPeriodicFetchIntervalMinutes,
     gitLogAutoShow, setGitLogAutoShow,
     repoScanDepth, setRepoScanDepth,
+    openInBiggestPane, setOpenInBiggestPane,
   } = useGitSettingsStore()
   const gitRemoteUrl = useGitRemoteSettingsStore((s) => s.externalUrl)
   const setGitRemoteUrl = useGitRemoteSettingsStore((s) => s.setExternalUrl)
@@ -202,6 +203,18 @@ export function GitSettingsPage() {
               </p>
             </div>
           )}
+        </Row>
+      </Section>
+
+      <Section label="Graph & List Diff Tabs">
+        <Row>
+          <Toggle
+            className="max-w-[60ch]"
+            label="Always open in biggest pane"
+            description="If the editor is split into multiple panes, open the Graph and List Diff tabs in whichever pane currently has the most space, instead of the focused one."
+            checked={openInBiggestPane}
+            onChange={setOpenInBiggestPane}
+          />
         </Row>
       </Section>
 

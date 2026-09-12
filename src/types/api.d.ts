@@ -155,7 +155,7 @@ declare global {
       listAllFiles: (root: string) => Promise<string[]>
       searchText: (root: string, query: string, caseSensitive: boolean) => Promise<SearchMatch[]>
       openFolder: () => Promise<string | null>
-      getSystemMemoryUsage: () => Promise<{ usedBytes: number; totalBytes: number }>
+      getSystemMemoryUsage: () => Promise<{ usedBytes: number; totalBytes: number; appBytes: number }>
       fsWatchRoot: (cwd: string | null) => void
       onFsChanged: (cb: (cwd: string) => void) => () => void
 
@@ -312,11 +312,14 @@ declare global {
 
       todosListProjects: () => Promise<TodoProject[]>
       todosCreateProject: (name: string, key: string) => Promise<TodoProject>
+      todosRenameProject: (id: string, name: string, key: string) => Promise<TodoProject>
+      todosDeleteProject: (id: string) => Promise<void>
       todosListTodos: (projectId: string) => Promise<Todo[]>
       todosCreateTodo: (projectId: string, title: string) => Promise<Todo>
       todosUpdateTodo: (id: string, patch: TodoUpdatePatch) => Promise<Todo>
       todosReorderTodo: (id: string, status: TodoStatus, beforeId: string | null) => Promise<Todo>
       todosArchiveTodo: (id: string, archived: boolean) => Promise<Todo>
+      todosArchiveTodos: (ids: string[], archived: boolean) => Promise<Todo[]>
       todosDeleteTodo: (id: string) => Promise<void>
       todosAddComment: (todoId: string, body: string, attachments?: string[]) => Promise<Todo>
       todosSaveAttachment: (dataUrl: string) => Promise<string>

@@ -48,6 +48,7 @@ const createTodoMock = vi.fn()
 const updateTodoMock = vi.fn()
 const reorderTodoMock = vi.fn()
 const archiveTodoMock = vi.fn()
+const archiveTodosMock = vi.fn()
 const openTabMock = vi.fn()
 
 beforeEach(() => {
@@ -56,10 +57,12 @@ beforeEach(() => {
   updateTodoMock.mockReset().mockResolvedValue(makeTodo())
   reorderTodoMock.mockReset().mockResolvedValue(undefined)
   archiveTodoMock.mockReset().mockResolvedValue(makeTodo())
+  archiveTodosMock.mockReset().mockResolvedValue([])
   openTabMock.mockReset()
   useTodoStore.setState({
     projects: [project],
     boardViewByProject: {},
+    columnScrollByProject: {},
     todosByProject: {
       p1: [
         makeTodo({ id: 'H-1', title: 'Fix bug', status: 'backlog' }),
@@ -72,6 +75,7 @@ beforeEach(() => {
     updateTodo: updateTodoMock,
     reorderTodo: reorderTodoMock,
     archiveTodo: archiveTodoMock,
+    archiveTodos: archiveTodosMock,
   })
   useEditorStore.setState({ openTab: openTabMock })
   ;(global as any).window.api = {
@@ -181,6 +185,22 @@ describe('TodoBoardPage', () => {
     expect(screen.queryByText('Fix bug')).not.toBeInTheDocument()
   })
 
+  it('restores a column\'s scroll position across a remount of the same project (e.g. after moving a card out via the detail tab)', () => {
+    const { unmount } = render(<TodoBoardPage projectId="p1" />)
+    const columnScrollEl = (title: string) =>
+      screen.getByText(title).closest('div')!.nextElementSibling as HTMLDivElement
+
+    fireEvent.scroll(columnScrollEl('Backlog'), { target: { scrollTop: 120 } })
+
+    // Same remount VIDE-57 was filed against: scrolling a column, then
+    // navigating away and back (e.g. via a todo's detail tab) used to reset
+    // every column back to the top.
+    unmount()
+    render(<TodoBoardPage projectId="p1" />)
+
+    expect(columnScrollEl('Backlog').scrollTop).toBe(120)
+  })
+
   it('dropping a card onto empty column space appends it to the end of that column', () => {
     render(<TodoBoardPage projectId="p1" />)
     const doneColumn = screen.getByText('Done').closest('div')!.parentElement!
@@ -236,6 +256,62 @@ describe('TodoBoardPage', () => {
     expect(createTodoMock).not.toHaveBeenCalled()
   })
 
+  it('blurring the composer hides it without creating a todo, but keeps the typed text as a draft', () => {
+    render(<TodoBoardPage projectId="p1" />)
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Add issue' })[2]) // In Progress column
+    const input = screen.getByPlaceholderText('What needs to be done?')
+    fireEvent.change(input, { target: { value: 'this is a test' } })
+    fireEvent.blur(input)
+
+    expect(screen.queryByPlaceholderText('What needs to be done?')).not.toBeInTheDocument()
+    expect(createTodoMock).not.toHaveBeenCalled()
+
+    // Reopening the same column's composer restores the draft rather than
+    // starting blank.
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Add issue' })[2])
+    expect(screen.getByPlaceholderText('What needs to be done?')).toHaveValue('this is a test')
+    expect(createTodoMock).not.toHaveBeenCalled()
+  })
+
+  it('pressing Escape discards the draft — reopening that column starts blank again', () => {
+    render(<TodoBoardPage projectId="p1" />)
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Add issue' })[0])
+    fireEvent.change(screen.getByPlaceholderText('What needs to be done?'), {
+      target: { value: 'scrapped idea' },
+    })
+    fireEvent.keyDown(screen.getByPlaceholderText('What needs to be done?'), { key: 'Escape' })
+
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Add issue' })[0])
+    expect(screen.getByPlaceholderText('What needs to be done?')).toHaveValue('')
+  })
+
+  it('each column keeps its own independent draft', () => {
+    render(<TodoBoardPage projectId="p1" />)
+    const addButton = (index: number) => screen.getAllByRole('button', { name: '+ Add issue' })[index]
+
+    fireEvent.click(addButton(0)) // Backlog
+    fireEvent.change(screen.getByPlaceholderText('What needs to be done?'), {
+      target: { value: 'backlog draft' },
+    })
+    fireEvent.blur(screen.getByPlaceholderText('What needs to be done?'))
+
+    fireEvent.click(addButton(2)) // In Progress — its own composer, unaffected by Backlog's draft
+    expect(screen.getByPlaceholderText('What needs to be done?')).toHaveValue('')
+    fireEvent.blur(screen.getByPlaceholderText('What needs to be done?'))
+
+    fireEvent.click(addButton(0))
+    expect(screen.getByPlaceholderText('What needs to be done?')).toHaveValue('backlog draft')
+  })
+
+  it('blurring an empty composer just closes it without creating a todo', () => {
+    render(<TodoBoardPage projectId="p1" />)
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Add issue' })[0])
+    fireEvent.blur(screen.getByPlaceholderText('What needs to be done?'))
+
+    expect(screen.queryByPlaceholderText('What needs to be done?')).not.toBeInTheDocument()
+    expect(createTodoMock).not.toHaveBeenCalled()
+  })
+
   it('switching to Archive view shows archived todos instead of the board', () => {
     render(<TodoBoardPage projectId="p1" />)
     fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
@@ -259,5 +335,103 @@ describe('TodoBoardPage', () => {
   it('does not crash when opening a project that has no todosByProject entry yet', () => {
     useTodoStore.setState({ projects: [project], todosByProject: {} })
     expect(() => render(<TodoBoardPage projectId="p1" />)).not.toThrow()
+  })
+
+  describe('Archive All (Done column)', () => {
+    function openColumnMenu(title: string) {
+      const column = screen.getByText(title).closest('div')!.parentElement!
+      fireEvent.contextMenu(column)
+    }
+
+    it('never shows Archive All on a non-Done column', () => {
+      render(<TodoBoardPage projectId="p1" />)
+      openColumnMenu('Backlog')
+      expect(screen.queryByRole('button', { name: 'Archive All' })).not.toBeInTheDocument()
+    })
+
+    it('does not show Archive All on the Done column when it has no done todos', () => {
+      render(<TodoBoardPage projectId="p1" />)
+      openColumnMenu('Done')
+      expect(screen.queryByRole('button', { name: 'Archive All' })).not.toBeInTheDocument()
+    })
+
+    it('shows Archive All on the Done column once it has done todos', () => {
+      useTodoStore.setState({
+        todosByProject: { p1: [makeTodo({ id: 'H-1', status: 'done' })] },
+      })
+      render(<TodoBoardPage projectId="p1" />)
+      openColumnMenu('Done')
+      expect(screen.getByRole('button', { name: 'Archive All' })).toBeInTheDocument()
+    })
+
+    it('confirming Archive All archives every currently-done todo and closes the modal', async () => {
+      useTodoStore.setState({
+        todosByProject: {
+          p1: [
+            makeTodo({ id: 'H-1', status: 'done' }),
+            makeTodo({ id: 'H-2', status: 'done' }),
+          ],
+        },
+      })
+      render(<TodoBoardPage projectId="p1" />)
+      openColumnMenu('Done')
+      fireEvent.click(screen.getByRole('button', { name: 'Archive All' }))
+      expect(screen.getByText('Archive All Done')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Archive All' }))
+
+      await waitFor(() => {
+        expect(archiveTodosMock).toHaveBeenCalledTimes(1)
+        expect(archiveTodosMock).toHaveBeenCalledWith(['H-1', 'H-2'], true)
+      })
+      expect(screen.queryByText('Archive All Done')).not.toBeInTheDocument()
+    })
+
+    it('canceling the confirm modal archives nothing', () => {
+      useTodoStore.setState({
+        todosByProject: { p1: [makeTodo({ id: 'H-1', status: 'done' })] },
+      })
+      render(<TodoBoardPage projectId="p1" />)
+      openColumnMenu('Done')
+      fireEvent.click(screen.getByRole('button', { name: 'Archive All' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+      expect(archiveTodosMock).not.toHaveBeenCalled()
+      expect(screen.queryByText('Archive All Done')).not.toBeInTheDocument()
+    })
+
+    it('shows Archive All when right-clicking a card that is in the Done column', () => {
+      useTodoStore.setState({
+        todosByProject: { p1: [makeTodo({ id: 'H-1', title: 'Ship it', status: 'done' })] },
+      })
+      render(<TodoBoardPage projectId="p1" />)
+      fireEvent.contextMenu(screen.getByText('Ship it'))
+      expect(screen.getByRole('button', { name: 'Archive All' })).toBeInTheDocument()
+    })
+
+    it('does not show Archive All when right-clicking a card outside the Done column', () => {
+      render(<TodoBoardPage projectId="p1" />)
+      fireEvent.contextMenu(screen.getByText('Fix bug')) // backlog card
+      expect(screen.queryByRole('button', { name: 'Archive All' })).not.toBeInTheDocument()
+    })
+
+    it('confirming Archive All from a card context menu archives every currently-done todo', async () => {
+      useTodoStore.setState({
+        todosByProject: {
+          p1: [
+            makeTodo({ id: 'H-1', title: 'Ship it', status: 'done' }),
+            makeTodo({ id: 'H-2', title: 'Ship it too', status: 'done' }),
+          ],
+        },
+      })
+      render(<TodoBoardPage projectId="p1" />)
+      fireEvent.contextMenu(screen.getByText('Ship it'))
+      fireEvent.click(screen.getByRole('button', { name: 'Archive All' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Archive All' }))
+
+      await waitFor(() => {
+        expect(archiveTodosMock).toHaveBeenCalledTimes(1)
+        expect(archiveTodosMock).toHaveBeenCalledWith(['H-1', 'H-2'], true)
+      })
+    })
   })
 })

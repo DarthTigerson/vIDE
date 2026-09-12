@@ -5,6 +5,8 @@ import type { GitFileEntry } from '@/types/index'
 import { useGitStore, useRepoGitState } from '@/stores/gitStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { useGitGraphStore } from '@/stores/gitGraphStore'
+import { useGitSettingsStore } from '@/stores/gitSettingsStore'
+import { getBiggestPaneId } from '@/lib/paneLayout'
 import { buildGitDiffPath } from './paths'
 import { GIT_BRANCH_DIFF_TAB_PATH, GIT_GRAPH_TAB_PATH } from '@/components/Settings/paths'
 import { Modal } from '@/components/ui/Modal'
@@ -158,6 +160,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
     publishBranch,
   } = useGitStore()
   const openTab = useEditorStore((s) => s.openTab)
+  const openTabInPane = useEditorStore((s) => s.openTabInPane)
   const loadGraph = useGitGraphStore((s) => s.load)
   const { forceAction, requestForce, closeForce } = useForcePushConfirm(repo)
   const commitMessageEnabled = useCommitMessageSettingsStore((s) => s.enabled)
@@ -263,6 +266,20 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
 
   function openDiff(path: string, staged: boolean) {
     openTab({ path: buildGitDiffPath(repo, path, staged), content: '', dirty: false })
+  }
+
+  // Shared by the Graph and List Diff buttons below — mirrors the
+  // git-remote/Jira/todo "open in biggest pane" pattern.
+  function openGitTab(path: string) {
+    const tab = { path, content: '', dirty: false }
+    if (useGitSettingsStore.getState().openInBiggestPane) {
+      const biggestPaneId = getBiggestPaneId()
+      if (biggestPaneId) {
+        openTabInPane(tab, biggestPaneId)
+        return
+      }
+    }
+    openTab(tab)
   }
 
   function copyPath(path: string) {
@@ -518,7 +535,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
             className={pillButtonClass}
             onClick={() => {
               selectRepo(repo)
-              openTab({ path: GIT_GRAPH_TAB_PATH, content: '', dirty: false })
+              openGitTab(GIT_GRAPH_TAB_PATH)
               loadGraph(repo)
             }}
           >
@@ -527,7 +544,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
           <button
             type="button"
             className={pillButtonClass}
-            onClick={() => { selectRepo(repo); openTab({ path: GIT_BRANCH_DIFF_TAB_PATH, content: '', dirty: false }) }}
+            onClick={() => { selectRepo(repo); openGitTab(GIT_BRANCH_DIFF_TAB_PATH) }}
           >
             List Diff
           </button>

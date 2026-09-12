@@ -5,11 +5,19 @@ const KEYS = {
   wordWrapEnabled: 'vide:editor:wordWrapEnabled',
   changeAllOccurrencesInMenu: 'vide:editor:changeAllOccurrencesInMenu',
   openInBiggestPane: 'vide:editor:openInBiggestPane',
+  markdownOpenMode: 'vide:editor:markdownOpenMode',
 }
+
+export type MarkdownOpenMode = 'editor' | 'preview' | 'split'
 
 function getBool(key: string, def: boolean): boolean {
   const value = localStorage.getItem(key)
   return value === null ? def : value === 'true'
+}
+
+function getMarkdownOpenMode(key: string, def: MarkdownOpenMode): MarkdownOpenMode {
+  const v = localStorage.getItem(key)
+  return v === 'editor' || v === 'preview' || v === 'split' ? v : def
 }
 
 interface EditorSettingsStore {
@@ -26,6 +34,11 @@ interface EditorSettingsStore {
   setChangeAllOccurrencesInMenu: (value: boolean) => void
   openInBiggestPane: boolean
   setOpenInBiggestPane: (value: boolean) => void
+  // What clicking a .md file in the file tree does by default — the
+  // context-menu's explicit "Open / Edit" / "View in Markdown Viewer"
+  // actions always ignore this and do exactly what they say.
+  markdownOpenMode: MarkdownOpenMode
+  setMarkdownOpenMode: (value: MarkdownOpenMode) => void
 }
 
 export const useEditorSettingsStore = create<EditorSettingsStore>((set, get) => ({
@@ -57,5 +70,12 @@ export const useEditorSettingsStore = create<EditorSettingsStore>((set, get) => 
   setOpenInBiggestPane: (value) => {
     localStorage.setItem(KEYS.openInBiggestPane, String(value))
     set({ openInBiggestPane: value })
+  },
+
+  markdownOpenMode: getMarkdownOpenMode(KEYS.markdownOpenMode, 'editor'),
+
+  setMarkdownOpenMode: (value) => {
+    localStorage.setItem(KEYS.markdownOpenMode, value)
+    set({ markdownOpenMode: value })
   },
 }))

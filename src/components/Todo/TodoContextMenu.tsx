@@ -7,16 +7,23 @@ import type { Todo, TodoStatus } from '@/types/api'
 
 function MenuButton({
   children,
+  danger = false,
   onClick,
 }: {
   children: React.ReactNode
+  danger?: boolean
   onClick: () => void
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="w-full rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+      className={[
+        'w-full rounded px-2 py-1.5 text-left text-xs transition-colors',
+        danger
+          ? 'text-red-300 hover:bg-red-500/15 hover:text-red-200'
+          : 'text-fg-muted hover:bg-white/5 hover:text-fg',
+      ].join(' ')}
     >
       {children}
     </button>
@@ -176,6 +183,7 @@ export function TodoCardMenu({
   onSortAllMode,
   onSortColumnDirection,
   onSortAllDirection,
+  onArchiveAll,
 }: {
   x: number
   y: number
@@ -190,6 +198,7 @@ export function TodoCardMenu({
   onSortAllMode: (mode: TodoSortMode) => void
   onSortColumnDirection: (direction: TodoSortDirection) => void
   onSortAllDirection: (direction: TodoSortDirection) => void
+  onArchiveAll?: () => void
 }) {
   const menuRef = useRef<HTMLDivElement>(null)
   useMenuDismiss(onClose)
@@ -230,6 +239,52 @@ export function TodoCardMenu({
         onSelectColumnDirection={withClose(onSortColumnDirection)}
         onSelectAllDirection={withClose(onSortAllDirection)}
       />
+      {onArchiveAll && (
+        <>
+          <MenuDivider />
+          <MenuButton onClick={withClose(onArchiveAll)}>Archive All</MenuButton>
+        </>
+      )}
+    </div>,
+    document.body
+  )
+}
+
+export function TodoProjectMenu({
+  x,
+  y,
+  onClose,
+  onRename,
+  onDelete,
+}: {
+  x: number
+  y: number
+  onClose: () => void
+  onRename: () => void
+  onDelete: () => void
+}) {
+  const menuRef = useRef<HTMLDivElement>(null)
+  useMenuDismiss(onClose)
+  useClampedPosition(menuRef, x, y)
+
+  function withClose(fn: () => void) {
+    return () => {
+      fn()
+      onClose()
+    }
+  }
+
+  return createPortal(
+    <div
+      ref={menuRef}
+      className="fixed z-[200] w-40 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50"
+      style={{ left: x, top: y }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <MenuButton onClick={withClose(onRename)}>Rename</MenuButton>
+      <MenuButton danger onClick={withClose(onDelete)}>
+        Move to Trash
+      </MenuButton>
     </div>,
     document.body
   )
@@ -245,6 +300,7 @@ export function TodoSortMenu({
   onSelectAllMode,
   onSelectColumnDirection,
   onSelectAllDirection,
+  onArchiveAll,
 }: {
   x: number
   y: number
@@ -255,6 +311,7 @@ export function TodoSortMenu({
   onSelectAllMode: (mode: TodoSortMode) => void
   onSelectColumnDirection: (direction: TodoSortDirection) => void
   onSelectAllDirection: (direction: TodoSortDirection) => void
+  onArchiveAll?: () => void
 }) {
   const menuRef = useRef<HTMLDivElement>(null)
   useMenuDismiss(onClose)
@@ -282,6 +339,12 @@ export function TodoSortMenu({
         onSelectColumnDirection={withClose(onSelectColumnDirection)}
         onSelectAllDirection={withClose(onSelectAllDirection)}
       />
+      {onArchiveAll && (
+        <>
+          <MenuDivider />
+          <MenuButton onClick={withClose(onArchiveAll)}>Archive All</MenuButton>
+        </>
+      )}
     </div>,
     document.body
   )

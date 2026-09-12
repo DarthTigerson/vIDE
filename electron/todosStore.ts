@@ -142,6 +142,43 @@ export async function createProject(dataDir: string, name: string, key: string):
   return project
 }
 
+export async function renameProject(
+  dataDir: string,
+  id: string,
+  name: string,
+  key: string
+): Promise<TodoProject> {
+  const trimmedKey = key.trim()
+  if (!trimmedKey) throw new Error('Project key is required')
+
+  const data = await readTodosData(dataDir)
+  const project = data.projects.find((p) => p.id === id)
+  if (!project) throw new Error(`No such project: ${id}`)
+
+  if (data.projects.some((p) => p.id !== id && p.key.toLowerCase() === trimmedKey.toLowerCase())) {
+    throw new Error(`A project with key "${trimmedKey}" already exists`)
+  }
+  if (data.projects.some((p) => p.id !== id && p.name.toLowerCase() === name.toLowerCase())) {
+    throw new Error(`A project named "${name}" already exists`)
+  }
+
+  project.name = name
+  project.key = trimmedKey
+  await writeTodosData(dataDir, data)
+  return project
+}
+
+export async function deleteProject(dataDir: string, id: string): Promise<void> {
+  const data = await readTodosData(dataDir)
+  const removedIds = new Set(data.todos.filter((t) => t.projectId === id).map((t) => t.id))
+  data.projects = data.projects.filter((p) => p.id !== id)
+  data.todos = data.todos.filter((t) => t.projectId !== id)
+  await writeTodosData(dataDir, data)
+
+  const active = await readActiveTodo(dataDir)
+  if (active && removedIds.has(active.id)) await writeActiveTodo(dataDir, null)
+}
+
 export async function listTodos(dataDir: string, projectId: string): Promise<Todo[]> {
   const data = await readTodosData(dataDir)
   return data.todos.filter((t) => t.projectId === projectId)
@@ -244,6 +281,35 @@ export async function archiveTodo(dataDir: string, id: string, archived: boolean
   await writeTodosData(dataDir, data)
   if (archived) await clearActiveTodoIfMatches(dataDir, id)
   return todo
+}
+
+// Archives multiple todos in one read-modify-write cycle. Callers that need
+// to archive several todos at once (e.g. "Archive All Done") MUST use this
+// rather than firing concurrent archiveTodo calls: each archiveTodo call
+// independently reads-then-writes the whole file, so concurrent calls race
+// and silently lose updates (last write wins, clobbering the others).
+export async function archiveTodos(dataDir: string, ids: string[], archived: boolean): Promise<Todo[]> {
+  const data = await readTodosData(dataDir)
+  const todos = ids.map((id) => {
+    const todo = data.todos.find((t) => t.id === id)
+    if (!todo) throw new Error(`No such todo: ${id}`)
+    return todo
+  })
+
+  const now = Date.now()
+  for (const todo of todos) {
+    todo.archived = archived
+    todo.updatedAt = now
+  }
+  await writeTodosData(dataDir, data)
+
+  if (archived) {
+    const idSet = new Set(ids)
+    const active = await readActiveTodo(dataDir)
+    if (active && idSet.has(active.id)) await writeActiveTodo(dataDir, null)
+  }
+
+  return todos
 }
 
 export async function deleteTodo(dataDir: string, id: string): Promise<void> {

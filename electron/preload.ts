@@ -349,12 +349,17 @@ contextBridge.exposeInMainWorld('api', {
 
   todosListProjects: () => ipcRenderer.invoke('todos:listProjects'),
   todosCreateProject: (name: string, key: string) => ipcRenderer.invoke('todos:createProject', name, key),
+  todosRenameProject: (id: string, name: string, key: string) =>
+    ipcRenderer.invoke('todos:renameProject', id, name, key),
+  todosDeleteProject: (id: string) => ipcRenderer.invoke('todos:deleteProject', id),
   todosListTodos: (projectId: string) => ipcRenderer.invoke('todos:listTodos', projectId),
   todosCreateTodo: (projectId: string, title: string) => ipcRenderer.invoke('todos:createTodo', projectId, title),
   todosUpdateTodo: (id: string, patch: unknown) => ipcRenderer.invoke('todos:updateTodo', id, patch),
   todosReorderTodo: (id: string, status: string, beforeId: string | null) =>
     ipcRenderer.invoke('todos:reorderTodo', id, status, beforeId),
   todosArchiveTodo: (id: string, archived: boolean) => ipcRenderer.invoke('todos:archiveTodo', id, archived),
+  todosArchiveTodos: (ids: string[], archived: boolean) =>
+    ipcRenderer.invoke('todos:archiveTodos', ids, archived),
   todosDeleteTodo: (id: string) => ipcRenderer.invoke('todos:deleteTodo', id),
   todosAddComment: (todoId: string, body: string, attachments?: string[]) =>
     ipcRenderer.invoke('todos:addComment', todoId, body, attachments),

@@ -468,13 +468,13 @@ export const THEME_OPTIONS: ThemeOption[] = [
   { id: 'link-light',   name: 'Link Light',   swatches: ['#fdfee8', '#eef0cf', '#fffef2', '#6b8a3d', '#c9c093'] },
   { id: 'atreus-dark',  name: 'Atreus Dark',  swatches: ['#12151f', '#1c2233', '#171b28', '#5468c4', '#3a4460'] },
   { id: 'atreus-light', name: 'Atreus Light', swatches: ['#eef0f5', '#e2e5ee', '#f8f9fc', '#2c3a6e', '#c2c8dc'] },
-  // Luuk hates light mode — "Luuk Light" is a gag, identical to "Luuk Dark".
-  { id: 'luuk-dark',    name: 'Luuk Dark',    swatches: ['#0d0d0d', '#111111', '#141414', '#9e9e9e', '#2e2e2e'] },
-  { id: 'luuk-light',   name: 'Luuk Light',   swatches: ['#0d0d0d', '#111111', '#141414', '#9e9e9e', '#2e2e2e'] },
   // "Borahae" (BTS/ARMY's "I purple you") — see the note on XTERM_THEMES above.
   { id: 'borahae-dark',  name: 'Borahae Dark',  swatches: ['#15111f', '#1f1a2e', '#1b1728', '#8b5cf6', '#3d3552'] },
   { id: 'borahae-light', name: 'Borahae Light', swatches: ['#f5f1fb', '#ece4f9', '#fdfcff', '#6d28d9', '#d4c2ec'] },
   // "Gabriele" — see the note on XTERM_THEMES above.
   { id: 'gabriele-dark',  name: 'Gabriele Dark',  swatches: ['#565656', '#565656', '#4e4e4e', '#828282', '#3c3c3c'] },
   { id: 'gabriele-light', name: 'Gabriele Light', swatches: ['#f0f0f0', '#e6e6e6', '#ffffff', '#5c5c5c', '#d4d4d4'] },
+  // Luuk hates light mode — "Luuk Light" is a gag, identical to "Luuk Dark".
+  { id: 'luuk-dark',    name: 'Luuk Dark',    swatches: ['#0d0d0d', '#111111', '#141414', '#9e9e9e', '#2e2e2e'] },
+  { id: 'luuk-light',   name: 'Luuk Light',   swatches: ['#0d0d0d', '#111111', '#141414', '#9e9e9e', '#2e2e2e'] },
 ]

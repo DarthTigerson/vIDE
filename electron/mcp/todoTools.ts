@@ -5,6 +5,7 @@ import {
   updateTodo,
   addComment,
   startTodo,
+  archiveTodo,
   type Todo,
   type TodoProject,
   type TodoStatus,
@@ -27,6 +28,7 @@ function formatDetail(todo: Todo, project: TodoProject | undefined): string {
     `Status: ${todo.status}`,
     `Label: ${todo.label ?? 'none'}`,
     `Tags: ${todo.tags.length ? todo.tags.join(', ') : 'none'}`,
+    `Archived: ${todo.archived ? 'yes' : 'no'}`,
     `Description: ${todo.description || '(none)'}`,
   ]
   if (todo.attachments.length) lines.push(`Attachments: ${todo.attachments.length}`)
@@ -176,6 +178,22 @@ export function buildTodoTools(dataDir: string): McpToolDef[] {
       handler: async (args) => {
         const todo = await startTodo(dataDir, String(args.id))
         return `Started ${todo.id} (status now in_progress)`
+      },
+    },
+    {
+      name: 'archive_todo',
+      description:
+        'Archive a todo (or unarchive it by passing archived: false). Archived todos are hidden from the ' +
+        'board but not deleted.',
+      inputSchema: {
+        type: 'object',
+        properties: { id: { type: 'string' }, archived: { type: 'boolean' } },
+        required: ['id'],
+      },
+      handler: async (args) => {
+        const archived = args.archived === undefined ? true : Boolean(args.archived)
+        const todo = await archiveTodo(dataDir, String(args.id), archived)
+        return `${archived ? 'Archived' : 'Unarchived'} ${todo.id}`
       },
     },
     {

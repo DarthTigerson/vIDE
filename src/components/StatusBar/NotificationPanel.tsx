@@ -12,13 +12,33 @@ const CLOSE_TRANSITION_MS = 200
 export function NotificationPanel() {
   const open = useNotificationPanelStore((s) => s.open)
   const close = useNotificationPanelStore((s) => s.close)
-  // Raw/unfiltered — the panel always lists every currently-active
-  // notification, viewed or not. Acknowledgment only quiets the footer's
-  // loud text (see useVisibleNotificationItems), never hides anything here.
-  const items = useNotificationItems()
+  const rawItems = useNotificationItems()
   const acknowledge = useNotificationAcknowledgedStore((s) => s.acknowledge)
   const panelRef = useRef<HTMLDivElement>(null)
   const [mounted, setMounted] = useState(open)
+
+  // Rows dismissed via the × button (VIDE-94), hidden from this panel right
+  // away. Deliberately local rather than reading back the global
+  // acknowledgedIds store: closing the whole panel (below) also
+  // acknowledges everything still showing, and if this list re-derived from
+  // that store, every row would vanish the instant you close it — before
+  // the fade-out transition gets a chance to animate it. Pruned whenever a
+  // dismissed id's underlying condition actually clears, so a later
+  // re-trigger of the same id isn't silenced by a stale dismissal.
+  const [dismissedIds, setDismissedIds] = useState<string[]>([])
+  const rawIdsKey = rawItems.map((item) => item.id).join(',')
+  useEffect(() => {
+    const rawIds = new Set(rawIdsKey ? rawIdsKey.split(',') : [])
+    setDismissedIds((prev) => {
+      const next = prev.filter((id) => rawIds.has(id))
+      return next.length === prev.length ? prev : next
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawIdsKey])
+
+  // Raw minus locally-dismissed — see the dismissedIds comment above for
+  // why this isn't the acknowledgment-filtered list.
+  const items = rawItems.filter((item) => !dismissedIds.includes(item.id))
 
   // Closing (any path — row pick, outside click, Escape, auto-close) marks
   // whatever was showing as acknowledged, quieting the footer's loud text
@@ -84,7 +104,7 @@ export function NotificationPanel() {
       {mounted && (
         <ul className="h-40 overflow-y-auto overscroll-contain">
           {items.map((item) => (
-            <li key={item.id}>
+            <li key={item.id} className="flex items-center">
               <button
                 type="button"
                 disabled={item.disabled}
@@ -94,12 +114,25 @@ export function NotificationPanel() {
                   close()
                 }}
                 className={[
-                  'flex w-full items-center gap-2 text-left px-3 py-1.5 text-xs transition-colors',
+                  'flex flex-1 min-w-0 items-center gap-2 text-left px-3 py-1.5 text-xs transition-colors',
                   item.disabled ? 'text-fg-subtle cursor-default' : 'text-fg hover:bg-white/5 cursor-pointer',
                 ].join(' ')}
               >
                 <span className="shrink-0 [&_svg]:h-3.5 [&_svg]:w-3.5">{item.icon}</span>
                 <span className="truncate">{item.text}</span>
+              </button>
+              <button
+                type="button"
+                aria-label="Dismiss notification"
+                onMouseUp={(e) => {
+                  if (e.button !== 0) return
+                  e.stopPropagation()
+                  setDismissedIds((prev) => [...prev, item.id])
+                  acknowledge([item.id])
+                }}
+                className="shrink-0 w-6 h-6 mr-1 flex items-center justify-center rounded text-fg-subtle hover:text-fg hover:bg-white/10"
+              >
+                ×
               </button>
             </li>
           ))}

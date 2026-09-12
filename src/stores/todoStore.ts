@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useEditorStore } from './editorStore'
 import type { Todo, TodoProject, TodoStatus, TodoUpdatePatch } from '@/types/api'
 
 // A stable reference for "no todos loaded yet" — selectors must never
@@ -35,8 +36,17 @@ interface TodoStore {
   // Todo panel can re-focus the project you were last on.
   lastOpenedProjectId: string | null
   setLastOpenedProject: (projectId: string) => void
+  // Per-column scroll offsets, keyed by project then status. Same
+  // survives-remount rationale as boardViewByProject: TodoBoardPage
+  // unmounts whenever a todo detail tab becomes active or the view flips
+  // to archive, which would otherwise silently reset every column back to
+  // the top (e.g. right after moving a card out of a scrolled-down column).
+  columnScrollByProject: Record<string, Partial<Record<TodoStatus, number>>>
+  setColumnScroll: (projectId: string, status: TodoStatus, scrollTop: number) => void
   loadProjects: () => Promise<void>
   createProject: (name: string, key: string) => Promise<TodoProject>
+  renameProject: (id: string, name: string, key: string) => Promise<TodoProject>
+  deleteProject: (id: string) => Promise<void>
   loadTodos: (projectId: string) => Promise<void>
   createTodo: (projectId: string, title: string) => Promise<Todo>
   updateTodo: (id: string, patch: TodoUpdatePatch) => Promise<Todo>
@@ -47,6 +57,7 @@ interface TodoStore {
     beforeId: string | null
   ) => Promise<void>
   archiveTodo: (id: string, archived: boolean) => Promise<Todo>
+  archiveTodos: (ids: string[], archived: boolean) => Promise<void>
   deleteTodo: (id: string) => Promise<void>
   addComment: (todoId: string, body: string, attachments?: string[]) => Promise<Todo>
   saveAttachment: (dataUrl: string) => Promise<string>
@@ -65,6 +76,17 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
   lastOpenedProjectId: null,
   setLastOpenedProject: (projectId) => set({ lastOpenedProjectId: projectId }),
 
+  columnScrollByProject: {},
+  setColumnScroll: (projectId, status, scrollTop) => {
+    const bucket = get().columnScrollByProject[projectId] ?? {}
+    set({
+      columnScrollByProject: {
+        ...get().columnScrollByProject,
+        [projectId]: { ...bucket, [status]: scrollTop },
+      },
+    })
+  },
+
   loadProjects: async () => {
     const projects = await window.api.todosListProjects()
     set({ projects })
@@ -74,6 +96,23 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
     const project = await window.api.todosCreateProject(name, key)
     set({ projects: [...get().projects, project] })
     return project
+  },
+
+  renameProject: async (id, name, key) => {
+    const renamed = await window.api.todosRenameProject(id, name, key)
+    set({ projects: get().projects.map((p) => (p.id === id ? renamed : p)) })
+    return renamed
+  },
+
+  deleteProject: async (id) => {
+    await window.api.todosDeleteProject(id)
+    const { [id]: _removed, ...todosByProject } = get().todosByProject
+    set({
+      projects: get().projects.filter((p) => p.id !== id),
+      todosByProject,
+      lastOpenedProjectId: get().lastOpenedProjectId === id ? null : get().lastOpenedProjectId,
+    })
+    useEditorStore.getState().closeTabsForProject(id)
   },
 
   loadTodos: async (projectId) => {
@@ -112,6 +151,13 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
     const updated = await window.api.todosArchiveTodo(id, archived)
     set({ todosByProject: replaceInBucket(get().todosByProject, updated) })
     return updated
+  },
+
+  archiveTodos: async (ids, archived) => {
+    const updated = await window.api.todosArchiveTodos(ids, archived)
+    let todosByProject = get().todosByProject
+    for (const todo of updated) todosByProject = replaceInBucket(todosByProject, todo)
+    set({ todosByProject })
   },
 
   deleteTodo: async (id) => {

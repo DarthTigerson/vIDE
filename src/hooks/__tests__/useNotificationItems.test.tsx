@@ -6,6 +6,9 @@ import { useUpdateStore } from '@/stores/updateStore'
 import { useDockerSettingsStore } from '@/stores/dockerSettingsStore'
 import { useDockerStore } from '@/stores/dockerStore'
 import { useDockerOffAlertStore } from '@/stores/dockerOffAlertStore'
+import { useGitStore, emptyRepoGitState } from '@/stores/gitStore'
+import { useGitReposStore } from '@/stores/gitReposStore'
+import { useGitPanelOpenAlertStore } from '@/stores/gitPanelOpenAlertStore'
 
 beforeEach(() => {
   useUsageAlertStore.setState({ alerts: [] })
@@ -13,6 +16,9 @@ beforeEach(() => {
   useDockerSettingsStore.setState({ enabled: false })
   useDockerStore.setState({ status: 'unknown' })
   useDockerOffAlertStore.setState({ openRequest: 0 })
+  useGitStore.setState({ repos: {} })
+  useGitReposStore.setState({ selectedRepo: null, hasExplicitSelection: false })
+  useGitPanelOpenAlertStore.setState({ openRequest: 0 })
 })
 
 afterEach(() => {
@@ -113,6 +119,40 @@ describe('useNotificationItems', () => {
     const update = result.current.find((i) => i.id === 'update')
     expect(update?.disabled).toBe(true)
     expect(update?.onClick).toBeUndefined()
+  })
+
+  it('includes a commit-error item for a repo whose commit failed, and its action selects the repo and requests the panel to open', () => {
+    useGitStore.setState({
+      repos: { '/repo/one': { ...emptyRepoGitState, commitError: 'hook failed' } },
+    })
+    const { result } = renderHook(() => useNotificationItems())
+    const item = result.current.find((i) => i.id === 'commit-error-/repo/one')
+    expect(item?.text).toBe('Commit failed in one: hook failed')
+    expect(item?.icon).toBeTruthy()
+    act(() => item!.onClick!())
+    expect(useGitReposStore.getState().selectedRepo).toBe('/repo/one')
+    expect(useGitPanelOpenAlertStore.getState().openRequest).toBe(1)
+  })
+
+  it('includes one commit-error item per repo with a commit error', () => {
+    useGitStore.setState({
+      repos: {
+        '/repo/one': { ...emptyRepoGitState, commitError: 'first error' },
+        '/repo/two': { ...emptyRepoGitState, commitError: 'second error' },
+        '/repo/three': { ...emptyRepoGitState, commitError: null },
+      },
+    })
+    const { result } = renderHook(() => useNotificationItems())
+    const ids = result.current.map((i) => i.id)
+    expect(ids).toContain('commit-error-/repo/one')
+    expect(ids).toContain('commit-error-/repo/two')
+    expect(ids).not.toContain('commit-error-/repo/three')
+  })
+
+  it('is silent about a repo with no commit error', () => {
+    useGitStore.setState({ repos: { '/repo/one': { ...emptyRepoGitState, commitError: null } } })
+    const { result } = renderHook(() => useNotificationItems())
+    expect(result.current.find((i) => i.id.startsWith('commit-error-'))).toBeUndefined()
   })
 
   it('orders usage before docker before update', () => {

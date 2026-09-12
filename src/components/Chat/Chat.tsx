@@ -72,7 +72,10 @@ export function Chat() {
   }, [activeInstanceId])
 
   useEffect(() => {
-    if (!projectRoot || !containerRef.current || assistant === 'bridge' || instances.length === 0) return
+    // Not "instances.length === 0" — every instance can now be closed, and
+    // that case still needs to reach the stale-terminal cleanup below to
+    // tear down the last one's xterm/DOM host instead of leaking it.
+    if (!projectRoot || !containerRef.current || assistant === 'bridge') return
 
     const container = containerRef.current
 

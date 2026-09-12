@@ -17,6 +17,22 @@ export function hueForInstanceIndex(index: number): string {
   return CLAUDE_INSTANCE_HUES[index % CLAUDE_INSTANCE_HUES.length]
 }
 
+// Picks a color for a newly opened instance given the ones already open —
+// used instead of hueForInstanceIndex(instances.length) once sessions can be
+// closed, since a plain running count collapses back down (e.g. 3 sessions
+// closed down to 1 makes the next one "instance #1" again) and hands out
+// the same 2nd palette color every time regardless of what's actually free.
+export function nextHueForInstances(instances: { hue: string }[]): string {
+  const used = new Set(instances.map((inst) => inst.hue))
+  const unused = CLAUDE_INSTANCE_HUES.find((hue) => !used.has(hue))
+  if (unused) return unused
+  // Every color is taken (more concurrent sessions than the palette has
+  // entries) — cycle, but never repeat whatever the most recently added
+  // instance is using, so two neighboring tabs don't end up identical.
+  const lastHue = instances[instances.length - 1]?.hue
+  return CLAUDE_INSTANCE_HUES.find((hue) => hue !== lastHue) ?? CLAUDE_INSTANCE_HUES[0]
+}
+
 // The "Claude is working" gif pool (src/assets/claudeGifs.ts) has no color
 // variety of its own — every gif's mascot body is this same brand orange,
 // just with different small props (headphones, a lightbulb, ...). So a

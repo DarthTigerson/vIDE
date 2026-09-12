@@ -12,23 +12,23 @@ export function UsagePanel() {
   }, [])
 
   return (
-    <div className="shrink-0 border-t border-border bg-sidebar px-4 py-3">
+    <div className="shrink-0 border-t border-border bg-sidebar px-4 py-3 overflow-x-hidden">
       {latest ? (
         <div className="flex items-start gap-10">
-          <div className="flex flex-col items-center gap-3">
+          <div className="flex flex-col items-center gap-3 shrink-0">
             <Gauge pct={latest.sessionPct} label="SESSION" />
             <ResetInfo label="Session resets" resetAt={latest.sessionResetAt} now={now} />
           </div>
-          <div className="flex flex-col items-center gap-3">
+          <div className="flex flex-col items-center gap-3 shrink-0">
             <Gauge pct={latest.weeklyPct} label="THIS WEEK" />
             <ResetInfo label="Week resets" resetAt={latest.weeklyResetAt} now={now} />
           </div>
-          <div className="flex flex-col gap-3 pt-1">
+          <div className="flex flex-col gap-3 pt-1 shrink-0">
             <div className="text-[0.625rem] text-fg-muted uppercase tracking-wider font-semibold">Burn rate</div>
             <BurnRateStat label="session" ratePerHour={latest.sessionAvgRatePerHour} />
             <BurnRateStat label="week" ratePerHour={latest.weeklyAvgRatePerHour} />
           </div>
-          <div className="flex flex-col gap-3 pt-1">
+          <div className="flex flex-col gap-3 pt-1 shrink-0">
             <div className="text-[0.625rem] text-fg-muted uppercase tracking-wider font-semibold">Est. run out</div>
             <CutoffStat label="session" cutoffAt={latest.sessionCutoffAt} now={now} />
             <CutoffStat label="week" cutoffAt={latest.weeklyCutoffAt} now={now} />

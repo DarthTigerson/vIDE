@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { CLAUDE_INSTANCE_HUES, hueForInstanceIndex, gifHueRotationDeg } from '../claudeInstanceHues'
+import {
+  CLAUDE_INSTANCE_HUES,
+  hueForInstanceIndex,
+  nextHueForInstances,
+  gifHueRotationDeg,
+} from '../claudeInstanceHues'
 
 describe('hueForInstanceIndex', () => {
   it('gives the first instance the brand orange', () => {
@@ -14,6 +19,38 @@ describe('hueForInstanceIndex', () => {
   it('cycles once the palette is exhausted', () => {
     expect(hueForInstanceIndex(CLAUDE_INSTANCE_HUES.length)).toBe(CLAUDE_INSTANCE_HUES[0])
     expect(hueForInstanceIndex(CLAUDE_INSTANCE_HUES.length + 1)).toBe(CLAUDE_INSTANCE_HUES[1])
+  })
+})
+
+describe('nextHueForInstances', () => {
+  it('gives the 2nd palette color to a 2nd session, same as before', () => {
+    expect(nextHueForInstances([{ hue: CLAUDE_INSTANCE_HUES[0] }])).toBe(CLAUDE_INSTANCE_HUES[1])
+  })
+
+  it('picks a color not already in use, regardless of session count (VIDE-85)', () => {
+    // 3 sessions opened (orange, blue, purple), then the extras closed back
+    // down to just the orange one — a plain count-based pick would treat
+    // this as "instance #1" again and hand out blue every time.
+    expect(nextHueForInstances([{ hue: CLAUDE_INSTANCE_HUES[0] }])).not.toBe(undefined)
+    expect(nextHueForInstances([{ hue: CLAUDE_INSTANCE_HUES[0] }])).toBe(CLAUDE_INSTANCE_HUES[1])
+  })
+
+  it('skips a color that is still in use even if a lower-index slot is free', () => {
+    // Orange closed, blue kept open — the next session should not become
+    // blue again (that would sit right next to an identical-colored tab).
+    expect(nextHueForInstances([{ hue: CLAUDE_INSTANCE_HUES[1] }])).toBe(CLAUDE_INSTANCE_HUES[0])
+  })
+
+  it('skips every color currently open, not just the first free slot', () => {
+    const open = [CLAUDE_INSTANCE_HUES[0], CLAUDE_INSTANCE_HUES[1]].map((hue) => ({ hue }))
+    expect(nextHueForInstances(open)).toBe(CLAUDE_INSTANCE_HUES[2])
+  })
+
+  it('once every color is in use, cycles without repeating the most recent instance', () => {
+    const allUsed = CLAUDE_INSTANCE_HUES.map((hue) => ({ hue }))
+    const next = nextHueForInstances(allUsed)
+    expect(next).not.toBe(CLAUDE_INSTANCE_HUES[CLAUDE_INSTANCE_HUES.length - 1])
+    expect(CLAUDE_INSTANCE_HUES).toContain(next)
   })
 })
 

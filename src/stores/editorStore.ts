@@ -1,5 +1,11 @@
 import { create } from 'zustand'
 import type { Tab } from '@/types/index'
+import {
+  isTodoBoardTab,
+  getTodoBoardProjectId,
+  isTodoDetailTab,
+  getTodoDetailIds,
+} from '@/components/Settings/paths'
 
 export type EditorSplitDirection = 'horizontal' | 'vertical'
 export type SplitPlacement = 'before' | 'after'
@@ -48,6 +54,12 @@ function collectPaneIds(node: EditorLayoutNode): string[] {
 // predicate), collapsing any pane left with nothing open the same way
 // closeTabInPane already does one tab at a time - just applied to however
 // many panes empty out at once here.
+function isTodoProjectTab(path: string, projectId: string): boolean {
+  if (isTodoBoardTab(path)) return getTodoBoardProjectId(path) === projectId
+  if (isTodoDetailTab(path)) return getTodoDetailIds(path).projectId === projectId
+  return false
+}
+
 function closeTabsMatching(state: EditorState, shouldClose: (tab: Tab) => boolean): Partial<EditorState> {
   const pathsToClose = new Set(
     state.tabs.filter((t) => !state.pinnedPaths.has(t.path) && shouldClose(t)).map((t) => t.path)
@@ -196,6 +208,7 @@ interface EditorState {
   togglePin: (path: string) => void
   closeAllTabs: () => void
   closeSavedTabs: () => void
+  closeTabsForProject: (projectId: string) => void
   reopenLastClosed: () => void
   resetForNewProject: () => void
   moveTabWithinPane: (paneId: string, path: string, targetPath: string, placement: 'before' | 'after') => void
@@ -216,6 +229,12 @@ interface EditorState {
     targetPaneId: string,
     sourcePaneId: string,
     path: string,
+    direction: EditorSplitDirection,
+    placement: SplitPlacement
+  ) => void
+  openTabInNewSplitPane: (
+    tab: Tab,
+    paneId: string,
     direction: EditorSplitDirection,
     placement: SplitPlacement
   ) => void
@@ -407,6 +426,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   closeAllTabs: () => set((state) => closeTabsMatching(state, () => true)),
 
   closeSavedTabs: () => set((state) => closeTabsMatching(state, (tab) => !tab.dirty)),
+
+  closeTabsForProject: (projectId) =>
+    set((state) => closeTabsMatching(state, (tab) => isTodoProjectTab(tab.path, projectId))),
 
   reopenLastClosed: () =>
     set((state) => {
@@ -656,6 +678,49 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         activeTabPath: path,
         paneTabs: newPaneTabs,
         paneTabLists: newPaneTabLists,
+      }
+    })
+  },
+
+  // Opens a genuinely-new tab into a freshly created pane split off from
+  // `paneId`, leaving paneId's own tab list untouched — unlike
+  // splitPaneForTab, which moves a tab already open in paneId out into the
+  // new sibling. Backs the Markdown editor/preview toggle button, so code
+  // and rendered preview can show side by side. If `tab.path` is already
+  // open somewhere, focuses that pane instead of duplicating it, same as
+  // openTabInPane's rule.
+  openTabInNewSplitPane: (
+    tab: Tab,
+    paneId: string,
+    direction: EditorSplitDirection,
+    placement: SplitPlacement
+  ) => {
+    const { tabs, paneTabLists, layout, openTabInPane } = get()
+    const paneIds = collectPaneIds(layout)
+    const existingPaneId = paneIds.find((pid) => (paneTabLists[pid] ?? []).includes(tab.path))
+    if (existingPaneId) {
+      openTabInPane(tab, existingPaneId)
+      return
+    }
+
+    set((state) => {
+      const nextPaneNumber = collectPaneIds(state.layout).length + 1
+      const nextPaneId = `pane-${Date.now()}-${nextPaneNumber}`
+      const originalPaneNode: EditorLayoutNode = { type: 'pane', id: paneId }
+      const newPaneNode: EditorLayoutNode = { type: 'pane', id: nextPaneId }
+      const replacement: EditorLayoutNode = {
+        type: 'split',
+        direction,
+        children: placement === 'after' ? [originalPaneNode, newPaneNode] : [newPaneNode, originalPaneNode],
+      }
+
+      return {
+        tabs: state.tabs.some((t) => t.path === tab.path) ? state.tabs : [...state.tabs, tab],
+        layout: replacePane(state.layout, paneId, replacement),
+        activePaneId: nextPaneId,
+        activeTabPath: tab.path,
+        paneTabs: { ...state.paneTabs, [nextPaneId]: tab.path },
+        paneTabLists: { ...state.paneTabLists, [nextPaneId]: [tab.path] },
       }
     })
   },

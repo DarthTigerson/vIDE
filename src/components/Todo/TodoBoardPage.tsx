@@ -4,6 +4,7 @@ import { useEditorStore } from '@/stores/editorStore'
 import { buildTodoDetailPath } from '@/components/Settings/paths'
 import { TODO_COLUMNS, filterTodos, groupTodosByStatus, sortTodos } from '@/lib/todoBoard'
 import type { TodoSortDirection, TodoSortMode } from '@/lib/todoBoard'
+import { Modal } from '@/components/ui/Modal'
 import { ArchiveIcon } from './ArchiveIcon'
 import { BoardIcon } from './BoardIcon'
 import { TodoCard } from './TodoCard'
@@ -24,15 +25,20 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
   const updateTodo = useTodoStore((s) => s.updateTodo)
   const reorderTodo = useTodoStore((s) => s.reorderTodo)
   const archiveTodo = useTodoStore((s) => s.archiveTodo)
+  const archiveTodos = useTodoStore((s) => s.archiveTodos)
   const view = useTodoStore((s) => s.boardViewByProject[projectId] ?? 'board')
   const setView = useTodoStore((s) => s.setBoardView)
+  const setColumnScroll = useTodoStore((s) => s.setColumnScroll)
   const openTab = useEditorStore((s) => s.openTab)
 
   const [addingStatus, setAddingStatus] = useState<TodoStatus | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
-  const [newTitle, setNewTitle] = useState('')
-  const newTitleInputRef = useRef<HTMLTextAreaElement>(null)
+  // Keyed per column so each column's in-progress "+ Add issue" text survives
+  // closing the composer (blur, switching columns) without being committed —
+  // only Enter actually creates a todo; Escape is the one thing that clears it.
+  const [drafts, setDrafts] = useState<Partial<Record<TodoStatus, string>>>({})
+  const newTitleInputRef = useRef<HTMLTextAreaElement | null>(null)
   const [sortModes, setSortModes] = useState<Record<TodoStatus, TodoSortMode>>({
     backlog: 'manual',
     todo: 'manual',
@@ -49,6 +55,7 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
     | { type: 'card'; x: number; y: number; todo: Todo }
     | { type: 'sort'; x: number; y: number; status: TodoStatus }
   const [menu, setMenu] = useState<BoardMenu | null>(null)
+  const [archiveAllConfirmOpen, setArchiveAllConfirmOpen] = useState(false)
 
   useEffect(() => {
     loadTodos(projectId)
@@ -59,6 +66,18 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
 
   function openDetail(todoId: string) {
     openTab({ path: buildTodoDetailPath(projectId, todoId), content: '', dirty: false })
+  }
+
+  // Restores a column's remembered scroll offset the instant its scroll
+  // container (re)mounts — covers returning from a todo detail tab, toggling
+  // back from the archive view, and switching projects, all of which unmount
+  // this div without React otherwise remembering where it was scrolled to.
+  function registerColumnScroll(status: TodoStatus) {
+    return (el: HTMLDivElement | null) => {
+      if (!el) return
+      const saved = useTodoStore.getState().columnScrollByProject[projectId]?.[status]
+      if (saved != null) el.scrollTop = saved
+    }
   }
 
   function handleColumnDrop(e: React.DragEvent, status: TodoStatus) {
@@ -79,9 +98,15 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
     reorderTodo(projectId, draggedId, status, beforeId)
   }
 
-  function closeComposer() {
+  // Explicit cancel (Escape) — throws away the draft, unlike just clicking
+  // away, which only hides the composer and keeps the draft for next time.
+  function discardDraft(status: TodoStatus) {
+    setDrafts((prev) => {
+      const next = { ...prev }
+      delete next[status]
+      return next
+    })
     setAddingStatus(null)
-    setNewTitle('')
   }
 
   // "/" jumps straight into the search box without needing to click first —
@@ -106,6 +131,14 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
     setMenu({ type: 'sort', x: e.clientX, y: e.clientY, status })
   }
 
+  async function archiveAllDone() {
+    await archiveTodos(
+      groups.done.map((todo) => todo.id),
+      true
+    )
+    setArchiveAllConfirmOpen(false)
+  }
+
   async function duplicateTodo(todo: Todo) {
     const copy = await createTodo(projectId, `${todo.title} (copy)`)
     await updateTodo(copy.id, {
@@ -117,16 +150,25 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
   }
 
   async function handleCreate(status: TodoStatus) {
-    const title = newTitle.trim()
+    const title = (drafts[status] ?? '').trim()
     if (!title) return
     const todo = await createTodo(projectId, title)
     if (status !== 'backlog') await updateTodo(todo.id, { status })
-    setNewTitle('')
+    setDrafts((prev) => ({ ...prev, [status]: '' }))
     const el = newTitleInputRef.current
     if (el) {
       el.style.height = 'auto'
       el.focus()
     }
+  }
+
+  // Clicking away from the composer is usually accidental (a stray click,
+  // Tab, switching windows), not "throw this away" — only Escape means
+  // that. So blur just hides the composer; the draft stays in `drafts` and
+  // reappears if this column's composer is reopened, but nothing is created
+  // until Enter is actually pressed.
+  function handleComposerBlur() {
+    setAddingStatus(null)
   }
 
   return (
@@ -204,7 +246,11 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
                   {filterTodos(groups[col.status], searchQuery).length}
                 </span>
               </div>
-              <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-y-auto p-3">
+              <div
+                ref={registerColumnScroll(col.status)}
+                onScroll={(e) => setColumnScroll(projectId, col.status, e.currentTarget.scrollTop)}
+                className="flex-1 min-h-0 flex flex-col gap-2 overflow-y-auto p-3"
+              >
                 {sortTodos(
                   filterTodos(groups[col.status], searchQuery),
                   sortModes[col.status],
@@ -223,12 +269,18 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
                 {addingStatus === col.status ? (
                   <div className="rounded border border-accent/60 bg-sidebar p-2">
                     <textarea
-                      ref={newTitleInputRef}
+                      ref={(el) => {
+                        newTitleInputRef.current = el
+                        // Restoring a multi-line draft needs the same resize
+                        // the onChange handler does, but that only fires on
+                        // typing — so size it once when the composer mounts.
+                        if (el) autoGrow(el)
+                      }}
                       autoFocus
                       rows={1}
-                      value={newTitle}
+                      value={drafts[col.status] ?? ''}
                       onChange={(e) => {
-                        setNewTitle(e.target.value)
+                        setDrafts((prev) => ({ ...prev, [col.status]: e.target.value }))
                         autoGrow(e.target)
                       }}
                       onKeyDown={(e) => {
@@ -236,10 +288,10 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
                           e.preventDefault()
                           handleCreate(col.status)
                         } else if (e.key === 'Escape') {
-                          closeComposer()
+                          discardDraft(col.status)
                         }
                       }}
-                      onBlur={closeComposer}
+                      onBlur={handleComposerBlur}
                       placeholder="What needs to be done?"
                       className="w-full bg-transparent text-sm leading-5 text-fg placeholder:text-fg-subtle resize-none outline-none max-h-10 overflow-y-auto"
                     />
@@ -293,6 +345,9 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
               done: direction,
             })
           }
+          onArchiveAll={
+            menu.todo.status === 'done' ? () => setArchiveAllConfirmOpen(true) : undefined
+          }
         />
       )}
 
@@ -318,7 +373,38 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
               done: direction,
             })
           }
+          onArchiveAll={
+            menu.status === 'done' && groups.done.length > 0
+              ? () => setArchiveAllConfirmOpen(true)
+              : undefined
+          }
         />
+      )}
+
+      {archiveAllConfirmOpen && (
+        <Modal onClose={() => setArchiveAllConfirmOpen(false)}>
+          <h2 className="text-sm font-semibold text-fg mb-1">Archive All Done</h2>
+          <p className="text-sm text-fg-muted mb-5">
+            Archive all {groups.done.length} done {groups.done.length === 1 ? 'todo' : 'todos'}? You can
+            restore them later from the Archive view.
+          </p>
+          <div className="flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setArchiveAllConfirmOpen(false)}
+              className="px-4 py-1.5 text-sm rounded-lg border border-border text-fg-muted hover:text-fg hover:border-fg-muted transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={archiveAllDone}
+              className="px-4 py-1.5 text-sm rounded-lg bg-red-600/80 hover:bg-red-600 text-white font-semibold transition-colors"
+            >
+              Archive All
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   )

@@ -58,10 +58,10 @@ describe('background image follows the active theme family', () => {
     expect(useDisplayStore.getState().backgroundImage).toBe('atreus')
   })
 
-  it('clears to none for the luuk family', () => {
+  it('switches to rockhoppers for the luuk family', () => {
     useDisplayStore.setState({ backgroundImage: 'vide' })
     useThemeStore.getState().setFamily('luuk')
-    expect(useDisplayStore.getState().backgroundImage).toBe('none')
+    expect(useDisplayStore.getState().backgroundImage).toBe('rockhoppers')
   })
 
   it('does not touch the background when only the light/dark variant changes within the same family', () => {

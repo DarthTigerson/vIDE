@@ -30,6 +30,10 @@ export function registerTodoHandlers(): void {
   ipcMain.handle('todos:createProject', (_e, name: string, key: string) =>
     store.createProject(dataDir(), name, key)
   )
+  ipcMain.handle('todos:renameProject', (_e, id: string, name: string, key: string) =>
+    store.renameProject(dataDir(), id, name, key)
+  )
+  ipcMain.handle('todos:deleteProject', (_e, id: string) => store.deleteProject(dataDir(), id))
   ipcMain.handle('todos:listTodos', (_e, projectId: string) => store.listTodos(dataDir(), projectId))
   ipcMain.handle('todos:createTodo', (_e, projectId: string, title: string) =>
     store.createTodo(dataDir(), projectId, title)
@@ -40,6 +44,9 @@ export function registerTodoHandlers(): void {
   )
   ipcMain.handle('todos:archiveTodo', (_e, id: string, archived: boolean) =>
     store.archiveTodo(dataDir(), id, archived)
+  )
+  ipcMain.handle('todos:archiveTodos', (_e, ids: string[], archived: boolean) =>
+    store.archiveTodos(dataDir(), ids, archived)
   )
   ipcMain.handle('todos:deleteTodo', (_e, id: string) => store.deleteTodo(dataDir(), id))
   ipcMain.handle('todos:addComment', (_e, todoId: string, body: string, attachments?: string[]) =>

@@ -5,6 +5,9 @@ import { useTodoSettingsStore } from '@/stores/todoSettingsStore'
 import { getBiggestPaneId } from '@/lib/paneLayout'
 import { buildTodoBoardPath } from '@/components/Settings/paths'
 import { NewTodoProjectModal } from './NewTodoProjectModal'
+import { RenameTodoProjectModal } from './RenameTodoProjectModal'
+import { DeleteTodoProjectModal } from './DeleteTodoProjectModal'
+import { TodoProjectMenu } from './TodoContextMenu'
 import type { TodoProject } from '@/types/api'
 
 export function TodoPanel() {
@@ -15,6 +18,9 @@ export function TodoPanel() {
   const openTab = useEditorStore((s) => s.openTab)
   const openTabInPane = useEditorStore((s) => s.openTabInPane)
   const [modalOpen, setModalOpen] = useState(false)
+  const [menu, setMenu] = useState<{ x: number; y: number; project: TodoProject } | null>(null)
+  const [renameTarget, setRenameTarget] = useState<TodoProject | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<TodoProject | null>(null)
 
   useEffect(() => {
     loadProjects()
@@ -30,6 +36,11 @@ export function TodoPanel() {
     // Only on mount — subsequent project switches happen via openProject.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  function openProjectMenu(e: React.MouseEvent, project: TodoProject) {
+    e.preventDefault()
+    setMenu({ x: e.clientX, y: e.clientY, project })
+  }
 
   function openProject(project: TodoProject) {
     setLastOpenedProject(project.id)
@@ -68,6 +79,7 @@ export function TodoPanel() {
               type="button"
               aria-pressed={project.id === lastOpenedProjectId}
               onClick={() => openProject(project)}
+              onContextMenu={(e) => openProjectMenu(e, project)}
               className={[
                 'w-full text-left px-3 py-2 flex items-center gap-2 border-l-2',
                 project.id === lastOpenedProjectId
@@ -83,6 +95,24 @@ export function TodoPanel() {
       </div>
 
       {modalOpen && <NewTodoProjectModal onClose={() => setModalOpen(false)} />}
+
+      {menu && (
+        <TodoProjectMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          onRename={() => setRenameTarget(menu.project)}
+          onDelete={() => setDeleteTarget(menu.project)}
+        />
+      )}
+
+      {renameTarget && (
+        <RenameTodoProjectModal project={renameTarget} onClose={() => setRenameTarget(null)} />
+      )}
+
+      {deleteTarget && (
+        <DeleteTodoProjectModal project={deleteTarget} onClose={() => setDeleteTarget(null)} />
+      )}
     </div>
   )
 }

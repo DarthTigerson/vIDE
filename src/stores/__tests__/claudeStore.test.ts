@@ -180,6 +180,28 @@ describe('claudeStore.newSession', () => {
     const saveMock = (window.api as any).sessionSave as ReturnType<typeof vi.fn>
     expect(saveMock).toHaveBeenCalledWith('/project', { claudeInstances: useClaudeStore.getState().instances })
   })
+
+  // VIDE-85: opening 3 sessions (orange, blue, purple), closing the orange
+  // and purple ones, and keeping blue used to always hand the next session
+  // the 2nd palette color regardless — which is blue, an exact clash with
+  // the one instance still open. It should pick a color nothing open is
+  // already using instead of just counting how many instances remain.
+  it("picks a color no currently-open instance is using, not just the count-based slot", () => {
+    useClaudeStore.getState().loadInstancesFromSession([
+      { id: 'a', hue: '#D97757' }, // orange
+      { id: 'b', hue: '#5B9BD5' }, // blue
+      { id: 'c', hue: '#9B7ED9' }, // purple
+    ])
+    useClaudeStore.getState().closeInstance('/project', 'a')
+    useClaudeStore.getState().closeInstance('/project', 'c')
+    expect(useClaudeStore.getState().instances).toHaveLength(1) // just blue left
+
+    useClaudeStore.getState().newSession('/project')
+
+    const instances = useClaudeStore.getState().instances
+    expect(instances).toHaveLength(2)
+    expect(instances[1].hue).not.toBe('#5B9BD5')
+  })
 })
 
 describe('claudeStore.closeInstance', () => {
@@ -219,16 +241,58 @@ describe('claudeStore.closeInstance', () => {
     expect(useClaudeStore.getState().activeInstanceId).toBe('b')
   })
 
-  it('is a no-op when only one instance remains', () => {
+  // Closing the last remaining instance is allowed — the "+" button is the
+  // way back in, same as before any session ever existed.
+  it('closes the last remaining instance too, clearing activeInstanceId and collapsing the chat panel', () => {
     useClaudeStore.getState().closeInstance('/project', 'a')
     useClaudeStore.getState().closeInstance('/project', 'c')
     expect(useClaudeStore.getState().instances).toHaveLength(1)
 
+    useClaudeStore.setState({ chatVisible: true })
     const killMock = (window.api as any).claudeKill as ReturnType<typeof vi.fn>
     killMock.mockClear()
     useClaudeStore.getState().closeInstance('/project', useClaudeStore.getState().instances[0].id)
-    expect(useClaudeStore.getState().instances).toHaveLength(1)
-    expect(killMock).not.toHaveBeenCalled()
+
+    const state = useClaudeStore.getState()
+    expect(state.instances).toHaveLength(0)
+    expect(state.activeInstanceId).toBe('')
+    expect(state.chatVisible).toBe(false)
+    expect(killMock).toHaveBeenCalledWith('b')
+  })
+
+  it('leaves the chat panel alone when a close still leaves other instances open', () => {
+    useClaudeStore.setState({ chatVisible: true })
+    useClaudeStore.getState().closeInstance('/project', 'a')
+    expect(useClaudeStore.getState().chatVisible).toBe(true)
+  })
+})
+
+describe('claudeStore.closeAllInstances', () => {
+  it('kills every instance, clears the list and active id, and collapses the chat panel', () => {
+    useClaudeStore.getState().loadInstancesFromSession([
+      { id: 'a', hue: '#111111' },
+      { id: 'b', hue: '#222222' },
+      { id: 'c', hue: '#333333' },
+    ])
+    useClaudeStore.setState({ chatVisible: true })
+
+    useClaudeStore.getState().closeAllInstances('/project')
+
+    const state = useClaudeStore.getState()
+    expect(state.instances).toHaveLength(0)
+    expect(state.activeInstanceId).toBe('')
+    expect(state.chatVisible).toBe(false)
+    const killMock = (window.api as any).claudeKill as ReturnType<typeof vi.fn>
+    expect(killMock).toHaveBeenCalledWith('a')
+    expect(killMock).toHaveBeenCalledWith('b')
+    expect(killMock).toHaveBeenCalledWith('c')
+  })
+
+  it('persists the now-empty instance list', () => {
+    useClaudeStore.getState().loadInstancesFromSession([{ id: 'a', hue: '#111111' }])
+    useClaudeStore.getState().closeAllInstances('/project')
+    const saveMock = (window.api as any).sessionSave as ReturnType<typeof vi.fn>
+    expect(saveMock).toHaveBeenCalledWith('/project', { claudeInstances: [] })
   })
 })
 

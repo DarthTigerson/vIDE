@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
-import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
+import { useEditorSettingsStore, type MarkdownOpenMode } from '@/stores/editorSettingsStore'
 import { Toggle } from '@/components/ui/Toggle'
+import { Select } from '@/components/ui/Select'
 import { LSP_SERVER_IDS } from '@/stores/lspSettingsStore'
 import { useLspStatusStore, subscribeLspInstallEvents } from '@/stores/lspStatusStore'
 import { LspServerRow } from './LspServerRow'
@@ -15,6 +16,8 @@ export function EditorSettingsPage() {
   const setChangeAllOccurrencesInMenu = useEditorSettingsStore((s) => s.setChangeAllOccurrencesInMenu)
   const openInBiggestPane = useEditorSettingsStore((s) => s.openInBiggestPane)
   const setOpenInBiggestPane = useEditorSettingsStore((s) => s.setOpenInBiggestPane)
+  const markdownOpenMode = useEditorSettingsStore((s) => s.markdownOpenMode)
+  const setMarkdownOpenMode = useEditorSettingsStore((s) => s.setMarkdownOpenMode)
   const refreshLspStatus = useLspStatusStore((s) => s.refresh)
 
   useEffect(() => {
@@ -66,6 +69,31 @@ export function EditorSettingsPage() {
             checked={changeAllOccurrencesInMenu}
             onChange={setChangeAllOccurrencesInMenu}
           />
+        </Row>
+      </Section>
+
+      <Section label="Markdown">
+        <Row>
+          <p className="text-xs text-fg-muted max-w-[60ch] mb-3">
+            What clicking a .md file in the file tree does by default. The right-click menu's
+            "Open / Edit" and "View in Markdown Viewer" actions always do exactly what they say,
+            regardless of this setting.
+          </p>
+          <div className="max-w-xs">
+            <label htmlFor="markdown-open-mode" className="text-xs text-fg-muted mb-1.5 block">
+              Open .md files in
+            </label>
+            <Select
+              id="markdown-open-mode"
+              value={markdownOpenMode}
+              onChange={(v) => setMarkdownOpenMode(v as MarkdownOpenMode)}
+              options={[
+                { value: 'editor',  label: 'Editor' },
+                { value: 'preview', label: 'Preview' },
+                { value: 'split',   label: 'Both (editor left, preview right)' },
+              ]}
+            />
+          </div>
         </Row>
       </Section>
 

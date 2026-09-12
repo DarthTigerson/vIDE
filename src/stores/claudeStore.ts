@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { AssistantKind } from '@/types/api'
-import { hueForInstanceIndex } from '@/lib/claudeInstanceHues'
+import { hueForInstanceIndex, nextHueForInstances } from '@/lib/claudeInstanceHues'
 
 const ASSISTANT_KEY = 'vide-last-assistant'
 const VALID: AssistantKind[] = ['claude', 'bridge']
@@ -19,8 +19,8 @@ export interface ClaudeInstance {
   hue: string
 }
 
-function createInstance(index: number): ClaudeInstance {
-  return { id: crypto.randomUUID(), hue: hueForInstanceIndex(index) }
+function createInstance(hue: string): ClaudeInstance {
+  return { id: crypto.randomUUID(), hue }
 }
 
 interface ClaudeState {
@@ -48,6 +48,7 @@ interface ClaudeState {
   previousSession: (cwd: string) => void
   resumeSession: (cwd: string) => void
   closeInstance: (cwd: string, id: string) => void
+  closeAllInstances: (cwd: string) => void
   setActiveInstance: (id: string) => void
   compact: () => void
   clearContext: () => void
@@ -89,7 +90,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
     const validSaved = Array.isArray(saved)
       ? saved.filter((inst): inst is ClaudeInstance => typeof inst?.id === 'string' && typeof inst?.hue === 'string')
       : []
-    const instances = validSaved.length > 0 ? validSaved : [createInstance(0)]
+    const instances = validSaved.length > 0 ? validSaved : [createInstance(hueForInstanceIndex(0))]
     set({ instances, activeInstanceId: instances[0].id })
   },
 
@@ -109,7 +110,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
 
   newSession: (cwd: string) => {
     const instances = get().instances
-    const instance = createInstance(instances.length)
+    const instance = createInstance(nextHueForInstances(instances))
     const nextInstances = [...instances, instance]
     set({ instances: nextInstances, activeInstanceId: instance.id })
     // Whole-file overwrite — fine today since claudeInstances is the only
@@ -131,22 +132,39 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
 
   setActiveInstance: (id) => set({ activeInstanceId: id }),
 
+  // Closing the last remaining instance is allowed — there's nothing left
+  // to switch to, so the "+" in the activity bar becomes the only way back
+  // in, same as before any session ever existed.
   closeInstance: (cwd: string, id: string) => {
     const { instances, activeInstanceId } = get()
-    if (instances.length <= 1) return
     const closedIndex = instances.findIndex((inst) => inst.id === id)
     if (closedIndex === -1) return
 
     const nextInstances = instances.filter((inst) => inst.id !== id)
     window.api.claudeKill(id)
 
-    const nextActiveId = activeInstanceId === id
-      ? nextInstances[Math.min(closedIndex, nextInstances.length - 1)].id
-      : activeInstanceId
+    const nextActiveId =
+      activeInstanceId !== id
+        ? activeInstanceId
+        : (nextInstances[Math.min(closedIndex, nextInstances.length - 1)]?.id ?? '')
 
-    set({ instances: nextInstances, activeInstanceId: nextActiveId })
+    set({
+      instances: nextInstances,
+      activeInstanceId: nextActiveId,
+      // Nothing left to show — collapse the chat panel instead of leaving
+      // it open on an empty terminal. newSession()'s "+" click handler
+      // already sets this back to true, so it reopens itself for free.
+      ...(nextInstances.length === 0 ? { chatVisible: false } : {}),
+    })
     // Whole-file overwrite — see the comment in newSession() above.
     window.api.sessionSave(cwd, { claudeInstances: nextInstances } as any)
+  },
+
+  closeAllInstances: (cwd: string) => {
+    const { instances } = get()
+    for (const inst of instances) window.api.claudeKill(inst.id)
+    set({ instances: [], activeInstanceId: '', chatVisible: false })
+    window.api.sessionSave(cwd, { claudeInstances: [] } as any)
   },
 
   compact: () => {
