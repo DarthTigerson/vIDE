@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "build:mobile": "electron-vite build --mode mobile",
     "preview": "electron-vite preview",
     "test": "vitest run",
     "rebuild": "electron-rebuild -f -w node-pty",
