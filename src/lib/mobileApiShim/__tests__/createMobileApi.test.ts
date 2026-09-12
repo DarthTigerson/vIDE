@@ -126,6 +126,27 @@ describe('createMobileApi', () => {
     expect(reload).toHaveBeenCalledTimes(1)
   })
 
+  it('round-trips sessionLoad/sessionSave through invoke, mirroring session:load/session:save', async () => {
+    const api = createMobileApi('ws://host/relay')
+    await tick()
+    const ws = FakeWebSocket.instances[0]
+
+    const loadPromise = api.sessionLoad('/repo')
+    const loadSent = JSON.parse(ws.sent[0])
+    expect(loadSent).toMatchObject({ type: 'invoke', method: 'session:load', args: ['/repo'] })
+    ws.onmessage?.({
+      data: JSON.stringify({ type: 'response', id: loadSent.id, result: { claudeInstances: [{ id: 'c1', hue: '120' }] } }),
+    })
+    await expect(loadPromise).resolves.toEqual({ claudeInstances: [{ id: 'c1', hue: '120' }] })
+
+    const data = { claudeInstances: [{ id: 'c1', hue: '120' }] }
+    const savePromise = api.sessionSave('/repo', data as never)
+    const saveSent = JSON.parse(ws.sent[1])
+    expect(saveSent).toMatchObject({ type: 'invoke', method: 'session:save', args: ['/repo', data] })
+    ws.onmessage?.({ data: JSON.stringify({ type: 'response', id: saveSent.id, result: undefined }) })
+    await expect(savePromise).resolves.toBeUndefined()
+  })
+
   it('queues an invoke/send call issued before the socket opens and flushes it once open', async () => {
     const api = createMobileApi('ws://host/relay')
     const ws = FakeWebSocket.instances[0]

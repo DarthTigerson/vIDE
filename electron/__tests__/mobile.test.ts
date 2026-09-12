@@ -91,7 +91,15 @@ function newServer(): MobileServer {
   )
 }
 
-function newServerWithManagers(): { server: MobileServer; ptyManager: ReturnType<typeof fakePtyManager>; claudeManager: ReturnType<typeof fakeClaudeManager> } {
+function newServerWithManagers(): {
+  server: MobileServer
+  ptyManager: ReturnType<typeof fakePtyManager>
+  claudeManager: ReturnType<typeof fakeClaudeManager>
+  bridgeManager: ReturnType<typeof fakeBridgeManager>
+  autocompleteManager: ReturnType<typeof fakeAutocompleteManager>
+  inlineEditManager: ReturnType<typeof fakeInlineEditManager>
+  commitMessageManager: ReturnType<typeof fakeCommitMessageManager>
+} {
   const usageManager = new UsageManager(
     join(userDataDir, 'usage-history.jsonl'),
     join(userDataDir, 'usage-settings.json'),
@@ -100,17 +108,21 @@ function newServerWithManagers(): { server: MobileServer; ptyManager: ReturnType
   )
   const ptyManager = fakePtyManager()
   const claudeManager = fakeClaudeManager()
+  const bridgeManager = fakeBridgeManager()
+  const autocompleteManager = fakeAutocompleteManager()
+  const inlineEditManager = fakeInlineEditManager()
+  const commitMessageManager = fakeCommitMessageManager()
   const server = new MobileServer(
     fakeWin(),
     usageManager,
     ptyManager,
     claudeManager,
-    fakeBridgeManager(),
-    fakeAutocompleteManager(),
-    fakeInlineEditManager(),
-    fakeCommitMessageManager()
+    bridgeManager,
+    autocompleteManager,
+    inlineEditManager,
+    commitMessageManager
   )
-  return { server, ptyManager, claudeManager }
+  return { server, ptyManager, claudeManager, bridgeManager, autocompleteManager, inlineEditManager, commitMessageManager }
 }
 
 function authenticate(port: number, pin: string): Promise<string> {
@@ -403,6 +415,26 @@ describe('MobileServer relay session teardown', () => {
 
     expect(created.ptyManager.disposeWindow).toHaveBeenCalledWith(MOBILE_RELAY_WINDOW_ID)
     expect(created.claudeManager.disposeWindow).toHaveBeenCalledWith(MOBILE_RELAY_WINDOW_ID)
+  })
+
+  // Guards against the exact bug class the mobile-vide-client Task 10 fix
+  // addressed: a mobile-originated Bridge conversation, autocomplete
+  // request, inline edit, or commit-message generation left running (or a
+  // leaked child process) after Mobile Display is turned off, because
+  // MobileServer.stop() never told those managers' MOBILE_RELAY_WINDOW_ID
+  // bucket to tear down — the same disposal PtyManager/ClaudeManager
+  // already got above.
+  it('stop() also disposes the mobile relay virtual-window bucket in BridgeManager, AutocompleteManager, InlineEditManager, and CommitMessageManager', async () => {
+    const created = newServerWithManagers()
+    server = created.server
+    await server.start()
+
+    server.stop()
+
+    expect(created.bridgeManager.disposeWindow).toHaveBeenCalledWith(MOBILE_RELAY_WINDOW_ID)
+    expect(created.autocompleteManager.disposeWindow).toHaveBeenCalledWith(MOBILE_RELAY_WINDOW_ID)
+    expect(created.inlineEditManager.disposeWindow).toHaveBeenCalledWith(MOBILE_RELAY_WINDOW_ID)
+    expect(created.commitMessageManager.disposeWindow).toHaveBeenCalledWith(MOBILE_RELAY_WINDOW_ID)
   })
 })
 

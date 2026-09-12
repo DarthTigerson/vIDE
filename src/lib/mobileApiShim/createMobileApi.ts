@@ -245,6 +245,10 @@ export function createMobileApi(wsUrl: string) {
     inlineEditStart: invoke('inlineEdit:start'),
     inlineEditCancel: invoke('inlineEdit:cancel'),
 
+    // session — mirrors electron/mobileRelay/channels/sessionChannels.ts
+    sessionLoad: invoke('session:load'),
+    sessionSave: invoke('session:save'),
+
     // Event handlers for data sync and bridge events
     onTodosChanged: on('todos:changed'),
     onNotesChanged: on('notes:changed'),
