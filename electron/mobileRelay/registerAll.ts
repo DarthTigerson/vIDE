@@ -8,6 +8,8 @@ import { registerDockerRelayChannels } from './channels/dockerChannels'
 import { registerChangelogRelayChannels } from './channels/changelogChannels'
 import { registerOnboardingRelayChannels } from './channels/onboardingChannels'
 import { registerCommitMessageRelayChannels } from './channels/commitMessageChannels'
+import { registerRecentProjectsRelayChannels } from './channels/recentProjectsChannels'
+import { registerWindowRelayChannels } from './channels/windowChannels'
 import type { PtyManager } from '../pty'
 import type { ClaudeManager } from '../claude'
 
@@ -34,4 +36,6 @@ export function registerAllRelayChannels(deps: RelayChannelDeps): void {
   registerChangelogRelayChannels()
   registerOnboardingRelayChannels()
   registerCommitMessageRelayChannels()
+  registerRecentProjectsRelayChannels()
+  registerWindowRelayChannels()
 }

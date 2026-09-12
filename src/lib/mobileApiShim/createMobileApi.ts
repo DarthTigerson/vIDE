@@ -188,5 +188,13 @@ export function createMobileApi(wsUrl: string) {
     onboardingSetGitIdentity: invoke('onboarding:setGitIdentity'),
     onboardingPrimeAutomationPermission: invoke('onboarding:primeAutomationPermission'),
     onboardingOpenAutomationSettings: invoke('onboarding:openAutomationSettings'),
+
+    // recentProjects — mirrors electron/mobileRelay/channels/recentProjectsChannels.ts
+    recentProjectsList: invoke('recentProjects:list'),
+    recentProjectsAdd: invoke('recentProjects:add'),
+    recentProjectsClear: invoke('recentProjects:clear'),
+
+    // window — mirrors electron/mobileRelay/channels/windowChannels.ts
+    windowSetTitle: doSend('window:setTitle'),
   }
 }

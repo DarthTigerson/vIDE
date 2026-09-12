@@ -37,5 +37,15 @@ export const EXCLUDED_CHANNELS = new Set<string>([
   // App-level and process-management operations
   'update:restart',  // quits the desktop app, not applicable to browser client
   'commitMessage:generate',  // per-window Claude process spawning
-  'autocomplete:complete', 'lsp:install', 'lsp:setEnabled', 'lsp:detectAll', // specialized processes/system management
+  'autocomplete:complete', 'lsp:install', 'lsp:setEnabled', 'lsp:detectAll', 'lsp:getDefinition',  // language server processes
+
+  // Advanced features requiring desktop state/processes
+  'usage:acquire', 'usage:release', 'usage:getLatest', 'usage:getRange', 'usage:getPassiveEnabled', 'usage:setPassiveEnabled',
+  'update:getLatest',  // update checking tied to app.getVersion() and desktop state
+  'bridge:send', 'bridge:approve', 'bridge:reject', 'bridge:cancel', 'bridge:testConnection', 'bridge:getSettings', 'bridge:setSettings',  // LLM bridge connections
+  'todos:listProjects', 'todos:createProject', 'todos:renameProject', 'todos:deleteProject', 'todos:listTodos',
+  'todos:createTodo', 'todos:updateTodo', 'todos:reorderTodo', 'todos:archiveTodo', 'todos:archiveTodos',
+  'todos:deleteTodo', 'todos:addComment', 'todos:saveAttachment', 'todos:readAttachmentDataUrl',  // todos/notes MCP features
+  'notes:getRoot', 'notes:createNote', 'notes:createFolder', 'notes:renameEntry', 'notes:search',
+  'graphify:isAvailable', 'graphify:run', 'graphify:readGraph', 'graphify:installClaudeSkill',  // knowledge graph features
 ])
