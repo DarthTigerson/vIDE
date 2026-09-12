@@ -1,5 +1,22 @@
 # vIDE
 
+## v0.2.12 (2026-09-12)
+- **Notification system rework**: status bar alerts now live in a single shared panel with a priority teaser in the footer pill instead of separate ad-hoc messages; session and weekly usage alerts can show simultaneously, each with its own icon, and the footer text goes quiet after acknowledgment while the panel keeps listing every active item; added a compact bell toggle for narrow status bar widths, a wider footer pill and panel, a scrollable panel list, and a dismiss button on individual rows
+- Failed git commits now raise a notification that opens the Git panel
+- **Claude sessions**: added "Close All Sessions", and closing a session no longer refuses to close the last one — the chat panel collapses and Claude-dependent toolbar actions (Compact/Clear/Usage/Cost/Usage Graph/mute) disable themselves when no session is open
+- **Markdown editor/preview split view**, with a configurable default open mode
+- Git Graph and List Diff tabs can now open in the biggest pane
+- **Memory usage breakdown popover**, showing app and Docker stats
+- **To Do**: new `archive_todo` MCP tool, an "Archive All" action for the Done column (atomic bulk archive), and rename/delete support for todo projects
+- Added Rockhoppers and Good Girl background images
+
+**Bug fixes**
+- Fixed a new Claude session always defaulting to the 2nd palette colour instead of the first colour not already in use
+- Fixed the new-todo composer discarding a typed title on blur instead of keeping it as a draft
+- Fixed the Todo board losing each column's scroll position across remounts (e.g. after opening a card's detail page)
+- Fixed usage panel columns shrinking and wrapping text on narrow widths
+
+
 ## v0.2.11 (2026-09-11)
 - **Multi-repo Git panel rework**: repos now start closed in a multi-repo project — pick which ones you're working on from a new "Show All Repos" palette (search, star-to-favorite, matching the Branch/Command Palette look) instead of an inline overview; an opened repo's header gets a right-click menu for Reveal in File Tree, Close Repo, and Close All Repos, replacing the old always-visible icon buttons and header button
 - Repos now expand one at a time (opening one collapses whichever was open before), and that expanded repo is always what the footer, activity-bar badge, and header highlight agree is "active" — switching editor tabs or expanding a different repo's section keeps everything in sync instead of drifting apart
