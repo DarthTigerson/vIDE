@@ -243,11 +243,12 @@ describe('claudeStore.closeInstance', () => {
 
   // Closing the last remaining instance is allowed — the "+" button is the
   // way back in, same as before any session ever existed.
-  it('closes the last remaining instance too, clearing activeInstanceId', () => {
+  it('closes the last remaining instance too, clearing activeInstanceId and collapsing the chat panel', () => {
     useClaudeStore.getState().closeInstance('/project', 'a')
     useClaudeStore.getState().closeInstance('/project', 'c')
     expect(useClaudeStore.getState().instances).toHaveLength(1)
 
+    useClaudeStore.setState({ chatVisible: true })
     const killMock = (window.api as any).claudeKill as ReturnType<typeof vi.fn>
     killMock.mockClear()
     useClaudeStore.getState().closeInstance('/project', useClaudeStore.getState().instances[0].id)
@@ -255,23 +256,32 @@ describe('claudeStore.closeInstance', () => {
     const state = useClaudeStore.getState()
     expect(state.instances).toHaveLength(0)
     expect(state.activeInstanceId).toBe('')
+    expect(state.chatVisible).toBe(false)
     expect(killMock).toHaveBeenCalledWith('b')
+  })
+
+  it('leaves the chat panel alone when a close still leaves other instances open', () => {
+    useClaudeStore.setState({ chatVisible: true })
+    useClaudeStore.getState().closeInstance('/project', 'a')
+    expect(useClaudeStore.getState().chatVisible).toBe(true)
   })
 })
 
 describe('claudeStore.closeAllInstances', () => {
-  it('kills every instance and clears the list and active id', () => {
+  it('kills every instance, clears the list and active id, and collapses the chat panel', () => {
     useClaudeStore.getState().loadInstancesFromSession([
       { id: 'a', hue: '#111111' },
       { id: 'b', hue: '#222222' },
       { id: 'c', hue: '#333333' },
     ])
+    useClaudeStore.setState({ chatVisible: true })
 
     useClaudeStore.getState().closeAllInstances('/project')
 
     const state = useClaudeStore.getState()
     expect(state.instances).toHaveLength(0)
     expect(state.activeInstanceId).toBe('')
+    expect(state.chatVisible).toBe(false)
     const killMock = (window.api as any).claudeKill as ReturnType<typeof vi.fn>
     expect(killMock).toHaveBeenCalledWith('a')
     expect(killMock).toHaveBeenCalledWith('b')

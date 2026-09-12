@@ -148,7 +148,14 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
         ? activeInstanceId
         : (nextInstances[Math.min(closedIndex, nextInstances.length - 1)]?.id ?? '')
 
-    set({ instances: nextInstances, activeInstanceId: nextActiveId })
+    set({
+      instances: nextInstances,
+      activeInstanceId: nextActiveId,
+      // Nothing left to show — collapse the chat panel instead of leaving
+      // it open on an empty terminal. newSession()'s "+" click handler
+      // already sets this back to true, so it reopens itself for free.
+      ...(nextInstances.length === 0 ? { chatVisible: false } : {}),
+    })
     // Whole-file overwrite — see the comment in newSession() above.
     window.api.sessionSave(cwd, { claudeInstances: nextInstances } as any)
   },
@@ -156,7 +163,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
   closeAllInstances: (cwd: string) => {
     const { instances } = get()
     for (const inst of instances) window.api.claudeKill(inst.id)
-    set({ instances: [], activeInstanceId: '' })
+    set({ instances: [], activeInstanceId: '', chatVisible: false })
     window.api.sessionSave(cwd, { claudeInstances: [] } as any)
   },
 

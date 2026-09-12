@@ -1063,7 +1063,10 @@ export default function App() {
                   icon: <CompactIcon />,
                   title: 'Compact',
                   active: false,
-                  disabled: !projectRoot,
+                  // Nothing to compact/clear/report on with every session
+                  // closed — same reasoning as the ClaudeStore functions
+                  // below all needing at least one instance to act on.
+                  disabled: !projectRoot || instances.length === 0,
                   onClick: () => useClaudeStore.getState().compact(),
                 },
                 {
@@ -1071,7 +1074,7 @@ export default function App() {
                   icon: <ClearIcon />,
                   title: 'Clear',
                   active: false,
-                  disabled: !projectRoot,
+                  disabled: !projectRoot || instances.length === 0,
                   onClick: () => useClaudeStore.getState().clearContext(),
                 },
               ],
@@ -1083,7 +1086,7 @@ export default function App() {
                     : <SpeakerIcon />,
                   title: notificationSoundMuted ? 'Unmute completion sound' : 'Mute completion sound',
                   active: false,
-                  disabled: !projectRoot,
+                  disabled: !projectRoot || instances.length === 0,
                   onClick: () => setNotificationSoundMuted(!notificationSoundMuted),
                 }] : []),
                 {
@@ -1091,7 +1094,7 @@ export default function App() {
                   icon: <UsageIcon />,
                   title: 'Usage',
                   active: usageOpen,
-                  disabled: !projectRoot,
+                  disabled: !projectRoot || instances.length === 0,
                   onClick: () => useClaudeStore.getState().usage(),
                 },
                 {
@@ -1099,7 +1102,7 @@ export default function App() {
                   icon: <CostIcon />,
                   title: 'Cost',
                   active: costOpen,
-                  disabled: !projectRoot,
+                  disabled: !projectRoot || instances.length === 0,
                   onClick: () => useClaudeStore.getState().cost(),
                 },
                 {
@@ -1107,7 +1110,7 @@ export default function App() {
                   icon: <UsageGraphIcon />,
                   title: 'Usage Graph',
                   active: activeTabPath === USAGE_GRAPH_TAB_PATH,
-                  disabled: !projectRoot,
+                  disabled: !projectRoot || instances.length === 0,
                   onClick: () => useEditorStore.getState().openTab({ path: USAGE_GRAPH_TAB_PATH, content: '', dirty: false }),
                 },
               ],
