@@ -8,6 +8,7 @@ import QRCode from 'qrcode'
 import { UsageManager } from './usageManager'
 import { createRelayServer, RelayConnection, RelayServer } from './mobileRelay/relayServer'
 import { dispatch } from './mobileRelay/dispatch'
+import { registerAllRelayChannels } from './mobileRelay/registerAll'
 
 export interface MobileNetworkInterface {
   name: string
@@ -135,6 +136,7 @@ export class MobileServer {
 
   constructor(win: BrowserWindow, private readonly usageManager: UsageManager) {
     this.win = win
+    registerAllRelayChannels()
   }
 
   private pushState(): void {

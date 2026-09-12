@@ -1,6 +1,10 @@
 import type { InboundMessage, OutboundMessage } from './protocol'
 
-export type ChannelHandler = (...args: unknown[]) => unknown
+// `any[]` (not `unknown[]`) so individual channel registrations can declare
+// concrete parameter types (e.g. `(cwd: string) => ...`) without a cast —
+// under strictFunctionTypes, `unknown[]` params would reject any narrower
+// handler signature at the call site.
+export type ChannelHandler = (...args: any[]) => unknown
 
 const channels = new Map<string, ChannelHandler>()
 
