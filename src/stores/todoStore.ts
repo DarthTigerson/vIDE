@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useEditorStore } from './editorStore'
 import type { Todo, TodoProject, TodoStatus, TodoUpdatePatch } from '@/types/api'
 
 // A stable reference for "no todos loaded yet" — selectors must never
@@ -44,6 +45,8 @@ interface TodoStore {
   setColumnScroll: (projectId: string, status: TodoStatus, scrollTop: number) => void
   loadProjects: () => Promise<void>
   createProject: (name: string, key: string) => Promise<TodoProject>
+  renameProject: (id: string, name: string, key: string) => Promise<TodoProject>
+  deleteProject: (id: string) => Promise<void>
   loadTodos: (projectId: string) => Promise<void>
   createTodo: (projectId: string, title: string) => Promise<Todo>
   updateTodo: (id: string, patch: TodoUpdatePatch) => Promise<Todo>
@@ -92,6 +95,23 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
     const project = await window.api.todosCreateProject(name, key)
     set({ projects: [...get().projects, project] })
     return project
+  },
+
+  renameProject: async (id, name, key) => {
+    const renamed = await window.api.todosRenameProject(id, name, key)
+    set({ projects: get().projects.map((p) => (p.id === id ? renamed : p)) })
+    return renamed
+  },
+
+  deleteProject: async (id) => {
+    await window.api.todosDeleteProject(id)
+    const { [id]: _removed, ...todosByProject } = get().todosByProject
+    set({
+      projects: get().projects.filter((p) => p.id !== id),
+      todosByProject,
+      lastOpenedProjectId: get().lastOpenedProjectId === id ? null : get().lastOpenedProjectId,
+    })
+    useEditorStore.getState().closeTabsForProject(id)
   },
 
   loadTodos: async (projectId) => {

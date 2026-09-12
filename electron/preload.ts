@@ -349,6 +349,9 @@ contextBridge.exposeInMainWorld('api', {
 
   todosListProjects: () => ipcRenderer.invoke('todos:listProjects'),
   todosCreateProject: (name: string, key: string) => ipcRenderer.invoke('todos:createProject', name, key),
+  todosRenameProject: (id: string, name: string, key: string) =>
+    ipcRenderer.invoke('todos:renameProject', id, name, key),
+  todosDeleteProject: (id: string) => ipcRenderer.invoke('todos:deleteProject', id),
   todosListTodos: (projectId: string) => ipcRenderer.invoke('todos:listTodos', projectId),
   todosCreateTodo: (projectId: string, title: string) => ipcRenderer.invoke('todos:createTodo', projectId, title),
   todosUpdateTodo: (id: string, patch: unknown) => ipcRenderer.invoke('todos:updateTodo', id, patch),

@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useTodoStore } from '../todoStore'
+import { useEditorStore } from '../editorStore'
+import { buildTodoBoardPath } from '@/components/Settings/paths'
 import type { TodoProject, Todo } from '@/types/api'
 
 const project: TodoProject = { id: 'p1', name: 'vIDE', key: 'H', nextNumber: 2, createdAt: 1 }
@@ -28,6 +30,8 @@ vi.stubGlobal('window', {
   api: {
     todosListProjects: vi.fn().mockResolvedValue([project]),
     todosCreateProject: vi.fn(),
+    todosRenameProject: vi.fn(),
+    todosDeleteProject: vi.fn().mockResolvedValue(undefined),
     todosListTodos: vi.fn().mockResolvedValue([makeTodo()]),
     todosCreateTodo: vi.fn(),
     todosUpdateTodo: vi.fn(),
@@ -59,6 +63,57 @@ describe('todoStore', () => {
     expect(window.api.todosCreateProject).toHaveBeenCalledWith('Harness', 'HA')
     expect(result).toEqual(created)
     expect(useTodoStore.getState().projects).toContainEqual(created)
+  })
+
+  it('renameProject calls the API and replaces the project in the list', async () => {
+    useTodoStore.setState({ projects: [project] })
+    const renamed: TodoProject = { ...project, name: 'vIDE 2', key: 'V2' }
+    ;(window.api.todosRenameProject as ReturnType<typeof vi.fn>).mockResolvedValue(renamed)
+
+    const result = await useTodoStore.getState().renameProject('p1', 'vIDE 2', 'V2')
+
+    expect(window.api.todosRenameProject).toHaveBeenCalledWith('p1', 'vIDE 2', 'V2')
+    expect(result).toEqual(renamed)
+    expect(useTodoStore.getState().projects).toEqual([renamed])
+  })
+
+  it('deleteProject calls the API, removes the project and its todos, and closes its tabs', async () => {
+    useEditorStore.setState({
+      tabs: [],
+      activeTabPath: null,
+      layout: { type: 'pane', id: 'pane-1' },
+      activePaneId: 'pane-1',
+      paneTabs: { 'pane-1': null },
+      paneTabLists: { 'pane-1': [] },
+      closedTabs: [],
+      pinnedPaths: new Set(),
+    })
+    useEditorStore.getState().openTab({ path: buildTodoBoardPath('p1'), content: '', dirty: false })
+    useTodoStore.setState({
+      projects: [project],
+      todosByProject: { p1: [makeTodo()] },
+      lastOpenedProjectId: 'p1',
+    })
+
+    await useTodoStore.getState().deleteProject('p1')
+
+    expect(window.api.todosDeleteProject).toHaveBeenCalledWith('p1')
+    expect(useTodoStore.getState().projects).toEqual([])
+    expect(useTodoStore.getState().todosByProject.p1).toBeUndefined()
+    expect(useTodoStore.getState().lastOpenedProjectId).toBeNull()
+    expect(useEditorStore.getState().tabs).toHaveLength(0)
+  })
+
+  it('deleteProject leaves lastOpenedProjectId alone when a different project is deleted', async () => {
+    useTodoStore.setState({
+      projects: [project, { ...project, id: 'p2', key: 'A' }],
+      todosByProject: {},
+      lastOpenedProjectId: 'p2',
+    })
+
+    await useTodoStore.getState().deleteProject('p1')
+
+    expect(useTodoStore.getState().lastOpenedProjectId).toBe('p2')
   })
 
   it('loadTodos populates todosByProject for the given project', async () => {

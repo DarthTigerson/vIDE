@@ -312,6 +312,8 @@ declare global {
 
       todosListProjects: () => Promise<TodoProject[]>
       todosCreateProject: (name: string, key: string) => Promise<TodoProject>
+      todosRenameProject: (id: string, name: string, key: string) => Promise<TodoProject>
+      todosDeleteProject: (id: string) => Promise<void>
       todosListTodos: (projectId: string) => Promise<Todo[]>
       todosCreateTodo: (projectId: string, title: string) => Promise<Todo>
       todosUpdateTodo: (id: string, patch: TodoUpdatePatch) => Promise<Todo>

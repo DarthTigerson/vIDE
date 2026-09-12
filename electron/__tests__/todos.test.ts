@@ -62,6 +62,71 @@ describe('todos', () => {
     it('rejects an empty key', async () => {
       await expect(handlers['todos:createProject']({}, 'vIDE', '   ')).rejects.toThrow()
     })
+
+    it('renameProject updates the name and key', async () => {
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
+      const renamed = (await handlers['todos:renameProject']({}, project.id, 'vIDE 2', 'V2')) as any
+
+      expect(renamed).toMatchObject({ id: project.id, name: 'vIDE 2', key: 'V2' })
+      expect(await handlers['todos:listProjects']()).toEqual([renamed])
+    })
+
+    it('renameProject rejects a name that collides case-insensitively with another project', async () => {
+      await handlers['todos:createProject']({}, 'vIDE', 'H')
+      const other = (await handlers['todos:createProject']({}, 'Harness', 'A')) as any
+
+      await expect(handlers['todos:renameProject']({}, other.id, 'vide', 'A')).rejects.toThrow()
+    })
+
+    it('renameProject rejects a key that collides case-insensitively with another project', async () => {
+      await handlers['todos:createProject']({}, 'vIDE', 'H')
+      const other = (await handlers['todos:createProject']({}, 'Harness', 'A')) as any
+
+      await expect(handlers['todos:renameProject']({}, other.id, 'Harness', 'h')).rejects.toThrow()
+    })
+
+    it('renameProject allows keeping the same name and key', async () => {
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
+
+      const renamed = (await handlers['todos:renameProject']({}, project.id, 'vIDE', 'H')) as any
+
+      expect(renamed).toMatchObject({ id: project.id, name: 'vIDE', key: 'H' })
+    })
+
+    it('renameProject throws for an unknown project', async () => {
+      await expect(handlers['todos:renameProject']({}, 'missing', 'x', 'X')).rejects.toThrow()
+    })
+
+    it('deleteProject removes the project and its todos', async () => {
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
+      await handlers['todos:createTodo']({}, project.id, 'First')
+
+      await handlers['todos:deleteProject']({}, project.id)
+
+      expect(await handlers['todos:listProjects']()).toEqual([])
+      expect(await handlers['todos:listTodos']({}, project.id)).toEqual([])
+    })
+
+    it('deleteProject does not touch todos belonging to other projects', async () => {
+      const doomed = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
+      const survivor = (await handlers['todos:createProject']({}, 'Harness', 'A')) as any
+      await handlers['todos:createTodo']({}, doomed.id, 'Goes away')
+      const kept = await handlers['todos:createTodo']({}, survivor.id, 'Stays')
+
+      await handlers['todos:deleteProject']({}, doomed.id)
+
+      expect(await handlers['todos:listTodos']({}, survivor.id)).toEqual([kept])
+    })
+
+    it('deleteProject clears the active-todo marker if it pointed at one of the deleted todos', async () => {
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
+      const todo = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
+      await startTodo('/fake/userData', todo.id)
+
+      await handlers['todos:deleteProject']({}, project.id)
+
+      expect(await readActiveTodo('/fake/userData')).toBeNull()
+    })
   })
 
   describe('todos', () => {

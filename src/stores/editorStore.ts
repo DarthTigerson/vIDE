@@ -1,5 +1,11 @@
 import { create } from 'zustand'
 import type { Tab } from '@/types/index'
+import {
+  isTodoBoardTab,
+  getTodoBoardProjectId,
+  isTodoDetailTab,
+  getTodoDetailIds,
+} from '@/components/Settings/paths'
 
 export type EditorSplitDirection = 'horizontal' | 'vertical'
 export type SplitPlacement = 'before' | 'after'
@@ -48,6 +54,12 @@ function collectPaneIds(node: EditorLayoutNode): string[] {
 // predicate), collapsing any pane left with nothing open the same way
 // closeTabInPane already does one tab at a time - just applied to however
 // many panes empty out at once here.
+function isTodoProjectTab(path: string, projectId: string): boolean {
+  if (isTodoBoardTab(path)) return getTodoBoardProjectId(path) === projectId
+  if (isTodoDetailTab(path)) return getTodoDetailIds(path).projectId === projectId
+  return false
+}
+
 function closeTabsMatching(state: EditorState, shouldClose: (tab: Tab) => boolean): Partial<EditorState> {
   const pathsToClose = new Set(
     state.tabs.filter((t) => !state.pinnedPaths.has(t.path) && shouldClose(t)).map((t) => t.path)
@@ -196,6 +208,7 @@ interface EditorState {
   togglePin: (path: string) => void
   closeAllTabs: () => void
   closeSavedTabs: () => void
+  closeTabsForProject: (projectId: string) => void
   reopenLastClosed: () => void
   resetForNewProject: () => void
   moveTabWithinPane: (paneId: string, path: string, targetPath: string, placement: 'before' | 'after') => void
@@ -407,6 +420,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   closeAllTabs: () => set((state) => closeTabsMatching(state, () => true)),
 
   closeSavedTabs: () => set((state) => closeTabsMatching(state, (tab) => !tab.dirty)),
+
+  closeTabsForProject: (projectId) =>
+    set((state) => closeTabsMatching(state, (tab) => isTodoProjectTab(tab.path, projectId))),
 
   reopenLastClosed: () =>
     set((state) => {
