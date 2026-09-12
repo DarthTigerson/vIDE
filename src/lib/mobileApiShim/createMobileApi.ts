@@ -161,5 +161,19 @@ export function createMobileApi(wsUrl: string) {
 
     // system — mirrors electron/mobileRelay/channels/systemChannels.ts
     getSystemMemoryUsage: invoke('system:getMemoryUsage'),
+
+    // docker — mirrors electron/mobileRelay/channels/dockerChannels.ts
+    dockerStatus: invoke('docker:status'),
+    dockerListContainers: invoke('docker:listContainers'),
+    dockerStartContainer: invoke('docker:startContainer'),
+    dockerStopContainer: invoke('docker:stopContainer'),
+    dockerRestartContainer: invoke('docker:restartContainer'),
+    dockerRemoveContainer: invoke('docker:removeContainer'),
+    dockerStartContainers: invoke('docker:startContainers'),
+    dockerStopContainers: invoke('docker:stopContainers'),
+    dockerRemoveContainers: invoke('docker:removeContainers'),
+    dockerGetContainerStats: invoke('docker:getContainerStats'),
+    dockerOpenApp: invoke('docker:openApp'),
+    dockerCloseApp: invoke('docker:closeApp'),
   }
 }

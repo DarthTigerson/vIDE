@@ -4,6 +4,7 @@ import { registerFsRelayChannels } from './channels/fsChannels'
 import { registerTermRelayChannels } from './channels/termChannels'
 import { registerClaudeRelayChannels } from './channels/claudeChannels'
 import { registerSystemRelayChannels } from './channels/systemChannels'
+import { registerDockerRelayChannels } from './channels/dockerChannels'
 import type { PtyManager } from '../pty'
 import type { ClaudeManager } from '../claude'
 
@@ -26,4 +27,5 @@ export function registerAllRelayChannels(deps: RelayChannelDeps): void {
   registerTermRelayChannels(deps.ptyManager, deps.win)
   registerClaudeRelayChannels(deps.claudeManager, deps.win)
   registerSystemRelayChannels()
+  registerDockerRelayChannels()
 }

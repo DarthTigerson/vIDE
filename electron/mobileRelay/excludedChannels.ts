@@ -13,4 +13,6 @@ export const EXCLUDED_CHANNELS = new Set<string>([
   // Git PTY streaming channels — require per-window PTY state management and desktop-specific terminal control
   'fs:watchRoot',
   // File system watch control — requires managing watchers per desktop window instance
+  'docker:runLogs', 'docker:stopLogs', 'docker:watch', 'docker:unwatch',
+  // Docker streaming channels — require per-window Docker process/event stream management
 ])
