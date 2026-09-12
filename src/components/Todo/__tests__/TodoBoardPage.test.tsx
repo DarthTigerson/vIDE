@@ -60,6 +60,7 @@ beforeEach(() => {
   useTodoStore.setState({
     projects: [project],
     boardViewByProject: {},
+    columnScrollByProject: {},
     todosByProject: {
       p1: [
         makeTodo({ id: 'H-1', title: 'Fix bug', status: 'backlog' }),
@@ -179,6 +180,22 @@ describe('TodoBoardPage', () => {
 
     expect(screen.getByText('Old and done')).toBeInTheDocument()
     expect(screen.queryByText('Fix bug')).not.toBeInTheDocument()
+  })
+
+  it('restores a column\'s scroll position across a remount of the same project (e.g. after moving a card out via the detail tab)', () => {
+    const { unmount } = render(<TodoBoardPage projectId="p1" />)
+    const columnScrollEl = (title: string) =>
+      screen.getByText(title).closest('div')!.nextElementSibling as HTMLDivElement
+
+    fireEvent.scroll(columnScrollEl('Backlog'), { target: { scrollTop: 120 } })
+
+    // Same remount VIDE-57 was filed against: scrolling a column, then
+    // navigating away and back (e.g. via a todo's detail tab) used to reset
+    // every column back to the top.
+    unmount()
+    render(<TodoBoardPage projectId="p1" />)
+
+    expect(columnScrollEl('Backlog').scrollTop).toBe(120)
   })
 
   it('dropping a card onto empty column space appends it to the end of that column', () => {

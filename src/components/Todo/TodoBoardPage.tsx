@@ -26,6 +26,7 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
   const archiveTodo = useTodoStore((s) => s.archiveTodo)
   const view = useTodoStore((s) => s.boardViewByProject[projectId] ?? 'board')
   const setView = useTodoStore((s) => s.setBoardView)
+  const setColumnScroll = useTodoStore((s) => s.setColumnScroll)
   const openTab = useEditorStore((s) => s.openTab)
 
   const [addingStatus, setAddingStatus] = useState<TodoStatus | null>(null)
@@ -59,6 +60,18 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
 
   function openDetail(todoId: string) {
     openTab({ path: buildTodoDetailPath(projectId, todoId), content: '', dirty: false })
+  }
+
+  // Restores a column's remembered scroll offset the instant its scroll
+  // container (re)mounts — covers returning from a todo detail tab, toggling
+  // back from the archive view, and switching projects, all of which unmount
+  // this div without React otherwise remembering where it was scrolled to.
+  function registerColumnScroll(status: TodoStatus) {
+    return (el: HTMLDivElement | null) => {
+      if (!el) return
+      const saved = useTodoStore.getState().columnScrollByProject[projectId]?.[status]
+      if (saved != null) el.scrollTop = saved
+    }
   }
 
   function handleColumnDrop(e: React.DragEvent, status: TodoStatus) {
@@ -204,7 +217,11 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
                   {filterTodos(groups[col.status], searchQuery).length}
                 </span>
               </div>
-              <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-y-auto p-3">
+              <div
+                ref={registerColumnScroll(col.status)}
+                onScroll={(e) => setColumnScroll(projectId, col.status, e.currentTarget.scrollTop)}
+                className="flex-1 min-h-0 flex flex-col gap-2 overflow-y-auto p-3"
+              >
                 {sortTodos(
                   filterTodos(groups[col.status], searchQuery),
                   sortModes[col.status],

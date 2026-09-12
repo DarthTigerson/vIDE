@@ -35,6 +35,13 @@ interface TodoStore {
   // Todo panel can re-focus the project you were last on.
   lastOpenedProjectId: string | null
   setLastOpenedProject: (projectId: string) => void
+  // Per-column scroll offsets, keyed by project then status. Same
+  // survives-remount rationale as boardViewByProject: TodoBoardPage
+  // unmounts whenever a todo detail tab becomes active or the view flips
+  // to archive, which would otherwise silently reset every column back to
+  // the top (e.g. right after moving a card out of a scrolled-down column).
+  columnScrollByProject: Record<string, Partial<Record<TodoStatus, number>>>
+  setColumnScroll: (projectId: string, status: TodoStatus, scrollTop: number) => void
   loadProjects: () => Promise<void>
   createProject: (name: string, key: string) => Promise<TodoProject>
   loadTodos: (projectId: string) => Promise<void>
@@ -64,6 +71,17 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
 
   lastOpenedProjectId: null,
   setLastOpenedProject: (projectId) => set({ lastOpenedProjectId: projectId }),
+
+  columnScrollByProject: {},
+  setColumnScroll: (projectId, status, scrollTop) => {
+    const bucket = get().columnScrollByProject[projectId] ?? {}
+    set({
+      columnScrollByProject: {
+        ...get().columnScrollByProject,
+        [projectId]: { ...bucket, [status]: scrollTop },
+      },
+    })
+  },
 
   loadProjects: async () => {
     const projects = await window.api.todosListProjects()
