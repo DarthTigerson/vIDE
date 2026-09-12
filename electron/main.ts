@@ -670,7 +670,7 @@ app.whenReady().then(async () => {
   )
   usageMgr.registerHandlers()
 
-  const mobileSrv = new MobileServer(broadcastWin, usageMgr, ptyMgr, claudeMgr)
+  const mobileSrv = new MobileServer(broadcastWin, usageMgr, ptyMgr, claudeMgr, bridgeMgr)
   mobileSrv.registerHandlers()
 
   updateChecker = new UpdateChecker(app.getVersion(), (info) => {

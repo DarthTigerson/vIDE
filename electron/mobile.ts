@@ -246,10 +246,11 @@ export class MobileServer {
     win: BrowserWindow,
     private readonly usageManager: UsageManager,
     private readonly ptyManager: PtyManager,
-    private readonly claudeManager: ClaudeManager
+    private readonly claudeManager: ClaudeManager,
+    private readonly bridgeManager: any
   ) {
     this.win = win
-    registerAllRelayChannels({ ptyManager, claudeManager, win })
+    registerAllRelayChannels({ ptyManager, claudeManager, win, usageManager, bridgeManager })
   }
 
   private pushState(): void {

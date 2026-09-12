@@ -3,49 +3,43 @@
 // desktop OS window (a native menu, a native file dialog) — anything that
 // could plausibly work from a phone belongs in a channels/*.ts file instead.
 export const EXCLUDED_CHANNELS = new Set<string>([
-  // Native file/menu dialogs
-  'dialog:openFolder',       // native macOS/Linux folder picker — no phone equivalent
-  'menu:openProject', 'menu:closeActiveTab', 'menu:zoomIn', 'menu:zoomOut',
-  'menu:resetZoom', 'menu:openSettings', 'menu:newFile', 'menu:newFolder',
-  'menu:newTerminal', 'menu:reopenClosedTab', 'menu:save',
-  // Native Electron Menu events — the phone has no OS-level app menu to bind to
-  'window:getInitialProject', 'window:openInNewWindow', 'window:focusProjectIfOpen',
-  // Desktop window management — not applicable to mobile sessions
-
-  // Streaming/PTY channels requiring per-window state
-  'git:runCommand', 'git:log:resize', 'git:watchRoot',
-  'fs:watchRoot',
+  // Streaming/PTY channels requiring per-connection state management
+  'git:runCommand', 'git:log:resize',
+  // Task 5 broadcaster already pushes git:changed/fs:changed to all connected clients regardless
+  // of watched root; no per-connection registration point to wire this channel against
+  'git:watchRoot', 'fs:watchRoot',
+  // Docker event streaming — new streaming wiring comparable to term:data, deferred
   'docker:runLogs', 'docker:stopLogs', 'docker:watch', 'docker:unwatch',
 
-  // Desktop-only features
+  // Desktop-only native features
   'devtools:attach', 'devtools:detach',    // native developer tools
   'browserView:create', 'browserView:setBounds', 'browserView:setVisible', 'browserView:navigate',
   'browserView:goBack', 'browserView:goForward', 'browserView:reload', 'browserView:zoomIn',
   'browserView:zoomOut', 'browserView:zoomReset', 'browserView:setMobileMode', 'browserView:clearCache',
-  'browserView:clearCookies', 'browserView:destroy',  // native Electron BrowserView instances
-  'session:load', 'session:save',          // desktop Electron session persistence
-  'inlineEdit:start', 'inlineEdit:cancel', // desktop editor inline edit features
+  'browserView:clearCookies', 'browserView:destroy',  // native Electron BrowserView instances — composite ON THE MAC'S SCREEN, not visible to phone user
+  'dialog:openFolder',  // native macOS/Linux folder picker — no phone equivalent
+  'menu:openProject', 'menu:closeActiveTab', 'menu:zoomIn', 'menu:zoomOut',
+  'menu:resetZoom', 'menu:openSettings', 'menu:newFile', 'menu:newFolder',
+  'menu:newTerminal', 'menu:reopenClosedTab', 'menu:save',  // native Electron Menu events
+  'window:getInitialProject', 'window:openInNewWindow', 'window:focusProjectIfOpen',  // desktop window management
+  'session:load', 'session:save',  // dead code — zero callers in the app
+
   'mobile:start', 'mobile:stop', 'mobile:getState', 'mobile:addDevice', 'mobile:selectInterface',
   'mobile:disconnectDevice', 'mobile:disconnectAll', 'mobile:setDisplay', 'mobile:setDefaultMode',
-  // Mobile server control — a mobile client is already connected and doesn't control the server
+  // Mobile server control — a mobile client doesn't control its own pairing server
 
-  // MCP (Model Context Protocol) controls — architecture-specific
+  // MCP (Model Context Protocol) toggle channels — desktop-config-only (NOT the underlying todos/notes data, which are implemented below)
   'browser:mcp:enable', 'browser:mcp:disable',
   'todos:mcp:enable', 'todos:mcp:disable',
   'notes:mcp:enable', 'notes:mcp:disable',
 
-  // App-level and process-management operations
-  'update:restart',  // quits the desktop app, not applicable to browser client
-  'commitMessage:generate',  // per-window Claude process spawning
-  'autocomplete:complete', 'lsp:install', 'lsp:setEnabled', 'lsp:detectAll', 'lsp:getDefinition',  // language server processes
+  // App-level operations
+  'update:restart',  // quits the desktop app
 
-  // Advanced features requiring desktop state/processes
-  'usage:acquire', 'usage:release', 'usage:getLatest', 'usage:getRange', 'usage:getPassiveEnabled', 'usage:setPassiveEnabled',
-  'update:getLatest',  // update checking tied to app.getVersion() and desktop state
-  'bridge:send', 'bridge:approve', 'bridge:reject', 'bridge:cancel', 'bridge:testConnection', 'bridge:getSettings', 'bridge:setSettings',  // LLM bridge connections
-  'todos:listProjects', 'todos:createProject', 'todos:renameProject', 'todos:deleteProject', 'todos:listTodos',
-  'todos:createTodo', 'todos:updateTodo', 'todos:reorderTodo', 'todos:archiveTodo', 'todos:archiveTodos',
-  'todos:deleteTodo', 'todos:addComment', 'todos:saveAttachment', 'todos:readAttachmentDataUrl',  // todos/notes MCP features
-  'notes:getRoot', 'notes:createNote', 'notes:createFolder', 'notes:renameEntry', 'notes:search',
-  'graphify:isAvailable', 'graphify:run', 'graphify:readGraph', 'graphify:installClaudeSkill',  // knowledge graph features
+  // Language server management — ambiguous whether these should work from mobile; deferred
+  'lsp:install', 'lsp:setEnabled', 'lsp:detectAll', 'lsp:getDefinition',
+
+  // Peripheral features — long-running processes, lower priority
+  'graphify:isAvailable', 'graphify:run', 'graphify:readGraph', 'graphify:installClaudeSkill',
+  'update:getLatest',  // minor feature
 ])

@@ -197,8 +197,57 @@ export function createMobileApi(wsUrl: string) {
     // window — mirrors electron/mobileRelay/channels/windowChannels.ts
     windowSetTitle: doSend('window:setTitle'),
 
-    // Placeholder event handlers for excluded features — excluded from relay but needed for API compatibility
+    // usage — mirrors electron/mobileRelay/channels/usageChannels.ts
+    usageAcquire: invoke('usage:acquire'),
+    usageRelease: invoke('usage:release'),
+    usageGetLatest: invoke('usage:getLatest'),
+    usageGetRange: invoke('usage:getRange'),
+    usageGetPassiveEnabled: invoke('usage:getPassiveEnabled'),
+    usageSetPassiveEnabled: invoke('usage:setPassiveEnabled'),
+
+    // bridge — mirrors electron/mobileRelay/channels/bridgeChannels.ts
+    bridgeSend: doSend('bridge:send'),
+    bridgeApprove: doSend('bridge:approve'),
+    bridgeReject: doSend('bridge:reject'),
+    bridgeCancel: doSend('bridge:cancel'),
+    bridgeTestConnection: invoke('bridge:testConnection'),
+
+    // todos — mirrors electron/mobileRelay/channels/todosChannels.ts
+    todosListProjects: invoke('todos:listProjects'),
+    todosCreateProject: invoke('todos:createProject'),
+    todosRenameProject: invoke('todos:renameProject'),
+    todosDeleteProject: invoke('todos:deleteProject'),
+    todosListTodos: invoke('todos:listTodos'),
+    todosCreateTodo: invoke('todos:createTodo'),
+    todosUpdateTodo: invoke('todos:updateTodo'),
+    todosReorderTodo: invoke('todos:reorderTodo'),
+    todosArchiveTodo: invoke('todos:archiveTodo'),
+    todosArchiveTodos: invoke('todos:archiveTodos'),
+    todosDeleteTodo: invoke('todos:deleteTodo'),
+    todosAddComment: invoke('todos:addComment'),
+    todosSaveAttachment: invoke('todos:saveAttachment'),
+    todosReadAttachmentDataUrl: invoke('todos:readAttachmentDataUrl'),
+
+    // notes — mirrors electron/mobileRelay/channels/notesChannels.ts
+    notesGetRoot: invoke('notes:getRoot'),
+    notesCreateNote: invoke('notes:createNote'),
+    notesCreateFolder: invoke('notes:createFolder'),
+    notesRenameEntry: invoke('notes:renameEntry'),
+    notesSearch: invoke('notes:search'),
+
+    // autocomplete — mirrors electron/mobileRelay/channels/autocompleteChannels.ts
+    autocompleteComplete: invoke('autocomplete:complete'),
+
+    // commitMessage — mirrors electron/mobileRelay/channels/commitMessageChannels.ts
+    commitMessageGenerate: invoke('commitMessage:generate'),
+
+    // inlineEdit — mirrors electron/mobileRelay/channels/inlineEditChannels.ts
+    inlineEditStart: invoke('inlineEdit:start'),
+    inlineEditCancel: invoke('inlineEdit:cancel'),
+
+    // Event handlers for data sync and bridge events
     onTodosChanged: on('todos:changed'),
     onNotesChanged: on('notes:changed'),
+    onBridgeEvent: on('bridge:event'),
   }
 }
