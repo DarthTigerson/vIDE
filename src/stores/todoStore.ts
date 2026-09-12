@@ -57,6 +57,7 @@ interface TodoStore {
     beforeId: string | null
   ) => Promise<void>
   archiveTodo: (id: string, archived: boolean) => Promise<Todo>
+  archiveTodos: (ids: string[], archived: boolean) => Promise<void>
   deleteTodo: (id: string) => Promise<void>
   addComment: (todoId: string, body: string, attachments?: string[]) => Promise<Todo>
   saveAttachment: (dataUrl: string) => Promise<string>
@@ -150,6 +151,13 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
     const updated = await window.api.todosArchiveTodo(id, archived)
     set({ todosByProject: replaceInBucket(get().todosByProject, updated) })
     return updated
+  },
+
+  archiveTodos: async (ids, archived) => {
+    const updated = await window.api.todosArchiveTodos(ids, archived)
+    let todosByProject = get().todosByProject
+    for (const todo of updated) todosByProject = replaceInBucket(todosByProject, todo)
+    set({ todosByProject })
   },
 
   deleteTodo: async (id) => {

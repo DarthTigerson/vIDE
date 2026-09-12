@@ -37,6 +37,7 @@ vi.stubGlobal('window', {
     todosUpdateTodo: vi.fn(),
     todosReorderTodo: vi.fn(),
     todosArchiveTodo: vi.fn(),
+    todosArchiveTodos: vi.fn(),
     todosDeleteTodo: vi.fn().mockResolvedValue(undefined),
     todosAddComment: vi.fn(),
     todosSaveAttachment: vi.fn(),
@@ -189,6 +190,23 @@ describe('todoStore', () => {
 
     expect(window.api.todosDeleteTodo).toHaveBeenCalledWith('H-1')
     expect(useTodoStore.getState().todosByProject.p1).toEqual([])
+  })
+
+  it('archiveTodos calls the bulk API once and replaces every affected todo in its project list', async () => {
+    useTodoStore.setState({
+      todosByProject: { p1: [makeTodo({ id: 'H-1' }), makeTodo({ id: 'H-2' }), makeTodo({ id: 'H-3' })] },
+    })
+    const archived = [makeTodo({ id: 'H-1', archived: true }), makeTodo({ id: 'H-2', archived: true })]
+    ;(window.api.todosArchiveTodos as ReturnType<typeof vi.fn>).mockResolvedValue(archived)
+
+    await useTodoStore.getState().archiveTodos(['H-1', 'H-2'], true)
+
+    expect(window.api.todosArchiveTodos).toHaveBeenCalledTimes(1)
+    expect(window.api.todosArchiveTodos).toHaveBeenCalledWith(['H-1', 'H-2'], true)
+    const bucket = useTodoStore.getState().todosByProject.p1
+    expect(bucket.find((t) => t.id === 'H-1')?.archived).toBe(true)
+    expect(bucket.find((t) => t.id === 'H-2')?.archived).toBe(true)
+    expect(bucket.find((t) => t.id === 'H-3')?.archived).toBe(false)
   })
 
   it('saveAttachment delegates to the API and returns the attachment id', async () => {

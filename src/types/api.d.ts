@@ -319,6 +319,7 @@ declare global {
       todosUpdateTodo: (id: string, patch: TodoUpdatePatch) => Promise<Todo>
       todosReorderTodo: (id: string, status: TodoStatus, beforeId: string | null) => Promise<Todo>
       todosArchiveTodo: (id: string, archived: boolean) => Promise<Todo>
+      todosArchiveTodos: (ids: string[], archived: boolean) => Promise<Todo[]>
       todosDeleteTodo: (id: string) => Promise<void>
       todosAddComment: (todoId: string, body: string, attachments?: string[]) => Promise<Todo>
       todosSaveAttachment: (dataUrl: string) => Promise<string>

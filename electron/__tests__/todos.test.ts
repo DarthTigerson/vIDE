@@ -237,6 +237,55 @@ describe('todos', () => {
       expect(archived.archived).toBe(true)
     })
 
+    it('concurrent archiveTodo calls race and can silently lose an update (documents why bulk archive needs an atomic call)', async () => {
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
+      const t1 = (await handlers['todos:createTodo']({}, project.id, 'One')) as any
+      const t2 = (await handlers['todos:createTodo']({}, project.id, 'Two')) as any
+
+      await Promise.all([
+        handlers['todos:archiveTodo']({}, t1.id, true),
+        handlers['todos:archiveTodo']({}, t2.id, true),
+      ])
+
+      const todos = (await handlers['todos:listTodos']({}, project.id)) as any[]
+      expect(todos.some((t) => !t.archived)).toBe(true)
+    })
+
+    it('archiveTodos archives every given id in a single atomic write', async () => {
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
+      const t1 = (await handlers['todos:createTodo']({}, project.id, 'One')) as any
+      const t2 = (await handlers['todos:createTodo']({}, project.id, 'Two')) as any
+      const t3 = (await handlers['todos:createTodo']({}, project.id, 'Three')) as any
+
+      const updated = (await handlers['todos:archiveTodos']({}, [t1.id, t2.id], true)) as any[]
+
+      expect(updated.map((t) => t.id).sort()).toEqual([t1.id, t2.id].sort())
+      const todos = (await handlers['todos:listTodos']({}, project.id)) as any[]
+      expect(todos.find((t) => t.id === t1.id)?.archived).toBe(true)
+      expect(todos.find((t) => t.id === t2.id)?.archived).toBe(true)
+      expect(todos.find((t) => t.id === t3.id)?.archived).toBe(false)
+    })
+
+    it('archiveTodos throws if any id does not exist, and does not partially apply', async () => {
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
+      const t1 = (await handlers['todos:createTodo']({}, project.id, 'One')) as any
+
+      await expect(handlers['todos:archiveTodos']({}, [t1.id, 'missing'], true)).rejects.toThrow()
+
+      const todos = (await handlers['todos:listTodos']({}, project.id)) as any[]
+      expect(todos.find((t) => t.id === t1.id)?.archived).toBe(false)
+    })
+
+    it('archiveTodos clears the active-todo marker when it points at one of the archived ids', async () => {
+      const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
+      const todo = (await handlers['todos:createTodo']({}, project.id, 'First')) as any
+      await startTodo('/fake/userData', todo.id)
+
+      await handlers['todos:archiveTodos']({}, [todo.id], true)
+
+      expect(await readActiveTodo('/fake/userData')).toBeNull()
+    })
+
     it('deleteTodo removes the todo and is idempotent', async () => {
       const project = (await handlers['todos:createProject']({}, 'vIDE', 'H')) as any
       const todo = (await handlers['todos:createTodo']({}, project.id, 'First')) as any

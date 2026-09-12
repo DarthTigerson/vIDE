@@ -183,6 +183,7 @@ export function TodoCardMenu({
   onSortAllMode,
   onSortColumnDirection,
   onSortAllDirection,
+  onArchiveAll,
 }: {
   x: number
   y: number
@@ -197,6 +198,7 @@ export function TodoCardMenu({
   onSortAllMode: (mode: TodoSortMode) => void
   onSortColumnDirection: (direction: TodoSortDirection) => void
   onSortAllDirection: (direction: TodoSortDirection) => void
+  onArchiveAll?: () => void
 }) {
   const menuRef = useRef<HTMLDivElement>(null)
   useMenuDismiss(onClose)
@@ -237,6 +239,12 @@ export function TodoCardMenu({
         onSelectColumnDirection={withClose(onSortColumnDirection)}
         onSelectAllDirection={withClose(onSortAllDirection)}
       />
+      {onArchiveAll && (
+        <>
+          <MenuDivider />
+          <MenuButton onClick={withClose(onArchiveAll)}>Archive All</MenuButton>
+        </>
+      )}
     </div>,
     document.body
   )
@@ -292,6 +300,7 @@ export function TodoSortMenu({
   onSelectAllMode,
   onSelectColumnDirection,
   onSelectAllDirection,
+  onArchiveAll,
 }: {
   x: number
   y: number
@@ -302,6 +311,7 @@ export function TodoSortMenu({
   onSelectAllMode: (mode: TodoSortMode) => void
   onSelectColumnDirection: (direction: TodoSortDirection) => void
   onSelectAllDirection: (direction: TodoSortDirection) => void
+  onArchiveAll?: () => void
 }) {
   const menuRef = useRef<HTMLDivElement>(null)
   useMenuDismiss(onClose)
@@ -329,6 +339,12 @@ export function TodoSortMenu({
         onSelectColumnDirection={withClose(onSelectColumnDirection)}
         onSelectAllDirection={withClose(onSelectAllDirection)}
       />
+      {onArchiveAll && (
+        <>
+          <MenuDivider />
+          <MenuButton onClick={withClose(onArchiveAll)}>Archive All</MenuButton>
+        </>
+      )}
     </div>,
     document.body
   )

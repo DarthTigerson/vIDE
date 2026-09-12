@@ -48,6 +48,7 @@ const createTodoMock = vi.fn()
 const updateTodoMock = vi.fn()
 const reorderTodoMock = vi.fn()
 const archiveTodoMock = vi.fn()
+const archiveTodosMock = vi.fn()
 const openTabMock = vi.fn()
 
 beforeEach(() => {
@@ -56,6 +57,7 @@ beforeEach(() => {
   updateTodoMock.mockReset().mockResolvedValue(makeTodo())
   reorderTodoMock.mockReset().mockResolvedValue(undefined)
   archiveTodoMock.mockReset().mockResolvedValue(makeTodo())
+  archiveTodosMock.mockReset().mockResolvedValue([])
   openTabMock.mockReset()
   useTodoStore.setState({
     projects: [project],
@@ -73,6 +75,7 @@ beforeEach(() => {
     updateTodo: updateTodoMock,
     reorderTodo: reorderTodoMock,
     archiveTodo: archiveTodoMock,
+    archiveTodos: archiveTodosMock,
   })
   useEditorStore.setState({ openTab: openTabMock })
   ;(global as any).window.api = {
@@ -332,5 +335,103 @@ describe('TodoBoardPage', () => {
   it('does not crash when opening a project that has no todosByProject entry yet', () => {
     useTodoStore.setState({ projects: [project], todosByProject: {} })
     expect(() => render(<TodoBoardPage projectId="p1" />)).not.toThrow()
+  })
+
+  describe('Archive All (Done column)', () => {
+    function openColumnMenu(title: string) {
+      const column = screen.getByText(title).closest('div')!.parentElement!
+      fireEvent.contextMenu(column)
+    }
+
+    it('never shows Archive All on a non-Done column', () => {
+      render(<TodoBoardPage projectId="p1" />)
+      openColumnMenu('Backlog')
+      expect(screen.queryByRole('button', { name: 'Archive All' })).not.toBeInTheDocument()
+    })
+
+    it('does not show Archive All on the Done column when it has no done todos', () => {
+      render(<TodoBoardPage projectId="p1" />)
+      openColumnMenu('Done')
+      expect(screen.queryByRole('button', { name: 'Archive All' })).not.toBeInTheDocument()
+    })
+
+    it('shows Archive All on the Done column once it has done todos', () => {
+      useTodoStore.setState({
+        todosByProject: { p1: [makeTodo({ id: 'H-1', status: 'done' })] },
+      })
+      render(<TodoBoardPage projectId="p1" />)
+      openColumnMenu('Done')
+      expect(screen.getByRole('button', { name: 'Archive All' })).toBeInTheDocument()
+    })
+
+    it('confirming Archive All archives every currently-done todo and closes the modal', async () => {
+      useTodoStore.setState({
+        todosByProject: {
+          p1: [
+            makeTodo({ id: 'H-1', status: 'done' }),
+            makeTodo({ id: 'H-2', status: 'done' }),
+          ],
+        },
+      })
+      render(<TodoBoardPage projectId="p1" />)
+      openColumnMenu('Done')
+      fireEvent.click(screen.getByRole('button', { name: 'Archive All' }))
+      expect(screen.getByText('Archive All Done')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Archive All' }))
+
+      await waitFor(() => {
+        expect(archiveTodosMock).toHaveBeenCalledTimes(1)
+        expect(archiveTodosMock).toHaveBeenCalledWith(['H-1', 'H-2'], true)
+      })
+      expect(screen.queryByText('Archive All Done')).not.toBeInTheDocument()
+    })
+
+    it('canceling the confirm modal archives nothing', () => {
+      useTodoStore.setState({
+        todosByProject: { p1: [makeTodo({ id: 'H-1', status: 'done' })] },
+      })
+      render(<TodoBoardPage projectId="p1" />)
+      openColumnMenu('Done')
+      fireEvent.click(screen.getByRole('button', { name: 'Archive All' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+      expect(archiveTodosMock).not.toHaveBeenCalled()
+      expect(screen.queryByText('Archive All Done')).not.toBeInTheDocument()
+    })
+
+    it('shows Archive All when right-clicking a card that is in the Done column', () => {
+      useTodoStore.setState({
+        todosByProject: { p1: [makeTodo({ id: 'H-1', title: 'Ship it', status: 'done' })] },
+      })
+      render(<TodoBoardPage projectId="p1" />)
+      fireEvent.contextMenu(screen.getByText('Ship it'))
+      expect(screen.getByRole('button', { name: 'Archive All' })).toBeInTheDocument()
+    })
+
+    it('does not show Archive All when right-clicking a card outside the Done column', () => {
+      render(<TodoBoardPage projectId="p1" />)
+      fireEvent.contextMenu(screen.getByText('Fix bug')) // backlog card
+      expect(screen.queryByRole('button', { name: 'Archive All' })).not.toBeInTheDocument()
+    })
+
+    it('confirming Archive All from a card context menu archives every currently-done todo', async () => {
+      useTodoStore.setState({
+        todosByProject: {
+          p1: [
+            makeTodo({ id: 'H-1', title: 'Ship it', status: 'done' }),
+            makeTodo({ id: 'H-2', title: 'Ship it too', status: 'done' }),
+          ],
+        },
+      })
+      render(<TodoBoardPage projectId="p1" />)
+      fireEvent.contextMenu(screen.getByText('Ship it'))
+      fireEvent.click(screen.getByRole('button', { name: 'Archive All' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Archive All' }))
+
+      await waitFor(() => {
+        expect(archiveTodosMock).toHaveBeenCalledTimes(1)
+        expect(archiveTodosMock).toHaveBeenCalledWith(['H-1', 'H-2'], true)
+      })
+    })
   })
 })

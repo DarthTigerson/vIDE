@@ -45,6 +45,9 @@ export function registerTodoHandlers(): void {
   ipcMain.handle('todos:archiveTodo', (_e, id: string, archived: boolean) =>
     store.archiveTodo(dataDir(), id, archived)
   )
+  ipcMain.handle('todos:archiveTodos', (_e, ids: string[], archived: boolean) =>
+    store.archiveTodos(dataDir(), ids, archived)
+  )
   ipcMain.handle('todos:deleteTodo', (_e, id: string) => store.deleteTodo(dataDir(), id))
   ipcMain.handle('todos:addComment', (_e, todoId: string, body: string, attachments?: string[]) =>
     store.addComment(dataDir(), todoId, body, attachments)

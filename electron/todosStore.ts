@@ -283,6 +283,35 @@ export async function archiveTodo(dataDir: string, id: string, archived: boolean
   return todo
 }
 
+// Archives multiple todos in one read-modify-write cycle. Callers that need
+// to archive several todos at once (e.g. "Archive All Done") MUST use this
+// rather than firing concurrent archiveTodo calls: each archiveTodo call
+// independently reads-then-writes the whole file, so concurrent calls race
+// and silently lose updates (last write wins, clobbering the others).
+export async function archiveTodos(dataDir: string, ids: string[], archived: boolean): Promise<Todo[]> {
+  const data = await readTodosData(dataDir)
+  const todos = ids.map((id) => {
+    const todo = data.todos.find((t) => t.id === id)
+    if (!todo) throw new Error(`No such todo: ${id}`)
+    return todo
+  })
+
+  const now = Date.now()
+  for (const todo of todos) {
+    todo.archived = archived
+    todo.updatedAt = now
+  }
+  await writeTodosData(dataDir, data)
+
+  if (archived) {
+    const idSet = new Set(ids)
+    const active = await readActiveTodo(dataDir)
+    if (active && idSet.has(active.id)) await writeActiveTodo(dataDir, null)
+  }
+
+  return todos
+}
+
 export async function deleteTodo(dataDir: string, id: string): Promise<void> {
   const data = await readTodosData(dataDir)
   data.todos = data.todos.filter((t) => t.id !== id)

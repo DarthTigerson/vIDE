@@ -4,6 +4,7 @@ import { useEditorStore } from '@/stores/editorStore'
 import { buildTodoDetailPath } from '@/components/Settings/paths'
 import { TODO_COLUMNS, filterTodos, groupTodosByStatus, sortTodos } from '@/lib/todoBoard'
 import type { TodoSortDirection, TodoSortMode } from '@/lib/todoBoard'
+import { Modal } from '@/components/ui/Modal'
 import { ArchiveIcon } from './ArchiveIcon'
 import { BoardIcon } from './BoardIcon'
 import { TodoCard } from './TodoCard'
@@ -24,6 +25,7 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
   const updateTodo = useTodoStore((s) => s.updateTodo)
   const reorderTodo = useTodoStore((s) => s.reorderTodo)
   const archiveTodo = useTodoStore((s) => s.archiveTodo)
+  const archiveTodos = useTodoStore((s) => s.archiveTodos)
   const view = useTodoStore((s) => s.boardViewByProject[projectId] ?? 'board')
   const setView = useTodoStore((s) => s.setBoardView)
   const setColumnScroll = useTodoStore((s) => s.setColumnScroll)
@@ -53,6 +55,7 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
     | { type: 'card'; x: number; y: number; todo: Todo }
     | { type: 'sort'; x: number; y: number; status: TodoStatus }
   const [menu, setMenu] = useState<BoardMenu | null>(null)
+  const [archiveAllConfirmOpen, setArchiveAllConfirmOpen] = useState(false)
 
   useEffect(() => {
     loadTodos(projectId)
@@ -126,6 +129,14 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
   function openSortMenu(e: React.MouseEvent, status: TodoStatus) {
     e.preventDefault()
     setMenu({ type: 'sort', x: e.clientX, y: e.clientY, status })
+  }
+
+  async function archiveAllDone() {
+    await archiveTodos(
+      groups.done.map((todo) => todo.id),
+      true
+    )
+    setArchiveAllConfirmOpen(false)
   }
 
   async function duplicateTodo(todo: Todo) {
@@ -334,6 +345,9 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
               done: direction,
             })
           }
+          onArchiveAll={
+            menu.todo.status === 'done' ? () => setArchiveAllConfirmOpen(true) : undefined
+          }
         />
       )}
 
@@ -359,7 +373,38 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
               done: direction,
             })
           }
+          onArchiveAll={
+            menu.status === 'done' && groups.done.length > 0
+              ? () => setArchiveAllConfirmOpen(true)
+              : undefined
+          }
         />
+      )}
+
+      {archiveAllConfirmOpen && (
+        <Modal onClose={() => setArchiveAllConfirmOpen(false)}>
+          <h2 className="text-sm font-semibold text-fg mb-1">Archive All Done</h2>
+          <p className="text-sm text-fg-muted mb-5">
+            Archive all {groups.done.length} done {groups.done.length === 1 ? 'todo' : 'todos'}? You can
+            restore them later from the Archive view.
+          </p>
+          <div className="flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setArchiveAllConfirmOpen(false)}
+              className="px-4 py-1.5 text-sm rounded-lg border border-border text-fg-muted hover:text-fg hover:border-fg-muted transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={archiveAllDone}
+              className="px-4 py-1.5 text-sm rounded-lg bg-red-600/80 hover:bg-red-600 text-white font-semibold transition-colors"
+            >
+              Archive All
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   )

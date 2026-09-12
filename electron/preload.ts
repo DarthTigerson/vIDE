@@ -358,6 +358,8 @@ contextBridge.exposeInMainWorld('api', {
   todosReorderTodo: (id: string, status: string, beforeId: string | null) =>
     ipcRenderer.invoke('todos:reorderTodo', id, status, beforeId),
   todosArchiveTodo: (id: string, archived: boolean) => ipcRenderer.invoke('todos:archiveTodo', id, archived),
+  todosArchiveTodos: (ids: string[], archived: boolean) =>
+    ipcRenderer.invoke('todos:archiveTodos', ids, archived),
   todosDeleteTodo: (id: string) => ipcRenderer.invoke('todos:deleteTodo', id),
   todosAddComment: (todoId: string, body: string, attachments?: string[]) =>
     ipcRenderer.invoke('todos:addComment', todoId, body, attachments),
