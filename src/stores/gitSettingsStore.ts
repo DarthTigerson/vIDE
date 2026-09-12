@@ -11,6 +11,7 @@ const KEYS = {
   gitLogAutoShow:            'vide:git:gitLogAutoShow',
   repoScanDepth:             'vide:git:repoScanDepth',
   refsColumnWidth:           'vide:git:refsColumnWidth',
+  openInBiggestPane:         'vide:git:openInBiggestPane',
 }
 
 export const DEFAULT_REPO_SCAN_DEPTH = 4
@@ -71,6 +72,7 @@ interface GitSettingsStore {
   gitLogAutoShow: GitLogAutoShow
   repoScanDepth: number
   refsColumnWidth: number
+  openInBiggestPane: boolean
   setForceSafetyEnabled: (v: boolean) => void
   setCountdownEnabled: (v: boolean) => void
   setCountdownSeconds: (v: number) => void
@@ -82,6 +84,7 @@ interface GitSettingsStore {
   setGitLogAutoShow: (v: GitLogAutoShow) => void
   setRepoScanDepth: (v: number) => void
   setRefsColumnWidth: (v: number) => void
+  setOpenInBiggestPane: (v: boolean) => void
 }
 
 export const useGitSettingsStore = create<GitSettingsStore>((set, get) => ({
@@ -95,6 +98,7 @@ export const useGitSettingsStore = create<GitSettingsStore>((set, get) => ({
   gitLogAutoShow:             getGitLogAutoShow(KEYS.gitLogAutoShow, 'onError'),
   repoScanDepth:              getInt(KEYS.repoScanDepth, DEFAULT_REPO_SCAN_DEPTH),
   refsColumnWidth:            clampRefsColumnWidth(getInt(KEYS.refsColumnWidth, DEFAULT_REFS_COLUMN_WIDTH)),
+  openInBiggestPane:          getBool(KEYS.openInBiggestPane, true),
 
   setForceSafetyEnabled: (v) => {
     localStorage.setItem(KEYS.forceSafetyEnabled, String(v))
@@ -145,5 +149,9 @@ export const useGitSettingsStore = create<GitSettingsStore>((set, get) => ({
     const clamped = clampRefsColumnWidth(v)
     localStorage.setItem(KEYS.refsColumnWidth, String(clamped))
     set({ refsColumnWidth: clamped })
+  },
+  setOpenInBiggestPane: (v) => {
+    localStorage.setItem(KEYS.openInBiggestPane, String(v))
+    set({ openInBiggestPane: v })
   },
 }))
