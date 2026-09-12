@@ -91,10 +91,12 @@ import {
   isImagePreviewTab,
   parseImagePreviewPath,
   isMarkdownPreviewTab,
+  buildMarkdownPreviewPath,
   parseMarkdownPreviewPath,
 } from '@/components/Viewer/paths'
 import { ImageViewer } from '@/components/Viewer/ImageViewer'
 import { MarkdownViewer } from '@/components/Viewer/MarkdownViewer'
+import { isMarkdownFile } from '@/lib/fileKinds'
 import type { GitDiffContent } from '@/types/index'
 import { isVirtualTab, isReadOnlyTab } from '@/lib/tabKinds'
 
@@ -243,6 +245,42 @@ function EditorLayout({ node }: { node: EditorLayoutNode }) {
   )
 }
 
+// Sits at the right edge of the breadcrumb bar for .md files, letting the
+// user split code and rendered preview side by side — always landing on
+// code-left/preview-right regardless of which side the button was pressed
+// from, per openTabInNewSplitPane's placement argument below.
+function MarkdownModeToggleButton({ filePath, mode, paneId }: {
+  filePath: string
+  mode: 'editor' | 'preview'
+  paneId: string
+}) {
+  const openTabInNewSplitPane = useEditorStore((s) => s.openTabInNewSplitPane)
+
+  async function handleClick() {
+    if (mode === 'editor') {
+      openTabInNewSplitPane(
+        { path: buildMarkdownPreviewPath(filePath), content: '', dirty: false },
+        paneId,
+        'horizontal',
+        'after'
+      )
+    } else {
+      const content = await window.api.readFile(filePath)
+      openTabInNewSplitPane({ path: filePath, content, dirty: false }, paneId, 'horizontal', 'before')
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className="px-2.5 h-full border-l border-border bg-white/5 text-[0.6875rem] font-medium text-fg-muted hover:text-fg hover:bg-accent/20 transition-colors"
+    >
+      {mode === 'editor' ? 'Open Preview' : 'Open MD File'}
+    </button>
+  )
+}
+
 function EditorPane({ paneId }: { paneId: string }) {
   const tabs = useEditorStore((s) => s.tabs)
   const paneTabs = useEditorStore((s) => s.paneTabs)
@@ -308,15 +346,23 @@ function EditorPane({ paneId }: { paneId: string }) {
   const isDockerLogs = !!activeTab && isDockerLogsTab(activeTab.path)
   const isImagePreview = !!activeTab && isImagePreviewTab(activeTab.path)
   const isMarkdownPreview = !!activeTab && isMarkdownPreviewTab(activeTab.path)
-  // Plain file tabs only for now - diff/image/markdown-preview tabs encode
-  // their real file path in a scheme (diff://, etc.) rather than using it
-  // directly as activeTab.path, so they'd need separate parsing to show here.
+  // Plain file tabs only for now - diff/image tabs encode their real file
+  // path in a scheme (diff://, etc.) rather than using it directly as
+  // activeTab.path, so they'd need separate parsing to show here.
+  // Markdown-preview tabs are the one exception — breadcrumbFilePath below
+  // parses theirs out, so the breadcrumb (and its editor/preview toggle
+  // button) also shows there.
   const isPlainFileTab =
     !!activeTab &&
     !isVirtual && !isTerminal && !isBrowser &&
     !isDiff && !isCommitDiff && !isGitLog && !isGitGraph && !isGitBranchDiff &&
     !isGraphifyGraph && !isUsageGraph && !isTodoBoard && !isTodoDetail &&
     !isDockerLogs && !isImagePreview && !isMarkdownPreview
+  const breadcrumbFilePath = isPlainFileTab && activeTab
+    ? activeTab.path
+    : isMarkdownPreview && activeTab
+      ? parseMarkdownPreviewPath(activeTab.path)
+      : null
 
   function activatePane() {
     setActivePane(paneId)
@@ -428,9 +474,19 @@ function EditorPane({ paneId }: { paneId: string }) {
       onMouseDown={activatePane}
     >
       <TabBar paneId={paneId} />
-      {isPlainFileTab && activeTab &&
-        !(notesRoot && activeTab.path.startsWith(notesRoot + '/')) && (
-          <EditorBreadcrumb path={activeTab.path} projectRoot={projectRoot} />
+      {breadcrumbFilePath &&
+        !(notesRoot && breadcrumbFilePath.startsWith(notesRoot + '/')) && (
+          <EditorBreadcrumb
+            path={breadcrumbFilePath}
+            projectRoot={projectRoot}
+            right={isMarkdownFile(breadcrumbFilePath) && (
+              <MarkdownModeToggleButton
+                filePath={breadcrumbFilePath}
+                mode={isMarkdownPreview ? 'preview' : 'editor'}
+                paneId={paneId}
+              />
+            )}
+          />
         )}
       <div className="relative flex-1 min-h-0 overflow-hidden">
       <PaneDropZoneOverlay paneId={paneId} />

@@ -232,6 +232,12 @@ interface EditorState {
     direction: EditorSplitDirection,
     placement: SplitPlacement
   ) => void
+  openTabInNewSplitPane: (
+    tab: Tab,
+    paneId: string,
+    direction: EditorSplitDirection,
+    placement: SplitPlacement
+  ) => void
   updateContent: (path: string, content: string) => void
   markSaved: (path: string, content?: string) => void
   syncFromDisk: (path: string, content: string) => void
@@ -672,6 +678,49 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         activeTabPath: path,
         paneTabs: newPaneTabs,
         paneTabLists: newPaneTabLists,
+      }
+    })
+  },
+
+  // Opens a genuinely-new tab into a freshly created pane split off from
+  // `paneId`, leaving paneId's own tab list untouched — unlike
+  // splitPaneForTab, which moves a tab already open in paneId out into the
+  // new sibling. Backs the Markdown editor/preview toggle button, so code
+  // and rendered preview can show side by side. If `tab.path` is already
+  // open somewhere, focuses that pane instead of duplicating it, same as
+  // openTabInPane's rule.
+  openTabInNewSplitPane: (
+    tab: Tab,
+    paneId: string,
+    direction: EditorSplitDirection,
+    placement: SplitPlacement
+  ) => {
+    const { tabs, paneTabLists, layout, openTabInPane } = get()
+    const paneIds = collectPaneIds(layout)
+    const existingPaneId = paneIds.find((pid) => (paneTabLists[pid] ?? []).includes(tab.path))
+    if (existingPaneId) {
+      openTabInPane(tab, existingPaneId)
+      return
+    }
+
+    set((state) => {
+      const nextPaneNumber = collectPaneIds(state.layout).length + 1
+      const nextPaneId = `pane-${Date.now()}-${nextPaneNumber}`
+      const originalPaneNode: EditorLayoutNode = { type: 'pane', id: paneId }
+      const newPaneNode: EditorLayoutNode = { type: 'pane', id: nextPaneId }
+      const replacement: EditorLayoutNode = {
+        type: 'split',
+        direction,
+        children: placement === 'after' ? [originalPaneNode, newPaneNode] : [newPaneNode, originalPaneNode],
+      }
+
+      return {
+        tabs: state.tabs.some((t) => t.path === tab.path) ? state.tabs : [...state.tabs, tab],
+        layout: replacePane(state.layout, paneId, replacement),
+        activePaneId: nextPaneId,
+        activeTabPath: tab.path,
+        paneTabs: { ...state.paneTabs, [nextPaneId]: tab.path },
+        paneTabLists: { ...state.paneTabLists, [nextPaneId]: [tab.path] },
       }
     })
   },

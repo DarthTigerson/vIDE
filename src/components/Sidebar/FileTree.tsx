@@ -13,8 +13,9 @@ import {
   parseImagePreviewPath,
   isMarkdownPreviewTab,
   parseMarkdownPreviewPath,
+  buildMarkdownPreviewPath,
 } from '@/components/Viewer/paths'
-import { isImageFile } from '@/lib/fileKinds'
+import { isImageFile, isMarkdownFile } from '@/lib/fileKinds'
 import { isIgnoredPath } from '@/lib/gitIgnore'
 import { FileIcon, FolderIcon } from './FileIcon'
 
@@ -96,7 +97,7 @@ export function FileTree({
   const revealedPath = useFileStore((s) => s.revealedPath)
   const selectedRepo = useGitReposStore((s) => s.selectedRepo)
   const ignoredPaths = useRepoGitState(selectedRepo).ignoredPaths
-  const { activeTabPath, openTab, openTabInPane } = useEditorStore()
+  const { activeTabPath, openTab, openTabInPane, openTabInNewSplitPane } = useEditorStore()
   // isGitDiffTab/isGitCommitDiffTab both carry a repo-*relative* path (that's
   // what git status/git show hand back, and what getDiffContent's own
   // HEAD:<path> git refs require) — has to be re-joined to the diff tab's
@@ -138,6 +139,24 @@ export function FileTree({
     } else if (isImageFile(node.name)) {
       select(node.path)
       openFileTab({ path: buildImagePreviewPath(node.path), content: '', dirty: false })
+    } else if (isMarkdownFile(node.name)) {
+      select(node.path)
+      const mode = useEditorSettingsStore.getState().markdownOpenMode
+      if (mode === 'preview') {
+        openFileTab({ path: buildMarkdownPreviewPath(node.path), content: '', dirty: false })
+        return
+      }
+      const content = await window.api.readFile(node.path)
+      openFileTab({ path: node.path, content, dirty: false })
+      if (mode === 'split') {
+        const landedPaneId = useEditorStore.getState().activePaneId
+        openTabInNewSplitPane(
+          { path: buildMarkdownPreviewPath(node.path), content: '', dirty: false },
+          landedPaneId,
+          'horizontal',
+          'after'
+        )
+      }
     } else {
       select(node.path)
       const content = await window.api.readFile(node.path)
