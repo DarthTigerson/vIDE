@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { AssistantKind } from '@/types/api'
-import { hueForInstanceIndex } from '@/lib/claudeInstanceHues'
+import { hueForInstanceIndex, nextHueForInstances } from '@/lib/claudeInstanceHues'
 
 const ASSISTANT_KEY = 'vide-last-assistant'
 const VALID: AssistantKind[] = ['claude', 'bridge']
@@ -19,8 +19,8 @@ export interface ClaudeInstance {
   hue: string
 }
 
-function createInstance(index: number): ClaudeInstance {
-  return { id: crypto.randomUUID(), hue: hueForInstanceIndex(index) }
+function createInstance(hue: string): ClaudeInstance {
+  return { id: crypto.randomUUID(), hue }
 }
 
 interface ClaudeState {
@@ -89,7 +89,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
     const validSaved = Array.isArray(saved)
       ? saved.filter((inst): inst is ClaudeInstance => typeof inst?.id === 'string' && typeof inst?.hue === 'string')
       : []
-    const instances = validSaved.length > 0 ? validSaved : [createInstance(0)]
+    const instances = validSaved.length > 0 ? validSaved : [createInstance(hueForInstanceIndex(0))]
     set({ instances, activeInstanceId: instances[0].id })
   },
 
@@ -109,7 +109,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
 
   newSession: (cwd: string) => {
     const instances = get().instances
-    const instance = createInstance(instances.length)
+    const instance = createInstance(nextHueForInstances(instances))
     const nextInstances = [...instances, instance]
     set({ instances: nextInstances, activeInstanceId: instance.id })
     // Whole-file overwrite — fine today since claudeInstances is the only

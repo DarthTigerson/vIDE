@@ -180,6 +180,28 @@ describe('claudeStore.newSession', () => {
     const saveMock = (window.api as any).sessionSave as ReturnType<typeof vi.fn>
     expect(saveMock).toHaveBeenCalledWith('/project', { claudeInstances: useClaudeStore.getState().instances })
   })
+
+  // VIDE-85: opening 3 sessions (orange, blue, purple), closing the orange
+  // and purple ones, and keeping blue used to always hand the next session
+  // the 2nd palette color regardless — which is blue, an exact clash with
+  // the one instance still open. It should pick a color nothing open is
+  // already using instead of just counting how many instances remain.
+  it("picks a color no currently-open instance is using, not just the count-based slot", () => {
+    useClaudeStore.getState().loadInstancesFromSession([
+      { id: 'a', hue: '#D97757' }, // orange
+      { id: 'b', hue: '#5B9BD5' }, // blue
+      { id: 'c', hue: '#9B7ED9' }, // purple
+    ])
+    useClaudeStore.getState().closeInstance('/project', 'a')
+    useClaudeStore.getState().closeInstance('/project', 'c')
+    expect(useClaudeStore.getState().instances).toHaveLength(1) // just blue left
+
+    useClaudeStore.getState().newSession('/project')
+
+    const instances = useClaudeStore.getState().instances
+    expect(instances).toHaveLength(2)
+    expect(instances[1].hue).not.toBe('#5B9BD5')
+  })
 })
 
 describe('claudeStore.closeInstance', () => {
