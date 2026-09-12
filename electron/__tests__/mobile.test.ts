@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeAll, afterAll } from 'vitest'
 import { get, request } from 'http'
+import { mkdirSync, writeFileSync, rmSync } from 'fs'
 
 const { ipcOnHandlers, userDataDir } = vi.hoisted(() => {
   const { mkdtempSync } = require('fs')
@@ -98,6 +99,16 @@ function fetchText(port: number, path: string, cookie?: string): Promise<string>
       let body = ''
       res.on('data', (c) => { body += c })
       res.on('end', () => resolve(body))
+    }).on('error', reject)
+  })
+}
+
+function fetchFull(port: number, path: string, cookie?: string): Promise<{ status: number; headers: Record<string, string | string[] | undefined>; body: string }> {
+  return new Promise((resolve, reject) => {
+    get({ host: '127.0.0.1', port, path, agent: false, headers: cookie ? { Cookie: cookie } : {} }, (res) => {
+      let body = ''
+      res.on('data', (c) => { body += c })
+      res.on('end', () => resolve({ status: res.statusCode ?? 0, headers: res.headers as Record<string, string | string[] | undefined>, body }))
     }).on('error', reject)
   })
 }
@@ -351,5 +362,120 @@ describe('MobileServer relay session teardown', () => {
 
     expect(created.ptyManager.disposeWindow).toHaveBeenCalledWith(MOBILE_RELAY_WINDOW_ID)
     expect(created.claudeManager.disposeWindow).toHaveBeenCalledWith(MOBILE_RELAY_WINDOW_ID)
+  })
+})
+
+// MOBILE_RENDERER_DIR resolves to `<app.getAppPath()>/out/renderer`, which
+// under this suite's electron mock is `<cwd>/out/renderer` — the real
+// `npm run build:mobile` output directory. It's gitignored (build output,
+// not source), so rather than depending on a prior real build being present
+// on disk (flaky: fails on a fresh checkout / in CI without that build
+// step), this block seeds a minimal fixture there itself and tears it back
+// down, independent of whatever real bundle may or may not already exist.
+describe('MobileServer vIDE mode', () => {
+  let server: MobileServer
+  const rendererDir = join(process.cwd(), 'out', 'renderer')
+
+  beforeAll(() => {
+    mkdirSync(join(rendererDir, 'assets'), { recursive: true })
+    writeFileSync(
+      join(rendererDir, 'index.html'),
+      '<!DOCTYPE html><html><head><title>vIDE</title></head><body><div id="root"></div>'
+      + '<script type="module" src="./assets/index-test.js"></script>'
+      + '<link rel="stylesheet" href="./assets/index-test.css"></body></html>'
+    )
+    writeFileSync(join(rendererDir, 'assets', 'index-test.js'), 'console.log("fixture")')
+    writeFileSync(join(rendererDir, 'assets', 'index-test.css'), 'body{margin:0}')
+  })
+
+  afterAll(() => {
+    rmSync(rendererDir, { recursive: true, force: true })
+  })
+
+  afterEach(() => {
+    server?.stop()
+  })
+
+  it('serves a mode chooser after successful pairing, listing both Graph Display and vIDE', async () => {
+    server = newServer()
+    await server.start()
+    const cookie = await authenticate(server['port'], server['pin'])
+
+    const res = await fetchFull(server['port'], '/app', cookie)
+    expect(res.status).toBe(200)
+    expect(res.body).toContain('Graph Display')
+    expect(res.body).toContain('vIDE')
+    expect(res.body).toContain('/app/claude-usage')
+    expect(res.body).toContain('/vide/')
+  })
+
+  it('serves the built renderer bundle when vIDE mode is selected', async () => {
+    server = newServer()
+    await server.start()
+    const cookie = await authenticate(server['port'], server['pin'])
+
+    const res = await fetchFull(server['port'], '/vide/', cookie)
+    expect(res.status).toBe(200)
+    expect(res.headers['content-type']).toContain('text/html')
+    expect(res.body).toContain('<div id="root">')
+  })
+
+  it('redirects /vide (no trailing slash) to /vide/', async () => {
+    server = newServer()
+    await server.start()
+    const cookie = await authenticate(server['port'], server['pin'])
+
+    const res = await fetchFull(server['port'], '/vide', cookie)
+    expect(res.status).toBe(302)
+    expect(res.headers.location).toBe('/vide/')
+  })
+
+  it('serves renderer static assets with content types keyed by extension', async () => {
+    server = newServer()
+    await server.start()
+    const cookie = await authenticate(server['port'], server['pin'])
+
+    const js = await fetchFull(server['port'], '/vide/assets/index-test.js', cookie)
+    expect(js.status).toBe(200)
+    expect(js.headers['content-type']).toContain('javascript')
+    expect(js.body).toContain('fixture')
+
+    const css = await fetchFull(server['port'], '/vide/assets/index-test.css', cookie)
+    expect(css.status).toBe(200)
+    expect(css.headers['content-type']).toContain('text/css')
+  })
+
+  it('404s a renderer asset that does not exist', async () => {
+    server = newServer()
+    await server.start()
+    const cookie = await authenticate(server['port'], server['pin'])
+
+    const res = await fetchFull(server['port'], '/vide/assets/does-not-exist.js', cookie)
+    expect(res.status).toBe(404)
+  })
+
+  it('gates /vide/* behind the same auth check as every other authenticated route', async () => {
+    server = newServer()
+    await server.start()
+
+    const res = await fetchFull(server['port'], '/vide/')
+    expect(res.status).toBe(302)
+    expect(res.headers.location).toBe('/')
+  })
+
+  it('redirects /app straight to the preferred mode once a default is set, and /app?choose=1 still shows the chooser', async () => {
+    server = newServer()
+    await server.start()
+    const cookie = await authenticate(server['port'], server['pin'])
+    server.setDefaultMode('vide')
+
+    const redirected = await fetchFull(server['port'], '/app', cookie)
+    expect(redirected.status).toBe(302)
+    expect(redirected.headers.location).toBe('/vide/')
+
+    const chooser = await fetchFull(server['port'], '/app?choose=1', cookie)
+    expect(chooser.status).toBe(200)
+    expect(chooser.body).toContain('Graph Display')
+    expect(chooser.body).toContain('vIDE')
   })
 })

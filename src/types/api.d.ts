@@ -255,6 +255,7 @@ declare global {
       mobileDisconnectDevice: (id: string) => Promise<void>
       mobileDisconnectAll: () => Promise<void>
       mobileSetDisplay: (theme: string, font: string) => void
+      mobileSetDefaultMode: (mode: 'graph' | 'vide' | null) => void
       onMobileState: (cb: (state: MobileState) => void) => () => void
 
       usageAcquire: () => Promise<void>
