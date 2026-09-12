@@ -5,6 +5,9 @@ import { registerTermRelayChannels } from './channels/termChannels'
 import { registerClaudeRelayChannels } from './channels/claudeChannels'
 import { registerSystemRelayChannels } from './channels/systemChannels'
 import { registerDockerRelayChannels } from './channels/dockerChannels'
+import { registerChangelogRelayChannels } from './channels/changelogChannels'
+import { registerOnboardingRelayChannels } from './channels/onboardingChannels'
+import { registerCommitMessageRelayChannels } from './channels/commitMessageChannels'
 import type { PtyManager } from '../pty'
 import type { ClaudeManager } from '../claude'
 
@@ -28,4 +31,7 @@ export function registerAllRelayChannels(deps: RelayChannelDeps): void {
   registerClaudeRelayChannels(deps.claudeManager, deps.win)
   registerSystemRelayChannels()
   registerDockerRelayChannels()
+  registerChangelogRelayChannels()
+  registerOnboardingRelayChannels()
+  registerCommitMessageRelayChannels()
 }

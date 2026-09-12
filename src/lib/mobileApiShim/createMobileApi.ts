@@ -175,5 +175,18 @@ export function createMobileApi(wsUrl: string) {
     dockerGetContainerStats: invoke('docker:getContainerStats'),
     dockerOpenApp: invoke('docker:openApp'),
     dockerCloseApp: invoke('docker:closeApp'),
+
+    // changelog — mirrors electron/mobileRelay/channels/changelogChannels.ts
+    changelogGetForVersion: invoke('changelog:getForVersion'),
+
+    // onboarding — mirrors electron/mobileRelay/channels/onboardingChannels.ts
+    onboardingGetStatus: invoke('onboarding:getStatus'),
+    onboardingMarkComplete: invoke('onboarding:markComplete'),
+    onboardingReset: invoke('onboarding:reset'),
+    onboardingDetectCli: invoke('onboarding:detectCli'),
+    onboardingGetGitIdentity: invoke('onboarding:getGitIdentity'),
+    onboardingSetGitIdentity: invoke('onboarding:setGitIdentity'),
+    onboardingPrimeAutomationPermission: invoke('onboarding:primeAutomationPermission'),
+    onboardingOpenAutomationSettings: invoke('onboarding:openAutomationSettings'),
   }
 }
