@@ -32,7 +32,7 @@ vi.mock('os', async (importOriginal) => {
   }
 })
 
-import { MobileServer } from '../mobile'
+import { MobileServer, MOBILE_RELAY_WINDOW_ID } from '../mobile'
 import { UsageManager } from '../usageManager'
 import { join } from 'path'
 
@@ -41,11 +41,11 @@ function fakeWin() {
 }
 
 function fakePtyManager() {
-  return { spawn: vi.fn(), kill: vi.fn(), write: vi.fn(), resize: vi.fn() } as any
+  return { spawn: vi.fn(), kill: vi.fn(), write: vi.fn(), resize: vi.fn(), disposeWindow: vi.fn() } as any
 }
 
 function fakeClaudeManager() {
-  return { spawn: vi.fn(), write: vi.fn(), resize: vi.fn(), kill: vi.fn() } as any
+  return { spawn: vi.fn(), write: vi.fn(), resize: vi.fn(), kill: vi.fn(), disposeWindow: vi.fn() } as any
 }
 
 function newServer(): MobileServer {
@@ -56,6 +56,19 @@ function newServer(): MobileServer {
     fakeWin()
   )
   return new MobileServer(fakeWin(), usageManager, fakePtyManager(), fakeClaudeManager())
+}
+
+function newServerWithManagers(): { server: MobileServer; ptyManager: ReturnType<typeof fakePtyManager>; claudeManager: ReturnType<typeof fakeClaudeManager> } {
+  const usageManager = new UsageManager(
+    join(userDataDir, 'usage-history.jsonl'),
+    join(userDataDir, 'usage-settings.json'),
+    join(userDataDir, 'usage-passive-settings.json'),
+    fakeWin()
+  )
+  const ptyManager = fakePtyManager()
+  const claudeManager = fakeClaudeManager()
+  const server = new MobileServer(fakeWin(), usageManager, ptyManager, claudeManager)
+  return { server, ptyManager, claudeManager }
 }
 
 function authenticate(port: number, pin: string): Promise<string> {
@@ -319,5 +332,24 @@ describe('MobileServer device tracking', () => {
     expect(server['state'].connectedCount).toBe(0)
     expect(server['state'].allowingNewDevice).toBe(true)
     expect(server['state'].pin).not.toBe('')
+  })
+})
+
+describe('MobileServer relay session teardown', () => {
+  let server: MobileServer
+
+  afterEach(() => {
+    server?.stop()
+  })
+
+  it('stop() disposes the mobile relay virtual-window bucket in both PtyManager and ClaudeManager', async () => {
+    const created = newServerWithManagers()
+    server = created.server
+    await server.start()
+
+    server.stop()
+
+    expect(created.ptyManager.disposeWindow).toHaveBeenCalledWith(MOBILE_RELAY_WINDOW_ID)
+    expect(created.claudeManager.disposeWindow).toHaveBeenCalledWith(MOBILE_RELAY_WINDOW_ID)
   })
 })

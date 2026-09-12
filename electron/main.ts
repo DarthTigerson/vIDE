@@ -11,7 +11,7 @@ import { GitWatcher } from './gitWatcher'
 import { DockerRunner } from './dockerRunner'
 import { DockerWatcher } from './dockerWatcher'
 import { FileWatcher } from './fileWatcher'
-import { MobileServer } from './mobile'
+import { MobileServer, MOBILE_RELAY_WINDOW_ID } from './mobile'
 import { UsageManager } from './usageManager'
 import { BridgeManager } from './bridge'
 import { AutocompleteManager } from './autocomplete'
@@ -651,7 +651,7 @@ app.whenReady().then(async () => {
   // relay sessions as just another window's worth of state, independent
   // from and outliving any single real desktop window.
   const broadcastWin = {
-    id: -1,
+    id: MOBILE_RELAY_WINDOW_ID,
     isDestroyed: () => false,
     webContents: {
       send: (...args: unknown[]) => {

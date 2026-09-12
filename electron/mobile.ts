@@ -118,6 +118,14 @@ const USAGE_RANGE_MS: Record<string, number> = {
 
 const BASE_PORT = 7842
 
+// Mobile-relay terminal/Claude sessions aren't tied to any real
+// BrowserWindow, so PtyManager/ClaudeManager (which key their per-window
+// state by `win.id`) are given this fixed sentinel instead — negative, so
+// it can never collide with a real Electron-assigned window id. main.ts
+// stamps it onto the fake `broadcastWin` object passed to the relay
+// channels; MobileServer.stop() below uses it to dispose that bucket.
+export const MOBILE_RELAY_WINDOW_ID = -1
+
 // Set by the one MobileServer instance main.ts constructs, so other
 // main-process modules (git/file watchers) can push change events to
 // mobile clients without importing MobileServer itself.
@@ -156,8 +164,8 @@ export class MobileServer {
   constructor(
     win: BrowserWindow,
     private readonly usageManager: UsageManager,
-    ptyManager: PtyManager,
-    claudeManager: ClaudeManager
+    private readonly ptyManager: PtyManager,
+    private readonly claudeManager: ClaudeManager
   ) {
     this.win = win
     registerAllRelayChannels({ ptyManager, claudeManager, win })
@@ -405,6 +413,15 @@ export class MobileServer {
     this.server?.close()
     this.server = null
     this.sessions.clear()
+    // Mobile Display turned off entirely — tear down every terminal/Claude
+    // session any paired device spawned, same as a real window's 'closed'
+    // handler disposing its own PtyManager/ClaudeManager state. A single
+    // device disconnecting while others stay paired is intentionally left
+    // alone: every device currently shares this one virtual-window bucket
+    // (distinguished only by their own instance ids), so disposing here
+    // would kill other still-connected devices' sessions too.
+    this.ptyManager.disposeWindow(MOBILE_RELAY_WINDOW_ID)
+    this.claudeManager.disposeWindow(MOBILE_RELAY_WINDOW_ID)
     this.state = {
       running: false,
       port: this.port,

@@ -146,13 +146,9 @@ export class ClaudeManager {
         this.setBusy(win, inst, instanceId, false)
       })
     } catch {
-      if (!win.isDestroyed()) {
-        win.webContents.send(
-          'claude:data',
-          instanceId,
-          `\r\nError: 'claude' not found in PATH.\r\n${INSTALL_MESSAGE}\r\n`
-        )
-      }
+      const errorMessage = `\r\nError: 'claude' not found in PATH.\r\n${INSTALL_MESSAGE}\r\n`
+      if (!win.isDestroyed()) win.webContents.send('claude:data', instanceId, errorMessage)
+      getMobileBroadcaster().emit('claude:data', instanceId, errorMessage)
     }
   }
 
