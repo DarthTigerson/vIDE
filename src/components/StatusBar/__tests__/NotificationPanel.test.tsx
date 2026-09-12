@@ -78,6 +78,45 @@ describe('NotificationPanel', () => {
     })
     expect(useNotificationPanelStore.getState().open).toBe(false)
   })
+
+  it('shows a dismiss button on each row', () => {
+    render(<NotificationPanel />)
+    expect(screen.getByRole('button', { name: 'Dismiss notification' })).toBeInTheDocument()
+  })
+
+  it('dismissing a row acknowledges it, removes it from the list, and leaves the panel open when another row remains', () => {
+    useDockerSettingsStore.setState({ enabled: true })
+    useDockerStore.setState({ status: 'stopped' })
+    render(<NotificationPanel />)
+    fireEvent.mouseUp(screen.getAllByRole('button', { name: 'Dismiss notification' })[0], { button: 0 })
+
+    expect(screen.queryByText(/Session usage may run out/)).toBeNull()
+    expect(useNotificationAcknowledgedStore.getState().acknowledgedIds).toContain('usage-session')
+    expect(useNotificationPanelStore.getState().open).toBe(true)
+  })
+
+  it('dismissing a row does not run its click action', () => {
+    render(<NotificationPanel />)
+    fireEvent.mouseUp(screen.getByRole('button', { name: 'Dismiss notification' }), { button: 0 })
+    expect(useEditorStore.getState().activeTabPath).not.toBe(USAGE_GRAPH_TAB_PATH)
+  })
+
+  it('dismissing one row leaves other active rows visible', () => {
+    useDockerSettingsStore.setState({ enabled: true })
+    useDockerStore.setState({ status: 'stopped' })
+    render(<NotificationPanel />)
+
+    fireEvent.mouseUp(screen.getAllByRole('button', { name: 'Dismiss notification' })[0], { button: 0 })
+
+    expect(screen.queryByText(/Session usage may run out/)).toBeNull()
+    expect(screen.getByText("Docker isn't running")).toBeInTheDocument()
+  })
+
+  it('dismissing the last visible row closes the panel', () => {
+    render(<NotificationPanel />)
+    fireEvent.mouseUp(screen.getByRole('button', { name: 'Dismiss notification' }), { button: 0 })
+    expect(useNotificationPanelStore.getState().open).toBe(false)
+  })
 })
 
 describe('NotificationPanel — row buttons are removed from the DOM once closed', () => {
