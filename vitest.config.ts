@@ -14,6 +14,9 @@ export default defineConfig({
       ['src/components/**/__tests__/**/*.test.tsx', 'jsdom'],
       ['src/__tests__/**/*.test.tsx', 'jsdom'],
       ['src/hooks/__tests__/**/*.test.tsx', 'jsdom'],
+      // createMobileApi runs only in a real browser (window.location.reload
+      // on disconnect) — jsdom so tests can exercise that path.
+      ['src/lib/mobileApiShim/__tests__/**/*.test.ts', 'jsdom'],
     ],
     include: [
       'src/stores/__tests__/**/*.test.ts',

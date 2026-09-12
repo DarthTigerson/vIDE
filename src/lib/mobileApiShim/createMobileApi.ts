@@ -11,17 +11,49 @@
 type PendingMap = Map<string, { resolve: (v: unknown) => void; reject: (e: unknown) => void }>
 type Listeners = Map<string, Set<(...args: unknown[]) => void>>
 
-function invokeFactory(ws: WebSocket, pending: PendingMap, method: string) {
+// Correlation id for invoke/response matching only — no cryptographic
+// requirement. Deliberately NOT crypto.randomUUID(): MobileServer serves
+// this bundle over plain http:// on a LAN IP (see electron/mobile.ts's
+// pairing URL), and Crypto.randomUUID is spec'd secure-context-only —
+// browsers only expose it on https:/localhost origins. On a real phone
+// loading this page over LAN HTTP, crypto.randomUUID is undefined, so this
+// would throw on every single invoke call.
+let nextRequestId = 0
+function makeRequestId(): string {
+  nextRequestId += 1
+  return `${Date.now()}-${nextRequestId}`
+}
+
+// Outbound messages are queued until the socket actually finishes its
+// handshake — createMobileApi() returns synchronously (before `onopen`
+// fires) and gets installed as window.api immediately, so any component
+// whose mount effect calls a shim method right away would otherwise hit
+// ws.send() while readyState is still CONNECTING, which throws.
+function makeSender(ws: WebSocket) {
+  let open = false
+  const queue: string[] = []
+  ws.onopen = () => {
+    open = true
+    for (const data of queue) ws.send(data)
+    queue.length = 0
+  }
+  return (data: string) => {
+    if (open) ws.send(data)
+    else queue.push(data)
+  }
+}
+
+function invokeFactory(send: (data: string) => void, pending: PendingMap, method: string) {
   return (...args: unknown[]) =>
     new Promise((resolve, reject) => {
-      const id = crypto.randomUUID()
+      const id = makeRequestId()
       pending.set(id, { resolve, reject })
-      ws.send(JSON.stringify({ type: 'invoke', id, method, args }))
+      send(JSON.stringify({ type: 'invoke', id, method, args }))
     })
 }
 
-function sendFactory(ws: WebSocket, method: string) {
-  return (...args: unknown[]) => ws.send(JSON.stringify({ type: 'send', method, args }))
+function sendFactory(send: (data: string) => void, method: string) {
+  return (...args: unknown[]) => send(JSON.stringify({ type: 'send', method, args }))
 }
 
 function onFactory(listeners: Listeners, event: string) {
@@ -36,6 +68,7 @@ export function createMobileApi(wsUrl: string) {
   const ws = new WebSocket(wsUrl)
   const pending: PendingMap = new Map()
   const listeners: Listeners = new Map()
+  const send = makeSender(ws)
 
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data)
@@ -50,8 +83,23 @@ export function createMobileApi(wsUrl: string) {
     }
   }
 
-  const invoke = (method: string) => invokeFactory(ws, pending, method)
-  const send = (method: string) => sendFactory(ws, method)
+  // The relay connection is a single LAN WebSocket with no reconnect logic
+  // of its own; per the mobile-vide-client design doc's Error Handling
+  // section, the chosen v1 strategy for a dropped connection is a full
+  // page reload rather than bespoke rehydration. Reject every in-flight
+  // invoke first so callers don't hang forever on a connection that's
+  // already gone (the reload is async — it doesn't tear down JS state
+  // synchronously).
+  const handleDisconnect = () => {
+    for (const p of pending.values()) p.reject(new Error('mobile relay connection lost'))
+    pending.clear()
+    if (typeof window !== 'undefined') window.location.reload()
+  }
+  ws.onclose = handleDisconnect
+  ws.onerror = handleDisconnect
+
+  const invoke = (method: string) => invokeFactory(send, pending, method)
+  const doSend = (method: string) => sendFactory(send, method)
   const on = (event: string) => onFactory(listeners, event)
 
   return {
@@ -98,16 +146,16 @@ export function createMobileApi(wsUrl: string) {
     // terminal — mirrors electron/mobileRelay/channels/termChannels.ts
     termSpawn: invoke('term:spawn'),
     termKill: invoke('term:kill'),
-    termWrite: send('term:write'),
-    termResize: send('term:resize'),
+    termWrite: doSend('term:write'),
+    termResize: doSend('term:resize'),
     onTermData: on('term:data'),
     onTermExit: on('term:exit'),
 
     // claude — mirrors electron/mobileRelay/channels/claudeChannels.ts
     claudeSpawn: invoke('claude:spawn'),
-    claudeWrite: send('claude:write'),
-    claudeResize: send('claude:resize'),
-    claudeKill: send('claude:kill'),
+    claudeWrite: doSend('claude:write'),
+    claudeResize: doSend('claude:resize'),
+    claudeKill: doSend('claude:kill'),
     onClaudeData: on('claude:data'),
     onClaudeBusy: on('claude:busy'),
   }
