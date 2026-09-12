@@ -1,8 +1,7 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu, shell, webContents, nativeImage } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, Menu, webContents, nativeImage } from 'electron'
 import { basename, join } from 'path'
 import { is } from '@electron-toolkit/utils'
-import { access, cp, mkdir, readFile, rename, writeFile } from 'fs/promises'
-import { homedir } from 'os'
+import { access, cp, readFile, writeFile } from 'fs/promises'
 import { PtyManager } from './pty'
 import { ClaudeManager } from './claude'
 import { BrowserBridge } from './browserBridge'
@@ -20,7 +19,10 @@ import { InlineEditManager } from './inlineEdit'
 import { CommitMessageManager } from './commitMessage'
 import { BrowserViewManager } from './browserViews'
 import { LanguageServerManager } from './lsp/manager'
-import { listAllFiles, searchText, buildTree, readImageDataUrl } from './fsOps'
+import {
+  listAllFiles, searchText, buildTree, readImageDataUrl,
+  readTextFile, pathExists, getHomeDir, writeFile as fsWriteFile, mkdir, renamePath, trashPath,
+} from './fsOps'
 import { registerSessionHandlers } from './session'
 import { registerRecentProjectsHandlers, readRecents, addRecentProject, clearRecentProjects } from './recentProjects'
 import { registerTodoHandlers } from './todos'
@@ -33,23 +35,14 @@ import { registerOnboardingHandlers } from './onboarding'
 
 function registerFsHandlers(): void {
   ipcMain.handle('fs:readDir', (_e, path: string) => buildTree(path))
-  ipcMain.handle('fs:readFile', (_e, path: string) => readFile(path, 'utf-8'))
+  ipcMain.handle('fs:readFile', (_e, path: string) => readTextFile(path))
   ipcMain.handle('fs:readImageDataUrl', (_e, path: string) => readImageDataUrl(path))
-  ipcMain.handle('fs:exists', async (_e, path: string) => {
-    try {
-      await access(path)
-      return true
-    } catch {
-      return false
-    }
-  })
-  ipcMain.handle('fs:homeDir', () => homedir())
-  ipcMain.handle('fs:writeFile', (_e, path: string, content: string) =>
-    writeFile(path, content, 'utf-8')
-  )
-  ipcMain.handle('fs:mkdir', (_e, path: string) => mkdir(path, { recursive: false }))
-  ipcMain.handle('fs:rename', (_e, from: string, to: string) => rename(from, to))
-  ipcMain.handle('fs:trash', (_e, path: string) => shell.trashItem(path))
+  ipcMain.handle('fs:exists', (_e, path: string) => pathExists(path))
+  ipcMain.handle('fs:homeDir', () => getHomeDir())
+  ipcMain.handle('fs:writeFile', (_e, path: string, content: string) => fsWriteFile(path, content))
+  ipcMain.handle('fs:mkdir', (_e, path: string) => mkdir(path))
+  ipcMain.handle('fs:rename', (_e, from: string, to: string) => renamePath(from, to))
+  ipcMain.handle('fs:trash', (_e, path: string) => trashPath(path))
   ipcMain.handle('fs:listAllFiles', (_e, root: string) => listAllFiles(root))
   ipcMain.handle('fs:searchText', (_e, root: string, query: string, caseSensitive: boolean) =>
     searchText(root, query, caseSensitive)
