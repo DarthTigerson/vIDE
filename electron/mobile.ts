@@ -6,6 +6,7 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 import QRCode from 'qrcode'
 import { UsageManager } from './usageManager'
+import { createRelayServer, RelayConnection, RelayServer } from './mobileRelay/relayServer'
 
 export interface MobileNetworkInterface {
   name: string
@@ -110,6 +111,7 @@ const BASE_PORT = 7842
 export class MobileServer {
   private win: BrowserWindow
   private server: Server | null = null
+  private relay: RelayServer | null = null
   private port = BASE_PORT
   private pin = ''
   private prevPin = ''
@@ -319,6 +321,13 @@ export class MobileServer {
     const qrSvg = await this.buildQrForAddress(localIp)
 
     this.server = createServer((req, res) => this.handleRequest(req, res))
+    this.relay = createRelayServer(this.server, {
+      isAuthenticated: (cookieHeader) => {
+        const cookies = parseCookies(cookieHeader)
+        return this.sessions.has(cookies['session'] ?? '')
+      },
+      onConnection: (conn) => this.handleRelayConnection(conn),
+    })
     await new Promise<void>((resolve) => {
       this.server!.listen(this.port, '0.0.0.0', resolve)
     })
@@ -353,9 +362,15 @@ export class MobileServer {
     this.pushState()
   }
 
+  private handleRelayConnection(conn: RelayConnection): void {
+    // Filled in by Task 2: request dispatch and channel mappings.
+  }
+
   stop(): void {
     if (this.rotateInterval) { clearInterval(this.rotateInterval); this.rotateInterval = null }
     this.usageManager.release('mobile')
+    this.relay?.close()
+    this.relay = null
     this.server?.close()
     this.server = null
     this.sessions.clear()
