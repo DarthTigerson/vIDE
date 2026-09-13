@@ -98,7 +98,7 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
-export function BridgeChat({ cwd }: { cwd: string }) {
+export function BridgeChat({ cwd, connectionOverride }: { cwd: string; connectionOverride?: { endpoint: string; apiKey: string; modelId: string } }) {
   useBridgeAgentModeShortcut()
   const messages = useBridgeStore((s) => s.messages)
   const agentMode = useBridgeStore((s) => s.agentMode)
@@ -153,7 +153,7 @@ export function BridgeChat({ cwd }: { cwd: string }) {
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim() || streaming) return
-    sendMessage(cwd, input)
+    sendMessage(cwd, input, connectionOverride)
     setInput('')
   }
 
@@ -198,7 +198,7 @@ export function BridgeChat({ cwd }: { cwd: string }) {
                 <button
                   type="button"
                   disabled={streaming}
-                  onClick={() => regenerate(cwd, i)}
+                  onClick={() => regenerate(cwd, i, connectionOverride)}
                   className="flex items-center gap-1 rounded px-1 py-0.5 text-xs text-fg-muted opacity-50 hover:opacity-100 hover:text-fg disabled:pointer-events-none transition-opacity"
                   title="Regenerate response"
                 >

@@ -11,6 +11,7 @@ import { useFontSizeStore } from '@/stores/fontSizeStore'
 import { useInstanceFontSizeStore } from '@/stores/instanceFontSizeStore'
 import { useDisplayStore, type PanelStyle } from '@/stores/displayStore'
 import { BridgeChat } from './BridgeChat'
+import { useLlamaModelsStore } from '@/stores/llamaModelsStore'
 import { UsagePanel } from '@/components/UsagePanel/UsagePanel'
 import { CostPanel } from '@/components/UsagePanel/CostPanel'
 import { isShiftEnterKeydown, SHIFT_ENTER_SEQUENCE } from './shiftEnterSequence'
@@ -48,6 +49,18 @@ function createXTerm(themeId: ThemeId, panelStyle: PanelStyle, fontSize: number)
 export function Chat() {
   const projectRoot = useFileStore((s) => s.projectRoot)
   const assistant = useClaudeStore((s) => s.assistant)
+  const llamaModels = useLlamaModelsStore((s) => s.models)
+  const isLlama = assistant.startsWith('llama:')
+  const isBridgeLike = assistant === 'bridge' || isLlama
+  const llamaConnection = isLlama ? (() => {
+    const model = llamaModels.find((m) => m.id === assistant.slice('llama:'.length))
+    if (!model) return undefined
+    return {
+      endpoint: `http://${model.host}:${model.port}/v1`,
+      apiKey: model.apiKey,
+      modelId: model.alias || model.displayName || model.id,
+    }
+  })() : undefined
   const instances = useClaudeStore((s) => s.instances)
   const activeInstanceId = useClaudeStore((s) => s.activeInstanceId)
   const usageOpen = useClaudeStore((s) => s.usageOpen)
@@ -75,7 +88,7 @@ export function Chat() {
     // Not "instances.length === 0" — every instance can now be closed, and
     // that case still needs to reach the stale-terminal cleanup below to
     // tear down the last one's xterm/DOM host instead of leaking it.
-    if (!projectRoot || !containerRef.current || assistant === 'bridge') return
+    if (!projectRoot || !containerRef.current || isBridgeLike) return
 
     const container = containerRef.current
 
@@ -205,7 +218,7 @@ export function Chat() {
   }, [projectRoot, assistant, instances, activeInstanceId])
 
   useEffect(() => {
-    if (assistant === 'bridge') return
+    if (isBridgeLike) return
     const terminal = terminalsRef.current[activeInstanceId]
     if (!terminal) return
 
@@ -315,11 +328,11 @@ export function Chat() {
           <div
             ref={containerRef}
             className="flex-1 overflow-hidden p-1"
-            style={{ display: assistant === 'bridge' ? 'none' : 'block' }}
+            style={{ display: isBridgeLike ? 'none' : 'block' }}
           />
-          {assistant === 'bridge' && (
+          {isBridgeLike && (
             <div className="flex-1 overflow-hidden">
-              <BridgeChat cwd={projectRoot} />
+              <BridgeChat cwd={projectRoot} connectionOverride={llamaConnection} />
             </div>
           )}
         </>

@@ -11,7 +11,7 @@ import type { OnboardingStatus, GitIdentity } from '../../electron/onboarding'
 
 export type { LatestUsage, UsageSnapshot, UpdateInfo, DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats }
 
-export type AssistantKind = 'claude' | 'bridge'
+export type AssistantKind = 'claude' | 'bridge' | (string & {})
 
 export interface SessionData {
   layout: unknown

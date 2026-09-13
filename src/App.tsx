@@ -87,6 +87,7 @@ import { useDockerLiveUpdates } from './hooks/useDockerLiveUpdates'
 import { useTodoSettingsStore } from './stores/todoSettingsStore'
 import { useNotesSettingsStore } from './stores/notesSettingsStore'
 import { useLlamaSettingsStore } from './stores/llamaSettingsStore'
+import { useLlamaModelsStore } from './stores/llamaModelsStore'
 import { useGraphifySettingsStore } from './stores/graphifySettingsStore'
 import { useGraphifyAutoBuild } from './hooks/useGraphifyAutoBuild'
 import { useNotesStore } from './stores/notesStore'
@@ -105,7 +106,9 @@ const ASSISTANT_OPTIONS: Array<{ id: AssistantKind; label: string }> = [
 ]
 
 function assistantIcon(kind: AssistantKind) {
-  return kind === 'claude' ? <ClaudeIcon /> : <BridgeIcon />
+  if (kind === 'claude') return <ClaudeIcon />
+  if (kind.startsWith('llama:')) return <LlamaIcon />
+  return <BridgeIcon />
 }
 
 const JIRA_BROWSER_ID = 'jira-external'
@@ -145,7 +148,13 @@ export default function App() {
   const setAssistant = useClaudeStore((s) => s.setAssistant)
   const chatVisible = useClaudeStore((s) => s.chatVisible)
   const enabledModels = useModelSettingsStore((s) => s.enabled)
-  const visibleAssistantOptions = ASSISTANT_OPTIONS.filter((option) => enabledModels[option.id])
+  const llamaModels = useLlamaModelsStore((s) => s.models)
+  const visibleAssistantOptions = [
+    ...ASSISTANT_OPTIONS.filter((option) => enabledModels[option.id]),
+    ...llamaModels
+      .filter((m) => m.enabled)
+      .map((m) => ({ id: `llama:${m.id}`, label: m.displayName || m.alias || 'Llama Model' })),
+  ]
   const repoName = projectRoot ? projectRoot.split('/').pop() : null
   const [leftPanel, setLeftPanel] = useState<'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'llama' | 'settings' | null>('files')
   const lastLeftPanelRef = useRef<'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'llama' | 'settings'>('files')
@@ -162,9 +171,9 @@ export default function App() {
   const branchPaletteOpen = useSearchStore((s) => s.branchPaletteOpen)
   const chatPanelRef = useRef<ImperativePanelHandle>(null)
   const sidebarPanelRef = useRef<ImperativePanelHandle>(null)
-  const assistantLabel = assistant === 'claude' ? 'Claude Code' : 'Bridge'
-  const newSessionTitle = assistant === 'claude' ? 'New Claude Session' : 'New Bridge Session'
-  const previousSessionTitle = assistant === 'claude' ? 'Continue Claude Session' : 'Restore Previous Bridge Session'
+  const assistantLabel = visibleAssistantOptions.find((o) => o.id === assistant)?.label ?? 'Claude Code'
+  const newSessionTitle = assistant === 'claude' ? 'New Claude Session' : 'New Session'
+  const previousSessionTitle = assistant === 'claude' ? 'Continue Claude Session' : 'Restore Previous Session'
   // useActiveRepo() matches what the Git panel itself actually shows: a
   // single discovered repo has no open/close chrome, so it always counts
   // (VIDE-18/open-close); in a multi-repo project it's the one repo whose
@@ -428,10 +437,11 @@ export default function App() {
   }, [revealRequest])
 
   useEffect(() => {
-    if (enabledModels[assistant]) return
-    const fallback = ASSISTANT_OPTIONS.find((option) => enabledModels[option.id])
+    const isValid = visibleAssistantOptions.some((o) => o.id === assistant)
+    if (isValid) return
+    const fallback = visibleAssistantOptions[0]
     if (fallback) setAssistant(fallback.id)
-  }, [enabledModels, assistant, setAssistant])
+  }, [visibleAssistantOptions, assistant, setAssistant])
 
   useEffect(() => {
     // Pull (not push): ask main whether this window was opened with a
