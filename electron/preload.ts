@@ -459,6 +459,7 @@ contextBridge.exposeInMainWorld('api', {
   llamaIsAvailable: () => ipcRenderer.invoke('llama:isAvailable'),
   llamaStart: (id: string, cfg: LlamaLaunchConfig) => ipcRenderer.invoke('llama:start', id, cfg),
   llamaStop: (id: string) => ipcRenderer.invoke('llama:stop', id),
+  llamaGetMemoryUsage: () => ipcRenderer.invoke('llama:getMemoryUsage') as Promise<number | null>,
   onLlamaData: (cb: (id: string, data: string) => void) => {
     const handler = (_: Electron.IpcRendererEvent, id: string, data: string) => cb(id, data)
     ipcRenderer.on('llama:data', handler)

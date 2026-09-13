@@ -370,6 +370,7 @@ declare global {
       llamaIsAvailable: () => Promise<boolean>
       llamaStart: (id: string, cfg: LlamaLaunchConfig) => Promise<void>
       llamaStop: (id: string) => Promise<void>
+      llamaGetMemoryUsage: () => Promise<number | null>
       onLlamaData: (cb: (id: string, data: string) => void) => () => void
       onLlamaExit: (cb: (id: string, code: number) => void) => () => void
 

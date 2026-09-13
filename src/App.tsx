@@ -1246,20 +1246,23 @@ function formatGb(bytes: number): string {
 
 function MemoryPill({ usage }: { usage: { usedBytes: number; totalBytes: number; appBytes: number } }) {
   const [hovered, setHovered] = useState(false)
-  // docker stats --no-stream takes a real CPU sample (~1s) - see
-  // getContainerStats()'s own comment in electron/docker.ts - so this is
-  // fetched lazily on hover rather than folded into the regular memory poll.
-  // Left undefined (not fetched yet), null (no docker / no running
-  // containers - row hidden), or a total across every running container.
+  const llamaEnabled = useLlamaSettingsStore((s) => s.enabled)
+  // Fetched lazily on hover — same reason as Docker (potentially slow).
+  // undefined = not yet fetched, null = nothing running / hide row.
   const [dockerBytes, setDockerBytes] = useState<number | null | undefined>(undefined)
+  const [llamaBytes, setLlamaBytes] = useState<number | null | undefined>(undefined)
 
   function handleEnter() {
     setHovered(true)
-    if (dockerBytes !== undefined) return
-    window.api.dockerGetContainerStats().then((stats) => {
-      const ids = Object.keys(stats)
-      setDockerBytes(ids.length === 0 ? null : ids.reduce((sum, id) => sum + stats[id].usedBytes, 0))
-    }).catch(() => setDockerBytes(null))
+    if (dockerBytes === undefined) {
+      window.api.dockerGetContainerStats().then((stats) => {
+        const ids = Object.keys(stats)
+        setDockerBytes(ids.length === 0 ? null : ids.reduce((sum, id) => sum + stats[id].usedBytes, 0))
+      }).catch(() => setDockerBytes(null))
+    }
+    if (llamaEnabled && llamaBytes === undefined) {
+      window.api.llamaGetMemoryUsage().then(setLlamaBytes).catch(() => setLlamaBytes(null))
+    }
   }
 
   return (
@@ -1284,6 +1287,12 @@ function MemoryPill({ usage }: { usage: { usedBytes: number; totalBytes: number;
             <div className="mt-1.5 flex items-center justify-between gap-3 text-xs">
               <span className="text-fg-muted">Docker</span>
               <span className="font-medium text-fg tabular-nums">{formatGb(dockerBytes)} GB</span>
+            </div>
+          )}
+          {llamaEnabled && llamaBytes != null && (
+            <div className="mt-1.5 flex items-center justify-between gap-3 text-xs">
+              <span className="text-fg-muted">Llama</span>
+              <span className="font-medium text-fg tabular-nums">{formatGb(llamaBytes)} GB</span>
             </div>
           )}
         </div>

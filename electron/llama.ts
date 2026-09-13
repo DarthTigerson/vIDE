@@ -126,6 +126,33 @@ export class LlamaManager {
       this.running.delete(id)
       proc.kill()
     })
+    ipcMain.handle('llama:getMemoryUsage', () => this.getRunningMemoryBytes())
+  }
+
+  private async getRunningMemoryBytes(): Promise<number | null> {
+    // Use ps to find all llama-server processes by name — this picks up
+    // servers started externally or in a prior session, not just ones spawned
+    // by this LlamaManager instance.
+    return new Promise((resolve) => {
+      execFile('ps', ['-axo', 'rss,comm'], (err, stdout) => {
+        if (err) return resolve(null)
+        const lines = stdout.trim().split('\n').slice(1) // skip header
+        let total = 0
+        let found = false
+        for (const line of lines) {
+          const trimmed = line.trim()
+          const spaceIdx = trimmed.indexOf(' ')
+          if (spaceIdx === -1) continue
+          const rss = parseInt(trimmed.slice(0, spaceIdx), 10)
+          const comm = trimmed.slice(spaceIdx + 1).trim()
+          if (!isNaN(rss) && comm.includes('llama-server')) {
+            total += rss
+            found = true
+          }
+        }
+        resolve(found ? total * 1024 : null)
+      })
+    })
   }
 
   // Streams llama-server's stdout/stderr back to the originating window under
