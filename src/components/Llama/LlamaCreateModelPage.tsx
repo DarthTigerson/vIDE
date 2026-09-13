@@ -177,15 +177,28 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
   // subscribing on the tab's modelId would be null for `llama-model://new`.
   const [form, setForm] = useState<LlamaModelConfig>(() => existing ?? defaultLlamaModelConfig())
   const run = useLlamaStore((s) => s.runs[form.id])
-  const [saved, setSaved] = useState(false)
   const consoleRef = useRef<HTMLDivElement>(null)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const skipAutoSave = useRef(true)
 
   // Reset the form when the user navigates between models (the page stays
   // mounted while switching tabs that share it).
   useEffect(() => {
+    skipAutoSave.current = true
     setForm(existing ?? defaultLlamaModelConfig())
-    setSaved(false)
   }, [modelId, existing?.id])
+
+  // Auto-save 400ms after any change, skipping the initial render and
+  // model-navigation resets.
+  useEffect(() => {
+    if (skipAutoSave.current) {
+      skipAutoSave.current = false
+      return
+    }
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => upsertModel(form), 400)
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
+  }, [form])
 
   // Keep the console pinned to the tail while the server streams output.
   useEffect(() => {
@@ -195,32 +208,22 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
 
   function patch(p: Partial<LlamaModelConfig>) {
     setForm((f) => ({ ...f, ...p }))
-    setSaved(false)
-  }
-
-  function handleSave() {
-    upsertModel({ ...form, id: form.id || crypto.randomUUID() })
-    setSaved(true)
   }
 
   async function handleLaunch() {
-    const cfg = { ...form, id: form.id || crypto.randomUUID() }
-    upsertModel(cfg)
-    setSaved(true)
-    const launchCfg = {
-      modelPath: cfg.modelPath,
-      serverExecutable: cfg.serverExecutable,
-      host: cfg.host,
-      port: cfg.port,
-      apiKey: cfg.apiKey,
-      contextSize: cfg.contextSize,
-      batchSize: cfg.batchSize,
-      gpuLayers: cfg.gpuLayers,
-      parallelRequests: cfg.parallelRequests,
-      reasoningEffort: cfg.reasoningEffort,
-      alias: cfg.alias,
-    }
-    await startModel(cfg.id, launchCfg)
+    await startModel(form.id, {
+      modelPath: form.modelPath,
+      serverExecutable: form.serverExecutable,
+      host: form.host,
+      port: form.port,
+      apiKey: form.apiKey,
+      contextSize: form.contextSize,
+      batchSize: form.batchSize,
+      gpuLayers: form.gpuLayers,
+      parallelRequests: form.parallelRequests,
+      reasoningEffort: form.reasoningEffort,
+      alias: form.alias,
+    })
   }
 
   const running = run?.running ?? false
@@ -267,6 +270,12 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
             description="Show in the model dropdown"
             checked={form.enabled}
             onChange={(v) => patch({ enabled: v })}
+          />
+          <ToggleField
+            label="Auto Start"
+            description="Start when this model is selected or required"
+            checked={form.autoStart}
+            onChange={(v) => patch({ autoStart: v })}
           />
         </FieldGroup>
 
@@ -348,12 +357,6 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
             options={REASONING_EFFORTS}
             onChange={(v) => patch({ reasoningEffort: v as ReasoningEffort })}
           />
-          <ToggleField
-            label="Auto Start"
-            description="Start when this model is selected or required"
-            checked={form.autoStart}
-            onChange={(v) => patch({ autoStart: v })}
-          />
         </FieldGroup>
 
         {(output || error) && (
@@ -371,37 +374,25 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
         )}
       </div>
 
-      <div className="shrink-0 px-4 py-3 border-t border-border flex items-center justify-between gap-3">
-        <div className="text-xs text-fg-subtle">
-          {saved && <span className="text-green-500">Saved</span>}
-        </div>
-        <div className="flex items-center gap-2">
-          {running && (
-            <button
-              type="button"
-              onClick={() => stopModel(form.id)}
-              className="h-8 px-3 rounded border border-red-500/60 text-sm text-red-400 hover:border-red-400 transition-colors"
-            >
-              Stop Server
-            </button>
-          )}
+      <div className="shrink-0 px-4 py-3 border-t border-border flex items-center justify-end gap-2">
+        {running && (
           <button
             type="button"
-            onClick={handleSave}
-            className="h-8 px-3 rounded border border-border text-sm text-fg hover:border-fg-subtle transition-colors"
+            onClick={() => stopModel(form.id)}
+            className="h-8 px-3 rounded border border-red-500/60 text-sm text-red-400 hover:border-red-400 transition-colors"
           >
-            Save
+            Stop Server
           </button>
-          <button
-            type="button"
-            onClick={handleLaunch}
-            disabled={!canLaunch || running}
-            title={canLaunch ? `Launch llama-server on ${form.host}:${form.port}` : 'Set a model path first'}
-            className="h-8 px-4 rounded bg-accent text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40 disabled:pointer-events-none"
-          >
-            {running ? 'Running…' : 'Launch'}
-          </button>
-        </div>
+        )}
+        <button
+          type="button"
+          onClick={handleLaunch}
+          disabled={!canLaunch || running}
+          title={canLaunch ? `Launch llama-server on ${form.host}:${form.port}` : 'Set a model path first'}
+          className="h-8 px-4 rounded bg-accent text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40 disabled:pointer-events-none"
+        >
+          {running ? 'Running…' : 'Launch'}
+        </button>
       </div>
 
       {error && (
