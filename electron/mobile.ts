@@ -141,9 +141,10 @@ function readPage(name: string): string {
 // mobile chooser, so this is the only way back to it once a defaultMode
 // has skipped past the chooser (see handleRequest's /app branch below).
 const SWITCH_MODE_LINK =
-  '<a href="/app?choose=1" style="position:fixed;top:8px;right:8px;z-index:2147483647;'
-  + 'background:#0d0d0dcc;color:#fff;font:11px -apple-system,sans-serif;padding:4px 10px;'
-  + 'border-radius:999px;text-decoration:none;backdrop-filter:blur(4px)">Switch mode</a>'
+  '<a href="/app?choose=1" aria-label="Switch mode" style="position:fixed;top:8px;left:8px;'
+  + 'z-index:2147483647;width:28px;height:28px;display:flex;align-items:center;justify-content:center;'
+  + 'background:#0d0d0dcc;color:#fff;font:16px -apple-system,sans-serif;line-height:1;'
+  + 'border-radius:999px;text-decoration:none;backdrop-filter:blur(4px)">&larr;</a>'
 
 // Serves a file from MOBILE_RENDERER_DIR as a static asset, keyed by
 // extension. `injectSwitchModeLink` is only ever set for the bundle's own

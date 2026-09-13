@@ -1,12 +1,20 @@
 // Renderer-side counterpart to electron/preload.ts: a window.api-shaped
 // object backed by a WebSocket connection to the mobile relay instead of
 // Electron's contextBridge, so the same React app/component code can run in
-// a phone's browser. Only covers the channels registerAllRelayChannels()
-// actually wires up on the relay side today (git/fs/term/claude, per
-// electron/mobileRelay/channels/*.ts) — remaining domains (docker, notes,
-// todos, etc.) get added one shim method at a time as later tasks extend
-// relay channel coverage, following the same naming convention as
-// electron/preload.ts.
+// a phone's browser.
+//
+// Every method on Window['api'] must exist here, even ones with no relay
+// channel to back them — a component with no error boundary calling a
+// missing method crashes the entire mobile client on mount. Methods backed
+// by a real relay channel (electron/mobileRelay/channels/*.ts) use
+// invoke/doSend/on below. Methods whose channel is in
+// electron/mobileRelay/excludedChannels.ts (native menus/dialogs, desktop
+// BrowserView compositing, the mobile server's own control surface, etc.)
+// get a graceful stub instead — resolve/no-op rather than throw, so an
+// unsupported-on-mobile feature degrades quietly instead of taking the
+// whole app down. The return type is annotated as Window['api'] so a
+// future channel added to preload.ts without a matching shim entry is a
+// compile error here, not a runtime crash on a phone.
 
 type PendingMap = Map<string, { resolve: (v: unknown) => void; reject: (e: unknown) => void }>
 type Listeners = Map<string, Set<(...args: unknown[]) => void>>
@@ -64,6 +72,20 @@ function onFactory(listeners: Listeners, event: string) {
   }
 }
 
+// Graceful degradation for channels in electron/mobileRelay/excludedChannels.ts
+// (or any other method with no relay channel to back it): resolve/no-op
+// instead of throwing, so a desktop-only feature quietly does nothing on
+// mobile rather than crashing the whole client.
+function stubInvoke<T>(value: T) {
+  return (..._args: unknown[]): Promise<T> => Promise.resolve(value)
+}
+function stubSend() {
+  return (..._args: unknown[]): void => {}
+}
+function stubOn() {
+  return (..._args: unknown[]): (() => void) => () => {}
+}
+
 export function createMobileApi(wsUrl: string) {
   const ws = new WebSocket(wsUrl)
   const pending: PendingMap = new Map()
@@ -116,6 +138,11 @@ export function createMobileApi(wsUrl: string) {
     listAllFiles: invoke('fs:listAllFiles'),
     searchText: invoke('fs:searchText'),
     onFsChanged: on('fs:changed'),
+    // Explicit watch-registration is moot: the relay broadcasts fs:changed
+    // to every connected mobile client unconditionally (no per-connection
+    // root scoping), so there's nothing for this call to register against.
+    // Still needs to exist so callers (e.g. openProject) don't crash.
+    fsWatchRoot: stubSend(),
 
     // git — mirrors electron/mobileRelay/channels/gitChannels.ts
     gitBranch: invoke('git:branch'),
@@ -142,6 +169,15 @@ export function createMobileApi(wsUrl: string) {
     gitStagedDiff: invoke('git:stagedDiff'),
     gitDiscoverRepos: invoke('git:discoverRepos'),
     onGitChanged: on('git:changed'),
+    onGitLogData: on('git:log:data'),
+    onGitLogExit: on('git:log:exit'),
+    // git:runCommand/gitLogResize back the interactive `git log` PTY stream
+    // (electron/gitRunner.ts's GitRunner), out of scope per the relay's
+    // excluded-channels list — deferred streaming work, not implemented.
+    gitRunCommand: stubInvoke(undefined as void),
+    gitLogResize: stubSend(),
+    // Same "nothing to register against" reasoning as fsWatchRoot above.
+    gitWatchRoot: stubSend(),
 
     // terminal — mirrors electron/mobileRelay/channels/termChannels.ts
     termSpawn: invoke('term:spawn'),
@@ -175,9 +211,16 @@ export function createMobileApi(wsUrl: string) {
     dockerGetContainerStats: invoke('docker:getContainerStats'),
     dockerOpenApp: invoke('docker:openApp'),
     dockerCloseApp: invoke('docker:closeApp'),
+    onDockerChanged: on('docker:changed'),
+    // Docker log streaming needs its own broadcast wiring (comparable to
+    // term:data), deferred — excluded on the relay side, stub here too.
+    dockerRunLogs: stubInvoke(undefined as void),
+    dockerStopLogs: stubSend(),
+    dockerWatch: stubSend(),
+    dockerUnwatch: stubSend(),
 
     // changelog — mirrors electron/mobileRelay/channels/changelogChannels.ts
-    changelogGetForVersion: invoke('changelog:getForVersion'),
+    getChangelogForVersion: invoke('changelog:getForVersion'),
 
     // onboarding — mirrors electron/mobileRelay/channels/onboardingChannels.ts
     onboardingGetStatus: invoke('onboarding:getStatus'),
@@ -195,7 +238,7 @@ export function createMobileApi(wsUrl: string) {
     recentProjectsClear: invoke('recentProjects:clear'),
 
     // window — mirrors electron/mobileRelay/channels/windowChannels.ts
-    windowSetTitle: doSend('window:setTitle'),
+    setWindowTitle: doSend('window:setTitle'),
 
     // usage — mirrors electron/mobileRelay/channels/usageChannels.ts
     usageAcquire: invoke('usage:acquire'),
@@ -204,6 +247,7 @@ export function createMobileApi(wsUrl: string) {
     usageGetRange: invoke('usage:getRange'),
     usageGetPassiveEnabled: invoke('usage:getPassiveEnabled'),
     usageSetPassiveEnabled: invoke('usage:setPassiveEnabled'),
+    onUsageUpdate: on('usage:update'),
 
     // bridge — mirrors electron/mobileRelay/channels/bridgeChannels.ts
     bridgeSend: doSend('bridge:send'),
@@ -211,6 +255,8 @@ export function createMobileApi(wsUrl: string) {
     bridgeReject: doSend('bridge:reject'),
     bridgeCancel: doSend('bridge:cancel'),
     bridgeTestConnection: invoke('bridge:testConnection'),
+    bridgeGetSettings: invoke('bridge:getSettings'),
+    bridgeSetSettings: invoke('bridge:setSettings'),
 
     // todos — mirrors electron/mobileRelay/channels/todosChannels.ts
     todosListProjects: invoke('todos:listProjects'),
@@ -244,6 +290,7 @@ export function createMobileApi(wsUrl: string) {
     // inlineEdit — mirrors electron/mobileRelay/channels/inlineEditChannels.ts
     inlineEditStart: invoke('inlineEdit:start'),
     inlineEditCancel: invoke('inlineEdit:cancel'),
+    onInlineEditEvent: on('inlineEdit:event'),
 
     // session — mirrors electron/mobileRelay/channels/sessionChannels.ts
     sessionLoad: invoke('session:load'),
@@ -253,5 +300,117 @@ export function createMobileApi(wsUrl: string) {
     onTodosChanged: on('todos:changed'),
     onNotesChanged: on('notes:changed'),
     onBridgeEvent: on('bridge:event'),
+
+    // --- Desktop-only, never relayed (electron/mobileRelay/excludedChannels.ts) ---
+    // Every entry below has no relay channel behind it. Stubs only, so a
+    // mobile client calling one of these (because the same shared
+    // component tree calls it unconditionally on mount) degrades quietly
+    // instead of throwing.
+
+    // Native OS dialogs/menus — no phone equivalent
+    openFolder: stubInvoke<string | null>(null),
+    onMenuOpenProject: stubOn(),
+    onMenuCloseActiveTab: stubOn(),
+    onMenuZoomIn: stubOn(),
+    onMenuZoomOut: stubOn(),
+    onMenuResetZoom: stubOn(),
+    onMenuOpenSettings: stubOn(),
+    onMenuNewFile: stubOn(),
+    onMenuNewFolder: stubOn(),
+    onMenuNewTerminal: stubOn(),
+    onMenuReopenClosedTab: stubOn(),
+    onMenuSave: stubOn(),
+    onMenuFind: stubOn(),
+    onMenuFindInFiles: stubOn(),
+    onMenuToggleSidebar: stubOn(),
+    onMenuCommandPalette: stubOn(),
+    onMenuRecentProjectsPalette: stubOn(),
+    onMenuActionPalette: stubOn(),
+    onMenuToggleClaudeChat: stubOn(),
+
+    // Desktop window management — no per-window concept for a mobile client
+    getInitialProject: stubInvoke<string | null>(null),
+    openProjectInNewWindow: stubInvoke(undefined as void),
+    focusProjectIfOpen: stubInvoke(false),
+
+    // Desktop BrowserView compositing — renders directly onto the Mac's own
+    // screen, calling these from a phone wouldn't make anything visible to
+    // the phone user (same reasoning as the relay's exclusion)
+    browserViewCreate: stubInvoke<number | null>(null),
+    browserViewSetBounds: stubInvoke(undefined as void),
+    browserViewSetVisible: stubInvoke(undefined as void),
+    browserViewNavigate: stubInvoke(undefined as void),
+    browserViewGoBack: stubInvoke(undefined as void),
+    browserViewGoForward: stubInvoke(undefined as void),
+    browserViewReload: stubInvoke(undefined as void),
+    browserViewZoomIn: stubInvoke(undefined as void),
+    browserViewZoomOut: stubInvoke(undefined as void),
+    browserViewZoomReset: stubInvoke(undefined as void),
+    browserViewSetMobileMode: stubInvoke(undefined as void),
+    browserViewClearCache: stubInvoke(undefined as void),
+    browserViewClearCookies: stubInvoke(undefined as void),
+    browserViewDestroy: stubInvoke(undefined as void),
+    onBrowserViewEvent: stubOn(),
+    onBrowserOpenExternalUrl: stubOn(),
+    onOpenClaudeBrowserTab: stubOn(),
+    devtoolsAttach: stubInvoke(undefined as void),
+    devtoolsDetach: stubInvoke(undefined as void),
+
+    // Mobile server control — a mobile client doesn't control its own
+    // pairing server
+    mobileStart: stubInvoke(undefined as void),
+    mobileStop: stubInvoke(undefined as void),
+    mobileGetState: stubInvoke({
+      running: false,
+      port: 0,
+      localIp: '',
+      pin: '',
+      qrSvg: '',
+      connectedCount: 0,
+      allowingNewDevice: false,
+      interfaces: [],
+      devices: [],
+    }),
+    mobileAddDevice: stubInvoke(undefined as void),
+    mobileSelectInterface: stubInvoke(undefined as void),
+    mobileDisconnectDevice: stubInvoke(undefined as void),
+    mobileDisconnectAll: stubInvoke(undefined as void),
+    mobileSetDisplay: stubSend(),
+    mobileSetDefaultMode: stubSend(),
+    onMobileState: stubOn(),
+
+    // MCP-access toggles — desktop-config-only (the underlying todos/notes/
+    // browser DATA operations are genuinely relayed above; only the
+    // "give Claude CLI MCP access" toggle is excluded)
+    browserMcpEnable: stubInvoke(undefined as void),
+    browserMcpDisable: stubInvoke(undefined as void),
+    todosMcpEnable: stubInvoke(undefined as void),
+    todosMcpDisable: stubInvoke(undefined as void),
+    notesMcpEnable: stubInvoke(undefined as void),
+    notesMcpDisable: stubInvoke(undefined as void),
+
+    // App-level update checking/restart — tied to this desktop install
+    updateGetLatest: stubInvoke(null),
+    updateRestart: stubSend(),
+    onUpdateAvailable: stubOn(),
+    onUpdateUpToDate: stubOn(),
+
+    // Language server management — ambiguous whether these should work
+    // from mobile; deferred (relay-side exclusion)
+    lspInstall: stubInvoke(undefined as void),
+    lspSetEnabled: stubSend(),
+    lspDetectAll: stubInvoke({} as unknown as Awaited<ReturnType<Window['api']['lspDetectAll']>>),
+    lspGetDefinition: stubInvoke(null as unknown as Awaited<ReturnType<Window['api']['lspGetDefinition']>>),
+    onLspInstallData: stubOn(),
+    onLspInstallExit: stubOn(),
+
+    // Graphify — peripheral dev-tooling, triggers long-running processes,
+    // low real-world value from a phone; deferred (relay-side exclusion)
+    graphifyIsAvailable: stubInvoke(false),
+    graphifyRun: stubInvoke(undefined as void),
+    graphifyReadGraph: stubInvoke(null as unknown as Awaited<ReturnType<Window['api']['graphifyReadGraph']>>),
+    graphifyInstallClaudeSkill: stubInvoke({ ok: false, output: 'Not available on mobile.' }),
+    onGraphifyData: stubOn(),
+    onGraphifyExit: stubOn(),
   }
 }
