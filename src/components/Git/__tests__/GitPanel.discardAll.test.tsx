@@ -60,10 +60,10 @@ describe('GitPanel — Discard All Changes', () => {
     expect(discardAllButton()).toBeDisabled()
   })
 
-  it('is enabled when there are staged changes even with no unstaged changes', () => {
+  it('is disabled when there are staged changes but no unstaged changes (VIDE-11: staged changes are never discarded by this button)', () => {
     useGitStore.setState({ repos: { '/proj': { ...emptyRepoGitState, status: { staged: [{ path: 'a.ts', status: 'M' }], unstaged: [] } } } })
     render(<GitPanel />)
-    expect(discardAllButton()).not.toBeDisabled()
+    expect(discardAllButton()).toBeDisabled()
   })
 
   it('opens a confirmation modal instead of discarding immediately', () => {
@@ -72,6 +72,14 @@ describe('GitPanel — Discard All Changes', () => {
 
     expect(screen.getByText('Discard All Changes')).toBeTruthy()
     expect(window.api.gitDiscardAll).not.toHaveBeenCalled()
+  })
+
+  it('the confirmation modal makes clear staged changes are safe (VIDE-11)', () => {
+    render(<GitPanel />)
+    fireEvent.click(discardAllButton())
+
+    const modalText = screen.getByText('Discard All Changes').parentElement?.textContent ?? ''
+    expect(modalText.replace(/\s+/g, ' ')).toContain('Staged changes and untracked files are left alone')
   })
 
   it('cancel closes the modal without discarding', () => {

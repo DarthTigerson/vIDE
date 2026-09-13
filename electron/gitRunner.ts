@@ -1,15 +1,16 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import * as pty from 'node-pty'
-import type { GitCommandAction, GitCommandPayload, GitCheckoutPayload, GitPublishBranchPayload } from '../src/types/index'
+import type { GitCommandAction, GitCommandPayload, GitCheckoutPayload, GitPublishBranchPayload, GitHardResetPayload } from '../src/types/index'
 import { getGitBranch, getGitBranches, getDefaultBranch, getBranchList, getAheadBehind, getGitStatus, stageFiles, unstageFiles, stageAll, unstageAll, commit, discardFileChanges, discardAllChanges, getDiffContent, getFileAtHead, getCommitDiffContent, getGitGraph, getGitBranchDiff, getGitShowStat, getIgnoredPaths, fetchRemote, getStagedDiff, discoverRepos } from './git'
 import { getMobileBroadcaster } from './mobile'
 
-const ARGS: Record<Exclude<GitCommandAction, 'checkout' | 'publishBranch'>, string[]> = {
+const ARGS: Record<Exclude<GitCommandAction, 'checkout' | 'publishBranch' | 'hardReset'>, string[]> = {
   fetch:           ['fetch'],
   pull:            ['pull'],
   push:            ['push'],
   forcePush:       ['push', '--force'],
   forcePushLease:  ['push', '--force-with-lease'],
+  undoLastCommit:  ['reset', '--soft', 'HEAD~1'],
 }
 
 function buildArgs(action: GitCommandAction, payload?: GitCommandPayload): string[] {
@@ -22,6 +23,10 @@ function buildArgs(action: GitCommandAction, payload?: GitCommandPayload): strin
   if (action === 'publishBranch') {
     const { branch } = payload as GitPublishBranchPayload
     return ['push', '--set-upstream', 'origin', branch]
+  }
+  if (action === 'hardReset') {
+    const { ref } = payload as GitHardResetPayload
+    return ['reset', '--hard', ref]
   }
   return ARGS[action]
 }

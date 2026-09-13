@@ -83,6 +83,19 @@ that needs no custom wiring. Cross-file jumps are handled manually via
 uses) rather than Monaco's own cross-model handling, which is unreliable
 outside the full VS Code workbench.
 
+**Git command animation/error surfacing**: any git action that should show
+the footer's running-dot animation, flash red on failure, and (per the
+Git Log auto-show setting) pop the Git Log tab open on error gets all of
+that for free — and nothing else to wire up — by running through
+`gitStore.ts`'s internal `runCommand()` helper, i.e. by adding a
+`GitCommandAction` (`src/types/index.ts`) with its arg-building in
+`electron/gitRunner.ts` and a thin store method that calls
+`runCommand(cwd, action, payload)`. `runCommand` drives the per-repo
+`commandStatus`/`commandError` fields that `GitActivityBar.tsx` watches;
+don't build a bespoke IPC round-trip for a new git action unless it
+genuinely doesn't fit that model (e.g. `commit`, which has its own
+request/response shape instead of streaming PTY output).
+
 **Design-doc workflow**: nontrivial features go through a brainstorm →
 spec → plan cycle before implementation, with artifacts committed to
 `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md` and

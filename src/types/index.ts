@@ -35,7 +35,8 @@ export interface GitAheadBehind {
 }
 
 export type GitCommandAction =
-  'fetch' | 'pull' | 'push' | 'forcePush' | 'forcePushLease' | 'checkout' | 'publishBranch'
+  'fetch' | 'pull' | 'push' | 'forcePush' | 'forcePushLease' | 'checkout' | 'publishBranch' |
+  'undoLastCommit' | 'hardReset'
 
 export interface GitCheckoutPayload {
   ref: string
@@ -50,7 +51,14 @@ export interface GitPublishBranchPayload {
   branch: string
 }
 
-export type GitCommandPayload = GitCheckoutPayload | GitPublishBranchPayload
+// git reset --hard <ref> — ref is whatever the user picked or typed in the
+// reset palette: a branch name, tag, or commit hash all work unmodified
+// since git resolves any of those as a revision.
+export interface GitHardResetPayload {
+  ref: string
+}
+
+export type GitCommandPayload = GitCheckoutPayload | GitPublishBranchPayload | GitHardResetPayload
 
 export interface GitBranchList {
   current: string | null

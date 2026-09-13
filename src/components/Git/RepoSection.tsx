@@ -15,6 +15,10 @@ import { useSearchStore } from '@/stores/searchStore'
 import { FileRow } from './FileRow'
 import { ConfirmForcePushModal } from './ConfirmForcePushModal'
 import { useForcePushConfirm } from './useForcePushConfirm'
+import { useGitResetConfirm } from './useGitResetConfirm'
+import { ConfirmUndoCommitModal } from './ConfirmUndoCommitModal'
+import { ConfirmHardResetModal } from './ConfirmHardResetModal'
+import { GitResetPalette } from './GitResetPalette'
 import { useCommitMessageSettingsStore } from '@/stores/commitMessageSettingsStore'
 import { ClaudeIcon } from '@/components/ActivityBar/ActivityBar'
 import { ContextMenuButton, ContextMenuDivider } from './ContextMenu'
@@ -163,6 +167,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
   const openTabInPane = useEditorStore((s) => s.openTabInPane)
   const loadGraph = useGitGraphStore((s) => s.load)
   const { forceAction, requestForce, closeForce } = useForcePushConfirm(repo)
+  const { step: resetStep, requestResetToHead, requestUndoPush, requestHardReset, pickRef, close: closeReset } = useGitResetConfirm()
   const commitMessageEnabled = useCommitMessageSettingsStore((s) => s.enabled)
   const commitMessageModel = useCommitMessageSettingsStore((s) => s.model)
   const commitMessagePrompt = useCommitMessageSettingsStore((s) => s.prompt)
@@ -195,6 +200,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
   const [discardAllConfirmOpen, setDiscardAllConfirmOpen] = useState(false)
   const [commitOptionsOpen, setCommitOptionsOpen] = useState(false)
   const [pushOptionsOpen, setPushOptionsOpen] = useState(false)
+  const [resetOptionsOpen, setResetOptionsOpen] = useState(false)
 
   // Mount does a full refresh (branch + ahead/behind + status): every section's
   // header shows branch and ahead/behind, not just the selected repo's, and
@@ -317,13 +323,14 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
   const isUntracked = menu?.file.status === '?'
   const isTrackedChange = menu && !menu.staged && menu.file.status !== '?'
   const remoteActionDisabled = commandStatus === 'running'
-  // Matches discardAllChanges' scope (git reset --hard HEAD): staged changes
-  // plus unstaged changes to already-tracked files. Untracked ('?') entries
-  // aren't affected by that command, so they don't count toward "has
-  // anything to discard" — the button would otherwise look enabled but do
-  // nothing when only new/untracked files are present.
-  const hasDiscardableChanges =
-    status.staged.length > 0 || status.unstaged.some((file) => file.status !== '?')
+  // Matches discardAllChanges' scope (git checkout -- .): only unstaged
+  // changes to already-tracked files. Staged changes are deliberately left
+  // out here (VIDE-11: staging used to look like a safe spot, but this used
+  // to run `reset --hard HEAD` and wipe staged changes too) and untracked
+  // ('?') entries aren't affected by that command either — the button would
+  // otherwise look enabled but do nothing when only new/untracked files or
+  // only staged changes are present.
+  const hasDiscardableChanges = status.unstaged.some((file) => file.status !== '?')
 
   const body = (
     <>
@@ -529,6 +536,40 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
         >
           Push
         </SplitCommandButton>
+        <SplitCommandButton
+          label="Reset"
+          disabled={remoteActionDisabled}
+          onClick={() => runOnThisRepo(() => requestResetToHead())}
+          colorClassName={accentSolidColor}
+          open={resetOptionsOpen}
+          onToggleOptions={() => setResetOptionsOpen((v) => !v)}
+          onCloseOptions={() => setResetOptionsOpen(false)}
+          direction="up"
+          optionsChildren={
+            <div className="flex flex-col gap-0.5">
+              <button
+                type="button"
+                disabled={remoteActionDisabled}
+                onClick={() => { runOnThisRepo(() => requestHardReset()); setResetOptionsOpen(false) }}
+                className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <span className="font-semibold">Hard Reset…</span>
+                <span className="text-red-400/70">Reset to a branch, tag, or commit — discards history.</span>
+              </button>
+              <button
+                type="button"
+                disabled={remoteActionDisabled}
+                onClick={() => { runOnThisRepo(() => requestUndoPush()); setResetOptionsOpen(false) }}
+                className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-fg transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <span className="font-semibold">Undo Last Push</span>
+                <span className="text-fg-subtle">Undo the last commit, keeping its changes staged to re-commit after pulling.</span>
+              </button>
+            </div>
+          }
+        >
+          Reset
+        </SplitCommandButton>
         <div className="flex gap-1.5">
           <button
             type="button"
@@ -632,8 +673,8 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
         <Modal onClose={() => setDiscardAllConfirmOpen(false)}>
           <h2 className="text-sm font-semibold text-fg mb-1">Discard All Changes</h2>
           <p className="text-sm text-fg-muted mb-5">
-            Discard all staged and unstaged changes to tracked files? Untracked files are left
-            alone. This cannot be undone.
+            Discard all unstaged changes to tracked files? Staged changes and untracked files are
+            left alone. This cannot be undone.
           </p>
           <div className="flex items-center justify-end gap-3">
             <button
@@ -659,6 +700,16 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
 
       {forceAction && (
         <ConfirmForcePushModal action={forceAction} cwd={repo} onClose={closeForce} />
+      )}
+
+      {resetStep?.kind === 'confirmUndoPush' && (
+        <ConfirmUndoCommitModal cwd={repo} onClose={closeReset} />
+      )}
+      {resetStep?.kind === 'pickRef' && (
+        <GitResetPalette projectRoot={repo} onClose={closeReset} onPick={pickRef} />
+      )}
+      {resetStep?.kind === 'confirmHard' && (
+        <ConfirmHardResetModal cwd={repo} targetRef={resetStep.ref} onClose={closeReset} />
       )}
     </>
   )

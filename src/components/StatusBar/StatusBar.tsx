@@ -6,6 +6,10 @@ import { GitIcon, AutocompleteIcon } from '@/components/ActivityBar/ActivityBar'
 import { GitActionsMenu } from '@/components/Git/GitActionsMenu'
 import { ConfirmForcePushModal } from '@/components/Git/ConfirmForcePushModal'
 import { useForcePushConfirm } from '@/components/Git/useForcePushConfirm'
+import { useGitResetConfirm } from '@/components/Git/useGitResetConfirm'
+import { ConfirmUndoCommitModal } from '@/components/Git/ConfirmUndoCommitModal'
+import { ConfirmHardResetModal } from '@/components/Git/ConfirmHardResetModal'
+import { GitResetPalette } from '@/components/Git/GitResetPalette'
 import { useAutocompleteSettingsStore } from '@/stores/autocompleteSettingsStore'
 import { useAutocompleteSessionStore } from '@/stores/autocompleteSessionStore'
 import { useAutocompleteStatusStore } from '@/stores/autocompleteStatusStore'
@@ -34,6 +38,7 @@ export function StatusBar() {
   const refreshBranch = useGitStore((s) => s.refresh)
   const [gitMenuOpen, setGitMenuOpen] = useState(false)
   const { forceAction, requestForce, closeForce } = useForcePushConfirm(selectedRepo)
+  const { step: resetStep, requestResetToHead, requestUndoPush, requestHardReset, pickRef, close: closeReset } = useGitResetConfirm()
   const autocompleteEnabled = useAutocompleteSettingsStore((s) => s.enabled)
   const autocompletePaused = useAutocompleteSessionStore((s) => s.paused)
   const togglePaused = useAutocompleteSessionStore((s) => s.togglePaused)
@@ -99,7 +104,13 @@ export function StatusBar() {
             )}
           </span>
           {gitMenuOpen && (
-            <GitActionsMenu onClose={() => setGitMenuOpen(false)} onRequestForce={requestForce} />
+            <GitActionsMenu
+              onClose={() => setGitMenuOpen(false)}
+              onRequestForce={requestForce}
+              onRequestResetToHead={requestResetToHead}
+              onRequestUndoPush={requestUndoPush}
+              onRequestHardReset={requestHardReset}
+            />
           )}
         </div>
       ) : (
@@ -107,6 +118,15 @@ export function StatusBar() {
       )}
       {forceAction && selectedRepo && (
         <ConfirmForcePushModal action={forceAction} cwd={selectedRepo} onClose={closeForce} />
+      )}
+      {resetStep?.kind === 'confirmUndoPush' && selectedRepo && (
+        <ConfirmUndoCommitModal cwd={selectedRepo} onClose={closeReset} />
+      )}
+      {resetStep?.kind === 'pickRef' && selectedRepo && (
+        <GitResetPalette projectRoot={selectedRepo} onClose={closeReset} onPick={pickRef} />
+      )}
+      {resetStep?.kind === 'confirmHard' && selectedRepo && (
+        <ConfirmHardResetModal cwd={selectedRepo} targetRef={resetStep.ref} onClose={closeReset} />
       )}
       <div className="flex items-center gap-1 text-fg-muted text-xs">
         {autocompleteVisible && (
