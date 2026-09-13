@@ -45,7 +45,6 @@ describe('LlamaPanel', () => {
   it('shows the Create Model button (disabled until the editor page lands) when available', () => {
     useLlamaStore.setState({ available: true })
     render(<LlamaPanel />)
-    expect(screen.getByText(/llama\.cpp is installed/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /create model/i })).toBeDisabled()
   })
 

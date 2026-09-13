@@ -84,13 +84,9 @@ export function LlamaPanel() {
         </span>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center gap-2 text-center p-4">
-        <p className="text-xs text-fg-subtle">
-          llama.cpp is installed and ready.
-        </p>
-      </div>
+      <div className="flex-1 min-h-0" />
 
-      <div className="shrink-0 px-3 py-2 flex flex-col gap-1.5 border-t border-border">
+      <div className="shrink-0 p-3 border-t border-border">
         <button
           type="button"
           className={pillButtonClass}
