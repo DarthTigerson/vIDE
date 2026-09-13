@@ -2,7 +2,6 @@ import { useEffect } from 'react'
 import { useLlamaStore } from '@/stores/llamaStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { buildTerminalPath } from '@/components/Settings/paths'
-import { LlamaIcon } from '@/components/ActivityBar/ActivityBar'
 
 // Matches GitPanel's pill button styling so Llama's controls read as part of
 // the same left-sidebar panel family (same pattern as GraphifyPanel).
@@ -63,11 +62,13 @@ export function LlamaPanel() {
             Llama
           </span>
         </div>
-        <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center p-4">
-          <span className="text-fg-subtle">
-            <LlamaIcon />
-          </span>
-          <p className="text-xs text-fg-subtle">Checking for llama.cpp…</p>
+
+        <div className="flex-1 min-h-0" />
+
+        <div className="shrink-0 p-3 border-t border-border">
+          <button type="button" className={pillButtonClass} disabled>
+            Checking for llama.cpp…
+          </button>
         </div>
       </div>
     )
@@ -78,9 +79,6 @@ export function LlamaPanel() {
       <div className="h-9 px-3 flex items-center justify-between border-b border-border shrink-0">
         <span className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
           Llama
-        </span>
-        <span className="text-fg-subtle">
-          <LlamaIcon />
         </span>
       </div>
 
