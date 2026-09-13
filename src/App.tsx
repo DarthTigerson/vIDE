@@ -869,6 +869,13 @@ export default function App() {
               badge: dockerBadge,
               onClick: () => setLeftPanel((p) => (p === 'docker' ? null : 'docker')),
             }] : []),
+            ...(llamaEnabled ? [{
+              id: 'llama',
+              icon: <LlamaIcon />,
+              title: 'Llama',
+              active: leftPanel === 'llama',
+              onClick: () => setLeftPanel((p) => (p === 'llama' ? null : 'llama')),
+            }] : []),
             ...(mobileEnabled && projectRoot ? [{
               id: 'mobile',
               icon: <PhoneIcon />,
@@ -897,13 +904,6 @@ export default function App() {
               title: 'Notes',
               active: leftPanel === 'notes',
               onClick: () => setLeftPanel((p) => (p === 'notes' ? null : 'notes')),
-            }] : []),
-            ...(llamaEnabled ? [{
-              id: 'llama',
-              icon: <LlamaIcon />,
-              title: 'Llama',
-              active: leftPanel === 'llama',
-              onClick: () => setLeftPanel((p) => (p === 'llama' ? null : 'llama')),
             }] : []),
             ...(gitRemoteReady ? [{
               id: 'git-remote',
