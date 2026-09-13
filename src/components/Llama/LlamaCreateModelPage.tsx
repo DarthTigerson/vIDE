@@ -46,16 +46,21 @@ function SelectField<T extends string | number>({ id, label, value, options, onC
   return (
     <div className="flex flex-col gap-1.5 w-40 shrink-0">
       <label htmlFor={id} className="text-sm text-fg">{label}</label>
-      <select
-        id={id}
-        value={value}
-        onChange={(e) => onChange(toOption(e.target.value))}
-        className="h-8 px-2 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
-      >
-        {options.map((opt) => (
-          <option key={String(opt)} value={String(opt)}>{opt}</option>
-        ))}
-      </select>
+      <div className="relative">
+        <select
+          id={id}
+          value={value}
+          onChange={(e) => onChange(toOption(e.target.value))}
+          className="appearance-none w-full h-8 pl-2 pr-7 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
+        >
+          {options.map((opt) => (
+            <option key={String(opt)} value={String(opt)}>{opt}</option>
+          ))}
+        </select>
+        <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-fg-subtle" width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
     </div>
   )
 }
@@ -90,7 +95,7 @@ function ToggleField({ label, description, checked, onChange }: {
   onChange: (v: boolean) => void
 }) {
   return (
-    <label className="flex items-center gap-3 cursor-pointer">
+    <label className="flex items-center gap-3 cursor-pointer -mx-2 px-2 py-1 rounded-lg hover:bg-white/5 transition-colors">
       <button
         type="button"
         role="switch"
@@ -99,10 +104,16 @@ function ToggleField({ label, description, checked, onChange }: {
           e.preventDefault()
           onChange(!checked)
         }}
-        className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${checked ? 'bg-accent' : 'bg-white/15'}`}
+        className={[
+          'relative shrink-0 w-9 h-5 rounded-full border transition-colors',
+          checked ? 'bg-accent border-accent' : 'bg-fg-subtle border-fg-subtle',
+        ].join(' ')}
       >
         <span
-          className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${checked ? 'translate-x-[1.125rem]' : 'translate-x-0.5'}`}
+          className={[
+            'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow ring-1 ring-black/10 transition-transform',
+            checked ? 'translate-x-4' : 'translate-x-0',
+          ].join(' ')}
         />
       </button>
       <span className="flex flex-col">
@@ -191,37 +202,10 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
 
   return (
     <div className="h-full flex flex-col bg-panel overflow-hidden">
-      <div className="h-11 px-4 border-b border-border shrink-0 flex items-center justify-between gap-3">
+      <div className="h-11 px-4 border-b border-border shrink-0 flex items-center">
         <h1 className="text-sm font-semibold text-fg truncate">
           {existing ? `Edit Model — ${existing.displayName || existing.alias || existing.id}` : 'Create Model'}
         </h1>
-        <div className="flex items-center gap-2 shrink-0">
-          {running && (
-            <button
-              type="button"
-              onClick={() => stopModel(form.id)}
-              className="h-7 px-3 rounded-full text-xs font-semibold bg-red-600/80 hover:bg-red-600 text-white transition-colors"
-            >
-              Stop Server
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={handleSave}
-            className="h-7 px-3 rounded-full text-xs font-semibold border border-border text-fg hover:border-fg-subtle transition-colors"
-          >
-            Save
-          </button>
-          <button
-            type="button"
-            onClick={handleLaunch}
-            disabled={!canLaunch || running}
-            title={canLaunch ? `Launch llama-server on ${form.host}:${form.port}` : 'Set a model path first'}
-            className="h-7 px-3 rounded-full text-xs font-semibold bg-accent/80 hover:bg-accent text-on-accent transition-colors disabled:opacity-40 disabled:pointer-events-none"
-          >
-            {running ? 'Running…' : 'Launch'}
-          </button>
-        </div>
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto p-6">
@@ -335,6 +319,39 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
             </div>
           </section>
         )}
+      </div>
+
+      <div className="shrink-0 px-4 py-3 border-t border-border flex items-center justify-between gap-3">
+        <div className="text-xs text-fg-subtle">
+          {saved && <span className="text-green-500">Saved</span>}
+        </div>
+        <div className="flex items-center gap-2">
+          {running && (
+            <button
+              type="button"
+              onClick={() => stopModel(form.id)}
+              className="h-8 px-3 rounded border border-red-500/60 text-sm text-red-400 hover:border-red-400 transition-colors"
+            >
+              Stop Server
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleSave}
+            className="h-8 px-3 rounded border border-border text-sm text-fg hover:border-fg-subtle transition-colors"
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            onClick={handleLaunch}
+            disabled={!canLaunch || running}
+            title={canLaunch ? `Launch llama-server on ${form.host}:${form.port}` : 'Set a model path first'}
+            className="h-8 px-4 rounded bg-accent text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40 disabled:pointer-events-none"
+          >
+            {running ? 'Running…' : 'Launch'}
+          </button>
+        </div>
       </div>
 
       {error && (
