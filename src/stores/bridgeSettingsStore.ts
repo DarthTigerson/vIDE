@@ -1,10 +1,11 @@
 import { create } from 'zustand'
 
 const KEYS = {
-  endpoint:      'vide:bridge:endpoint',
-  apiKey:        'vide:bridge:apiKey',
-  modelId:       'vide:bridge:modelId',
-  toolCallLimit: 'vide:bridge:toolCallLimit',
+  endpoint:           'vide:bridge:endpoint',
+  apiKey:             'vide:bridge:apiKey',
+  modelId:            'vide:bridge:modelId',
+  toolCallLimit:      'vide:bridge:toolCallLimit',
+  agentModeOnLaunch:  'vide:bridge:agentModeOnLaunch',
 }
 
 function getString(key: string, def: string): string {
@@ -26,6 +27,16 @@ function getNumber(key: string, def: number): number {
   }
 }
 
+function getBoolean(key: string, def: boolean): boolean {
+  try {
+    const v = localStorage.getItem(key)
+    if (v === null) return def
+    return v === 'true'
+  } catch {
+    return def
+  }
+}
+
 type StoredSettings = { endpoint: string; apiKey: string; modelId: string }
 
 function saveToFile(settings: StoredSettings): void {
@@ -39,18 +50,21 @@ interface BridgeSettingsStore {
   apiKey: string
   modelId: string
   toolCallLimit: number
+  agentModeOnLaunch: boolean
   setEndpoint: (v: string) => void
   setApiKey: (v: string) => void
   setModelId: (v: string) => void
   setToolCallLimit: (v: number) => void
+  setAgentModeOnLaunch: (v: boolean) => void
   init: () => Promise<void>
 }
 
 export const useBridgeSettingsStore = create<BridgeSettingsStore>((set, get) => ({
-  endpoint:      getString(KEYS.endpoint, ''),
-  apiKey:        getString(KEYS.apiKey, ''),
-  modelId:       getString(KEYS.modelId, ''),
-  toolCallLimit: getNumber(KEYS.toolCallLimit, 0),
+  endpoint:           getString(KEYS.endpoint, ''),
+  apiKey:             getString(KEYS.apiKey, ''),
+  modelId:            getString(KEYS.modelId, ''),
+  toolCallLimit:      getNumber(KEYS.toolCallLimit, 0),
+  agentModeOnLaunch:  getBoolean(KEYS.agentModeOnLaunch, false),
 
   init: async () => {
     try {
@@ -91,5 +105,9 @@ export const useBridgeSettingsStore = create<BridgeSettingsStore>((set, get) => 
   setToolCallLimit: (v) => {
     try { localStorage.setItem(KEYS.toolCallLimit, String(v)) } catch {}
     set({ toolCallLimit: v })
+  },
+  setAgentModeOnLaunch: (v) => {
+    try { localStorage.setItem(KEYS.agentModeOnLaunch, String(v)) } catch {}
+    set({ agentModeOnLaunch: v })
   },
 }))

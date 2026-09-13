@@ -23,7 +23,7 @@ function TextField({ id, label, value, onChange }: {
 export function BridgeSettingsPage() {
   const bridgeEnabled = useModelSettingsStore((s) => s.enabled.bridge)
   const setModelEnabled = useModelSettingsStore((s) => s.setEnabled)
-  const { endpoint, apiKey, modelId, toolCallLimit, setEndpoint, setApiKey, setModelId, setToolCallLimit } = useBridgeSettingsStore()
+  const { endpoint, apiKey, modelId, toolCallLimit, agentModeOnLaunch, setEndpoint, setApiKey, setModelId, setToolCallLimit, setAgentModeOnLaunch } = useBridgeSettingsStore()
   const [testState, setTestState] = useState<'idle' | 'testing' | 'ok' | 'error'>('idle')
   const [testError, setTestError] = useState('')
 
@@ -93,6 +93,13 @@ export function BridgeSettingsPage() {
                 />
                 <span className="text-xs text-fg-subtle mt-1">0 = unlimited</span>
               </Field>
+              <Toggle
+                className="max-w-[60ch]"
+                label="Agent Mode on Launch"
+                description="Start with agent mode enabled each time Bridge opens."
+                checked={agentModeOnLaunch}
+                onChange={setAgentModeOnLaunch}
+              />
             </Row>
           </Section>
         </>

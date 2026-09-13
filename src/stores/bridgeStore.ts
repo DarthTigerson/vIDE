@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import { useBridgeSettingsStore } from './bridgeSettingsStore'
 import type { BridgeEvent, BridgeMessage } from '@/types/api'
 
-const AGENT_MODE_KEY = 'vide:bridge:agentMode'
 const CURRENT_SESSION_KEY = 'vide:bridge:current'
 const SESSIONS_KEY = 'vide:bridge:sessions'
 
@@ -61,7 +60,7 @@ export interface BridgeChatMessage {
 
 function getAgentMode(): boolean {
   try {
-    return localStorage.getItem(AGENT_MODE_KEY) === 'true'
+    return localStorage.getItem('vide:bridge:agentModeOnLaunch') === 'true'
   } catch {
     return false
   }
@@ -163,11 +162,7 @@ export const useBridgeStore = create<BridgeStore>((set, get) => ({
     set({ messages: session.messages, sessionId: session.id, showSessionPicker: false })
   },
 
-  toggleAgentMode: () => {
-    const next = !get().agentMode
-    try { localStorage.setItem(AGENT_MODE_KEY, String(next)) } catch {}
-    set({ agentMode: next })
-  },
+  toggleAgentMode: () => set((s) => ({ agentMode: !s.agentMode })),
 
   approveToolCall: (id) => window.api.bridgeApprove(id),
   rejectToolCall: (id) => window.api.bridgeReject(id),

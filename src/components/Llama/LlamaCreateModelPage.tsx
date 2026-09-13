@@ -278,6 +278,12 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
             checked={form.autoStart}
             onChange={(v) => patch({ autoStart: v })}
           />
+          <ToggleField
+            label="Agent Mode on Launch"
+            description="Start with agent mode enabled"
+            checked={form.agentModeOnLaunch}
+            onChange={(v) => patch({ agentModeOnLaunch: v })}
+          />
         </FieldGroup>
 
         <FieldGroup title="Model Runtime">

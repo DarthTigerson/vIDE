@@ -11,6 +11,8 @@ import { useFontSizeStore } from '@/stores/fontSizeStore'
 import { useInstanceFontSizeStore } from '@/stores/instanceFontSizeStore'
 import { useDisplayStore, type PanelStyle } from '@/stores/displayStore'
 import { BridgeChat } from './BridgeChat'
+import { useBridgeStore } from '@/stores/bridgeStore'
+import { useBridgeSettingsStore } from '@/stores/bridgeSettingsStore'
 import { useLlamaModelsStore } from '@/stores/llamaModelsStore'
 import { UsagePanel } from '@/components/UsagePanel/UsagePanel'
 import { CostPanel } from '@/components/UsagePanel/CostPanel'
@@ -79,6 +81,16 @@ export function Chat() {
   const activeInstanceRef = useRef<string>(activeInstanceId)
   const isFirstRestart = useRef(true)
   const seenFocusTokenRef = useRef(focusToken)
+
+  // Sync agent mode to the "on launch" setting whenever the assistant changes.
+  useEffect(() => {
+    if (isLlama) {
+      const model = useLlamaModelsStore.getState().models.find((m) => m.id === assistant.slice('llama:'.length))
+      useBridgeStore.setState({ agentMode: model?.agentModeOnLaunch ?? false })
+    } else if (assistant === 'bridge') {
+      useBridgeStore.setState({ agentMode: useBridgeSettingsStore.getState().agentModeOnLaunch })
+    }
+  }, [assistant])
 
   useEffect(() => {
     activeInstanceRef.current = activeInstanceId

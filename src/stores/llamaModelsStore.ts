@@ -29,6 +29,7 @@ export interface LlamaModelConfig {
   reasoningEffort: ReasoningEffort
 
   autoStart: boolean
+  agentModeOnLaunch: boolean
 }
 
 // Defaults come from the "Current Cosmos Configuration" in the instructions
@@ -54,6 +55,7 @@ export function defaultLlamaModelConfig(): LlamaModelConfig {
     reasoningEffort: 'medium',
 
     autoStart: true,
+    agentModeOnLaunch: false,
   }
 }
 
