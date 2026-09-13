@@ -222,12 +222,18 @@ function ModelRow({ model }: { model: LlamaModelConfig }) {
 
 export function LlamaPanel() {
   const { available, checking, checkAvailable } = useLlamaStore()
+  const probeModel = useLlamaStore((s) => s.probeModel)
   const models = useLlamaModelsStore((s) => s.models)
   const openTab = useEditorStore((s) => s.openTab)
 
   useEffect(() => {
     if (available === null && !checking) checkAvailable()
   }, [available, checking, checkAvailable])
+
+  // Sync running state for any server that was started outside this session.
+  useEffect(() => {
+    for (const m of models) probeModel(m.id, m.host, m.port)
+  }, [models, probeModel])
 
   function launchInstall() {
     navigator.clipboard?.writeText(INSTALL_COMMAND).catch(() => {})

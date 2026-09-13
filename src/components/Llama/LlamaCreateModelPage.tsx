@@ -171,6 +171,7 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
   const upsertModel = useLlamaModelsStore((s) => s.upsertModel)
   const startModel = useLlamaStore((s) => s.startModel)
   const stopModel = useLlamaStore((s) => s.stopModel)
+  const probeModel = useLlamaStore((s) => s.probeModel)
   const replaceTabPath = useEditorStore((s) => s.replaceTabPath)
 
   const existing = modelId ? models.find((m) => m.id === modelId) : undefined
@@ -190,6 +191,12 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
     skipAutoSave.current = true
     setForm(existing ?? defaultLlamaModelConfig())
   }, [modelId, existing?.id])
+
+  // Sync running state on mount so the status reflects a server started
+  // outside this session.
+  useEffect(() => {
+    if (existing) probeModel(existing.id, existing.host, existing.port)
+  }, [existing?.id])
 
   // Auto-save 400ms after any change, skipping the initial render and
   // model-navigation resets.

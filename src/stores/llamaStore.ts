@@ -30,6 +30,9 @@ interface LlamaStore {
   runs: Record<string, LlamaRunState>
   startModel: (id: string, cfg: LlamaLaunchConfig) => Promise<void>
   stopModel: (id: string) => Promise<void>
+  // Probe /health for a model that may have been started externally or in a
+  // prior session, and sync runs[id].running without attaching IPC listeners.
+  probeModel: (id: string, host: string, port: number) => Promise<void>
 }
 
 export const useLlamaStore = create<LlamaStore>((set, get) => ({
@@ -112,5 +115,23 @@ export const useLlamaStore = create<LlamaStore>((set, get) => ({
     try {
       await window.api.llamaStop(id)
     } catch {}
+  },
+
+  probeModel: async (id, host, port) => {
+    try {
+      const resp = await fetch(`http://${host}:${port}/health`, { signal: AbortSignal.timeout(1500) })
+      const running = resp.ok
+      set((s) => {
+        const current = s.runs[id]
+        if (current?.running === running) return s
+        return { runs: { ...s.runs, [id]: { running, output: current?.output ?? '', error: current?.error ?? null, exitCode: current?.exitCode ?? null } } }
+      })
+    } catch {
+      // Unreachable — mark as not running only if we previously thought it was
+      set((s) => {
+        if (!s.runs[id]?.running) return s
+        return { runs: { ...s.runs, [id]: { ...s.runs[id], running: false } } }
+      })
+    }
   },
 }))
