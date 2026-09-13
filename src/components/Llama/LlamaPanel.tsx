@@ -19,14 +19,6 @@ function EditIcon() {
   )
 }
 
-function TerminalIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
-      <path d="M4 17l6-6-6-6M11 19h9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
 function PlayIcon() {
   return (
     <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
@@ -148,10 +140,6 @@ function ModelRow({ model }: { model: LlamaModelConfig }) {
     openTab({ path: buildLlamaModelPath(model.id), content: '', dirty: false })
   }
 
-  function openTerminal() {
-    openTab({ path: buildTerminalPath(`llama-${model.id}`), content: '', dirty: false })
-  }
-
   const launchCfg = {
     modelPath: model.modelPath,
     serverExecutable: model.serverExecutable,
@@ -197,7 +185,6 @@ function ModelRow({ model }: { model: LlamaModelConfig }) {
     { key: 'remove', label: 'Delete', icon: <CloseIcon />, danger: true, disabled: busy, onSelect: () => removeModel(model.id) },
     { key: 'sep', separator: true },
     { key: 'edit', label: 'Edit', icon: <EditIcon />, onSelect: openEdit },
-    { key: 'terminal', label: 'View Terminal', icon: <TerminalIcon />, onSelect: openTerminal },
   ]
 
   return (

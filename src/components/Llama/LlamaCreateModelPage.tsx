@@ -239,7 +239,8 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
         </h1>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-auto p-6">
+      <div className="flex-1 min-h-0 flex flex-col">
+      <div className={`overflow-auto p-6 ${(output || error) ? 'shrink' : 'flex-1'}`}>
         <FieldGroup title="Model Identity">
           <div className="flex flex-col gap-1.5 w-64">
             <label htmlFor="llama-displayName" className="text-sm text-fg">Display Name</label>
@@ -359,19 +360,21 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
           />
         </FieldGroup>
 
-        {(output || error) && (
-          <section className="pt-8">
-            <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider mb-3">
-              Server Output
-            </h2>
-            <div
-              ref={consoleRef}
-              className="h-48 overflow-auto rounded-lg border border-border bg-bg p-3 font-mono text-xs whitespace-pre-wrap break-all text-fg-muted"
-            >
-              {output || (error ?? '')}
-            </div>
-          </section>
-        )}
+      </div>
+
+      {(output || error) && (
+        <section className="flex-1 min-h-0 flex flex-col border-t border-border px-6 py-4">
+          <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider mb-3 shrink-0">
+            Server Output
+          </h2>
+          <div
+            ref={consoleRef}
+            className="flex-1 min-h-0 overflow-auto rounded-lg border border-border bg-bg p-3 font-mono text-xs whitespace-pre-wrap break-all text-fg-muted"
+          >
+            {output || (error ?? '')}
+          </div>
+        </section>
+      )}
       </div>
 
       <div className="shrink-0 px-4 py-3 border-t border-border flex items-center justify-end gap-2">
