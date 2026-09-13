@@ -561,6 +561,41 @@ body {
   animation: autocomplete-spin 0.6s linear infinite;
 }
 
+/* Footer git-activity bar (VIDE-78): a 3px strip on the footer's top edge
+   that grows/fades while any git command (push, pull, fetch, commit,
+   checkout, …) is running, and flashes red a few times on failure. Kept
+   purely visual — independent of the gitLogAutoShow setting. */
+.git-activity-bar {
+  position: absolute;
+  top: -1px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  pointer-events: none;
+}
+.git-activity-bar-running {
+  background: linear-gradient(90deg, rgb(var(--color-accent) / 0.7), rgb(var(--color-accent)));
+  border-radius: 0 2px 2px 0;
+  box-shadow: 0 0 6px rgb(var(--color-accent) / 0.6);
+  animation: git-activity-growth 1.35s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes git-activity-growth {
+  0%   { width: 0%;   opacity: 1; }
+  70%  { width: 92%;  opacity: 1; }
+  86%  { width: 100%; opacity: 0.55; }
+  100% { width: 0%;   opacity: 0; }
+}
+.git-activity-bar-error {
+  width: 100%;
+  background: #ef4444;
+  animation: git-activity-error-flash 1.2s ease-in-out 1;
+}
+@keyframes git-activity-error-flash {
+  0%, 100% { opacity: 0; }
+  10%, 30%, 50% { opacity: 1; }
+  20%, 40%, 60% { opacity: 0; }
+}
+
 /* Decorative badge in the empty editor panel ("open a file to start
    editing"). The source PNG has real alpha (pre-cropped to the badge's
    corner with a transparent surround), so it just composites normally —

@@ -13,6 +13,7 @@ import { AUTOCOMPLETE_FORCE_DISABLED } from '@/lib/autocompleteEffectiveState'
 import { FooterMessage } from './FooterMessage'
 import { NotificationPanel } from './NotificationPanel'
 import { NotificationCompactToggle } from './NotificationCompactToggle'
+import { GitActivityBar } from './GitActivityBar'
 
 export function StatusBar() {
   const { fontSize, increase, decrease, reset } = useFontSizeStore()
@@ -64,6 +65,7 @@ export function StatusBar() {
 
   return (
     <div className="relative h-6 shrink-0 flex items-center justify-between px-3 bg-tab-bar border-t border-border select-none">
+      <GitActivityBar />
       <NotificationPanel />
       <FooterMessage />
       {showBranch ? (

@@ -190,6 +190,32 @@ describe('gitStore', () => {
     expect(state.commitMessage).toBe('fix bug')
     expect(state.commitError).toBe('nothing staged')
   })
+
+  it('commit sets commandStatus to running while in flight, back to idle after', async () => {
+    let resolveCommit: (v: { ok: true }) => void = () => {}
+    vi.mocked(window.api.gitCommit).mockReturnValueOnce(
+      new Promise((resolve) => { resolveCommit = resolve })
+    )
+    useGitStore.setState({ repos: { '/proj': { ...emptyRepoGitState, commitMessage: 'fix bug' } } })
+    const commitPromise = useGitStore.getState().commit('/proj')
+    expect(useGitStore.getState().repos['/proj'].commandStatus).toBe('running')
+    resolveCommit({ ok: true })
+    await commitPromise
+    expect(useGitStore.getState().repos['/proj'].commandStatus).toBe('idle')
+  })
+
+  it('commit increments commandError on failure, same as any other git command', async () => {
+    vi.mocked(window.api.gitCommit).mockResolvedValueOnce({ ok: false, error: 'nothing staged' })
+    useGitStore.setState({ repos: { '/proj': { ...emptyRepoGitState, commitMessage: 'fix bug' } } })
+    await useGitStore.getState().commit('/proj')
+    expect(useGitStore.getState().repos['/proj'].commandError).toBe(1)
+  })
+
+  it('commit does not increment commandError on success', async () => {
+    useGitStore.setState({ repos: { '/proj': { ...emptyRepoGitState, commitMessage: 'fix bug' } } })
+    await useGitStore.getState().commit('/proj')
+    expect(useGitStore.getState().repos['/proj'].commandError).toBe(0)
+  })
 })
 
 describe('gitStore — command actions', () => {
@@ -251,6 +277,53 @@ describe('gitStore — command actions', () => {
     await checkoutPromise
     exitCb!('test-uuid', 0)
     expect(gitBranchLoadMock).toHaveBeenCalledWith('/proj')
+  })
+
+  it('does not increment commandError for that repo on a successful exit', async () => {
+    let exitCb: ((id: string, code: number) => void) | null = null
+    vi.mocked(window.api.onGitLogExit).mockImplementation((cb) => {
+      exitCb = cb
+      return () => {}
+    })
+    const pushPromise = useGitStore.getState().push('/proj')
+    await pushPromise
+    exitCb!('test-uuid', 0)
+    expect(useGitStore.getState().repos['/proj'].commandError).toBe(0)
+  })
+
+  it('increments commandError for that repo on a non-zero exit code', async () => {
+    let exitCb: ((id: string, code: number) => void) | null = null
+    vi.mocked(window.api.onGitLogExit).mockImplementation((cb) => {
+      exitCb = cb
+      return () => {}
+    })
+    const pushPromise = useGitStore.getState().push('/proj')
+    await pushPromise
+    exitCb!('test-uuid', 1)
+    expect(useGitStore.getState().repos['/proj'].commandError).toBe(1)
+  })
+
+  it('increments commandError again on a second failing command', async () => {
+    let exitCb: ((id: string, code: number) => void) | null = null
+    vi.mocked(window.api.onGitLogExit).mockImplementation((cb) => {
+      exitCb = cb
+      return () => {}
+    })
+    const firstPush = useGitStore.getState().push('/proj')
+    await firstPush
+    exitCb!('test-uuid', 1)
+
+    const secondPush = useGitStore.getState().push('/proj')
+    await secondPush
+    exitCb!('test-uuid', 1)
+
+    expect(useGitStore.getState().repos['/proj'].commandError).toBe(2)
+  })
+
+  it('increments commandError if gitRunCommand itself throws', async () => {
+    vi.mocked(window.api.gitRunCommand).mockRejectedValueOnce(new Error('spawn failed'))
+    await useGitStore.getState().push('/proj')
+    expect(useGitStore.getState().repos['/proj'].commandError).toBe(1)
   })
 })
 
