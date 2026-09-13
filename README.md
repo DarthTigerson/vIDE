@@ -11,9 +11,10 @@ models, with more agents planned.
 ![vIDE main window](docs/screenshots/hero.png)
 
 > **Not affiliated with Anthropic.** vIDE integrates the Claude Code CLI as
-> a terminal agent, and includes a panel for connecting to any
-> OpenAI-compatible local LLM endpoint ("Bridge"). It is an independent,
-> unofficial project — "Claude" is a trademark of its respective owner.
+> a terminal agent, and includes a Llama panel for running local models via
+> llama.cpp and a Bridge panel for any OpenAI-compatible endpoint. It is an
+> independent, unofficial project — "Claude" is a trademark of its respective
+> owner.
 
 ## What it is
 
@@ -36,9 +37,16 @@ memory indicator built into the status bar is there to keep that honest.
 - **Inline AI edit** — Cmd+K edits code in place from a prompt, no need to
   round-trip through the chat panel
 - **Find in files** — project-wide search (Cmd+Shift+F)
-- **Agent panels** — run Claude Code as a first-class panel, with support
-  for multiple concurrent sessions, plus a "Bridge" panel for any
-  OpenAI-compatible local LLM endpoint
+- **Claude panel** — run Claude Code as a first-class terminal agent, with
+  support for multiple concurrent sessions
+- **Llama panel** — manage and chat with local LLMs via
+  [llama.cpp](https://github.com/ggml-org/llama.cpp): configure models, launch
+  `llama-server` without leaving the app, and select any running model from the
+  same dropdown as Claude and Bridge. Auto-launches the server on first message
+  if it isn't already running. Per-model agent-mode-on-launch setting.
+- **Bridge panel** — connect to any OpenAI-compatible local LLM endpoint
+  (Ollama, LM Studio, …) with agent mode, tool-call limits, and per-session
+  history
 - **Git** — multi-repo panel, log/graph view, branch diff view, stage &
   commit, push/pull, all without leaving the app
 - **Integrated terminal** — a real shell (via `node-pty`) alongside the
@@ -60,7 +68,8 @@ memory indicator built into the status bar is there to keep that honest.
 - **Graphify** — build and browse a knowledge graph of the open codebase,
   right inside the app
 - **Usage tracking** — Claude usage/burn-rate monitoring built into the
-  status bar
+  status bar; the RAM hover shows system, vIDE, Docker, and Llama memory
+  at a glance
 - **Command palette & shortcuts overlay** — keyboard-first navigation
 
 | Git tooling | To Do board | Mobile Display |
@@ -156,6 +165,8 @@ so the same base theme can produce very different-looking workspaces.
   and other Linux distros aren't supported yet
 - [Claude Code CLI](https://docs.claude.com/en/docs/claude-code) installed
   separately — vIDE launches it, it doesn't bundle it
+- **For the Llama panel** (optional): [llama.cpp](https://github.com/ggml-org/llama.cpp)
+  (`brew install llama.cpp` on macOS) and at least one `.gguf` model file
 
 ## Installation
 
