@@ -92,6 +92,26 @@ prior art/rationale before redesigning an existing feature.
 **Platform support**: macOS (Apple Silicon only) and Linux (x86_64,
 Debian/Ubuntu-based) — no Intel Mac, no Windows.
 
+## Solo-developer workflow
+
+Thomas is the only developer on this project — there is no team, so there's
+no concurrent-work-conflict problem to guard against. This has a direct
+consequence for how agent work should be committed:
+
+- **Don't create a git worktree or other isolated workspace for agent work
+  unless explicitly asked.** Worktree isolation exists to protect an
+  active branch from a long/autonomous session's changes when multiple
+  people (or workstreams) might collide. With one developer, that risk
+  doesn't exist, and the isolation itself becomes the risk: work can end
+  up committed on a branch in a side directory that's easy to lose track
+  of or forget to push, rather than on the branch the user actually
+  prepared and is watching (e.g. via `subagent-driven-development` or any
+  long unattended run). If the user has already checked out or created a
+  branch for the work, commit there directly, in place, as you go.
+- Push what you commit. Local-only commits on a branch nobody's watching
+  are functionally invisible — treat "committed" and "pushed" as the same
+  step unless told otherwise.
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
