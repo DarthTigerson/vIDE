@@ -61,6 +61,7 @@ import {
   GENERAL_SETTINGS_TAB_PATH,
   TODO_SETTINGS_TAB_PATH,
   NOTES_SETTINGS_TAB_PATH,
+  LLAMA_SETTINGS_TAB_PATH,
 } from '@/components/Settings/paths'
 import { TerminalTab } from '@/components/Terminal/TerminalTab'
 import { BrowserTab } from '@/components/Browser/BrowserTab'
@@ -77,6 +78,7 @@ import { MobileSettingsPage } from '@/components/Settings/MobileSettingsPage'
 import { GeneralSettingsPage } from '@/components/Settings/GeneralSettingsPage'
 import { TodoSettingsPage } from '@/components/Settings/TodoSettingsPage'
 import { NotesSettingsPage } from '@/components/Settings/NotesSettingsPage'
+import { LlamaSettingsPage } from '@/components/Settings/LlamaSettingsPage'
 import { DockerLogsPage } from '@/components/Docker/DockerLogsPage'
 import { isDockerLogsTab } from '@/components/Docker/paths'
 import { isGitDiffTab, parseGitDiffPath, isGitCommitDiffTab, parseGitCommitDiffPath } from '@/components/Git/paths'
@@ -526,6 +528,8 @@ function EditorPane({ paneId }: { paneId: string }) {
             <TodoSettingsPage />
           ) : activeTab.path === NOTES_SETTINGS_TAB_PATH ? (
             <NotesSettingsPage />
+          ) : activeTab.path === LLAMA_SETTINGS_TAB_PATH ? (
+            <LlamaSettingsPage />
           ) : activeTab.path === GENERAL_SETTINGS_TAB_PATH ? (
             <GeneralSettingsPage />
           ) : activeTab.path === DISPLAY_TAB_PATH ? (

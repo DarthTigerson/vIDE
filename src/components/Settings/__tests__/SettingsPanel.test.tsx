@@ -7,7 +7,7 @@ import {
   GENERAL_SETTINGS_TAB_PATH, DISPLAY_TAB_PATH, EDITOR_SETTINGS_TAB_PATH, GIT_SETTINGS_TAB_PATH,
   BROWSER_SETTINGS_TAB_PATH, CLAUDE_SETTINGS_TAB_PATH, BRIDGE_SETTINGS_TAB_PATH, GRAPHIFY_SETTINGS_TAB_PATH,
   JIRA_SETTINGS_TAB_PATH, DOCKER_SETTINGS_TAB_PATH, MOBILE_SETTINGS_TAB_PATH, NOTES_SETTINGS_TAB_PATH,
-  TODO_SETTINGS_TAB_PATH,
+  TODO_SETTINGS_TAB_PATH, LLAMA_SETTINGS_TAB_PATH,
 } from '../paths'
 
 const ITEMS: { label: string; path: string }[] = [
@@ -16,6 +16,7 @@ const ITEMS: { label: string; path: string }[] = [
   { label: 'Display', path: DISPLAY_TAB_PATH },
   { label: 'Claude', path: CLAUDE_SETTINGS_TAB_PATH },
   { label: 'Bridge', path: BRIDGE_SETTINGS_TAB_PATH },
+  { label: 'Llama', path: LLAMA_SETTINGS_TAB_PATH },
   { label: 'Git', path: GIT_SETTINGS_TAB_PATH },
   { label: 'Docker', path: DOCKER_SETTINGS_TAB_PATH },
   { label: 'Browser', path: BROWSER_SETTINGS_TAB_PATH },

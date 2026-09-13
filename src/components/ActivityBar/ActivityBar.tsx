@@ -415,3 +415,14 @@ export function GraphIcon() {
     </svg>
   )
 }
+
+// A llama's head: long face with a single ear and muzzle dots, drawn
+// stroke-based like the other activity-bar glyphs.
+export function LlamaIcon() {
+  return (
+    <svg width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M9 21v-3.2c-2-1.4-3-3.5-3-6.1V7.5C6 6.7 6.7 6 7.5 6H9V4c0-1.1 0.9-2 2-2h1c1.1 0 2 0.9 2 2v2h1.5c0.8 0 1.5 0.7 1.5 1.5v4.2c0 2.6-1 4.7-3 6.1V21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M12 14.5h.01M14.5 14.5h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  )
+}

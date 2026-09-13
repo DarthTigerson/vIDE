@@ -37,6 +37,7 @@ import {
   CostIcon,
   UsageGraphIcon,
   NotesIcon,
+  LlamaIcon,
 } from './components/ActivityBar/ActivityBar'
 import { ClaudeStatusIcon } from './components/ActivityBar/ClaudeStatusIcon'
 import { ClaudeSessionContextMenu } from './components/ActivityBar/ClaudeSessionContextMenu'
@@ -85,6 +86,7 @@ import { useGitPanelOpenAlertStore } from './stores/gitPanelOpenAlertStore'
 import { useDockerLiveUpdates } from './hooks/useDockerLiveUpdates'
 import { useTodoSettingsStore } from './stores/todoSettingsStore'
 import { useNotesSettingsStore } from './stores/notesSettingsStore'
+import { useLlamaSettingsStore } from './stores/llamaSettingsStore'
 import { useGraphifySettingsStore } from './stores/graphifySettingsStore'
 import { useGraphifyAutoBuild } from './hooks/useGraphifyAutoBuild'
 import { useNotesStore } from './stores/notesStore'
@@ -93,6 +95,7 @@ import { evaluateCmdWForPinnedTab, type PendingClose } from './lib/pinnedTabClos
 import { buildTerminalPath, buildBrowserPath, JIRA_SETTINGS_TAB_PATH, GIT_SETTINGS_TAB_PATH, USAGE_GRAPH_TAB_PATH } from './components/Settings/paths'
 import { TodoPanel } from './components/Todo/TodoPanel'
 import { NotesPanel } from './components/Notes/NotesPanel'
+import { LlamaPanel } from './components/Llama/LlamaPanel'
 import { useNotificationSoundSettingsStore, playNotificationSound } from './stores/notificationSoundSettingsStore'
 import type { AssistantKind } from './types/api'
 
@@ -144,8 +147,8 @@ export default function App() {
   const enabledModels = useModelSettingsStore((s) => s.enabled)
   const visibleAssistantOptions = ASSISTANT_OPTIONS.filter((option) => enabledModels[option.id])
   const repoName = projectRoot ? projectRoot.split('/').pop() : null
-  const [leftPanel, setLeftPanel] = useState<'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'settings' | null>('files')
-  const lastLeftPanelRef = useRef<'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'settings'>('files')
+  const [leftPanel, setLeftPanel] = useState<'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'llama' | 'settings' | null>('files')
+  const lastLeftPanelRef = useRef<'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'llama' | 'settings'>('files')
   const [sidebarSize, setSidebarSize] = useState(loadSidebarSize)
   const [chatSize, setChatSize] = useState(loadChatSize)
   const [assistantMenuOpen, setAssistantMenuOpen] = useState(false)
@@ -231,6 +234,7 @@ export default function App() {
   const mobileDefaultMode = useMobileSettingsStore((s) => s.defaultMode)
   const todoEnabled = useTodoSettingsStore((s) => s.enabled)
   const notesEnabled = useNotesSettingsStore((s) => s.enabled)
+  const llamaEnabled = useLlamaSettingsStore((s) => s.enabled)
   const graphifyEnabled = useGraphifySettingsStore((s) => s.enabled)
 
   function openNewTerminal() {
@@ -894,6 +898,13 @@ export default function App() {
               active: leftPanel === 'notes',
               onClick: () => setLeftPanel((p) => (p === 'notes' ? null : 'notes')),
             }] : []),
+            ...(llamaEnabled ? [{
+              id: 'llama',
+              icon: <LlamaIcon />,
+              title: 'Llama',
+              active: leftPanel === 'llama',
+              onClick: () => setLeftPanel((p) => (p === 'llama' ? null : 'llama')),
+            }] : []),
             ...(gitRemoteReady ? [{
               id: 'git-remote',
               icon: gitRemoteIcon(gitRemoteProvider),
@@ -952,7 +963,7 @@ export default function App() {
           >
             {(() => {
               const activeLeftPanel = leftPanel ?? lastLeftPanelRef.current
-              return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'docker' ? <DockerPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : activeLeftPanel === 'todos' ? <TodoPanel /> : activeLeftPanel === 'notes' ? <NotesPanel /> : <SettingsPanel />
+              return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'docker' ? <DockerPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : activeLeftPanel === 'todos' ? <TodoPanel /> : activeLeftPanel === 'notes' ? <NotesPanel /> : activeLeftPanel === 'llama' ? <LlamaPanel /> : <SettingsPanel />
             })()}
           </Panel>
           )
