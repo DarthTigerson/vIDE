@@ -1,5 +1,17 @@
 # vIDE
 
+## v0.2.13 (2026-09-13)
+- **Mobile Display: full vIDE client**: pairing now offers a choice between the existing usage-stats view and loading the real editor, terminal, and Claude/Bridge sessions as a fully interactive second client of the same backend, over a new authenticated WebSocket relay — a "Default mode after pairing" setting skips the chooser next time, with a "Switch mode" link to change it later
+- **Git Reset**: a new split button in the Git panel and footer menu — resets to the last commit, hard-resets to any picked branch/tag/commit, or undoes the last commit while keeping its changes staged so you can pull and re-commit
+- Added a footer git-activity indicator: a brief running animation while a git command is in flight, and a red flash on failure
+
+**Bug fixes**
+- Fixed "Discard All Changes" wiping staged changes along with unstaged ones — staged changes are now left alone
+- Fixed the Mobile Display home screen showing a generic icon instead of vIDE's own
+- Fixed the browser reload icon spinning in the wrong direction against its own arrowhead
+- Fixed the Markdown editor/preview split view not reflecting edits until the tab was closed and reopened
+
+
 ## v0.2.12 (2026-09-12)
 - **Notification system rework**: status bar alerts now live in a single shared panel with a priority teaser in the footer pill instead of separate ad-hoc messages; session and weekly usage alerts can show simultaneously, each with its own icon, and the footer text goes quiet after acknowledgment while the panel keeps listing every active item; added a compact bell toggle for narrow status bar widths, a wider footer pill and panel, a scrollable panel list, and a dismiss button on individual rows
 - Failed git commits now raise a notification that opens the Git panel
