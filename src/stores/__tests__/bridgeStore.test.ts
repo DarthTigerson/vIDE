@@ -26,14 +26,54 @@ describe('bridgeStore', () => {
     useBridgeStore.setState({ messages: [], previousMessages: [], agentMode: false, streaming: false })
   })
 
-  it('sendMessage appends a user message and calls window.api.bridgeSend', () => {
+  it('sendMessage appends a user message plus an empty assistant placeholder and calls window.api.bridgeSend', () => {
     useBridgeStore.getState().sendMessage('/project', 'hello')
 
     const state = useBridgeStore.getState()
+    expect(state.messages).toHaveLength(2)
+    expect(state.messages[0]).toMatchObject({ role: 'user', content: 'hello' })
+    expect(state.messages[1]).toMatchObject({ role: 'assistant', content: '' })
+    expect(state.streaming).toBe(true)
+    // The wire payload must NOT include the placeholder — it's UI-only.
+    expect(apiMock.bridgeSend).toHaveBeenCalledWith('/project', [{ role: 'user', content: 'hello' }], false, expect.any(Object))
+  })
+
+  it('cancel drops the trailing empty assistant placeholder', () => {
+    useBridgeStore.getState().sendMessage('/project', 'hello')
+    useBridgeStore.getState().cancel()
+
+    const state = useBridgeStore.getState()
+    expect(state.streaming).toBe(false)
     expect(state.messages).toHaveLength(1)
     expect(state.messages[0]).toMatchObject({ role: 'user', content: 'hello' })
-    expect(state.streaming).toBe(true)
-    expect(apiMock.bridgeSend).toHaveBeenCalledWith('/project', [{ role: 'user', content: 'hello' }], false, expect.any(Object))
+  })
+
+  it('cancel keeps an assistant placeholder that has content', () => {
+    let handler: (e: any) => void = () => {}
+    apiMock.onBridgeEvent.mockImplementation((cb) => { handler = cb; return () => {} })
+    useBridgeStore.getState().initEventListener()
+
+    useBridgeStore.getState().sendMessage('/project', 'hello')
+    handler({ type: 'text-delta', delta: 'partial' })
+    useBridgeStore.getState().cancel()
+
+    const state = useBridgeStore.getState()
+    expect(state.messages).toHaveLength(2)
+    expect(state.messages[1]).toMatchObject({ role: 'assistant', content: 'partial' })
+  })
+
+  it('done drops a trailing empty assistant placeholder (empty model response)', () => {
+    let handler: (e: any) => void = () => {}
+    apiMock.onBridgeEvent.mockImplementation((cb) => { handler = cb; return () => {} })
+    useBridgeStore.getState().initEventListener()
+
+    useBridgeStore.getState().sendMessage('/project', 'hello')
+    handler({ type: 'done' })
+
+    const state = useBridgeStore.getState()
+    expect(state.streaming).toBe(false)
+    expect(state.messages).toHaveLength(1)
+    expect(state.messages[0]).toMatchObject({ role: 'user', content: 'hello' })
   })
 
   it('toggleAgentMode flips and persists agentMode', () => {

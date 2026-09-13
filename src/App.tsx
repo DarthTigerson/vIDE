@@ -37,6 +37,7 @@ import {
   CostIcon,
   UsageGraphIcon,
   NotesIcon,
+  LlamaIcon,
 } from './components/ActivityBar/ActivityBar'
 import { ClaudeStatusIcon } from './components/ActivityBar/ClaudeStatusIcon'
 import { ClaudeSessionContextMenu } from './components/ActivityBar/ClaudeSessionContextMenu'
@@ -85,6 +86,8 @@ import { useGitPanelOpenAlertStore } from './stores/gitPanelOpenAlertStore'
 import { useDockerLiveUpdates } from './hooks/useDockerLiveUpdates'
 import { useTodoSettingsStore } from './stores/todoSettingsStore'
 import { useNotesSettingsStore } from './stores/notesSettingsStore'
+import { useLlamaSettingsStore } from './stores/llamaSettingsStore'
+import { useLlamaModelsStore } from './stores/llamaModelsStore'
 import { useGraphifySettingsStore } from './stores/graphifySettingsStore'
 import { useGraphifyAutoBuild } from './hooks/useGraphifyAutoBuild'
 import { useNotesStore } from './stores/notesStore'
@@ -93,6 +96,7 @@ import { evaluateCmdWForPinnedTab, type PendingClose } from './lib/pinnedTabClos
 import { buildTerminalPath, buildBrowserPath, JIRA_SETTINGS_TAB_PATH, GIT_SETTINGS_TAB_PATH, USAGE_GRAPH_TAB_PATH } from './components/Settings/paths'
 import { TodoPanel } from './components/Todo/TodoPanel'
 import { NotesPanel } from './components/Notes/NotesPanel'
+import { LlamaPanel } from './components/Llama/LlamaPanel'
 import { useNotificationSoundSettingsStore, playNotificationSound } from './stores/notificationSoundSettingsStore'
 import type { AssistantKind } from './types/api'
 
@@ -102,7 +106,9 @@ const ASSISTANT_OPTIONS: Array<{ id: AssistantKind; label: string }> = [
 ]
 
 function assistantIcon(kind: AssistantKind) {
-  return kind === 'claude' ? <ClaudeIcon /> : <BridgeIcon />
+  if (kind === 'claude') return <ClaudeIcon />
+  if (kind.startsWith('llama:')) return <LlamaIcon />
+  return <BridgeIcon />
 }
 
 const JIRA_BROWSER_ID = 'jira-external'
@@ -142,10 +148,16 @@ export default function App() {
   const setAssistant = useClaudeStore((s) => s.setAssistant)
   const chatVisible = useClaudeStore((s) => s.chatVisible)
   const enabledModels = useModelSettingsStore((s) => s.enabled)
-  const visibleAssistantOptions = ASSISTANT_OPTIONS.filter((option) => enabledModels[option.id])
+  const llamaModels = useLlamaModelsStore((s) => s.models)
+  const visibleAssistantOptions = [
+    ...ASSISTANT_OPTIONS.filter((option) => enabledModels[option.id]),
+    ...llamaModels
+      .filter((m) => m.enabled)
+      .map((m) => ({ id: `llama:${m.id}`, label: m.displayName || m.alias || 'Llama Model' })),
+  ]
   const repoName = projectRoot ? projectRoot.split('/').pop() : null
-  const [leftPanel, setLeftPanel] = useState<'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'settings' | null>('files')
-  const lastLeftPanelRef = useRef<'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'settings'>('files')
+  const [leftPanel, setLeftPanel] = useState<'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'llama' | 'settings' | null>('files')
+  const lastLeftPanelRef = useRef<'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'llama' | 'settings'>('files')
   const [sidebarSize, setSidebarSize] = useState(loadSidebarSize)
   const [chatSize, setChatSize] = useState(loadChatSize)
   const [assistantMenuOpen, setAssistantMenuOpen] = useState(false)
@@ -159,9 +171,9 @@ export default function App() {
   const branchPaletteOpen = useSearchStore((s) => s.branchPaletteOpen)
   const chatPanelRef = useRef<ImperativePanelHandle>(null)
   const sidebarPanelRef = useRef<ImperativePanelHandle>(null)
-  const assistantLabel = assistant === 'claude' ? 'Claude Code' : 'Bridge'
-  const newSessionTitle = assistant === 'claude' ? 'New Claude Session' : 'New Bridge Session'
-  const previousSessionTitle = assistant === 'claude' ? 'Continue Claude Session' : 'Restore Previous Bridge Session'
+  const assistantLabel = visibleAssistantOptions.find((o) => o.id === assistant)?.label ?? 'Claude Code'
+  const newSessionTitle = assistant === 'claude' ? 'New Claude Session' : 'New Session'
+  const previousSessionTitle = assistant === 'claude' ? 'Continue Claude Session' : 'Restore Previous Session'
   // useActiveRepo() matches what the Git panel itself actually shows: a
   // single discovered repo has no open/close chrome, so it always counts
   // (VIDE-18/open-close); in a multi-repo project it's the one repo whose
@@ -231,6 +243,7 @@ export default function App() {
   const mobileDefaultMode = useMobileSettingsStore((s) => s.defaultMode)
   const todoEnabled = useTodoSettingsStore((s) => s.enabled)
   const notesEnabled = useNotesSettingsStore((s) => s.enabled)
+  const llamaEnabled = useLlamaSettingsStore((s) => s.enabled)
   const graphifyEnabled = useGraphifySettingsStore((s) => s.enabled)
 
   function openNewTerminal() {
@@ -424,10 +437,11 @@ export default function App() {
   }, [revealRequest])
 
   useEffect(() => {
-    if (enabledModels[assistant]) return
-    const fallback = ASSISTANT_OPTIONS.find((option) => enabledModels[option.id])
+    const isValid = visibleAssistantOptions.some((o) => o.id === assistant)
+    if (isValid) return
+    const fallback = visibleAssistantOptions[0]
     if (fallback) setAssistant(fallback.id)
-  }, [enabledModels, assistant, setAssistant])
+  }, [visibleAssistantOptions, assistant, setAssistant])
 
   useEffect(() => {
     // Pull (not push): ask main whether this window was opened with a
@@ -865,6 +879,14 @@ export default function App() {
               badge: dockerBadge,
               onClick: () => setLeftPanel((p) => (p === 'docker' ? null : 'docker')),
             }] : []),
+            ...(llamaEnabled ? [{
+              id: 'llama',
+              icon: <LlamaIcon />,
+              title: 'Llama',
+              active: leftPanel === 'llama',
+              badge: llamaModels.length > 0 ? llamaModels.length : undefined,
+              onClick: () => setLeftPanel((p) => (p === 'llama' ? null : 'llama')),
+            }] : []),
             ...(mobileEnabled && projectRoot ? [{
               id: 'mobile',
               icon: <PhoneIcon />,
@@ -952,7 +974,7 @@ export default function App() {
           >
             {(() => {
               const activeLeftPanel = leftPanel ?? lastLeftPanelRef.current
-              return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'docker' ? <DockerPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : activeLeftPanel === 'todos' ? <TodoPanel /> : activeLeftPanel === 'notes' ? <NotesPanel /> : <SettingsPanel />
+              return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'docker' ? <DockerPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : activeLeftPanel === 'todos' ? <TodoPanel /> : activeLeftPanel === 'notes' ? <NotesPanel /> : activeLeftPanel === 'llama' ? <LlamaPanel /> : <SettingsPanel />
             })()}
           </Panel>
           )
@@ -1224,20 +1246,23 @@ function formatGb(bytes: number): string {
 
 function MemoryPill({ usage }: { usage: { usedBytes: number; totalBytes: number; appBytes: number } }) {
   const [hovered, setHovered] = useState(false)
-  // docker stats --no-stream takes a real CPU sample (~1s) - see
-  // getContainerStats()'s own comment in electron/docker.ts - so this is
-  // fetched lazily on hover rather than folded into the regular memory poll.
-  // Left undefined (not fetched yet), null (no docker / no running
-  // containers - row hidden), or a total across every running container.
+  const llamaEnabled = useLlamaSettingsStore((s) => s.enabled)
+  // Fetched lazily on hover — same reason as Docker (potentially slow).
+  // undefined = not yet fetched, null = nothing running / hide row.
   const [dockerBytes, setDockerBytes] = useState<number | null | undefined>(undefined)
+  const [llamaBytes, setLlamaBytes] = useState<number | null | undefined>(undefined)
 
   function handleEnter() {
     setHovered(true)
-    if (dockerBytes !== undefined) return
-    window.api.dockerGetContainerStats().then((stats) => {
-      const ids = Object.keys(stats)
-      setDockerBytes(ids.length === 0 ? null : ids.reduce((sum, id) => sum + stats[id].usedBytes, 0))
-    }).catch(() => setDockerBytes(null))
+    if (dockerBytes === undefined) {
+      window.api.dockerGetContainerStats().then((stats) => {
+        const ids = Object.keys(stats)
+        setDockerBytes(ids.length === 0 ? null : ids.reduce((sum, id) => sum + stats[id].usedBytes, 0))
+      }).catch(() => setDockerBytes(null))
+    }
+    if (llamaEnabled && llamaBytes === undefined) {
+      window.api.llamaGetMemoryUsage().then(setLlamaBytes).catch(() => setLlamaBytes(null))
+    }
   }
 
   return (
@@ -1262,6 +1287,12 @@ function MemoryPill({ usage }: { usage: { usedBytes: number; totalBytes: number;
             <div className="mt-1.5 flex items-center justify-between gap-3 text-xs">
               <span className="text-fg-muted">Docker</span>
               <span className="font-medium text-fg tabular-nums">{formatGb(dockerBytes)} GB</span>
+            </div>
+          )}
+          {llamaEnabled && llamaBytes != null && (
+            <div className="mt-1.5 flex items-center justify-between gap-3 text-xs">
+              <span className="text-fg-muted">Llama</span>
+              <span className="font-medium text-fg tabular-nums">{formatGb(llamaBytes)} GB</span>
             </div>
           )}
         </div>

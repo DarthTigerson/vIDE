@@ -3,12 +3,12 @@ import type { AssistantKind } from '@/types/api'
 import { hueForInstanceIndex, nextHueForInstances } from '@/lib/claudeInstanceHues'
 
 const ASSISTANT_KEY = 'vide-last-assistant'
-const VALID: AssistantKind[] = ['claude', 'bridge']
-
 function readStoredAssistant(): AssistantKind {
   try {
     const v = localStorage.getItem(ASSISTANT_KEY)
-    return VALID.includes(v as AssistantKind) ? (v as AssistantKind) : 'claude'
+    if (!v) return 'claude'
+    if (v === 'claude' || v === 'bridge' || v.startsWith('llama:')) return v
+    return 'claude'
   } catch {
     return 'claude'
   }

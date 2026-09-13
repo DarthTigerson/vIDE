@@ -243,6 +243,7 @@ interface EditorState {
   syncFromDisk: (path: string, content: string) => void
   setTabMissing: (path: string, missing: boolean) => void
   markTabsMissingForDeletedPath: (path: string) => void
+  replaceTabPath: (oldPath: string, newPath: string) => void
   revealRequest: { path: string; line: number; col: number; searchTerm: string } | null
   setRevealRequest: (req: { path: string; line: number; col: number; searchTerm: string }) => void
   clearRevealRequest: () => void
@@ -416,6 +417,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     )
     if (paneId) state.closeTabInPane(paneId, path)
   },
+
+  replaceTabPath: (oldPath, newPath) => set((state) => ({
+    tabs: state.tabs.map((t) => t.path === oldPath ? { ...t, path: newPath } : t),
+    activeTabPath: state.activeTabPath === oldPath ? newPath : state.activeTabPath,
+    paneTabs: Object.fromEntries(
+      Object.entries(state.paneTabs).map(([id, p]) => [id, p === oldPath ? newPath : p])
+    ),
+    paneTabLists: Object.fromEntries(
+      Object.entries(state.paneTabLists).map(([id, list]) => [id, list.map((p) => p === oldPath ? newPath : p)])
+    ),
+    pinnedPaths: new Set([...state.pinnedPaths].map((p) => p === oldPath ? newPath : p)),
+  })),
 
   closeActiveTab: () => {
     const { activePaneId, paneTabs, closeTabInPane } = get()

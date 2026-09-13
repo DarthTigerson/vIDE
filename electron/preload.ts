@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { LlamaLaunchConfig } from './llama'
 
 contextBridge.exposeInMainWorld('api', {
   readDir: (path: string) => ipcRenderer.invoke('fs:readDir', path),
@@ -15,6 +16,7 @@ contextBridge.exposeInMainWorld('api', {
   searchText: (root: string, query: string, caseSensitive: boolean) =>
     ipcRenderer.invoke('fs:searchText', root, query, caseSensitive),
   openFolder: () => ipcRenderer.invoke('dialog:openFolder'),
+  openFile: (opts: { defaultPath?: string; filters?: { name: string; extensions: string[] }[] }) => ipcRenderer.invoke('dialog:openFile', opts),
   getSystemMemoryUsage: () => ipcRenderer.invoke('system:getMemoryUsage'),
   fsWatchRoot: (cwd: string | null) => ipcRenderer.send('fs:watchRoot', cwd),
   onFsChanged: (cb: (cwd: string) => void) => {
@@ -452,5 +454,20 @@ contextBridge.exposeInMainWorld('api', {
     const handler = (_: Electron.IpcRendererEvent, id: string, code: number) => cb(id, code)
     ipcRenderer.on('graphify:exit', handler)
     return () => ipcRenderer.removeListener('graphify:exit', handler)
+  },
+
+  llamaIsAvailable: () => ipcRenderer.invoke('llama:isAvailable'),
+  llamaStart: (id: string, cfg: LlamaLaunchConfig) => ipcRenderer.invoke('llama:start', id, cfg),
+  llamaStop: (id: string) => ipcRenderer.invoke('llama:stop', id),
+  llamaGetMemoryUsage: () => ipcRenderer.invoke('llama:getMemoryUsage') as Promise<number | null>,
+  onLlamaData: (cb: (id: string, data: string) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, id: string, data: string) => cb(id, data)
+    ipcRenderer.on('llama:data', handler)
+    return () => ipcRenderer.removeListener('llama:data', handler)
+  },
+  onLlamaExit: (cb: (id: string, code: number) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, id: string, code: number) => cb(id, code)
+    ipcRenderer.on('llama:exit', handler)
+    return () => ipcRenderer.removeListener('llama:exit', handler)
   },
 })

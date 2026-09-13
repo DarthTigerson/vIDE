@@ -169,6 +169,59 @@ describe('BridgeChat', () => {
     expect(textarea.value).toBe('')
   })
 
+  it('shows the thinking indicator while streaming before the first token arrives', () => {
+    useBridgeStore.setState({
+      streaming: true,
+      messages: [
+        { role: 'user', content: 'hi' },
+        { role: 'assistant', content: '' },
+      ],
+    })
+    render(<BridgeChat cwd="/project" />)
+
+    expect(screen.getByRole('status', { name: /thinking/i })).toBeTruthy()
+  })
+
+  it('hides the thinking indicator once the assistant starts producing text', () => {
+    useBridgeStore.setState({
+      streaming: true,
+      messages: [
+        { role: 'user', content: 'hi' },
+        { role: 'assistant', content: 'hello' },
+      ],
+    })
+    render(<BridgeChat cwd="/project" />)
+
+    expect(screen.queryByRole('status', { name: /thinking/i })).toBeNull()
+  })
+
+  it('hides the thinking dots once a tool call appears while streaming', () => {
+    useBridgeStore.setState({
+      streaming: true,
+      messages: [
+        { role: 'user', content: 'hi' },
+        {
+          role: 'assistant',
+          content: '',
+          toolCalls: [{ id: 'call_1', name: 'read_file', args: { path: '/x' }, status: 'running' }],
+        },
+      ],
+    })
+    render(<BridgeChat cwd="/project" />)
+
+    expect(screen.queryByRole('status', { name: /thinking/i })).toBeNull()
+  })
+
+  it('shows no thinking indicator when not streaming', () => {
+    useBridgeStore.setState({
+      streaming: false,
+      messages: [{ role: 'assistant', content: 'done' }],
+    })
+    render(<BridgeChat cwd="/project" />)
+
+    expect(screen.queryByRole('status', { name: /thinking/i })).toBeNull()
+  })
+
   it('does not steal focus on remount when focusToken was already bumped by an earlier mount', () => {
     // Simulates: an earlier Cmd+L press happened while some other BridgeChat instance was
     // mounted (bumping focusToken and consuming the injection), then the user switches away

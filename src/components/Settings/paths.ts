@@ -21,6 +21,7 @@ export const DOCKER_SETTINGS_TAB_PATH = 'settings://Docker'
 export const MOBILE_SETTINGS_TAB_PATH = 'settings://Mobile'
 export const TODO_SETTINGS_TAB_PATH = 'settings://Todo'
 export const NOTES_SETTINGS_TAB_PATH = 'settings://Notes'
+export const LLAMA_SETTINGS_TAB_PATH = 'settings://Llama'
 export const GIT_LOG_TAB_PATH = 'git-log://Git Log'
 
 export function isSettingsTab(path: string): boolean {
@@ -59,6 +60,13 @@ const TODO_BOARD_PREFIX = 'todo-board://'
 export function isTodoBoardTab(path: string): boolean { return path.startsWith(TODO_BOARD_PREFIX) }
 export function buildTodoBoardPath(projectId: string): string { return TODO_BOARD_PREFIX + projectId }
 export function getTodoBoardProjectId(path: string): string { return path.slice(TODO_BOARD_PREFIX.length) }
+
+// Llama model editor page. `new` opens a blank form; `<modelId>` opens the
+// existing model for editing (todo-board://<projectId> pattern).
+const LLAMA_MODEL_PREFIX = 'llama-model://'
+export function isLlamaModelTab(path: string): boolean { return path.startsWith(LLAMA_MODEL_PREFIX) }
+export function buildLlamaModelPath(modelId?: string): string { return LLAMA_MODEL_PREFIX + (modelId ?? 'new') }
+export function getLlamaModelId(path: string): string { return path.slice(LLAMA_MODEL_PREFIX.length) }
 
 const TODO_DETAIL_PREFIX = 'todo-detail://'
 export function isTodoDetailTab(path: string): boolean { return path.startsWith(TODO_DETAIL_PREFIX) }

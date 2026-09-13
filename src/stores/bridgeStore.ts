@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import { useBridgeSettingsStore } from './bridgeSettingsStore'
 import type { BridgeEvent, BridgeMessage } from '@/types/api'
 
-const AGENT_MODE_KEY = 'vide:bridge:agentMode'
 const CURRENT_SESSION_KEY = 'vide:bridge:current'
 const SESSIONS_KEY = 'vide:bridge:sessions'
 
@@ -61,7 +60,7 @@ export interface BridgeChatMessage {
 
 function getAgentMode(): boolean {
   try {
-    return localStorage.getItem(AGENT_MODE_KEY) === 'true'
+    return localStorage.getItem('vide:bridge:agentModeOnLaunch') === 'true'
   } catch {
     return false
   }
@@ -80,8 +79,8 @@ interface BridgeStore {
   agentMode: boolean
   streaming: boolean
   draftInput: string
-  sendMessage: (cwd: string, text: string) => void
-  regenerate: (cwd: string, messageIndex: number) => void
+  sendMessage: (cwd: string, text: string, settingsOverride?: { endpoint: string; apiKey: string; modelId: string }) => void
+  regenerate: (cwd: string, messageIndex: number, settingsOverride?: { endpoint: string; apiKey: string; modelId: string }) => void
   newSession: () => void
   previousSession: () => void
   openSessionPicker: () => void
@@ -107,33 +106,34 @@ export const useBridgeStore = create<BridgeStore>((set, get) => ({
   streaming: false,
   draftInput: '',
 
-  sendMessage: (cwd, text) => {
+  sendMessage: (cwd, text, settingsOverride) => {
     const userMessage: BridgeChatMessage = { role: 'user', content: text }
-    const messages = [...get().messages, userMessage]
-    set({ messages, streaming: true })
+    const wire: BridgeChatMessage[] = [...get().messages, userMessage]
+    const placeholder: BridgeChatMessage = { role: 'assistant', content: '' }
+    set({ messages: [...wire, placeholder], streaming: true })
 
-    const settings = useBridgeSettingsStore.getState()
-    window.api.bridgeSend(cwd, toWireMessages(messages), get().agentMode, {
-      endpoint: settings.endpoint,
-      apiKey: settings.apiKey,
-      modelId: settings.modelId,
+    const s = settingsOverride ?? useBridgeSettingsStore.getState()
+    window.api.bridgeSend(cwd, toWireMessages(wire), get().agentMode, {
+      endpoint: s.endpoint,
+      apiKey: s.apiKey,
+      modelId: s.modelId,
       sessionId: get().sessionId,
     })
   },
 
-  regenerate: (cwd, messageIndex) => {
+  regenerate: (cwd, messageIndex, settingsOverride) => {
     const all = get().messages
     const target = all[messageIndex]
     if (!target || target.role !== 'user') return
     const history = all.slice(0, messageIndex)
-    const messages = [...history, { role: 'user' as const, content: target.content }]
-    set({ messages, streaming: true })
+    const wire: BridgeChatMessage[] = [...history, { role: 'user' as const, content: target.content }]
+    set({ messages: [...wire, { role: 'assistant', content: '' }], streaming: true })
 
-    const settings = useBridgeSettingsStore.getState()
-    window.api.bridgeSend(cwd, toWireMessages(messages), get().agentMode, {
-      endpoint: settings.endpoint,
-      apiKey: settings.apiKey,
-      modelId: settings.modelId,
+    const s = settingsOverride ?? useBridgeSettingsStore.getState()
+    window.api.bridgeSend(cwd, toWireMessages(wire), get().agentMode, {
+      endpoint: s.endpoint,
+      apiKey: s.apiKey,
+      modelId: s.modelId,
       sessionId: get().sessionId,
     })
   },
@@ -162,17 +162,13 @@ export const useBridgeStore = create<BridgeStore>((set, get) => ({
     set({ messages: session.messages, sessionId: session.id, showSessionPicker: false })
   },
 
-  toggleAgentMode: () => {
-    const next = !get().agentMode
-    try { localStorage.setItem(AGENT_MODE_KEY, String(next)) } catch {}
-    set({ agentMode: next })
-  },
+  toggleAgentMode: () => set((s) => ({ agentMode: !s.agentMode })),
 
   approveToolCall: (id) => window.api.bridgeApprove(id),
   rejectToolCall: (id) => window.api.bridgeReject(id),
   cancel: () => {
     window.api.bridgeCancel()
-    set({ streaming: false })
+    set((s) => ({ messages: dropTrailingEmptyAssistant(s.messages), streaming: false }))
   },
 
   initEventListener: () => {
@@ -190,6 +186,14 @@ function ensureAssistantMessage(messages: BridgeChatMessage[]): BridgeChatMessag
   const last = messages[messages.length - 1]
   if (last && last.role === 'assistant') return messages
   return [...messages, { role: 'assistant', content: '' }]
+}
+
+function dropTrailingEmptyAssistant(messages: BridgeChatMessage[]): BridgeChatMessage[] {
+  const last = messages[messages.length - 1]
+  if (last && last.role === 'assistant' && !last.content && !last.toolCalls?.length) {
+    return messages.slice(0, -1)
+  }
+  return messages
 }
 
 function handleEvent(
@@ -239,7 +243,9 @@ function handleEvent(
       return
     }
     case 'done': {
-      set({ streaming: false })
+      // If the model returned nothing, drop the empty placeholder so it doesn't
+      // linger in the transcript as a ghost bubble.
+      set({ messages: dropTrailingEmptyAssistant(get().messages), streaming: false })
       const { sessionId, messages: finalMessages } = get()
       persistCurrentSession(sessionId, finalMessages)
       return

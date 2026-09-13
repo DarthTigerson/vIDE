@@ -6,11 +6,11 @@ import {
   GENERAL_SETTINGS_TAB_PATH, DISPLAY_TAB_PATH, EDITOR_SETTINGS_TAB_PATH, GIT_SETTINGS_TAB_PATH,
   BROWSER_SETTINGS_TAB_PATH, CLAUDE_SETTINGS_TAB_PATH, BRIDGE_SETTINGS_TAB_PATH, GRAPHIFY_SETTINGS_TAB_PATH,
   JIRA_SETTINGS_TAB_PATH, DOCKER_SETTINGS_TAB_PATH, MOBILE_SETTINGS_TAB_PATH, NOTES_SETTINGS_TAB_PATH,
-  TODO_SETTINGS_TAB_PATH,
+  TODO_SETTINGS_TAB_PATH, LLAMA_SETTINGS_TAB_PATH,
 } from './paths'
 import {
   SettingsIcon, EditorIcon, DisplaySettingsIcon, ClaudeIcon, BridgeIcon, GitIcon, DockerIcon,
-  BrowserIcon, JiraIcon, GraphIcon, PhoneIcon, NotesIcon, TodoIcon,
+  BrowserIcon, JiraIcon, GraphIcon, PhoneIcon, NotesIcon, TodoIcon, LlamaIcon,
 } from '@/components/ActivityBar/ActivityBar'
 
 interface NavItem {
@@ -38,6 +38,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { path: CLAUDE_SETTINGS_TAB_PATH, label: 'Claude', icon: <ClaudeIcon /> },
       { path: BRIDGE_SETTINGS_TAB_PATH, label: 'Bridge', icon: <BridgeIcon /> },
+      { path: LLAMA_SETTINGS_TAB_PATH, label: 'Llama', icon: <LlamaIcon /> },
     ],
   },
   {

@@ -6,11 +6,12 @@ import type { UpdateInfo } from '../../electron/updateChecker'
 import type { GraphifyGraph } from './graphify'
 import type { DefinitionLocation, DetectResult, LspServerId } from '../../electron/lsp/types'
 import type { DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats } from '../../electron/docker'
+import type { LlamaLaunchConfig } from '../../electron/llama'
 import type { OnboardingStatus, GitIdentity } from '../../electron/onboarding'
 
 export type { LatestUsage, UsageSnapshot, UpdateInfo, DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats }
 
-export type AssistantKind = 'claude' | 'bridge'
+export type AssistantKind = 'claude' | 'bridge' | (string & {})
 
 export interface SessionData {
   layout: unknown
@@ -365,6 +366,13 @@ declare global {
       graphifyInstallClaudeSkill: (cwd: string) => Promise<{ ok: boolean; output: string }>
       onGraphifyData: (cb: (id: string, data: string) => void) => () => void
       onGraphifyExit: (cb: (id: string, code: number) => void) => () => void
+
+      llamaIsAvailable: () => Promise<boolean>
+      llamaStart: (id: string, cfg: LlamaLaunchConfig) => Promise<void>
+      llamaStop: (id: string) => Promise<void>
+      llamaGetMemoryUsage: () => Promise<number | null>
+      onLlamaData: (cb: (id: string, data: string) => void) => () => void
+      onLlamaExit: (cb: (id: string, code: number) => void) => () => void
 
       lspDetectAll: () => Promise<Record<LspServerId, DetectResult & { label: string; ramEstimate: string }>>
       lspInstall: (id: string) => Promise<void>

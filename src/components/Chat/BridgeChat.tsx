@@ -98,7 +98,11 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
-export function BridgeChat({ cwd }: { cwd: string }) {
+export function BridgeChat({ cwd, connectionOverride, beforeSend }: {
+  cwd: string
+  connectionOverride?: { endpoint: string; apiKey: string; modelId: string }
+  beforeSend?: () => Promise<void>
+}) {
   useBridgeAgentModeShortcut()
   const messages = useBridgeStore((s) => s.messages)
   const agentMode = useBridgeStore((s) => s.agentMode)
@@ -114,6 +118,17 @@ export function BridgeChat({ cwd }: { cwd: string }) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const seenFocusTokenRef = useRef(focusToken)
+  const [starting, setStarting] = useState(false)
+
+  // Thinking indicator: show animated dots while streaming before any text or
+  // tool call has appeared in the last assistant message. Disappears the moment
+  // content starts arriving.
+  const lastMessage = messages[messages.length - 1]
+  const isThinking =
+    streaming &&
+    lastMessage?.role === 'assistant' &&
+    !lastMessage.content &&
+    !lastMessage.toolCalls?.length
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView?.({ block: 'end' })
@@ -140,10 +155,14 @@ export function BridgeChat({ cwd }: { cwd: string }) {
     }
   }, [focusToken, appendDraftInput])
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!input.trim() || streaming) return
-    sendMessage(cwd, input)
+    if (!input.trim() || streaming || starting) return
+    if (beforeSend) {
+      setStarting(true)
+      try { await beforeSend() } finally { setStarting(false) }
+    }
+    sendMessage(cwd, input, connectionOverride)
     setInput('')
   }
 
@@ -169,13 +188,26 @@ export function BridgeChat({ cwd }: { cwd: string }) {
                 <ReactMarkdown>{m.content}</ReactMarkdown>
               </div>
             )}
+            {isThinking && i === messages.length - 1 && (
+              <div
+                className="rounded-lg px-3 py-2 text-sm bg-white/5 text-fg"
+                role="status"
+                aria-label="Bridge is thinking"
+              >
+                <span className="bridge-thinking-dots">
+                  <span className="bridge-thinking-dot" />
+                  <span className="bridge-thinking-dot" />
+                  <span className="bridge-thinking-dot" />
+                </span>
+              </div>
+            )}
             {m.role === 'user' ? (
               <div className="mt-1 flex justify-end gap-0.5">
                 <CopyButton text={m.content} />
                 <button
                   type="button"
                   disabled={streaming}
-                  onClick={() => regenerate(cwd, i)}
+                  onClick={() => regenerate(cwd, i, connectionOverride)}
                   className="flex items-center gap-1 rounded px-1 py-0.5 text-xs text-fg-muted opacity-50 hover:opacity-100 hover:text-fg disabled:pointer-events-none transition-opacity"
                   title="Regenerate response"
                 >
@@ -205,7 +237,8 @@ export function BridgeChat({ cwd }: { cwd: string }) {
           }}
           placeholder="Message Bridge…"
           rows={2}
-          className="w-full resize-none rounded border border-border bg-panel px-2 py-1.5 text-sm text-fg outline-none focus:border-accent"
+          disabled={starting}
+          className="w-full resize-none rounded border border-border bg-panel px-2 py-1.5 text-sm text-fg outline-none focus:border-accent disabled:opacity-50"
         />
         <div className="flex items-center justify-between">
           <button
@@ -218,7 +251,10 @@ export function BridgeChat({ cwd }: { cwd: string }) {
           >
             Agent Mode: {agentMode ? 'On' : 'Off'}
           </button>
-          {streaming && (
+          {starting && (
+            <span className="text-xs text-fg-muted animate-pulse">Starting server…</span>
+          )}
+          {!starting && streaming && (
             <button
               type="button"
               onClick={() => cancel()}

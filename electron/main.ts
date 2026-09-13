@@ -7,6 +7,7 @@ import { ClaudeManager } from './claude'
 import { BrowserBridge } from './browserBridge'
 import { GitRunner } from './gitRunner'
 import { GraphifyManager } from './graphify'
+import { LlamaManager } from './llama'
 import { GitWatcher } from './gitWatcher'
 import { DockerRunner } from './dockerRunner'
 import { DockerWatcher } from './dockerWatcher'
@@ -49,6 +50,14 @@ function registerFsHandlers(): void {
   )
   ipcMain.handle('dialog:openFolder', async () => {
     const result = await dialog.showOpenDialog({ properties: ['openDirectory'] })
+    return result.canceled ? null : result.filePaths[0]
+  })
+  ipcMain.handle('dialog:openFile', async (_e, opts: { defaultPath?: string; filters?: { name: string; extensions: string[] }[] }) => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      defaultPath: opts.defaultPath,
+      filters: opts.filters,
+    })
     return result.canceled ? null : result.filePaths[0]
   })
 }
@@ -605,6 +614,8 @@ app.whenReady().then(async () => {
 
   const graphifyMgr = new GraphifyManager()
   graphifyMgr.registerHandlers()
+  const llamaMgr = new LlamaManager()
+  llamaMgr.registerHandlers()
   gitWatcher = new GitWatcher()
   gitWatcher.registerHandlers()
   dockerWatcher = new DockerWatcher()
