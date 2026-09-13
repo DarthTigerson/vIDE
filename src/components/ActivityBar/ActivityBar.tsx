@@ -420,9 +420,9 @@ export function GraphIcon() {
 // stroke-based like the other activity-bar glyphs.
 export function LlamaIcon() {
   return (
-    <svg width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M9 21v-3.2c-2-1.4-3-3.5-3-6.1V7.5C6 6.7 6.7 6 7.5 6H9V4c0-1.1 0.9-2 2-2h1c1.1 0 2 0.9 2 2v2h1.5c0.8 0 1.5 0.7 1.5 1.5v4.2c0 2.6-1 4.7-3 6.1V21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M12 14.5h.01M14.5 14.5h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    <svg width="1.25rem" height="1.25rem" viewBox="0 0 600 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M600 392L504.249 558L504.137 557.929C487.252 584.069 458.193 600 426.864 600H120L240 392H600Z" fill="currentColor"/>
+      <path d="M240 392H0L199.602 46.0254C216.032 17.5463 246.411 3.25756e-05 279.29 0H466.154L240 392Z" fill="currentColor"/>
     </svg>
   )
 }
