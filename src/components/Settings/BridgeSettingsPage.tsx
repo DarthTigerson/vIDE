@@ -23,7 +23,7 @@ function TextField({ id, label, value, onChange }: {
 export function BridgeSettingsPage() {
   const bridgeEnabled = useModelSettingsStore((s) => s.enabled.bridge)
   const setModelEnabled = useModelSettingsStore((s) => s.setEnabled)
-  const { endpoint, apiKey, modelId, setEndpoint, setApiKey, setModelId } = useBridgeSettingsStore()
+  const { endpoint, apiKey, modelId, toolCallLimit, setEndpoint, setApiKey, setModelId, setToolCallLimit } = useBridgeSettingsStore()
   const [testState, setTestState] = useState<'idle' | 'testing' | 'ok' | 'error'>('idle')
   const [testError, setTestError] = useState('')
 
@@ -57,26 +57,45 @@ export function BridgeSettingsPage() {
       </Section>
 
       {bridgeEnabled && (
-        <Section label="Connection">
-          <Row>
-            <TextField id="bridge-endpoint" label="Endpoint" value={endpoint} onChange={setEndpoint} />
-            <TextField id="bridge-apikey" label="API Key" value={apiKey} onChange={setApiKey} />
-            <TextField id="bridge-model" label="Model ID" value={modelId} onChange={setModelId} />
+        <>
+          <Section label="Connection">
+            <Row>
+              <TextField id="bridge-endpoint" label="Endpoint" value={endpoint} onChange={setEndpoint} />
+              <TextField id="bridge-apikey" label="API Key" value={apiKey} onChange={setApiKey} />
+              <TextField id="bridge-model" label="Model ID" value={modelId} onChange={setModelId} />
 
-            <div className="mt-3 flex items-center gap-3">
-              <button
-                type="button"
-                onClick={runTest}
-                disabled={testState === 'testing'}
-                className="h-8 px-3 rounded border border-border text-sm text-fg hover:border-fg-subtle transition-colors disabled:opacity-50"
-              >
-                Test Connection
-              </button>
-              {testState === 'ok' && <span className="text-sm text-green-500">Connected</span>}
-              {testState === 'error' && <span className="text-sm text-red-500">{testError}</span>}
-            </div>
-          </Row>
-        </Section>
+              <div className="mt-3 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={runTest}
+                  disabled={testState === 'testing'}
+                  className="h-8 px-3 rounded border border-border text-sm text-fg hover:border-fg-subtle transition-colors disabled:opacity-50"
+                >
+                  Test Connection
+                </button>
+                {testState === 'ok' && <span className="text-sm text-green-500">Connected</span>}
+                {testState === 'error' && <span className="text-sm text-red-500">{testError}</span>}
+              </div>
+            </Row>
+          </Section>
+
+          <Section label="Agent">
+            <Row>
+              <Field label="Tool Call Limit" htmlFor="bridge-toolCallLimit" className="w-48 shrink-0">
+                <input
+                  id="bridge-toolCallLimit"
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={toolCallLimit}
+                  onChange={(e) => setToolCallLimit(Math.max(0, Number(e.target.value)))}
+                  className="w-full h-8 px-2 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
+                />
+                <span className="text-xs text-fg-subtle mt-1">0 = unlimited</span>
+              </Field>
+            </Row>
+          </Section>
+        </>
       )}
     </div>
   )

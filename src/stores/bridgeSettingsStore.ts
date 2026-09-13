@@ -1,14 +1,26 @@
 import { create } from 'zustand'
 
 const KEYS = {
-  endpoint: 'vide:bridge:endpoint',
-  apiKey:   'vide:bridge:apiKey',
-  modelId:  'vide:bridge:modelId',
+  endpoint:      'vide:bridge:endpoint',
+  apiKey:        'vide:bridge:apiKey',
+  modelId:       'vide:bridge:modelId',
+  toolCallLimit: 'vide:bridge:toolCallLimit',
 }
 
 function getString(key: string, def: string): string {
   try {
     return localStorage.getItem(key) ?? def
+  } catch {
+    return def
+  }
+}
+
+function getNumber(key: string, def: number): number {
+  try {
+    const v = localStorage.getItem(key)
+    if (v === null) return def
+    const n = Number(v)
+    return isNaN(n) ? def : n
   } catch {
     return def
   }
@@ -26,16 +38,19 @@ interface BridgeSettingsStore {
   endpoint: string
   apiKey: string
   modelId: string
+  toolCallLimit: number
   setEndpoint: (v: string) => void
   setApiKey: (v: string) => void
   setModelId: (v: string) => void
+  setToolCallLimit: (v: number) => void
   init: () => Promise<void>
 }
 
 export const useBridgeSettingsStore = create<BridgeSettingsStore>((set, get) => ({
-  endpoint: getString(KEYS.endpoint, ''),
-  apiKey:   getString(KEYS.apiKey, ''),
-  modelId:  getString(KEYS.modelId, ''),
+  endpoint:      getString(KEYS.endpoint, ''),
+  apiKey:        getString(KEYS.apiKey, ''),
+  modelId:       getString(KEYS.modelId, ''),
+  toolCallLimit: getNumber(KEYS.toolCallLimit, 0),
 
   init: async () => {
     try {
@@ -72,5 +87,9 @@ export const useBridgeSettingsStore = create<BridgeSettingsStore>((set, get) => 
     const { endpoint, apiKey } = get()
     saveToFile({ endpoint, apiKey, modelId: v })
     set({ modelId: v })
+  },
+  setToolCallLimit: (v) => {
+    try { localStorage.setItem(KEYS.toolCallLimit, String(v)) } catch {}
+    set({ toolCallLimit: v })
   },
 }))

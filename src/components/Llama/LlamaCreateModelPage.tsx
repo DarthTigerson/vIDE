@@ -128,8 +128,6 @@ function FieldGroup({ title, hint, children }: { title: string; hint?: string; c
 export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
   const models = useLlamaModelsStore((s) => s.models)
   const upsertModel = useLlamaModelsStore((s) => s.upsertModel)
-  const bridgeAgent = useLlamaModelsStore((s) => s.bridgeAgent)
-  const setBridgeAgent = useLlamaModelsStore((s) => s.setBridgeAgent)
   const startModel = useLlamaStore((s) => s.startModel)
   const stopModel = useLlamaStore((s) => s.stopModel)
 
@@ -322,22 +320,6 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
             checked={form.autoStart}
             onChange={(v) => patch({ autoStart: v })}
           />
-        </FieldGroup>
-
-        <FieldGroup title="Bridge Agent Settings" hint="(vIDE settings — not llama.cpp launch arguments)">
-          <div className="flex flex-col gap-1.5 w-48">
-            <label htmlFor="llama-toolCallLimit" className="text-sm text-fg">Tool Call Limit</label>
-            <input
-              id="llama-toolCallLimit"
-              type="number"
-              min={0}
-              step={1}
-              value={bridgeAgent.toolCallLimit}
-              onChange={(e) => setBridgeAgent({ toolCallLimit: Math.max(0, Number(e.target.value)) })}
-              className="h-8 px-2 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
-            />
-            <span className="text-xs text-fg-subtle">0 = unlimited</span>
-          </div>
         </FieldGroup>
 
         {(output || error) && (
