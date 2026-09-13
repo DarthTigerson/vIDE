@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { Terminal as XTerm } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
@@ -15,6 +15,7 @@ import { useBridgeStore } from '@/stores/bridgeStore'
 import { useBridgeSettingsStore } from '@/stores/bridgeSettingsStore'
 import { useLlamaModelsStore } from '@/stores/llamaModelsStore'
 import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
+import { useLlamaStore } from '@/stores/llamaStore'
 import { UsagePanel } from '@/components/UsagePanel/UsagePanel'
 import { CostPanel } from '@/components/UsagePanel/CostPanel'
 import { isShiftEnterKeydown, SHIFT_ENTER_SEQUENCE } from './shiftEnterSequence'
@@ -64,6 +65,55 @@ export function Chat() {
       modelId: model.alias || model.displayName || model.id,
     }
   })() : undefined
+
+  // Auto-launch the llama server when sending a message if it isn't running.
+  // Health-checks first so a server started externally (or in a prior session)
+  // is discovered without a redundant relaunch.
+  const llamaBeforeSend = useCallback(async () => {
+    const modelId = assistant.slice('llama:'.length)
+    const model = useLlamaModelsStore.getState().models.find((m) => m.id === modelId)
+    if (!model) return
+
+    const healthUrl = `http://${model.host}:${model.port}/health`
+
+    // Fast path: server already reachable — just sync the run state so the UI
+    // shows the green dot, then proceed immediately.
+    try {
+      const probe = await fetch(healthUrl, { signal: AbortSignal.timeout(1500) })
+      if (probe.ok) {
+        const runs = useLlamaStore.getState().runs
+        if (!runs[modelId]?.running) {
+          useLlamaStore.setState((s) => ({
+            runs: { ...s.runs, [modelId]: { running: true, output: '', error: null, exitCode: null } },
+          }))
+        }
+        return
+      }
+    } catch {}
+
+    // Server not reachable — launch it, then poll until ready (up to 60 s).
+    useLlamaStore.getState().startModel(modelId, {
+      modelPath: model.modelPath,
+      serverExecutable: model.serverExecutable,
+      host: model.host,
+      port: model.port,
+      apiKey: model.apiKey,
+      contextSize: model.contextSize,
+      batchSize: model.batchSize,
+      gpuLayers: model.gpuLayers,
+      parallelRequests: model.parallelRequests,
+      reasoningEffort: model.reasoningEffort,
+      alias: model.alias,
+    })
+
+    for (let i = 0; i < 120; i++) {
+      await new Promise((r) => setTimeout(r, 500))
+      try {
+        const resp = await fetch(healthUrl, { signal: AbortSignal.timeout(1000) })
+        if (resp.ok) return
+      } catch {}
+    }
+  }, [assistant])
   const instances = useClaudeStore((s) => s.instances)
   const activeInstanceId = useClaudeStore((s) => s.activeInstanceId)
   const usageOpen = useClaudeStore((s) => s.usageOpen)
@@ -346,7 +396,7 @@ export function Chat() {
           />
           {isBridgeLike && (
             <div className="flex-1 overflow-hidden">
-              <BridgeChat cwd={projectRoot} connectionOverride={llamaConnection} />
+              <BridgeChat cwd={projectRoot} connectionOverride={llamaConnection} beforeSend={isLlama ? llamaBeforeSend : undefined} />
             </div>
           )}
         </>

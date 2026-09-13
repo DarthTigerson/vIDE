@@ -98,7 +98,11 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
-export function BridgeChat({ cwd, connectionOverride }: { cwd: string; connectionOverride?: { endpoint: string; apiKey: string; modelId: string } }) {
+export function BridgeChat({ cwd, connectionOverride, beforeSend }: {
+  cwd: string
+  connectionOverride?: { endpoint: string; apiKey: string; modelId: string }
+  beforeSend?: () => Promise<void>
+}) {
   useBridgeAgentModeShortcut()
   const messages = useBridgeStore((s) => s.messages)
   const agentMode = useBridgeStore((s) => s.agentMode)
@@ -114,6 +118,7 @@ export function BridgeChat({ cwd, connectionOverride }: { cwd: string; connectio
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const seenFocusTokenRef = useRef(focusToken)
+  const [starting, setStarting] = useState(false)
 
   // Thinking indicator: show animated dots while streaming before any text or
   // tool call has appeared in the last assistant message. Disappears the moment
@@ -150,9 +155,13 @@ export function BridgeChat({ cwd, connectionOverride }: { cwd: string; connectio
     }
   }, [focusToken, appendDraftInput])
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!input.trim() || streaming) return
+    if (!input.trim() || streaming || starting) return
+    if (beforeSend) {
+      setStarting(true)
+      try { await beforeSend() } finally { setStarting(false) }
+    }
     sendMessage(cwd, input, connectionOverride)
     setInput('')
   }
@@ -228,7 +237,8 @@ export function BridgeChat({ cwd, connectionOverride }: { cwd: string; connectio
           }}
           placeholder="Message Bridge…"
           rows={2}
-          className="w-full resize-none rounded border border-border bg-panel px-2 py-1.5 text-sm text-fg outline-none focus:border-accent"
+          disabled={starting}
+          className="w-full resize-none rounded border border-border bg-panel px-2 py-1.5 text-sm text-fg outline-none focus:border-accent disabled:opacity-50"
         />
         <div className="flex items-center justify-between">
           <button
@@ -241,7 +251,10 @@ export function BridgeChat({ cwd, connectionOverride }: { cwd: string; connectio
           >
             Agent Mode: {agentMode ? 'On' : 'Off'}
           </button>
-          {streaming && (
+          {starting && (
+            <span className="text-xs text-fg-muted animate-pulse">Starting server…</span>
+          )}
+          {!starting && streaming && (
             <button
               type="button"
               onClick={() => cancel()}

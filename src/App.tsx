@@ -884,6 +884,7 @@ export default function App() {
               icon: <LlamaIcon />,
               title: 'Llama',
               active: leftPanel === 'llama',
+              badge: llamaModels.length > 0 ? llamaModels.length : undefined,
               onClick: () => setLeftPanel((p) => (p === 'llama' ? null : 'llama')),
             }] : []),
             ...(mobileEnabled && projectRoot ? [{
