@@ -3,11 +3,11 @@ import { basename, join, dirname } from 'path'
 import { access, mkdir, readFile, readdir, rename, writeFile } from 'fs/promises'
 import { watch, type FSWatcher } from 'chokidar'
 
-function notesRoot(): string {
+export function notesRoot(): string {
   return join(app.getPath('userData'), 'notes')
 }
 
-async function ensureNotesRoot(): Promise<string> {
+export async function ensureNotesRoot(): Promise<string> {
   const root = notesRoot()
   await mkdir(root, { recursive: true })
   return root
@@ -40,21 +40,21 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-async function createNote(dirPath: string, name: string): Promise<{ path: string; name: string }> {
+export async function createNote(dirPath: string, name: string): Promise<{ path: string; name: string }> {
   const finalName = forceMdExtension(sanitizeEntryName(name))
   const path = join(dirPath, finalName)
   await writeFile(path, '', { encoding: 'utf-8', flag: 'wx' })
   return { path, name: finalName }
 }
 
-async function createFolder(dirPath: string, name: string): Promise<{ path: string; name: string }> {
+export async function createFolder(dirPath: string, name: string): Promise<{ path: string; name: string }> {
   const finalName = sanitizeEntryName(name)
   const path = join(dirPath, finalName)
   await mkdir(path, { recursive: false })
   return { path, name: finalName }
 }
 
-async function renameEntry(
+export async function renameEntry(
   oldPath: string,
   newName: string,
   isNote: boolean
@@ -68,7 +68,7 @@ async function renameEntry(
   return { path: newPath, name: finalName }
 }
 
-interface NotesSearchResult {
+export interface NotesSearchResult {
   path: string
   name: string
   snippet: string | null
@@ -95,7 +95,7 @@ async function walkNoteFiles(dir: string): Promise<string[]> {
 // Matches by note title (filename) or file content, case-insensitive. A
 // title-only match has no snippet; a content match's snippet is its first
 // matching line, so the UI can show why a note showed up.
-async function searchNotes(root: string, query: string): Promise<NotesSearchResult[]> {
+export async function searchNotes(root: string, query: string): Promise<NotesSearchResult[]> {
   const needle = query.trim().toLowerCase()
   if (!needle) return []
   const files = await walkNoteFiles(root)
@@ -122,7 +122,7 @@ async function searchNotes(root: string, query: string): Promise<NotesSearchResu
 let notesWatcher: FSWatcher | null = null
 let notesDebounce: ReturnType<typeof setTimeout> | null = null
 
-function startNotesWatcher(root: string): void {
+export function startNotesWatcher(root: string): void {
   if (notesWatcher) return
   notesWatcher = watch(root, { ignoreInitial: true })
   notesWatcher.on('all', () => {

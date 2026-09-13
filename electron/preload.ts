@@ -166,6 +166,7 @@ contextBridge.exposeInMainWorld('api', {
   mobileDisconnectDevice: (id: string) => ipcRenderer.invoke('mobile:disconnectDevice', id),
   mobileDisconnectAll: () => ipcRenderer.invoke('mobile:disconnectAll'),
   mobileSetDisplay: (theme: string, font: string) => ipcRenderer.send('mobile:setDisplay', theme, font),
+  mobileSetDefaultMode: (mode: 'graph' | 'vide' | null) => ipcRenderer.send('mobile:setDefaultMode', mode),
   onMobileState: (cb: (state: import('./mobile').MobileState) => void) => {
     const handler = (_: Electron.IpcRendererEvent, state: import('./mobile').MobileState) => cb(state)
     ipcRenderer.on('mobile:state', handler)

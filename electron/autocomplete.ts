@@ -140,7 +140,7 @@ export class AutocompleteManager {
     this.currentByWindow.delete(windowId)
   }
 
-  private async complete(
+  async complete(
     windowId: number,
     prefix: string,
     suffix: string,

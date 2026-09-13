@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "build:mobile": "electron-vite build --mode mobile",
     "preview": "electron-vite preview",
     "test": "vitest run",
     "rebuild": "electron-rebuild -f -w node-pty",
@@ -31,6 +32,7 @@
     "react-dom": "^18.3.1",
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^2.1.7",
+    "ws": "^8.21.3",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
@@ -43,6 +45,7 @@
     "@types/qrcode": "^1.5.6",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.0",
+    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
     "electron": "^32.3.3",
