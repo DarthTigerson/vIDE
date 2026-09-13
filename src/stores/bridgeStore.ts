@@ -109,11 +109,15 @@ export const useBridgeStore = create<BridgeStore>((set, get) => ({
 
   sendMessage: (cwd, text) => {
     const userMessage: BridgeChatMessage = { role: 'user', content: text }
-    const messages = [...get().messages, userMessage]
-    set({ messages, streaming: true })
+    const wire: BridgeChatMessage[] = [...get().messages, userMessage]
+    // Add the empty assistant placeholder up front so the thinking indicator can
+    // show immediately — otherwise it only appears when the first stream event
+    // lands, after the model has already been "thinking" for a while.
+    const placeholder: BridgeChatMessage = { role: 'assistant', content: '' }
+    set({ messages: [...wire, placeholder], streaming: true })
 
     const settings = useBridgeSettingsStore.getState()
-    window.api.bridgeSend(cwd, toWireMessages(messages), get().agentMode, {
+    window.api.bridgeSend(cwd, toWireMessages(wire), get().agentMode, {
       endpoint: settings.endpoint,
       apiKey: settings.apiKey,
       modelId: settings.modelId,
@@ -126,11 +130,14 @@ export const useBridgeStore = create<BridgeStore>((set, get) => ({
     const target = all[messageIndex]
     if (!target || target.role !== 'user') return
     const history = all.slice(0, messageIndex)
-    const messages = [...history, { role: 'user' as const, content: target.content }]
-    set({ messages, streaming: true })
+    const wire: BridgeChatMessage[] = [...history, { role: 'user' as const, content: target.content }]
+    set({
+      messages: [...wire, { role: 'assistant', content: '' }],
+      streaming: true,
+    })
 
     const settings = useBridgeSettingsStore.getState()
-    window.api.bridgeSend(cwd, toWireMessages(messages), get().agentMode, {
+    window.api.bridgeSend(cwd, toWireMessages(wire), get().agentMode, {
       endpoint: settings.endpoint,
       apiKey: settings.apiKey,
       modelId: settings.modelId,
@@ -172,7 +179,7 @@ export const useBridgeStore = create<BridgeStore>((set, get) => ({
   rejectToolCall: (id) => window.api.bridgeReject(id),
   cancel: () => {
     window.api.bridgeCancel()
-    set({ streaming: false })
+    set((s) => ({ messages: dropTrailingEmptyAssistant(s.messages), streaming: false }))
   },
 
   initEventListener: () => {
@@ -190,6 +197,14 @@ function ensureAssistantMessage(messages: BridgeChatMessage[]): BridgeChatMessag
   const last = messages[messages.length - 1]
   if (last && last.role === 'assistant') return messages
   return [...messages, { role: 'assistant', content: '' }]
+}
+
+function dropTrailingEmptyAssistant(messages: BridgeChatMessage[]): BridgeChatMessage[] {
+  const last = messages[messages.length - 1]
+  if (last && last.role === 'assistant' && !last.content && !last.toolCalls?.length) {
+    return messages.slice(0, -1)
+  }
+  return messages
 }
 
 function handleEvent(
@@ -239,7 +254,9 @@ function handleEvent(
       return
     }
     case 'done': {
-      set({ streaming: false })
+      // If the model returned nothing, drop the empty placeholder so it doesn't
+      // linger in the transcript as a ghost bubble.
+      set({ messages: dropTrailingEmptyAssistant(get().messages), streaming: false })
       const { sessionId, messages: finalMessages } = get()
       persistCurrentSession(sessionId, finalMessages)
       return

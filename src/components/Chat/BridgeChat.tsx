@@ -115,6 +115,16 @@ export function BridgeChat({ cwd }: { cwd: string }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const seenFocusTokenRef = useRef(focusToken)
 
+  // Thinking indicator: show animated dots while streaming before any text or
+  // tool call has appeared in the last assistant message. Disappears the moment
+  // content starts arriving.
+  const lastMessage = messages[messages.length - 1]
+  const isThinking =
+    streaming &&
+    lastMessage?.role === 'assistant' &&
+    !lastMessage.content &&
+    !lastMessage.toolCalls?.length
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView?.({ block: 'end' })
   }, [messages])
@@ -167,6 +177,19 @@ export function BridgeChat({ cwd }: { cwd: string }) {
                 ].join(' ')}
               >
                 <ReactMarkdown>{m.content}</ReactMarkdown>
+              </div>
+            )}
+            {isThinking && i === messages.length - 1 && (
+              <div
+                className="rounded-lg px-3 py-2 text-sm bg-white/5 text-fg"
+                role="status"
+                aria-label="Bridge is thinking"
+              >
+                <span className="bridge-thinking-dots">
+                  <span className="bridge-thinking-dot" />
+                  <span className="bridge-thinking-dot" />
+                  <span className="bridge-thinking-dot" />
+                </span>
               </div>
             )}
             {m.role === 'user' ? (
