@@ -19,6 +19,10 @@ export interface RepoGitState {
   commitMessage: string
   commitError: string | null
   commandStatus: 'idle' | 'running'
+  // Bumped (never reset) each time a git command exits non-zero or throws —
+  // GitActivityBar watches for it increasing to trigger a one-shot error
+  // flash, independent of the gitLogAutoShow setting.
+  commandError: number
   silentFetchInFlight: boolean
 }
 
@@ -30,6 +34,7 @@ export const emptyRepoGitState: RepoGitState = {
   commitMessage: '',
   commitError: null,
   commandStatus: 'idle',
+  commandError: 0,
   silentFetchInFlight: false,
 }
 
@@ -98,7 +103,10 @@ export const useGitStore = create<GitStore>((set, get) => {
       if (evtId !== id) return
       cleanupData()
       cleanupExit()
-      setRepo(cwd, { commandStatus: 'idle' })
+      setRepo(cwd, {
+        commandStatus: 'idle',
+        ...(code !== 0 ? { commandError: stateFor(cwd).commandError + 1 } : {}),
+      })
       if (code === 0) {
         get().refresh(cwd)
         if (action === 'checkout') {
@@ -120,7 +128,7 @@ export const useGitStore = create<GitStore>((set, get) => {
       cleanupData()
       cleanupExit()
       useGitLogStore.getState().append(cwd, `\nError: ${err instanceof Error ? err.message : String(err)}\n`)
-      setRepo(cwd, { commandStatus: 'idle' })
+      setRepo(cwd, { commandStatus: 'idle', commandError: stateFor(cwd).commandError + 1 })
       if (autoShow === 'onError') revealGitLogTab()
     }
   }
@@ -229,13 +237,14 @@ export const useGitStore = create<GitStore>((set, get) => {
 
   commit: async (cwd, noVerify) => {
     const { commitMessage } = stateFor(cwd)
+    setRepo(cwd, { commandStatus: 'running' })
     const result = await window.api.gitCommit(cwd, commitMessage, noVerify)
     if (result.ok) {
-      setRepo(cwd, { commitMessage: '', commitError: null })
+      setRepo(cwd, { commandStatus: 'idle', commitMessage: '', commitError: null })
       await get().refresh(cwd)
       await refreshGraphIfOpen(cwd)
     } else {
-      setRepo(cwd, { commitError: result.error })
+      setRepo(cwd, { commandStatus: 'idle', commitError: result.error, commandError: stateFor(cwd).commandError + 1 })
     }
   },
 
