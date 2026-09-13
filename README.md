@@ -1,8 +1,9 @@
-# vIDE
+# vIDE - vibecoding IDE
 
-A Claude-native IDE — an Electron desktop app built around terminal AI
+An agentic IDE — an Electron desktop app built around terminal AI
 coding agents, with a full editor, git tooling, and a mobile companion
-display.
+display. It currently ships with support for Claude Code and local
+models, with more agents planned.
 
 ![License](https://img.shields.io/badge/license-MIT-edc45b?style=flat-square&labelColor=211c12)
 ![GitHub release](https://img.shields.io/github/v/release/DarthTigerson/vIDE?style=flat-square&labelColor=211c12&color=edc45b)

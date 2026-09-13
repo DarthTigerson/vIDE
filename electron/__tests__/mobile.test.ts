@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach, beforeAll, afterAll } from 'vitest'
 import { get, request } from 'http'
-import { mkdirSync, writeFileSync, rmSync, mkdtempSync, cpSync } from 'fs'
+import { mkdirSync, writeFileSync, rmSync, mkdtempSync, cpSync, readFileSync } from 'fs'
 import { tmpdir } from 'os'
 
 const { ipcOnHandlers, userDataDir, appPathRef } = vi.hoisted(() => {
@@ -156,6 +156,19 @@ function fetchText(port: number, path: string, cookie?: string): Promise<string>
   })
 }
 
+// Binary-safe variant of fetchText/fetchFull: string concatenation of Buffer
+// chunks (via `body += c`) mangles non-utf8 bytes, so a raw asset like
+// icon.png needs its chunks concatenated as Buffers instead.
+function fetchBuffer(port: number, path: string): Promise<{ status: number; headers: Record<string, string | string[] | undefined>; body: Buffer }> {
+  return new Promise((resolve, reject) => {
+    get({ host: '127.0.0.1', port, path, agent: false }, (res) => {
+      const chunks: Buffer[] = []
+      res.on('data', (c) => chunks.push(c))
+      res.on('end', () => resolve({ status: res.statusCode ?? 0, headers: res.headers as Record<string, string | string[] | undefined>, body: Buffer.concat(chunks) }))
+    }).on('error', reject)
+  })
+}
+
 function fetchFull(port: number, path: string, cookie?: string): Promise<{ status: number; headers: Record<string, string | string[] | undefined>; body: string }> {
   return new Promise((resolve, reject) => {
     get({ host: '127.0.0.1', port, path, agent: false, headers: cookie ? { Cookie: cookie } : {} }, (res) => {
@@ -271,6 +284,16 @@ describe('MobileServer display sync', () => {
     expect(css).toContain('[data-theme="claude-dark"]')
     const js = await fetchText(server['port'], '/mobile-assets/app.js')
     expect(js).toContain('applyDisplay')
+  })
+
+  it('serves the real app icon as binary PNG bytes, not mangled utf-8 text', async () => {
+    server = newServer()
+    await server.start()
+    const res = await fetchBuffer(server['port'], '/mobile-assets/icon.png')
+    expect(res.status).toBe(200)
+    expect(res.headers['content-type']).toBe('image/png')
+    const onDisk = readFileSync(join(process.cwd(), 'electron', 'mobileWeb', 'icon.png'))
+    expect(res.body.equals(onDisk)).toBe(true)
   })
 
   it('/api/usage defaults to no data before any poll has run', async () => {
