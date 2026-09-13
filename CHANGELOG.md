@@ -1,5 +1,18 @@
 # vIDE
 
+## v0.2.14 (2026-09-13)
+- **Llama panel**: manage and chat with local LLMs via llama.cpp — a new activity bar icon/panel detects `llama-server`/`llama.cpp` on your PATH (resolved via a login shell, same as the Claude/Docker/Graphify checks), lists your configured models with context-menu actions, and a create/edit page lets you pick a `.gguf` file (with a native file-browse button and auto-filled name/alias), launch/stop the server, and watch its output in an always-visible, resizable panel
+- Local Llama models can now be selected as a chat assistant from the same dropdown as Claude and Bridge, and the server auto-starts on first message if it isn't already running; health probing keeps the running/stopped state in sync on mount and reload
+- Added a per-model and per-assistant "agent mode on launch" setting for both Bridge and Llama, plus a global default for new Llama models
+- The memory usage pill now includes `llama-server`'s own memory alongside vIDE and Docker
+- Added an animated "thinking" indicator, shown while Claude/Bridge is streaming a response before its first token or tool call arrives
+- Moved the tool call limit setting from the Llama model page into Bridge settings; moved model action buttons into a footer bar and restyled the select dropdown and toggle switch
+- Reordered the sidebar so the Llama icon sits before Mobile Display and Notes
+- Documented the new Llama panel in the README
+
+**Bug fixes**
+- Fixed a new Llama model's tab path not updating to match its saved model after the initial save
+
 ## v0.2.13 (2026-09-13)
 - **Mobile Display: full vIDE client**: pairing now offers a choice between the existing usage-stats view and loading the real editor, terminal, and Claude/Bridge sessions as a fully interactive second client of the same backend, over a new authenticated WebSocket relay — a "Default mode after pairing" setting skips the chooser next time, with a "Switch mode" link to change it later
 - **Git Reset**: a new split button in the Git panel and footer menu — resets to the last commit, hard-resets to any picked branch/tag/commit, or undoes the last commit while keeping its changes staged so you can pull and re-commit
