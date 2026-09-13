@@ -33,15 +33,27 @@ describe('discardAllChanges', () => {
     expect(await readFile(join(root, 'tracked.txt'), 'utf-8')).toBe('original\n')
   })
 
-  it('reverts a staged modification to a tracked file', async () => {
+  it('leaves a staged modification to a tracked file untouched (VIDE-11)', async () => {
     await writeFile(join(root, 'tracked.txt'), 'staged-edit\n')
     await execFileAsync('git', ['add', 'tracked.txt'], { cwd: root })
 
     await discardAllChanges(root)
 
-    expect(await readFile(join(root, 'tracked.txt'), 'utf-8')).toBe('original\n')
+    expect(await readFile(join(root, 'tracked.txt'), 'utf-8')).toBe('staged-edit\n')
     const { stdout } = await execFileAsync('git', ['status', '--porcelain'], { cwd: root })
-    expect(stdout.trim()).toBe('')
+    expect(stdout.trim()).toBe('M  tracked.txt')
+  })
+
+  it('discards an unstaged edit made on top of a staged one, keeping the staged version', async () => {
+    await writeFile(join(root, 'tracked.txt'), 'staged-edit\n')
+    await execFileAsync('git', ['add', 'tracked.txt'], { cwd: root })
+    await writeFile(join(root, 'tracked.txt'), 'further-unstaged-edit\n')
+
+    await discardAllChanges(root)
+
+    expect(await readFile(join(root, 'tracked.txt'), 'utf-8')).toBe('staged-edit\n')
+    const { stdout } = await execFileAsync('git', ['status', '--porcelain'], { cwd: root })
+    expect(stdout.trim()).toBe('M  tracked.txt')
   })
 
   it('leaves untracked files alone', async () => {

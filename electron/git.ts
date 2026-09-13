@@ -275,12 +275,15 @@ export async function discardFileChanges(cwd: string, path: string): Promise<voi
   await execFileAsync('git', ['checkout', '--', path], { cwd })
 }
 
-// Reverts every tracked file's staged and unstaged modifications back to
-// HEAD in one shot — same scope as discardFileChanges, just for everything
-// at once. `reset --hard` never touches untracked files (they aren't in
-// HEAD), so new/untracked entries in the status list are left alone.
+// Reverts every tracked file's unstaged modifications back to the index —
+// same scope as discardFileChanges (`checkout -- <path>`), just for
+// everything at once. Restoring from the index rather than HEAD is what
+// keeps staged changes intact (VIDE-11: staging used to look like a safe
+// spot but `reset --hard HEAD` reverted the index too, wiping staged
+// changes along with unstaged ones). Untracked files aren't in the index,
+// so they're left alone.
 export async function discardAllChanges(cwd: string): Promise<void> {
-  await execFileAsync('git', ['reset', '--hard', 'HEAD'], { cwd })
+  await execFileAsync('git', ['checkout', '--', '.'], { cwd })
 }
 
 export async function unstageFiles(cwd: string, paths: string[]): Promise<void> {
