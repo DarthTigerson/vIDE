@@ -1,25 +1,104 @@
+import { useEffect } from 'react'
+import { useLlamaStore } from '@/stores/llamaStore'
+import { useEditorStore } from '@/stores/editorStore'
+import { buildTerminalPath } from '@/components/Settings/paths'
 import { LlamaIcon } from '@/components/ActivityBar/ActivityBar'
 
-// Placeholder panel for the upcoming llama controls (local LLM management).
-// Same header chrome as the other activity-bar panels so it reads as a real
-// panel the moment it appears.
+// Matches GitPanel's pill button styling so Llama's controls read as part of
+// the same left-sidebar panel family (same pattern as GraphifyPanel).
+const pillButtonClass =
+  'w-full h-7 rounded-full flex items-center justify-center text-[0.625rem] font-bold tracking-tight bg-accent/80 text-on-accent transition-colors hover:bg-accent active:scale-95 disabled:opacity-40 disabled:pointer-events-none'
+
+const INSTALL_COMMAND = 'brew install llama.cpp'
+
 export function LlamaPanel() {
-  return (
-    <div className="h-full flex flex-col bg-sidebar overflow-hidden">
-      <div className="h-9 px-3 flex items-center justify-between border-b border-border shrink-0">
-        <span className="text-xs font-semibold text-fg-muted uppercase tracking-wider truncate">
-          Llama
-        </span>
+  const { available, checking, checkAvailable } = useLlamaStore()
+  const openTab = useEditorStore((s) => s.openTab)
+
+  useEffect(() => {
+    if (available === null && !checking) checkAvailable()
+  }, [available, checking, checkAvailable])
+
+  // One click gets a terminal open with the install command already on the
+  // clipboard, ready to paste — same pattern as GraphifyPanel's quick launch.
+  function launchInstall() {
+    navigator.clipboard?.writeText(INSTALL_COMMAND).catch(() => {})
+    openTab({ path: buildTerminalPath(`llama-install-${Date.now().toString(36)}`), content: '', dirty: false })
+  }
+
+  // The model editor page lands in the next task — for now the button is
+  // present (so the "available" state is clear) but disabled.
+  function openCreateModel() {
+    // TODO(llama): open the create/edit model page.
+  }
+
+  if (available === false) {
+    return (
+      <div className="h-full flex flex-col bg-sidebar border-r border-border overflow-hidden">
+        <div className="h-9 px-3 flex items-center justify-between border-b border-border shrink-0">
+          <span className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
+            Llama
+          </span>
+        </div>
+        <div className="flex-1 flex items-center justify-center p-6 text-center">
+          <div>
+            <p className="text-sm text-fg mb-2">llama.cpp isn't installed.</p>
+            <p className="text-xs text-fg-subtle font-mono mb-3">{INSTALL_COMMAND}</p>
+            <button type="button" className={pillButtonClass} onClick={launchInstall}>
+              Open Terminal &amp; Copy Install Command
+            </button>
+          </div>
+        </div>
       </div>
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="flex flex-col items-center gap-2 text-center">
+    )
+  }
+
+  if (available === null) {
+    // Still probing — briefly shows the checking state before the IPC round
+    // trip settles, so the panel never flashes "not installed" by accident.
+    return (
+      <div className="h-full flex flex-col bg-sidebar border-r border-border overflow-hidden">
+        <div className="h-9 px-3 flex items-center justify-between border-b border-border shrink-0">
+          <span className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
+            Llama
+          </span>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center p-4">
           <span className="text-fg-subtle">
             <LlamaIcon />
           </span>
-          <p className="text-xs text-fg-subtle">
-            Llama controls are coming soon.
-          </p>
+          <p className="text-xs text-fg-subtle">Checking for llama.cpp…</p>
         </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="h-full flex flex-col bg-sidebar border-r border-border overflow-hidden">
+      <div className="h-9 px-3 flex items-center justify-between border-b border-border shrink-0">
+        <span className="text-xs font-semibold text-fg-muted uppercase tracking-wider">
+          Llama
+        </span>
+        <span className="text-fg-subtle">
+          <LlamaIcon />
+        </span>
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center gap-2 text-center p-4">
+        <p className="text-xs text-fg-subtle">
+          llama.cpp is installed and ready.
+        </p>
+      </div>
+
+      <div className="shrink-0 px-3 py-2 flex flex-col gap-1.5 border-t border-border">
+        <button
+          type="button"
+          className={pillButtonClass}
+          disabled
+          onClick={openCreateModel}
+        >
+          Create Model
+        </button>
       </div>
     </div>
   )

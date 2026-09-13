@@ -453,4 +453,6 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('graphify:exit', handler)
     return () => ipcRenderer.removeListener('graphify:exit', handler)
   },
+
+  llamaIsAvailable: () => ipcRenderer.invoke('llama:isAvailable'),
 })

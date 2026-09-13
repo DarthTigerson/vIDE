@@ -366,6 +366,8 @@ declare global {
       onGraphifyData: (cb: (id: string, data: string) => void) => () => void
       onGraphifyExit: (cb: (id: string, code: number) => void) => () => void
 
+      llamaIsAvailable: () => Promise<boolean>
+
       lspDetectAll: () => Promise<Record<LspServerId, DetectResult & { label: string; ramEstimate: string }>>
       lspInstall: (id: string) => Promise<void>
       lspSetEnabled: (id: string, enabled: boolean) => void

@@ -7,6 +7,7 @@ import { ClaudeManager } from './claude'
 import { BrowserBridge } from './browserBridge'
 import { GitRunner } from './gitRunner'
 import { GraphifyManager } from './graphify'
+import { LlamaManager } from './llama'
 import { GitWatcher } from './gitWatcher'
 import { DockerRunner } from './dockerRunner'
 import { DockerWatcher } from './dockerWatcher'
@@ -605,6 +606,8 @@ app.whenReady().then(async () => {
 
   const graphifyMgr = new GraphifyManager()
   graphifyMgr.registerHandlers()
+  const llamaMgr = new LlamaManager()
+  llamaMgr.registerHandlers()
   gitWatcher = new GitWatcher()
   gitWatcher.registerHandlers()
   dockerWatcher = new DockerWatcher()
