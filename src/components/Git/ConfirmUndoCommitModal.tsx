@@ -21,7 +21,7 @@ export function ConfirmUndoCommitModal({ cwd, onClose }: Props) {
 
   return (
     <Modal onClose={onClose}>
-      <h2 className="text-sm font-semibold text-fg mb-1">Undo Last Commit</h2>
+      <h2 className="text-sm font-semibold text-fg mb-1">Undo Last Push</h2>
       <p className="text-sm text-fg-muted mb-2">
         Undo the last commit on <span className="font-mono text-fg">{branch ?? '…'}</span>, keeping
         its changes staged so you can pull and re-commit them.
@@ -45,7 +45,7 @@ export function ConfirmUndoCommitModal({ cwd, onClose }: Props) {
           onClick={handleConfirm}
           className="px-4 py-1.5 text-sm rounded-lg bg-accent/80 hover:bg-accent text-on-accent font-semibold transition-colors"
         >
-          Undo Commit
+          Undo Push
         </button>
       </div>
     </Modal>

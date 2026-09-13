@@ -65,10 +65,11 @@ interface GitStore {
 function describeCommand(action: GitCommandAction, payload?: GitCommandPayload): string {
   if (action === 'forcePush') return 'push --force'
   if (action === 'forcePushLease') return 'push --force-with-lease'
-  if (action === 'checkout' && payload && 'ref' in payload) {
-    if (payload.track) return `checkout -b ${payload.ref} --track ${payload.track}`
-    if (payload.create) return `checkout -b ${payload.ref}`
-    return `checkout ${payload.ref}`
+  if (action === 'checkout' && payload) {
+    const { ref, create, track } = payload as GitCheckoutPayload
+    if (track) return `checkout -b ${ref} --track ${track}`
+    if (create) return `checkout -b ${ref}`
+    return `checkout ${ref}`
   }
   if (action === 'publishBranch' && payload && 'branch' in payload) {
     return `push --set-upstream origin ${payload.branch}`

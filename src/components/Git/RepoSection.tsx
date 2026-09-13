@@ -167,7 +167,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
   const openTabInPane = useEditorStore((s) => s.openTabInPane)
   const loadGraph = useGitGraphStore((s) => s.load)
   const { forceAction, requestForce, closeForce } = useForcePushConfirm(repo)
-  const { step: resetStep, requestUndo, requestHardReset, pickRef, close: closeReset } = useGitResetConfirm()
+  const { step: resetStep, requestResetToHead, requestUndoPush, requestHardReset, pickRef, close: closeReset } = useGitResetConfirm()
   const commitMessageEnabled = useCommitMessageSettingsStore((s) => s.enabled)
   const commitMessageModel = useCommitMessageSettingsStore((s) => s.model)
   const commitMessagePrompt = useCommitMessageSettingsStore((s) => s.prompt)
@@ -536,27 +536,38 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
           Push
         </SplitCommandButton>
         <SplitCommandButton
-          label="Git Reset"
+          label="Reset"
           disabled={remoteActionDisabled}
-          onClick={() => runOnThisRepo(() => requestUndo())}
+          onClick={() => runOnThisRepo(() => requestResetToHead())}
           colorClassName={accentSolidColor}
           open={resetOptionsOpen}
           onToggleOptions={() => setResetOptionsOpen((v) => !v)}
           onCloseOptions={() => setResetOptionsOpen(false)}
           direction="up"
           optionsChildren={
-            <button
-              type="button"
-              disabled={remoteActionDisabled}
-              onClick={() => { runOnThisRepo(() => requestHardReset()); setResetOptionsOpen(false) }}
-              className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <span className="font-semibold">Hard Reset…</span>
-              <span className="text-red-400/70">Reset to a branch, tag, or commit — discards history.</span>
-            </button>
+            <div className="flex flex-col gap-0.5">
+              <button
+                type="button"
+                disabled={remoteActionDisabled}
+                onClick={() => { runOnThisRepo(() => requestHardReset()); setResetOptionsOpen(false) }}
+                className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <span className="font-semibold">Hard Reset…</span>
+                <span className="text-red-400/70">Reset to a branch, tag, or commit — discards history.</span>
+              </button>
+              <button
+                type="button"
+                disabled={remoteActionDisabled}
+                onClick={() => { runOnThisRepo(() => requestUndoPush()); setResetOptionsOpen(false) }}
+                className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-fg transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <span className="font-semibold">Undo Last Push</span>
+                <span className="text-fg-subtle">Undo the last commit, keeping its changes staged to re-commit after pulling.</span>
+              </button>
+            </div>
           }
         >
-          Git Reset
+          Reset
         </SplitCommandButton>
         <div className="flex gap-1.5">
           <button
@@ -690,7 +701,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
         <ConfirmForcePushModal action={forceAction} cwd={repo} onClose={closeForce} />
       )}
 
-      {resetStep?.kind === 'confirmUndo' && (
+      {resetStep?.kind === 'confirmUndoPush' && (
         <ConfirmUndoCommitModal cwd={repo} onClose={closeReset} />
       )}
       {resetStep?.kind === 'pickRef' && (

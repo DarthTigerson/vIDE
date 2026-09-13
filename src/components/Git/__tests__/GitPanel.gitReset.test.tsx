@@ -32,56 +32,81 @@ afterEach(() => {
   cleanup()
 })
 
-describe('GitPanel — Git Reset', () => {
+describe('GitPanel — Reset (discard to HEAD / Hard Reset / Undo Last Push)', () => {
   it('the options panel is closed by default', () => {
     render(<GitPanel />)
     expect(screen.queryByText('Hard Reset…')).toBeNull()
+    expect(screen.queryByText('Undo Last Push')).toBeNull()
   })
 
-  it('clicking the main Git Reset button opens a confirm modal instead of running immediately', () => {
+  it('clicking the main Reset button opens a confirm modal instead of running immediately', () => {
     render(<GitPanel />)
-    fireEvent.click(screen.getByText('Git Reset'))
+    fireEvent.click(screen.getByText('Reset'))
 
     expect(window.api.gitRunCommand).not.toHaveBeenCalled()
-    expect(screen.getByText('Undo Commit')).toBeTruthy()
+    expect(screen.getByText(/restore it to its last commit/)).toBeTruthy()
   })
 
-  it('confirming Undo Last Commit runs the reset with no payload', async () => {
+  it('confirming Reset runs a hard reset to HEAD', () => {
     render(<GitPanel />)
-    fireEvent.click(screen.getByText('Git Reset'))
-    fireEvent.click(screen.getByText('Undo Commit'))
+    fireEvent.click(screen.getByText('Reset'))
+    // Two "Reset" buttons exist once the modal is open: the split button
+    // itself, and the modal's confirm button (portaled last in DOM order).
+    const resetButtons = screen.getAllByRole('button', { name: 'Reset' })
+    fireEvent.click(resetButtons[resetButtons.length - 1])
+
+    expect(window.api.gitRunCommand).toHaveBeenCalledWith(
+      expect.any(String), '/proj', 'hardReset', { ref: 'HEAD' }
+    )
+  })
+
+  it('cancelling Reset does not run anything', () => {
+    render(<GitPanel />)
+    fireEvent.click(screen.getByText('Reset'))
+    fireEvent.click(screen.getByText('Cancel'))
+
+    expect(window.api.gitRunCommand).not.toHaveBeenCalled()
+  })
+
+  it('clicking the options chevron opens a panel with Hard Reset… and Undo Last Push', () => {
+    render(<GitPanel />)
+    fireEvent.click(screen.getByLabelText('Reset options'))
+    expect(screen.getByText('Hard Reset…')).toBeTruthy()
+    expect(screen.getByText('Undo Last Push')).toBeTruthy()
+  })
+
+  it('clicking Undo Last Push opens its own confirm modal', () => {
+    render(<GitPanel />)
+    fireEvent.click(screen.getByLabelText('Reset options'))
+    fireEvent.click(screen.getByText('Undo Last Push'))
+
+    expect(window.api.gitRunCommand).not.toHaveBeenCalled()
+    expect(screen.getByText('Undo Push')).toBeTruthy()
+  })
+
+  it('confirming Undo Last Push soft-resets one commit back, locally only', () => {
+    render(<GitPanel />)
+    fireEvent.click(screen.getByLabelText('Reset options'))
+    fireEvent.click(screen.getByText('Undo Last Push'))
+    fireEvent.click(screen.getByText('Undo Push'))
 
     expect(window.api.gitRunCommand).toHaveBeenCalledWith(expect.any(String), '/proj', 'undoLastCommit')
   })
 
-  it('warns when the last commit is already pushed (ahead === 0)', () => {
+  it('warns on Undo Last Push when the last commit is already pushed (ahead === 0)', () => {
     useGitStore.setState({
       repos: { '/proj': { ...emptyRepoGitState, status: emptyStatus, branch: 'main', aheadBehind: { ahead: 0, behind: 0 } } },
     })
     render(<GitPanel />)
-    fireEvent.click(screen.getByText('Git Reset'))
+    fireEvent.click(screen.getByLabelText('Reset options'))
+    fireEvent.click(screen.getByText('Undo Last Push'))
 
     expect(screen.getByText(/already been pushed to origin/)).toBeTruthy()
   })
 
-  it('cancelling the undo confirm does not run anything', () => {
-    render(<GitPanel />)
-    fireEvent.click(screen.getByText('Git Reset'))
-    fireEvent.click(screen.getByText('Cancel'))
-
-    expect(screen.queryByText('Undo Commit')).toBeNull()
-    expect(window.api.gitRunCommand).not.toHaveBeenCalled()
-  })
-
-  it('clicking the options chevron opens a panel with Hard Reset…', () => {
-    render(<GitPanel />)
-    fireEvent.click(screen.getByLabelText('Git Reset options'))
-    expect(screen.getByText('Hard Reset…')).toBeTruthy()
-  })
-
   it('clicking Hard Reset… opens the ref picker listing branches', async () => {
     render(<GitPanel />)
-    fireEvent.click(screen.getByLabelText('Git Reset options'))
+    fireEvent.click(screen.getByLabelText('Reset options'))
     fireEvent.click(screen.getByText('Hard Reset…'))
 
     expect(await screen.findByText('feature-x')).toBeTruthy()
@@ -90,7 +115,7 @@ describe('GitPanel — Git Reset', () => {
 
   it('picking a remote branch runs hard reset with the full remote ref', async () => {
     render(<GitPanel />)
-    fireEvent.click(screen.getByLabelText('Git Reset options'))
+    fireEvent.click(screen.getByLabelText('Reset options'))
     fireEvent.click(screen.getByText('Hard Reset…'))
     fireEvent.mouseDown(await screen.findByText('hotfix'))
     fireEvent.click(screen.getByRole('button', { name: 'Hard Reset' }))
@@ -102,7 +127,7 @@ describe('GitPanel — Git Reset', () => {
 
   it('picking a local branch opens the hard-reset confirm with that ref', async () => {
     render(<GitPanel />)
-    fireEvent.click(screen.getByLabelText('Git Reset options'))
+    fireEvent.click(screen.getByLabelText('Reset options'))
     fireEvent.click(screen.getByText('Hard Reset…'))
     fireEvent.mouseDown(await screen.findByText('feature-x'))
 
@@ -112,7 +137,7 @@ describe('GitPanel — Git Reset', () => {
 
   it('confirming hard reset runs it with the picked ref', async () => {
     render(<GitPanel />)
-    fireEvent.click(screen.getByLabelText('Git Reset options'))
+    fireEvent.click(screen.getByLabelText('Reset options'))
     fireEvent.click(screen.getByText('Hard Reset…'))
     fireEvent.mouseDown(await screen.findByText('feature-x'))
     fireEvent.click(screen.getByRole('button', { name: 'Hard Reset' }))
@@ -124,7 +149,7 @@ describe('GitPanel — Git Reset', () => {
 
   it('typing an arbitrary ref (tag or hash) offers it as a "Reset to" option', async () => {
     render(<GitPanel />)
-    fireEvent.click(screen.getByLabelText('Git Reset options'))
+    fireEvent.click(screen.getByLabelText('Reset options'))
     fireEvent.click(screen.getByText('Hard Reset…'))
 
     const input = await screen.findByPlaceholderText('Search branches, or type a tag/commit hash…')

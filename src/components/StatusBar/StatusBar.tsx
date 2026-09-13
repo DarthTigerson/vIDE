@@ -38,7 +38,7 @@ export function StatusBar() {
   const refreshBranch = useGitStore((s) => s.refresh)
   const [gitMenuOpen, setGitMenuOpen] = useState(false)
   const { forceAction, requestForce, closeForce } = useForcePushConfirm(selectedRepo)
-  const { step: resetStep, requestUndo, requestHardReset, pickRef, close: closeReset } = useGitResetConfirm()
+  const { step: resetStep, requestResetToHead, requestUndoPush, requestHardReset, pickRef, close: closeReset } = useGitResetConfirm()
   const autocompleteEnabled = useAutocompleteSettingsStore((s) => s.enabled)
   const autocompletePaused = useAutocompleteSessionStore((s) => s.paused)
   const togglePaused = useAutocompleteSessionStore((s) => s.togglePaused)
@@ -107,7 +107,8 @@ export function StatusBar() {
             <GitActionsMenu
               onClose={() => setGitMenuOpen(false)}
               onRequestForce={requestForce}
-              onRequestUndo={requestUndo}
+              onRequestResetToHead={requestResetToHead}
+              onRequestUndoPush={requestUndoPush}
               onRequestHardReset={requestHardReset}
             />
           )}
@@ -118,7 +119,7 @@ export function StatusBar() {
       {forceAction && selectedRepo && (
         <ConfirmForcePushModal action={forceAction} cwd={selectedRepo} onClose={closeForce} />
       )}
-      {resetStep?.kind === 'confirmUndo' && selectedRepo && (
+      {resetStep?.kind === 'confirmUndoPush' && selectedRepo && (
         <ConfirmUndoCommitModal cwd={selectedRepo} onClose={closeReset} />
       )}
       {resetStep?.kind === 'pickRef' && selectedRepo && (
