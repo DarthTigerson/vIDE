@@ -1,5 +1,6 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import { watch, type FSWatcher } from 'chokidar'
+import { getMobileBroadcaster } from './mobile'
 
 interface WindowState {
   watcher: FSWatcher | null
@@ -51,6 +52,7 @@ export class FileWatcher {
     if (state.debounceTimer) clearTimeout(state.debounceTimer)
     state.debounceTimer = setTimeout(() => {
       if (!win.isDestroyed()) win.webContents.send('fs:changed', cwd)
+      getMobileBroadcaster().emit('fs:changed', cwd)
     }, 300)
   }
 

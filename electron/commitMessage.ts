@@ -49,7 +49,7 @@ export class CommitMessageManager {
     this.currentByWindow.delete(windowId)
   }
 
-  private async generate(
+  async generate(
     windowId: number,
     diff: string,
     model: string,

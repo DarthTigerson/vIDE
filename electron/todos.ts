@@ -12,7 +12,7 @@ function dataDir(): string {
 
 const todosWatcher = new TodosWatcher()
 
-async function saveAttachment(dataUrl: string): Promise<string> {
+export async function saveAttachment(dataUrl: string): Promise<string> {
   const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1)
   const id = crypto.randomUUID()
   const dir = store.attachmentsDir(dataDir())
@@ -21,7 +21,7 @@ async function saveAttachment(dataUrl: string): Promise<string> {
   return id
 }
 
-async function readAttachmentDataUrl(id: string): Promise<string> {
+export async function readAttachmentDataUrl(id: string): Promise<string> {
   return readImageDataUrl(join(store.attachmentsDir(dataDir()), `${id}.png`))
 }
 

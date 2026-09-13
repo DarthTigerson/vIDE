@@ -4,10 +4,11 @@ import { mkdtempSync, rmSync, statSync, readFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
-const { fromIdMock } = vi.hoisted(() => ({ fromIdMock: vi.fn() }))
+const { fromIdMock, openExternalMock } = vi.hoisted(() => ({ fromIdMock: vi.fn(), openExternalMock: vi.fn() }))
 
 vi.mock('electron', () => ({
   BrowserWindow: { fromId: (...args: unknown[]) => fromIdMock(...args) },
+  shell: { openExternal: (...args: unknown[]) => openExternalMock(...args) },
 }))
 
 import { BrowserBridge, parseShimRequest } from '../browserBridge'
@@ -83,6 +84,7 @@ describe('BrowserBridge — open-url shim (VIDE-7)', () => {
   beforeEach(() => {
     userDataDir = mkdtempSync(join(tmpdir(), 'vide-browserbridge-test-'))
     fromIdMock.mockReset()
+    openExternalMock.mockReset()
     browserViews = fakeBrowserViews()
   })
 
@@ -124,7 +126,13 @@ describe('BrowserBridge — open-url shim (VIDE-7)', () => {
     expect(win.webContents.send).toHaveBeenCalledWith('browser:open-external-url', 'https://example.com/login')
   })
 
-  it('ignores a request whose window id no longer exists', async () => {
+  // Regression coverage: BrowserWindow.fromId(-1) — the mobile relay's
+  // virtual window sentinel, now reachable since claude:spawn wires
+  // win=-1 for phone-initiated sessions — returns null just like any
+  // other unresolvable window id. There's no Browser panel to route a
+  // login URL into for either case, so both must fall back to the OS's
+  // default browser instead of silently dropping the URL.
+  it('falls back to the OS browser when the window id no longer exists', async () => {
     fromIdMock.mockReturnValue(null)
     bridge = new BrowserBridge(userDataDir, browserViews as any)
     bridge.start()
@@ -132,6 +140,39 @@ describe('BrowserBridge — open-url shim (VIDE-7)', () => {
     await postOpen(join(userDataDir, 'browser-shim.sock'), '99', 'https://example.com')
 
     expect(fromIdMock).toHaveBeenCalledWith(99)
+    expect(openExternalMock).toHaveBeenCalledWith('https://example.com')
+  })
+
+  it('falls back to the OS browser for the mobile relay\'s virtual window id (-1)', async () => {
+    fromIdMock.mockReturnValue(null)
+    bridge = new BrowserBridge(userDataDir, browserViews as any)
+    bridge.start()
+
+    await postOpen(join(userDataDir, 'browser-shim.sock'), '-1', 'https://example.com/login')
+
+    expect(fromIdMock).toHaveBeenCalledWith(-1)
+    expect(openExternalMock).toHaveBeenCalledWith('https://example.com/login')
+  })
+
+  it('falls back to the OS browser when the resolved window has already been destroyed', async () => {
+    fromIdMock.mockReturnValue({ webContents: { send: vi.fn() }, isDestroyed: () => true })
+    bridge = new BrowserBridge(userDataDir, browserViews as any)
+    bridge.start()
+
+    await postOpen(join(userDataDir, 'browser-shim.sock'), '5', 'https://example.com')
+
+    expect(openExternalMock).toHaveBeenCalledWith('https://example.com')
+  })
+
+  it('does not fall back to the OS browser when a live window handled the URL', async () => {
+    const win = { webContents: { send: vi.fn() }, isDestroyed: () => false }
+    fromIdMock.mockReturnValue(win)
+    bridge = new BrowserBridge(userDataDir, browserViews as any)
+    bridge.start()
+
+    await postOpen(join(userDataDir, 'browser-shim.sock'), '5', 'https://example.com/login')
+
+    expect(openExternalMock).not.toHaveBeenCalled()
   })
 })
 

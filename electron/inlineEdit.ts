@@ -87,12 +87,20 @@ export class InlineEditManager {
     ipcMain.on('inlineEdit:cancel', (event) => {
       const win = BrowserWindow.fromWebContents(event.sender)
       if (!win) return
-      this.cancelWindow(win.id)
+      this.cancel(win)
     })
   }
 
   disposeWindow(windowId: number): void {
     this.cancelWindow(windowId)
+  }
+
+  // Public wrapper mirroring the ipcMain.on('inlineEdit:cancel', ...) closure
+  // body above, so the mobile relay (inlineEditChannels.ts) can cancel a
+  // mobile-originated edit the same way, keyed off the same sentinel window
+  // the relay uses for term/claude/autocomplete sessions.
+  cancel(win: BrowserWindow): void {
+    this.cancelWindow(win.id)
   }
 
   private cancelWindow(windowId: number): void {
@@ -103,7 +111,7 @@ export class InlineEditManager {
     this.currentByWindow.delete(windowId)
   }
 
-  private async start(win: BrowserWindow, payload: InlineEditStartPayload): Promise<void> {
+  async start(win: BrowserWindow, payload: InlineEditStartPayload): Promise<void> {
     this.cancelWindow(win.id)
 
     // Reserve this window's slot synchronously, before the only await below —
