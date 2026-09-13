@@ -1,8 +1,8 @@
-import { BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { readFile, writeFile, unlink, rename, access } from 'fs/promises'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
-import { relative } from 'path'
+import { join, relative } from 'path'
 import { listAllFiles, searchText, buildTree } from './fsOps'
 import { minimatch } from 'minimatch'
 
@@ -35,6 +35,36 @@ export interface BridgeSendPayload {
   messages: BridgeMessage[]
   agentMode: boolean
   settings: BridgeSettings
+}
+
+export interface BridgeStoredSettings {
+  endpoint: string
+  apiKey: string
+  modelId: string
+}
+
+function bridgeSettingsPath(): string {
+  return join(app.getPath('userData'), 'bridge-settings.json')
+}
+
+// Disk-backed settings, shared by the desktop ipcMain handlers (registered in
+// electron/main.ts's registerBridgeSettingsHandlers()) and the mobile relay
+// (bridgeChannels.ts) — both read/write the same bridge-settings.json under
+// userData, so pairing a phone doesn't require re-entering Bridge's endpoint/
+// API key/model separately from the desktop app.
+export async function getBridgeSettings(): Promise<BridgeStoredSettings | null> {
+  try {
+    const data = await readFile(bridgeSettingsPath(), 'utf-8')
+    return JSON.parse(data)
+  } catch {
+    return null
+  }
+}
+
+export async function setBridgeSettings(settings: BridgeStoredSettings): Promise<void> {
+  try {
+    await writeFile(bridgeSettingsPath(), JSON.stringify(settings), 'utf-8')
+  } catch {}
 }
 
 export type BridgeEvent =
@@ -352,48 +382,72 @@ export class BridgeManager {
       // Returning the promise (instead of `void`-discarding it) is what lets
       // tests capture and await it via the mocked ipcMain.on handler map —
       // Electron itself ignores the return value either way.
-      return this.runConversation(win, payload)
+      return this.send(win, payload)
     })
 
     ipcMain.on('bridge:cancel', (event) => {
       const win = BrowserWindow.fromWebContents(event.sender)
       if (!win) return
-      this.controllerByWindow.get(win.id)?.abort()
-      this.cancelledByWindow.set(win.id, true)
-      const approvals = this.approvalsFor(win.id)
-      for (const resolve of approvals.values()) {
-        resolve(false)
-      }
-      approvals.clear()
+      this.cancel(win)
     })
 
     ipcMain.on('bridge:approve', (event, toolCallId: string) => {
       const win = BrowserWindow.fromWebContents(event.sender)
       if (!win) return
-      const approvals = this.approvalsFor(win.id)
-      approvals.get(toolCallId)?.(true)
-      approvals.delete(toolCallId)
+      this.approve(win, toolCallId)
     })
 
     ipcMain.on('bridge:reject', (event, toolCallId: string) => {
       const win = BrowserWindow.fromWebContents(event.sender)
       if (!win) return
-      const approvals = this.approvalsFor(win.id)
-      approvals.get(toolCallId)?.(false)
-      approvals.delete(toolCallId)
+      this.reject(win, toolCallId)
     })
 
-    ipcMain.handle('bridge:testConnection', async (_event, settings: BridgeSettings) => {
-      try {
-        const response = await fetch(`${settings.endpoint}/models`, {
-          headers: { Authorization: `Bearer ${settings.apiKey}` },
-        })
-        if (!response.ok) return { ok: false, error: `HTTP ${response.status}` }
-        return { ok: true }
-      } catch (err) {
-        return { ok: false, error: (err as Error).message }
-      }
-    })
+    ipcMain.handle('bridge:testConnection', (_event, settings: BridgeSettings) => this.testConnection(settings))
+  }
+
+  // The following are the same bodies that used to live directly inside the
+  // ipcMain closures above, extracted so the mobile relay (bridgeChannels.ts)
+  // can call the exact same logic for a mobile-originated conversation,
+  // keyed off the same sentinel window the relay uses for term/claude
+  // sessions (MOBILE_RELAY_WINDOW_ID) rather than a real event.sender.
+
+  send(win: BrowserWindow, payload: BridgeSendPayload): Promise<void> {
+    return this.runConversation(win, payload)
+  }
+
+  cancel(win: BrowserWindow): void {
+    this.controllerByWindow.get(win.id)?.abort()
+    this.cancelledByWindow.set(win.id, true)
+    const approvals = this.approvalsFor(win.id)
+    for (const resolve of approvals.values()) {
+      resolve(false)
+    }
+    approvals.clear()
+  }
+
+  approve(win: BrowserWindow, toolCallId: string): void {
+    const approvals = this.approvalsFor(win.id)
+    approvals.get(toolCallId)?.(true)
+    approvals.delete(toolCallId)
+  }
+
+  reject(win: BrowserWindow, toolCallId: string): void {
+    const approvals = this.approvalsFor(win.id)
+    approvals.get(toolCallId)?.(false)
+    approvals.delete(toolCallId)
+  }
+
+  async testConnection(settings: BridgeSettings): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const response = await fetch(`${settings.endpoint}/models`, {
+        headers: { Authorization: `Bearer ${settings.apiKey}` },
+      })
+      if (!response.ok) return { ok: false, error: `HTTP ${response.status}` }
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: (err as Error).message }
+    }
   }
 
   private approvalsFor(winId: number): Map<string, (approved: boolean) => void> {

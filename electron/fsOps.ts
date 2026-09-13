@@ -1,5 +1,10 @@
-import { readdir, readFile, stat } from 'fs/promises'
+import {
+  readdir, readFile, stat, access,
+  writeFile as fsWriteFile, mkdir as fsMkdir, rename as fsRename,
+} from 'fs/promises'
 import { join, extname } from 'path'
+import { homedir } from 'os'
+import { shell } from 'electron'
 
 const IMAGE_MIME_TYPES: Record<string, string> = {
   '.png': 'image/png',
@@ -116,4 +121,41 @@ export async function readImageDataUrl(filePath: string): Promise<string> {
   const mime = IMAGE_MIME_TYPES[extname(filePath).toLowerCase()] ?? 'application/octet-stream'
   const buffer = await readFile(filePath)
   return `data:${mime};base64,${buffer.toString('base64')}`
+}
+
+// Extracted from electron/main.ts's registerFsHandlers() inline ipcMain
+// closures (same logic, byte-for-byte) so the mobile relay can delegate to
+// the same functions the desktop IPC handlers use.
+
+export function readTextFile(path: string): Promise<string> {
+  return readFile(path, 'utf-8')
+}
+
+export async function pathExists(path: string): Promise<boolean> {
+  try {
+    await access(path)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function getHomeDir(): string {
+  return homedir()
+}
+
+export function writeFile(path: string, content: string): Promise<void> {
+  return fsWriteFile(path, content, 'utf-8')
+}
+
+export function mkdir(path: string): Promise<void> {
+  return fsMkdir(path, { recursive: false })
+}
+
+export function renamePath(from: string, to: string): Promise<void> {
+  return fsRename(from, to)
+}
+
+export function trashPath(path: string): Promise<void> {
+  return shell.trashItem(path)
 }

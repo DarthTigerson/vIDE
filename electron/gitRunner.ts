@@ -2,6 +2,7 @@ import { ipcMain, BrowserWindow } from 'electron'
 import * as pty from 'node-pty'
 import type { GitCommandAction, GitCommandPayload, GitCheckoutPayload, GitPublishBranchPayload } from '../src/types/index'
 import { getGitBranch, getGitBranches, getDefaultBranch, getBranchList, getAheadBehind, getGitStatus, stageFiles, unstageFiles, stageAll, unstageAll, commit, discardFileChanges, discardAllChanges, getDiffContent, getFileAtHead, getCommitDiffContent, getGitGraph, getGitBranchDiff, getGitShowStat, getIgnoredPaths, fetchRemote, getStagedDiff, discoverRepos } from './git'
+import { getMobileBroadcaster } from './mobile'
 
 const ARGS: Record<Exclude<GitCommandAction, 'checkout' | 'publishBranch'>, string[]> = {
   fetch:           ['fetch'],
@@ -46,6 +47,8 @@ export class GitRunner {
           win.webContents.send('git:log:data', id, 'A git command is already running.\r\n')
           win.webContents.send('git:log:exit', id, 1)
         }
+        getMobileBroadcaster().emit('git:log:data', id, 'A git command is already running.\r\n')
+        getMobileBroadcaster().emit('git:log:exit', id, 1)
         return
       }
 
@@ -64,10 +67,12 @@ export class GitRunner {
 
       proc.onData((data) => {
         if (!win.isDestroyed()) win.webContents.send('git:log:data', id, data)
+        getMobileBroadcaster().emit('git:log:data', id, data)
       })
       proc.onExit(({ exitCode }) => {
         this.runningByWindow.delete(win.id)
         if (!win.isDestroyed()) win.webContents.send('git:log:exit', id, exitCode)
+        getMobileBroadcaster().emit('git:log:exit', id, exitCode)
       })
     })
 

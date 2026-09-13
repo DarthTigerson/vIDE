@@ -1,8 +1,18 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { mkdtemp, writeFile, mkdir, rm } from 'fs/promises'
-import { tmpdir } from 'os'
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
+import { mkdtemp, writeFile, mkdir, rm, readFile as readFileRaw, stat } from 'fs/promises'
+import { tmpdir, homedir } from 'os'
 import { join } from 'path'
-import { listAllFiles, searchText, buildTree, readImageDataUrl } from '../fsOps'
+
+const trashItemMock = vi.fn(async (_path: string) => undefined)
+vi.mock('electron', () => ({
+  shell: { trashItem: (path: string) => trashItemMock(path) },
+}))
+
+import {
+  listAllFiles, searchText, buildTree, readImageDataUrl,
+  readTextFile, pathExists, getHomeDir,
+  writeFile as writeFileOp, mkdir as mkdirOp, renamePath, trashPath,
+} from '../fsOps'
 
 describe('fsOps', () => {
   let root: string
@@ -55,5 +65,50 @@ describe('fsOps', () => {
     await writeFile(path, Buffer.from([1, 2, 3]))
     const dataUrl = await readImageDataUrl(path)
     expect(dataUrl.startsWith('data:application/octet-stream;base64,')).toBe(true)
+  })
+
+  it('readTextFile reads a file as utf-8', async () => {
+    const content = await readTextFile(join(root, 'a.txt'))
+    expect(content).toBe('hello world\nfoo bar\n')
+  })
+
+  it('pathExists resolves true for an existing path and false for a missing one', async () => {
+    expect(await pathExists(join(root, 'a.txt'))).toBe(true)
+    expect(await pathExists(join(root, 'does-not-exist.txt'))).toBe(false)
+  })
+
+  it('getHomeDir returns the OS home directory', () => {
+    expect(getHomeDir()).toBe(homedir())
+  })
+
+  it('writeFile writes utf-8 content to disk', async () => {
+    const target = join(root, 'written.txt')
+    await writeFileOp(target, 'written content')
+    expect(await readFileRaw(target, 'utf-8')).toBe('written content')
+  })
+
+  it('mkdir creates a new directory non-recursively', async () => {
+    const dir = join(root, 'newdir')
+    await mkdirOp(dir)
+    expect((await stat(dir)).isDirectory()).toBe(true)
+  })
+
+  it('mkdir rejects when the parent directory does not exist (recursive: false)', async () => {
+    const nested = join(root, 'missing-parent', 'child')
+    await expect(mkdirOp(nested)).rejects.toThrow()
+  })
+
+  it('renamePath moves a file from one path to another', async () => {
+    const from = join(root, 'rename-src.txt')
+    const to = join(root, 'rename-dst.txt')
+    await writeFile(from, 'rename me')
+    await renamePath(from, to)
+    expect(await pathExists(from)).toBe(false)
+    expect(await readFileRaw(to, 'utf-8')).toBe('rename me')
+  })
+
+  it('trashPath delegates to electron shell.trashItem with the given path', async () => {
+    await trashPath('/some/path.txt')
+    expect(trashItemMock).toHaveBeenCalledWith('/some/path.txt')
   })
 })

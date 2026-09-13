@@ -49,6 +49,14 @@ export class UsageManager {
     else this.release('passive')
   }
 
+  getLatest(): ReturnType<UsagePoller['getLatest']> {
+    return this.poller.getLatest()
+  }
+
+  getRange(fromTs: number, toTs: number, maxPoints?: number): ReturnType<UsagePoller['getRange']> {
+    return this.poller.getRange(fromTs, toTs, maxPoints)
+  }
+
   acquire(source: UsageSource): void {
     const wasEmpty = this.active.size === 0
     this.active.add(source)
@@ -63,9 +71,9 @@ export class UsageManager {
   registerHandlers(): void {
     ipcMain.handle('usage:acquire', () => this.acquire('desktop'))
     ipcMain.handle('usage:release', () => this.release('desktop'))
-    ipcMain.handle('usage:getLatest', () => this.poller.getLatest())
+    ipcMain.handle('usage:getLatest', () => this.getLatest())
     ipcMain.handle('usage:getRange', (_evt, fromTs: number, toTs: number, maxPoints?: number) =>
-      this.poller.getRange(fromTs, toTs, maxPoints)
+      this.getRange(fromTs, toTs, maxPoints)
     )
     ipcMain.handle('usage:getPassiveEnabled', () => this.getPassiveEnabled())
     ipcMain.handle('usage:setPassiveEnabled', (_evt, enabled: boolean) => this.setPassiveEnabled(enabled))

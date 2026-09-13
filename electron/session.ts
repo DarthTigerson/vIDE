@@ -19,21 +19,24 @@ function sessionPathFor(projectRoot: string): string {
   return join(app.getPath('userData'), 'sessions', `${hash}.json`)
 }
 
-export function registerSessionHandlers(): void {
-  ipcMain.handle('session:load', async (_e, projectRoot: string): Promise<SessionData | null> => {
-    try {
-      const data = await readFile(sessionPathFor(projectRoot), 'utf-8')
-      return JSON.parse(data)
-    } catch {
-      return null
-    }
-  })
+export async function loadSession(projectRoot: string): Promise<SessionData | null> {
+  try {
+    const data = await readFile(sessionPathFor(projectRoot), 'utf-8')
+    return JSON.parse(data)
+  } catch {
+    return null
+  }
+}
 
-  ipcMain.handle('session:save', async (_e, projectRoot: string, data: SessionData) => {
-    try {
-      const path = sessionPathFor(projectRoot)
-      await mkdir(join(app.getPath('userData'), 'sessions'), { recursive: true })
-      await writeFile(path, JSON.stringify(data), 'utf-8')
-    } catch {}
-  })
+export async function saveSession(projectRoot: string, data: SessionData): Promise<void> {
+  try {
+    const path = sessionPathFor(projectRoot)
+    await mkdir(join(app.getPath('userData'), 'sessions'), { recursive: true })
+    await writeFile(path, JSON.stringify(data), 'utf-8')
+  } catch {}
+}
+
+export function registerSessionHandlers(): void {
+  ipcMain.handle('session:load', (_e, projectRoot: string) => loadSession(projectRoot))
+  ipcMain.handle('session:save', (_e, projectRoot: string, data: SessionData) => saveSession(projectRoot, data))
 }

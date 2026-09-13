@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-const { handlers, spawnMock } = vi.hoisted(() => ({
+const { handlers, spawnMock, broadcastEmitMock } = vi.hoisted(() => ({
   handlers: {} as Record<string, (...args: any[]) => void>,
   spawnMock: vi.fn(),
+  broadcastEmitMock: vi.fn(),
 }))
 
 vi.mock('electron', () => ({
@@ -23,7 +24,15 @@ vi.mock('node-pty', () => ({
   spawn: (...args: unknown[]) => spawnMock(...args),
 }))
 
+vi.mock('../mobile', () => ({
+  getMobileBroadcaster: () => ({ emit: broadcastEmitMock }),
+}))
+
 import { ClaudeManager, ECHO_WINDOW_MS, IDLE_TIMEOUT_MS } from '../claude'
+
+beforeEach(() => {
+  broadcastEmitMock.mockReset()
+})
 
 function fakeWin(id: number) {
   return { id, webContents: { send: vi.fn() }, isDestroyed: () => false }
@@ -128,6 +137,32 @@ describe('ClaudeManager claude:spawn (attach mode)', () => {
     expect(procA.kill).not.toHaveBeenCalled()
     expect(procB.kill).not.toHaveBeenCalled()
     expect(spawnMock).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('ClaudeManager claude:spawn failure', () => {
+  beforeEach(() => {
+    spawnMock.mockReset()
+  })
+
+  // Regression coverage for a mobile-relay gap: the win=-1 virtual window
+  // has no real BrowserWindow behind it, so a phone-initiated spawn
+  // failure (e.g. `claude` not on PATH) needs to reach the phone via the
+  // mobile broadcaster, not just `win.webContents.send` — otherwise the
+  // phone's terminal just looks permanently blank with no explanation.
+  it('broadcasts the "claude not found" error to mobile clients, not just the real window', () => {
+    const manager = new ClaudeManager()
+    manager.registerHandlers()
+    const win = fakeWin(1)
+    spawnMock.mockImplementationOnce(() => {
+      throw new Error('ENOENT')
+    })
+
+    handlers['claude:spawn']({ sender: win }, '/project/a', 'claude', undefined)
+
+    const expectedMessage = expect.stringContaining("'claude' not found in PATH")
+    expect(win.webContents.send).toHaveBeenCalledWith('claude:data', 'claude', expectedMessage)
+    expect(broadcastEmitMock).toHaveBeenCalledWith('claude:data', 'claude', expectedMessage)
   })
 })
 

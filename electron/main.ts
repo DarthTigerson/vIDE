@@ -1,8 +1,7 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu, shell, webContents, nativeImage } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, Menu, webContents, nativeImage } from 'electron'
 import { basename, join } from 'path'
 import { is } from '@electron-toolkit/utils'
-import { access, cp, mkdir, readFile, rename, writeFile } from 'fs/promises'
-import { homedir } from 'os'
+import { access, cp } from 'fs/promises'
 import { PtyManager } from './pty'
 import { ClaudeManager } from './claude'
 import { BrowserBridge } from './browserBridge'
@@ -12,15 +11,18 @@ import { GitWatcher } from './gitWatcher'
 import { DockerRunner } from './dockerRunner'
 import { DockerWatcher } from './dockerWatcher'
 import { FileWatcher } from './fileWatcher'
-import { MobileServer } from './mobile'
+import { MobileServer, MOBILE_RELAY_WINDOW_ID } from './mobile'
 import { UsageManager } from './usageManager'
-import { BridgeManager } from './bridge'
+import { BridgeManager, getBridgeSettings, setBridgeSettings } from './bridge'
 import { AutocompleteManager } from './autocomplete'
 import { InlineEditManager } from './inlineEdit'
 import { CommitMessageManager } from './commitMessage'
 import { BrowserViewManager } from './browserViews'
 import { LanguageServerManager } from './lsp/manager'
-import { listAllFiles, searchText, buildTree, readImageDataUrl } from './fsOps'
+import {
+  listAllFiles, searchText, buildTree, readImageDataUrl,
+  readTextFile, pathExists, getHomeDir, writeFile as fsWriteFile, mkdir, renamePath, trashPath,
+} from './fsOps'
 import { registerSessionHandlers } from './session'
 import { registerRecentProjectsHandlers, readRecents, addRecentProject, clearRecentProjects } from './recentProjects'
 import { registerTodoHandlers } from './todos'
@@ -33,23 +35,14 @@ import { registerOnboardingHandlers } from './onboarding'
 
 function registerFsHandlers(): void {
   ipcMain.handle('fs:readDir', (_e, path: string) => buildTree(path))
-  ipcMain.handle('fs:readFile', (_e, path: string) => readFile(path, 'utf-8'))
+  ipcMain.handle('fs:readFile', (_e, path: string) => readTextFile(path))
   ipcMain.handle('fs:readImageDataUrl', (_e, path: string) => readImageDataUrl(path))
-  ipcMain.handle('fs:exists', async (_e, path: string) => {
-    try {
-      await access(path)
-      return true
-    } catch {
-      return false
-    }
-  })
-  ipcMain.handle('fs:homeDir', () => homedir())
-  ipcMain.handle('fs:writeFile', (_e, path: string, content: string) =>
-    writeFile(path, content, 'utf-8')
-  )
-  ipcMain.handle('fs:mkdir', (_e, path: string) => mkdir(path, { recursive: false }))
-  ipcMain.handle('fs:rename', (_e, from: string, to: string) => rename(from, to))
-  ipcMain.handle('fs:trash', (_e, path: string) => shell.trashItem(path))
+  ipcMain.handle('fs:exists', (_e, path: string) => pathExists(path))
+  ipcMain.handle('fs:homeDir', () => getHomeDir())
+  ipcMain.handle('fs:writeFile', (_e, path: string, content: string) => fsWriteFile(path, content))
+  ipcMain.handle('fs:mkdir', (_e, path: string) => mkdir(path))
+  ipcMain.handle('fs:rename', (_e, from: string, to: string) => renamePath(from, to))
+  ipcMain.handle('fs:trash', (_e, path: string) => trashPath(path))
   ipcMain.handle('fs:listAllFiles', (_e, root: string) => listAllFiles(root))
   ipcMain.handle('fs:searchText', (_e, root: string, query: string, caseSensitive: boolean) =>
     searchText(root, query, caseSensitive)
@@ -258,22 +251,10 @@ async function migrateUserDataFromHuginn(): Promise<void> {
 }
 
 function registerBridgeSettingsHandlers(): void {
-  const settingsPath = join(app.getPath('userData'), 'bridge-settings.json')
-
-  ipcMain.handle('bridge:getSettings', async () => {
-    try {
-      const data = await readFile(settingsPath, 'utf-8')
-      return JSON.parse(data)
-    } catch {
-      return null
-    }
-  })
-
-  ipcMain.handle('bridge:setSettings', async (_e, settings: { endpoint: string; apiKey: string; modelId: string }) => {
-    try {
-      await writeFile(settingsPath, JSON.stringify(settings), 'utf-8')
-    } catch {}
-  })
+  ipcMain.handle('bridge:getSettings', () => getBridgeSettings())
+  ipcMain.handle('bridge:setSettings', (_e, settings: { endpoint: string; apiKey: string; modelId: string }) =>
+    setBridgeSettings(settings)
+  )
 }
 
 // nativeImage.createFromPath/createFromDataURL silently drop the alpha
@@ -650,7 +631,16 @@ app.whenReady().then(async () => {
   // correct target — their state is account-level (pairing PIN, usage stats),
   // not tied to any one project — so give them a fake win-shaped object whose
   // webContents.send() broadcasts to every currently-open window instead.
+  // `id`/`isDestroyed()` are also faked out — a fixed id no real
+  // BrowserWindow can ever have (Electron assigns positive ids), and
+  // "never destroyed" since this object outlives any single real window —
+  // so PtyManager/ClaudeManager (which key their per-window state off
+  // `win.id` and guard sends with `win.isDestroyed()`) can treat mobile
+  // relay sessions as just another window's worth of state, independent
+  // from and outliving any single real desktop window.
   const broadcastWin = {
+    id: MOBILE_RELAY_WINDOW_ID,
+    isDestroyed: () => false,
     webContents: {
       send: (...args: unknown[]) => {
         for (const w of windows.values()) {
@@ -668,7 +658,16 @@ app.whenReady().then(async () => {
   )
   usageMgr.registerHandlers()
 
-  const mobileSrv = new MobileServer(broadcastWin, usageMgr)
+  const mobileSrv = new MobileServer(
+    broadcastWin,
+    usageMgr,
+    ptyMgr,
+    claudeMgr,
+    bridgeMgr,
+    autocompleteMgr,
+    inlineEditMgr,
+    commitMessageMgr
+  )
   mobileSrv.registerHandlers()
 
   updateChecker = new UpdateChecker(app.getVersion(), (info) => {

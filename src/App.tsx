@@ -228,6 +228,7 @@ export default function App() {
     ? undefined
     : runningDockerCount > 99 ? '99+' : runningDockerCount || undefined
   const mobileEnabled = useMobileSettingsStore((s) => s.enabled)
+  const mobileDefaultMode = useMobileSettingsStore((s) => s.defaultMode)
   const todoEnabled = useTodoSettingsStore((s) => s.enabled)
   const notesEnabled = useNotesSettingsStore((s) => s.enabled)
   const graphifyEnabled = useGraphifySettingsStore((s) => s.enabled)
@@ -332,6 +333,10 @@ export default function App() {
   useEffect(() => {
     window.api.mobileSetDisplay(theme, font)
   }, [theme, font])
+
+  useEffect(() => {
+    window.api.mobileSetDefaultMode(mobileDefaultMode)
+  }, [mobileDefaultMode])
 
   useEffect(() => {
     if (!assistantMenuOpen) return

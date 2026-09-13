@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, shell } from 'electron'
 import { createServer, IncomingMessage, Server, ServerResponse } from 'http'
 import { mkdirSync, writeFileSync, chmodSync, existsSync, unlinkSync } from 'fs'
 import { join } from 'path'
@@ -118,7 +118,18 @@ export class BrowserBridge {
       const parsed = parseShimRequest(req.headers['x-vide-window-id'], body)
       if (parsed) {
         const win = BrowserWindow.fromId(parsed.windowId)
-        if (win && !win.isDestroyed()) win.webContents.send(BROWSER_OPEN_EXTERNAL_URL_CHANNEL, parsed.url)
+        if (win && !win.isDestroyed()) {
+          win.webContents.send(BROWSER_OPEN_EXTERNAL_URL_CHANNEL, parsed.url)
+        } else {
+          // No real window for this id — e.g. the mobile relay's virtual
+          // window (id -1), or a window that's since closed. There's no
+          // Browser panel to route the URL into, so rather than silently
+          // dropping it (stranding a login flow's OAuth redirect with no
+          // way to complete), fall back to the OS's default browser. Not a
+          // full "route the login URL to the phone" experience — just don't
+          // let it disappear.
+          void shell.openExternal(parsed.url)
+        }
       }
       res.end()
       return
