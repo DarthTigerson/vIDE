@@ -325,6 +325,18 @@ describe('gitStore — command actions', () => {
     await useGitStore.getState().push('/proj')
     expect(useGitStore.getState().repos['/proj'].commandError).toBe(1)
   })
+
+  it('undoLastCommit calls gitRunCommand with no payload', async () => {
+    await useGitStore.getState().undoLastCommit('/proj')
+    expect(window.api.gitRunCommand).toHaveBeenCalledWith(expect.any(String), '/proj', 'undoLastCommit')
+  })
+
+  it('hardReset calls gitRunCommand with the chosen ref as payload', async () => {
+    await useGitStore.getState().hardReset('/proj', 'origin/main')
+    expect(window.api.gitRunCommand).toHaveBeenCalledWith(
+      expect.any(String), '/proj', 'hardReset', { ref: 'origin/main' }
+    )
+  })
 })
 
 describe('gitStore — Git Log auto-show setting', () => {

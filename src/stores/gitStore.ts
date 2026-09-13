@@ -58,6 +58,8 @@ interface GitStore {
   forcePushLease: (cwd: string) => Promise<void>
   checkout: (cwd: string, payload: GitCheckoutPayload) => Promise<void>
   publishBranch: (cwd: string, branch: string) => Promise<void>
+  undoLastCommit: (cwd: string) => Promise<void>
+  hardReset: (cwd: string, ref: string) => Promise<void>
 }
 
 function describeCommand(action: GitCommandAction, payload?: GitCommandPayload): string {
@@ -70,6 +72,10 @@ function describeCommand(action: GitCommandAction, payload?: GitCommandPayload):
   }
   if (action === 'publishBranch' && payload && 'branch' in payload) {
     return `push --set-upstream origin ${payload.branch}`
+  }
+  if (action === 'undoLastCommit') return 'reset --soft HEAD~1'
+  if (action === 'hardReset' && payload && 'ref' in payload) {
+    return `reset --hard ${payload.ref}`
   }
   return action
 }
@@ -255,6 +261,8 @@ export const useGitStore = create<GitStore>((set, get) => {
   forcePushLease: (cwd) => runCommand(cwd, 'forcePushLease'),
   checkout:       (cwd, payload) => runCommand(cwd, 'checkout', payload),
   publishBranch:  (cwd, branch) => runCommand(cwd, 'publishBranch', { branch }),
+  undoLastCommit: (cwd) => runCommand(cwd, 'undoLastCommit'),
+  hardReset:      (cwd, ref) => runCommand(cwd, 'hardReset', { ref }),
   }
 })
 

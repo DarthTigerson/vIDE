@@ -15,6 +15,10 @@ import { useSearchStore } from '@/stores/searchStore'
 import { FileRow } from './FileRow'
 import { ConfirmForcePushModal } from './ConfirmForcePushModal'
 import { useForcePushConfirm } from './useForcePushConfirm'
+import { useGitResetConfirm } from './useGitResetConfirm'
+import { ConfirmUndoCommitModal } from './ConfirmUndoCommitModal'
+import { ConfirmHardResetModal } from './ConfirmHardResetModal'
+import { GitResetPalette } from './GitResetPalette'
 import { useCommitMessageSettingsStore } from '@/stores/commitMessageSettingsStore'
 import { ClaudeIcon } from '@/components/ActivityBar/ActivityBar'
 import { ContextMenuButton, ContextMenuDivider } from './ContextMenu'
@@ -163,6 +167,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
   const openTabInPane = useEditorStore((s) => s.openTabInPane)
   const loadGraph = useGitGraphStore((s) => s.load)
   const { forceAction, requestForce, closeForce } = useForcePushConfirm(repo)
+  const { step: resetStep, requestUndo, requestHardReset, pickRef, close: closeReset } = useGitResetConfirm()
   const commitMessageEnabled = useCommitMessageSettingsStore((s) => s.enabled)
   const commitMessageModel = useCommitMessageSettingsStore((s) => s.model)
   const commitMessagePrompt = useCommitMessageSettingsStore((s) => s.prompt)
@@ -195,6 +200,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
   const [discardAllConfirmOpen, setDiscardAllConfirmOpen] = useState(false)
   const [commitOptionsOpen, setCommitOptionsOpen] = useState(false)
   const [pushOptionsOpen, setPushOptionsOpen] = useState(false)
+  const [resetOptionsOpen, setResetOptionsOpen] = useState(false)
 
   // Mount does a full refresh (branch + ahead/behind + status): every section's
   // header shows branch and ahead/behind, not just the selected repo's, and
@@ -529,6 +535,29 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
         >
           Push
         </SplitCommandButton>
+        <SplitCommandButton
+          label="Git Reset"
+          disabled={remoteActionDisabled}
+          onClick={() => runOnThisRepo(() => requestUndo())}
+          colorClassName={accentSolidColor}
+          open={resetOptionsOpen}
+          onToggleOptions={() => setResetOptionsOpen((v) => !v)}
+          onCloseOptions={() => setResetOptionsOpen(false)}
+          direction="up"
+          optionsChildren={
+            <button
+              type="button"
+              disabled={remoteActionDisabled}
+              onClick={() => { runOnThisRepo(() => requestHardReset()); setResetOptionsOpen(false) }}
+              className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <span className="font-semibold">Hard Reset…</span>
+              <span className="text-red-400/70">Reset to a branch, tag, or commit — discards history.</span>
+            </button>
+          }
+        >
+          Git Reset
+        </SplitCommandButton>
         <div className="flex gap-1.5">
           <button
             type="button"
@@ -659,6 +688,16 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
 
       {forceAction && (
         <ConfirmForcePushModal action={forceAction} cwd={repo} onClose={closeForce} />
+      )}
+
+      {resetStep?.kind === 'confirmUndo' && (
+        <ConfirmUndoCommitModal cwd={repo} onClose={closeReset} />
+      )}
+      {resetStep?.kind === 'pickRef' && (
+        <GitResetPalette projectRoot={repo} onClose={closeReset} onPick={pickRef} />
+      )}
+      {resetStep?.kind === 'confirmHard' && (
+        <ConfirmHardResetModal cwd={repo} targetRef={resetStep.ref} onClose={closeReset} />
       )}
     </>
   )

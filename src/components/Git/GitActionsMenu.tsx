@@ -8,11 +8,13 @@ import type { GitCommandAction } from '@/types/index'
 interface Props {
   onClose: () => void
   onRequestForce: (action: ForceAction) => void
+  onRequestUndo: () => void
+  onRequestHardReset: () => void
 }
 
 type ForceAction = Extract<GitCommandAction, 'forcePush' | 'forcePushLease'>
 
-export function GitActionsMenu({ onClose, onRequestForce }: Props) {
+export function GitActionsMenu({ onClose, onRequestForce, onRequestUndo, onRequestHardReset }: Props) {
   const repos = useGitReposStore((s) => s.repos)
   const selectedRepo = useGitReposStore((s) => s.selectedRepo)
   const selectRepo = useGitReposStore((s) => s.selectRepo)
@@ -58,6 +60,16 @@ export function GitActionsMenu({ onClose, onRequestForce }: Props) {
   function handleForce(action: ForceAction) {
     onClose()
     onRequestForce(action)
+  }
+
+  function handleUndo() {
+    onClose()
+    onRequestUndo()
+  }
+
+  function handleHardReset() {
+    onClose()
+    onRequestHardReset()
   }
 
   const itemClass =
@@ -117,6 +129,13 @@ export function GitActionsMenu({ onClose, onRequestForce }: Props) {
       <button type="button" className={`${itemClass} text-red-400`} disabled={disabled}
         onClick={() => handleForce('forcePushLease')}>
         Force Push with Lease
+      </button>
+      <div className="my-1 h-px bg-border" />
+      <button type="button" className={itemClass} disabled={disabled} onClick={handleUndo}>
+        Undo Last Commit
+      </button>
+      <button type="button" className={`${itemClass} text-red-400`} disabled={disabled} onClick={handleHardReset}>
+        Hard Reset…
       </button>
     </div>
   )
