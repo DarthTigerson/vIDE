@@ -22,6 +22,8 @@ import {
   type ReasoningEffort,
 } from '@/stores/llamaModelsStore'
 import { useLlamaStore } from '@/stores/llamaStore'
+import { useEditorStore } from '@/stores/editorStore'
+import { buildLlamaModelPath } from '@/components/Settings/paths'
 
 function NumberField({ id, label, value, onChange, step = 1 }: {
   id: string
@@ -169,6 +171,7 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
   const upsertModel = useLlamaModelsStore((s) => s.upsertModel)
   const startModel = useLlamaStore((s) => s.startModel)
   const stopModel = useLlamaStore((s) => s.stopModel)
+  const replaceTabPath = useEditorStore((s) => s.replaceTabPath)
 
   const existing = modelId ? models.find((m) => m.id === modelId) : undefined
 
@@ -196,7 +199,12 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
       return
     }
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = setTimeout(() => upsertModel(form), 400)
+    saveTimerRef.current = setTimeout(() => {
+      upsertModel(form)
+      if (!modelId) {
+        replaceTabPath(buildLlamaModelPath('new'), buildLlamaModelPath(form.id))
+      }
+    }, 400)
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
   }, [form])
 

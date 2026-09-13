@@ -14,6 +14,7 @@ import { BridgeChat } from './BridgeChat'
 import { useBridgeStore } from '@/stores/bridgeStore'
 import { useBridgeSettingsStore } from '@/stores/bridgeSettingsStore'
 import { useLlamaModelsStore } from '@/stores/llamaModelsStore'
+import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
 import { UsagePanel } from '@/components/UsagePanel/UsagePanel'
 import { CostPanel } from '@/components/UsagePanel/CostPanel'
 import { isShiftEnterKeydown, SHIFT_ENTER_SEQUENCE } from './shiftEnterSequence'
@@ -86,7 +87,8 @@ export function Chat() {
   useEffect(() => {
     if (isLlama) {
       const model = useLlamaModelsStore.getState().models.find((m) => m.id === assistant.slice('llama:'.length))
-      useBridgeStore.setState({ agentMode: model?.agentModeOnLaunch ?? false })
+      const globalDefault = useLlamaSettingsStore.getState().agentModeOnLaunch
+      useBridgeStore.setState({ agentMode: model?.agentModeOnLaunch ?? globalDefault })
     } else if (assistant === 'bridge') {
       useBridgeStore.setState({ agentMode: useBridgeSettingsStore.getState().agentModeOnLaunch })
     }

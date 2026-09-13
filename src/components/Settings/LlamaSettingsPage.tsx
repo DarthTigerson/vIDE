@@ -5,6 +5,8 @@ import { Section, Row } from './SettingsLayout'
 export function LlamaSettingsPage() {
   const enabled = useLlamaSettingsStore((s) => s.enabled)
   const setEnabled = useLlamaSettingsStore((s) => s.setEnabled)
+  const agentModeOnLaunch = useLlamaSettingsStore((s) => s.agentModeOnLaunch)
+  const setAgentModeOnLaunch = useLlamaSettingsStore((s) => s.setAgentModeOnLaunch)
 
   return (
     <div className="h-full overflow-auto p-6 bg-panel">
@@ -24,6 +26,20 @@ export function LlamaSettingsPage() {
           />
         </Row>
       </Section>
+
+      {enabled && (
+        <Section label="Agent">
+          <Row>
+            <Toggle
+              className="max-w-[60ch]"
+              label="Agent Mode on Launch"
+              description="Start with agent mode enabled when switching to a Llama model."
+              checked={agentModeOnLaunch}
+              onChange={setAgentModeOnLaunch}
+            />
+          </Row>
+        </Section>
+      )}
     </div>
   )
 }
