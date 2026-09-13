@@ -108,6 +108,13 @@ const ASSET_TYPES: Record<string, string> = {
   'usage.js': 'text/javascript; charset=utf-8',
 }
 
+// Binary assets (served as raw bytes, not utf-8 text like readPage() above) —
+// keyed the same way as ASSET_TYPES, just a separate map so the common text
+// path above doesn't need an encoding branch for the one binary case.
+const BINARY_ASSET_TYPES: Record<string, string> = {
+  'icon.png': 'image/png',
+}
+
 // Keyed by extension (not a fixed filename map like ASSET_TYPES above)
 // since the renderer build's asset filenames are content-hashed and
 // unpredictable ahead of time.
@@ -324,6 +331,12 @@ export class MobileServer {
     // Served unauthenticated — the pin-entry page itself needs these before a session exists.
     if (req.method === 'GET' && path.startsWith('/mobile-assets/')) {
       const name = path.slice('/mobile-assets/'.length)
+      const binaryContentType = BINARY_ASSET_TYPES[name]
+      if (binaryContentType) {
+        res.writeHead(200, { 'Content-Type': binaryContentType })
+        res.end(readFileSync(join(getMobileWebDir(), name)))
+        return
+      }
       const contentType = ASSET_TYPES[name]
       if (!contentType) {
         res.writeHead(404, { 'Content-Type': 'text/plain' })
