@@ -1,4 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
+
+// Strip quant suffixes and separators to derive a clean model name from a
+// .gguf filename. e.g. "Qwen3.8-27B-UD-IQ4_XS.gguf" → "Qwen3.8 27B"
+function deriveModelName(filePath: string): string {
+  const base = filePath.split('/').pop() ?? filePath
+  const noExt = base.replace(/\.gguf$/i, '')
+  // Remove common quant/variant suffixes that trail after the model size
+  const cleaned = noExt
+    .replace(/[-_](UD[-_])?[IQ\d]+[KM_]\w*$/i, '')   // -IQ4_XS, -Q4_K_M, -UD-IQ4_XS
+    .replace(/[-_](Instruct|Chat|GGUF|instruct|chat)$/i, '')
+    .replace(/[-_.]+/g, ' ')
+    .trim()
+  return cleaned
+}
 import {
   CONTEXT_SIZE_OPTIONS,
   REASONING_EFFORTS,
@@ -65,13 +79,14 @@ function SelectField<T extends string | number>({ id, label, value, options, onC
   )
 }
 
-function PathField({ id, label, value, onChange, placeholder, onBrowse }: {
+function PathField({ id, label, value, onChange, placeholder, onBrowse, onBlur }: {
   id: string
   label: string
   value: string
   onChange: (v: string) => void
   placeholder?: string
   onBrowse?: () => void
+  onBlur?: () => void
 }) {
   return (
     <div className="flex flex-col gap-1.5 w-full">
@@ -82,6 +97,7 @@ function PathField({ id, label, value, onChange, placeholder, onBrowse }: {
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
           placeholder={placeholder}
           spellCheck={false}
           className="flex-1 min-w-0 h-8 px-2 text-sm font-mono text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
@@ -229,7 +245,7 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
               type="text"
               value={form.displayName}
               onChange={(e) => patch({ displayName: e.target.value })}
-              placeholder="Cosmos — Qwen3.8 27B"
+              placeholder="Qwen3.8 27B"
               spellCheck={false}
               className="h-8 px-2 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
             />
@@ -241,7 +257,7 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
               type="text"
               value={form.alias}
               onChange={(e) => patch({ alias: e.target.value })}
-              placeholder="cosmos"
+              placeholder="Qwen3.8 27B"
               spellCheck={false}
               className="h-8 px-2 text-sm font-mono text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
             />
@@ -261,13 +277,27 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
             value={form.modelPath}
             onChange={(v) => patch({ modelPath: v })}
             placeholder="~/models/Qwen3.8-27B-UD-IQ4_XS.gguf"
+            onBlur={() => {
+              if (!form.modelPath) return
+              const name = deriveModelName(form.modelPath)
+              patch({
+                ...(form.displayName === '' ? { displayName: name } : {}),
+                ...(form.alias === '' ? { alias: name } : {}),
+              })
+            }}
             onBrowse={async () => {
               const home = await window.api.getHomeDir()
               const picked = await window.api.openFile({
                 defaultPath: `${home}/models`,
                 filters: [{ name: 'GGUF Models', extensions: ['gguf'] }],
               })
-              if (picked) patch({ modelPath: picked })
+              if (!picked) return
+              const name = deriveModelName(picked)
+              patch({
+                modelPath: picked,
+                ...(form.displayName === '' ? { displayName: name } : {}),
+                ...(form.alias === '' ? { alias: name } : {}),
+              })
             }}
           />
           <PathField
