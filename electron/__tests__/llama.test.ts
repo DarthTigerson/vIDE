@@ -28,11 +28,13 @@ vi.mock('child_process', async (importOriginal) => {
   }
 })
 
+import { homedir } from 'os'
 import { LlamaManager, resolveLlamaPath, _resetLlamaPathCacheForTesting } from '../llama'
 
 class FakeChildProcess extends EventEmitter {
   stdout = new EventEmitter()
   stderr = new EventEmitter()
+  kill = vi.fn()
 }
 
 function flushMicrotasks(): Promise<void> {
@@ -90,6 +92,116 @@ describe('LlamaManager', () => {
     proc.emit('spawn')
     await expect(promise).resolves.toBe(true)
     expect(spawnMock).toHaveBeenCalledWith('/opt/homebrew/bin/llama-server', ['--help'], expect.any(Object))
+  })
+
+  describe('llama:start', () => {
+    const existingFile = __filename // a path that existsSync() will accept
+
+    it('spawns llama-server with the config translated into launch args', async () => {
+      const manager = new LlamaManager()
+      manager.registerHandlers()
+      const proc = new FakeChildProcess()
+      spawnMock.mockReturnValue(proc)
+      const win = { webContents: { send: vi.fn() }, isDestroyed: () => false }
+
+      await ipcHandlers['llama:start']({ sender: win }, 'model-1', {
+        modelPath: existingFile,
+        serverExecutable: '',
+        host: '127.0.0.1',
+        port: 8899,
+        apiKey: 'local',
+        contextSize: 131072,
+        batchSize: 256,
+        gpuLayers: 99,
+        parallelRequests: 1,
+        reasoningEffort: 'medium',
+        alias: 'cosmos',
+      })
+
+      expect(spawnMock).toHaveBeenCalledWith(
+        'llama-server',
+        [
+          '-m', existingFile,
+          '-c', '131072',
+          '--batch-size', '256',
+          '-ngl', '99',
+          '-np', '1',
+          '--reasoning-effort', 'medium',
+          '--host', '127.0.0.1',
+          '--port', '8899',
+          '--api-key', 'local',
+          '--alias', 'cosmos',
+        ],
+        expect.any(Object),
+      )
+      // No alias => no --alias flag.
+      spawnMock.mockClear()
+      await ipcHandlers['llama:start']({ sender: win }, 'model-1', {
+        modelPath: existingFile,
+        serverExecutable: '',
+        host: '127.0.0.1',
+        port: 8899,
+        apiKey: 'local',
+        contextSize: 16384,
+        batchSize: 256,
+        gpuLayers: 99,
+        parallelRequests: 1,
+        reasoningEffort: 'none',
+        alias: '',
+      })
+      const args: string[] = spawnMock.mock.calls[0][1]
+      expect(args).not.toContain('--alias')
+    })
+
+    it('expands ~ in modelPath before checking and launching', async () => {
+      const manager = new LlamaManager()
+      manager.registerHandlers()
+      const proc = new FakeChildProcess()
+      spawnMock.mockReturnValue(proc)
+      const win = { webContents: { send: vi.fn() }, isDestroyed: () => false }
+
+      await ipcHandlers['llama:start']({ sender: win }, 'model-1', {
+        modelPath: `~/${existingFile.slice(homedir().length + 1)}`,
+        serverExecutable: '',
+        host: '127.0.0.1',
+        port: 8899,
+        apiKey: 'local',
+        contextSize: 16384,
+        batchSize: 256,
+        gpuLayers: 99,
+        parallelRequests: 1,
+        reasoningEffort: 'none',
+        alias: '',
+      })
+
+      const args: string[] = spawnMock.mock.calls[0][1]
+      expect(args[args.indexOf('-m') + 1]).toBe(existingFile)
+    })
+
+    it('reports llama:data + llama:exit 1 when the model file is missing', async () => {
+      const manager = new LlamaManager()
+      manager.registerHandlers()
+      const win = { webContents: { send: vi.fn() }, isDestroyed: () => false }
+
+      await ipcHandlers['llama:start']({ sender: win }, 'model-1', {
+        modelPath: '/definitely/not/here.gguf',
+        serverExecutable: '',
+        host: '127.0.0.1',
+        port: 8899,
+        apiKey: 'local',
+        contextSize: 16384,
+        batchSize: 256,
+        gpuLayers: 99,
+        parallelRequests: 1,
+        reasoningEffort: 'none',
+        alias: '',
+      })
+
+      const sends = win.webContents.send.mock.calls
+      expect(sends[0]).toEqual(['llama:data', 'model-1', expect.stringContaining('model file not found')])
+      expect(sends[1]).toEqual(['llama:exit', 'model-1', 1])
+      expect(spawnMock).not.toHaveBeenCalled()
+    })
   })
 
   describe('resolveLlamaPath', () => {

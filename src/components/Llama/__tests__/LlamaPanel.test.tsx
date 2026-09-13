@@ -42,10 +42,16 @@ describe('LlamaPanel', () => {
     expect(screen.getByText(/checking for llama\.cpp/i)).toBeInTheDocument()
   })
 
-  it('shows the Create Model button (disabled until the editor page lands) when available', () => {
+  it('opens the create model page when Create Model is clicked', () => {
     useLlamaStore.setState({ available: true })
     render(<LlamaPanel />)
-    expect(screen.getByRole('button', { name: /create model/i })).toBeDisabled()
+    const button = screen.getByRole('button', { name: /create model/i })
+    expect(button).toBeEnabled()
+
+    fireEvent.click(button)
+
+    expect(openTabMock).toHaveBeenCalledTimes(1)
+    expect(openTabMock.mock.calls[0][0].path).toBe('llama-model://new')
   })
 
   it('calls checkAvailable on mount when availability is unknown', () => {

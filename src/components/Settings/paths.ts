@@ -61,6 +61,13 @@ export function isTodoBoardTab(path: string): boolean { return path.startsWith(T
 export function buildTodoBoardPath(projectId: string): string { return TODO_BOARD_PREFIX + projectId }
 export function getTodoBoardProjectId(path: string): string { return path.slice(TODO_BOARD_PREFIX.length) }
 
+// Llama model editor page. `new` opens a blank form; `<modelId>` opens the
+// existing model for editing (todo-board://<projectId> pattern).
+const LLAMA_MODEL_PREFIX = 'llama-model://'
+export function isLlamaModelTab(path: string): boolean { return path.startsWith(LLAMA_MODEL_PREFIX) }
+export function buildLlamaModelPath(modelId?: string): string { return LLAMA_MODEL_PREFIX + (modelId ?? 'new') }
+export function getLlamaModelId(path: string): string { return path.slice(LLAMA_MODEL_PREFIX.length) }
+
 const TODO_DETAIL_PREFIX = 'todo-detail://'
 export function isTodoDetailTab(path: string): boolean { return path.startsWith(TODO_DETAIL_PREFIX) }
 export function buildTodoDetailPath(projectId: string, todoId: string): string {

@@ -6,6 +6,7 @@ import type { UpdateInfo } from '../../electron/updateChecker'
 import type { GraphifyGraph } from './graphify'
 import type { DefinitionLocation, DetectResult, LspServerId } from '../../electron/lsp/types'
 import type { DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats } from '../../electron/docker'
+import type { LlamaLaunchConfig } from '../../electron/llama'
 import type { OnboardingStatus, GitIdentity } from '../../electron/onboarding'
 
 export type { LatestUsage, UsageSnapshot, UpdateInfo, DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats }
@@ -367,6 +368,10 @@ declare global {
       onGraphifyExit: (cb: (id: string, code: number) => void) => () => void
 
       llamaIsAvailable: () => Promise<boolean>
+      llamaStart: (id: string, cfg: LlamaLaunchConfig) => Promise<void>
+      llamaStop: (id: string) => Promise<void>
+      onLlamaData: (cb: (id: string, data: string) => void) => () => void
+      onLlamaExit: (cb: (id: string, code: number) => void) => () => void
 
       lspDetectAll: () => Promise<Record<LspServerId, DetectResult & { label: string; ramEstimate: string }>>
       lspInstall: (id: string) => Promise<void>

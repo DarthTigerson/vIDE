@@ -44,6 +44,8 @@ import {
   getTodoBoardProjectId,
   isTodoDetailTab,
   getTodoDetailIds,
+  isLlamaModelTab,
+  getLlamaModelId,
   isTerminalTab,
   getTerminalId,
   isBrowserTab,
@@ -78,6 +80,7 @@ import { MobileSettingsPage } from '@/components/Settings/MobileSettingsPage'
 import { GeneralSettingsPage } from '@/components/Settings/GeneralSettingsPage'
 import { TodoSettingsPage } from '@/components/Settings/TodoSettingsPage'
 import { NotesSettingsPage } from '@/components/Settings/NotesSettingsPage'
+import { LlamaCreateModelPage } from '@/components/Llama/LlamaCreateModelPage'
 import { LlamaSettingsPage } from '@/components/Settings/LlamaSettingsPage'
 import { DockerLogsPage } from '@/components/Docker/DockerLogsPage'
 import { isDockerLogsTab } from '@/components/Docker/paths'
@@ -345,6 +348,7 @@ function EditorPane({ paneId }: { paneId: string }) {
   const isUsageGraph = !!activeTab && isUsageGraphTab(activeTab.path)
   const isTodoBoard = !!activeTab && isTodoBoardTab(activeTab.path)
   const isTodoDetail = !!activeTab && isTodoDetailTab(activeTab.path)
+  const isLlamaModel = !!activeTab && isLlamaModelTab(activeTab.path)
   const isDockerLogs = !!activeTab && isDockerLogsTab(activeTab.path)
   const isImagePreview = !!activeTab && isImagePreviewTab(activeTab.path)
   const isMarkdownPreview = !!activeTab && isMarkdownPreviewTab(activeTab.path)
@@ -359,7 +363,7 @@ function EditorPane({ paneId }: { paneId: string }) {
     !isVirtual && !isTerminal && !isBrowser &&
     !isDiff && !isCommitDiff && !isGitLog && !isGitGraph && !isGitBranchDiff &&
     !isGraphifyGraph && !isUsageGraph && !isTodoBoard && !isTodoDetail &&
-    !isDockerLogs && !isImagePreview && !isMarkdownPreview
+    !isLlamaModel && !isDockerLogs && !isImagePreview && !isMarkdownPreview
   const breadcrumbFilePath = isPlainFileTab && activeTab
     ? activeTab.path
     : isMarkdownPreview && activeTab
@@ -547,6 +551,11 @@ function EditorPane({ paneId }: { paneId: string }) {
           <UsageGraphPage />
         ) : isTodoBoard ? (
           <TodoBoardPage key={activeTab.path} projectId={getTodoBoardProjectId(activeTab.path)} />
+        ) : isLlamaModel ? (
+          <LlamaCreateModelPage
+            key={activeTab.path}
+            modelId={getLlamaModelId(activeTab.path) === 'new' ? null : getLlamaModelId(activeTab.path)}
+          />
         ) : isTodoDetail ? (
           <TodoDetailPage key={activeTab.path} {...getTodoDetailIds(activeTab.path)} />
         ) : isDockerLogs ? (

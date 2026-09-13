@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { LlamaLaunchConfig } from './llama'
 
 contextBridge.exposeInMainWorld('api', {
   readDir: (path: string) => ipcRenderer.invoke('fs:readDir', path),
@@ -455,4 +456,16 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   llamaIsAvailable: () => ipcRenderer.invoke('llama:isAvailable'),
+  llamaStart: (id: string, cfg: LlamaLaunchConfig) => ipcRenderer.invoke('llama:start', id, cfg),
+  llamaStop: (id: string) => ipcRenderer.invoke('llama:stop', id),
+  onLlamaData: (cb: (id: string, data: string) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, id: string, data: string) => cb(id, data)
+    ipcRenderer.on('llama:data', handler)
+    return () => ipcRenderer.removeListener('llama:data', handler)
+  },
+  onLlamaExit: (cb: (id: string, code: number) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, id: string, code: number) => cb(id, code)
+    ipcRenderer.on('llama:exit', handler)
+    return () => ipcRenderer.removeListener('llama:exit', handler)
+  },
 })

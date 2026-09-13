@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useLlamaStore } from '@/stores/llamaStore'
 import { useEditorStore } from '@/stores/editorStore'
-import { buildTerminalPath } from '@/components/Settings/paths'
+import { buildLlamaModelPath, buildTerminalPath } from '@/components/Settings/paths'
 
 // Matches GitPanel's pill button styling so Llama's controls read as part of
 // the same left-sidebar panel family (same pattern as GraphifyPanel).
@@ -25,10 +25,12 @@ export function LlamaPanel() {
     openTab({ path: buildTerminalPath(`llama-install-${Date.now().toString(36)}`), content: '', dirty: false })
   }
 
-  // The model editor page lands in the next task — for now the button is
-  // present (so the "available" state is clear) but disabled.
   function openCreateModel() {
-    // TODO(llama): open the create/edit model page.
+    openTab({
+      path: buildLlamaModelPath('new'),
+      content: '',
+      dirty: false,
+    })
   }
 
   if (available === false) {
@@ -88,7 +90,6 @@ export function LlamaPanel() {
         <button
           type="button"
           className={pillButtonClass}
-          disabled
           onClick={openCreateModel}
         >
           Create Model
