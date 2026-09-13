@@ -52,6 +52,14 @@ function registerFsHandlers(): void {
     const result = await dialog.showOpenDialog({ properties: ['openDirectory'] })
     return result.canceled ? null : result.filePaths[0]
   })
+  ipcMain.handle('dialog:openFile', async (_e, opts: { defaultPath?: string; filters?: { name: string; extensions: string[] }[] }) => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      defaultPath: opts.defaultPath,
+      filters: opts.filters,
+    })
+    return result.canceled ? null : result.filePaths[0]
+  })
 }
 
 function registerSystemHandlers(): void {

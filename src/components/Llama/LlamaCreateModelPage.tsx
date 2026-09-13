@@ -65,25 +65,37 @@ function SelectField<T extends string | number>({ id, label, value, options, onC
   )
 }
 
-function PathField({ id, label, value, onChange, placeholder }: {
+function PathField({ id, label, value, onChange, placeholder, onBrowse }: {
   id: string
   label: string
   value: string
   onChange: (v: string) => void
   placeholder?: string
+  onBrowse?: () => void
 }) {
   return (
     <div className="flex flex-col gap-1.5 w-full">
       <label htmlFor={id} className="text-sm text-fg">{label}</label>
-      <input
-        id={id}
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        spellCheck={false}
-        className="h-8 px-2 text-sm font-mono text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
-      />
+      <div className="flex gap-2">
+        <input
+          id={id}
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          spellCheck={false}
+          className="flex-1 min-w-0 h-8 px-2 text-sm font-mono text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
+        />
+        {onBrowse && (
+          <button
+            type="button"
+            onClick={onBrowse}
+            className="shrink-0 h-8 px-3 rounded border border-border text-sm text-fg hover:border-fg-subtle transition-colors"
+          >
+            Browse
+          </button>
+        )}
+      </div>
     </div>
   )
 }
@@ -249,6 +261,14 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
             value={form.modelPath}
             onChange={(v) => patch({ modelPath: v })}
             placeholder="~/models/Qwen3.8-27B-UD-IQ4_XS.gguf"
+            onBrowse={async () => {
+              const home = await window.api.getHomeDir()
+              const picked = await window.api.openFile({
+                defaultPath: `${home}/models`,
+                filters: [{ name: 'GGUF Models', extensions: ['gguf'] }],
+              })
+              if (picked) patch({ modelPath: picked })
+            }}
           />
           <PathField
             id="llama-serverExecutable"

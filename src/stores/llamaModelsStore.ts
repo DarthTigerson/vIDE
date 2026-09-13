@@ -36,8 +36,8 @@ export interface LlamaModelConfig {
 export function defaultLlamaModelConfig(): LlamaModelConfig {
   return {
     id: crypto.randomUUID(),
-    displayName: 'Qwen3.8 27B',
-    alias: 'Qwen3.8 27B',
+    displayName: '',
+    alias: '',
     enabled: true,
 
     modelPath: '',

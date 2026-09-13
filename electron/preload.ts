@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('api', {
   searchText: (root: string, query: string, caseSensitive: boolean) =>
     ipcRenderer.invoke('fs:searchText', root, query, caseSensitive),
   openFolder: () => ipcRenderer.invoke('dialog:openFolder'),
+  openFile: (opts: { defaultPath?: string; filters?: { name: string; extensions: string[] }[] }) => ipcRenderer.invoke('dialog:openFile', opts),
   getSystemMemoryUsage: () => ipcRenderer.invoke('system:getMemoryUsage'),
   fsWatchRoot: (cwd: string | null) => ipcRenderer.send('fs:watchRoot', cwd),
   onFsChanged: (cb: (cwd: string) => void) => {
