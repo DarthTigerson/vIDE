@@ -1,0 +1,18 @@
+/* Inline word-diff highlight for uncommitted changes, layered on top of the
+   .git-gutter-modified line-number color (src/index.css) - the gutter marks
+   the whole line as changed, this additionally highlights just the
+   character range(s) within it that actually differ from HEAD (see
+   computeInlineDiffs in src/lib/lineDiff.ts). Same amber hue as
+   git-gutter-modified for a consistent "modified" association, but a
+   translucent background wash rather than colored text, so it reads as a
+   distinct, subtler signal instead of competing with it. Fixed color like
+   the gutter classes, not theme-derived, and low enough alpha to stay
+   legible over any syntax token color underneath.
+
+   Colocated with Editor.tsx (which imports this file directly) rather than
+   folded into the project's single global src/index.css, since this rule
+   only ever applies to decorations Editor.tsx itself creates. */
+.git-inline-diff-modified {
+  background-color: rgba(251, 191, 36, 0.22);
+  border-radius: 2px;
+}

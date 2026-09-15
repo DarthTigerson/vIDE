@@ -551,6 +551,18 @@ body {
 .git-gutter-modified { color: #fbbf24 !important; font-weight: 600; }
 .git-gutter-deleted { color: #f87171 !important; font-weight: 600; }
 
+/* Full-line background wash for the same changed lines the gutter above
+   marks - same fixed green/amber/red hues, applied as a translucent
+   background across the whole line rather than just the line number, so a
+   changed line reads as changed even before you look at the gutter. Kept
+   deliberately subtler (lower alpha) than .git-inline-diff-modified's word-
+   level highlight (gitInlineDiff.css) - a 'modified' line layers both: this
+   faint whole-line tint plus that stronger highlight on the exact changed
+   words, so the word-level highlight still stands out on top of it. */
+.git-line-added { background-color: rgba(74, 222, 128, 0.10); }
+.git-line-modified { background-color: rgba(251, 191, 36, 0.10); }
+.git-line-deleted { background-color: rgba(248, 113, 113, 0.10); }
+
 /* Marches the "1 3" dash pattern around the autocomplete icon's arc so an
    in-flight completion reads as an obvious spinner, not a barely-visible
    opacity fade (animate-pulse was too subtle to notice at 16px). */

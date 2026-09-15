@@ -25,8 +25,9 @@ import { registerInlineEditCommands } from '@/lib/inlineEditMonaco'
 import { registerLspDefinitionProvider } from '@/lib/lspClient'
 import { registerModelPath } from '@/lib/lspModelRegistry'
 import { formatSelectionForAssistant, toRelativePath } from '@/lib/sendSelectionToAssistant'
-import { computeLineChanges } from '@/lib/lineDiff'
+import { computeDiff } from '@/lib/lineDiff'
 import { getLastFocusedEditor, setLastFocusedEditor } from '@/lib/lastFocusedEditor'
+import './gitInlineDiff.css'
 import { TabBar } from './TabBar'
 import { EditorBreadcrumb } from './EditorBreadcrumb'
 import { EditorContextMenu } from './EditorContextMenu'
@@ -330,6 +331,12 @@ function EditorPane({ paneId }: { paneId: string }) {
   // to reach into onMount's own closure state.
   const gutterDecorationsRef = useRef<Monaco.editor.IEditorDecorationsCollection | null>(null)
   const refreshGutterRef = useRef<() => void>(() => {})
+  // Inline word-diff highlight for lines gutterDecorationsRef already marks
+  // 'modified' - additive to, not a replacement for, the gutter marker.
+  // Created and refreshed alongside gutterDecorationsRef (same onMount, same
+  // applyGutterDecorations/refreshGutterRef pass) so it can never leak across
+  // files: a fresh pane/tab mount gets a fresh collection, same as the gutter.
+  const inlineDiffDecorationsRef = useRef<Monaco.editor.IEditorDecorationsCollection | null>(null)
 
   const tabPath = paneTabs[paneId]
   const activeTab = tabs.find((t) => t.path === tabPath) ?? null
@@ -750,6 +757,7 @@ function EditorPane({ paneId }: { paneId: string }) {
                 let headContent: string | null = null
                 let debounceTimer: ReturnType<typeof setTimeout> | null = null
                 gutterDecorationsRef.current = editor.createDecorationsCollection([])
+                inlineDiffDecorationsRef.current = editor.createDecorationsCollection([])
 
                 async function applyGutterDecorations() {
                   if (cancelled || !activeTab) return
@@ -766,11 +774,24 @@ function EditorPane({ paneId }: { paneId: string }) {
                   }
                   const model = editor.getModel()
                   if (!model) return
-                  const changes = computeLineChanges(headContent, model.getValue())
+                  // One diffLines pass powers both decoration collections: the
+                  // gutter's whole-line markers, and - only for the lines it
+                  // already flags 'modified' - the inline word-diff highlight
+                  // below. Never runs word/char-level diffing on added/removed/
+                  // unchanged lines or the whole file.
+                  const { changes, inlineDiffs } = computeDiff(headContent, model.getValue())
                   gutterDecorationsRef.current?.set(changes.map((c) => ({
                     range: new monaco.Range(c.startLine, 1, c.endLine, 1),
-                    options: { isWholeLine: true, lineNumberClassName: `git-gutter-${c.type}` },
+                    options: {
+                      isWholeLine: true,
+                      className: `git-line-${c.type}`,
+                      lineNumberClassName: `git-gutter-${c.type}`,
+                    },
                   })))
+                  inlineDiffDecorationsRef.current?.set(inlineDiffs.flatMap((d) => d.ranges.map((r) => ({
+                    range: new monaco.Range(d.line, r.startColumn, d.line, r.endColumn),
+                    options: { inlineClassName: 'git-inline-diff-modified' },
+                  }))))
                 }
 
                 refreshGutterRef.current = () => {
