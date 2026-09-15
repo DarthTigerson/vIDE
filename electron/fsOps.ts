@@ -159,3 +159,7 @@ export function renamePath(from: string, to: string): Promise<void> {
 export function trashPath(path: string): Promise<void> {
   return shell.trashItem(path)
 }
+
+export function revealInFinder(path: string): void {
+  shell.showItemInFolder(path)
+}

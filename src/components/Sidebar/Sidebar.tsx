@@ -419,6 +419,12 @@ export function Sidebar() {
                   }}>
                     Copy Path
                   </ContextMenuButton>
+                  <ContextMenuButton onClick={() => {
+                    window.api.revealInFinder(menu.node!.path)
+                    setMenu(null)
+                  }}>
+                    Reveal in Finder
+                  </ContextMenuButton>
                   <ContextMenuDivider />
                   <ContextMenuButton danger onClick={() => requestTrashNode(menu.node!)}>
                     Move to Trash

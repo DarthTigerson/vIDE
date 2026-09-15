@@ -153,6 +153,7 @@ declare global {
       mkdir: (path: string) => Promise<void>
       renamePath: (from: string, to: string) => Promise<void>
       trashPath: (path: string) => Promise<void>
+      revealInFinder: (path: string) => Promise<void>
       listAllFiles: (root: string) => Promise<string[]>
       searchText: (root: string, query: string, caseSensitive: boolean) => Promise<SearchMatch[]>
       openFolder: () => Promise<string | null>

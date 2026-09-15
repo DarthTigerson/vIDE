@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('api', {
   mkdir: (path: string) => ipcRenderer.invoke('fs:mkdir', path),
   renamePath: (from: string, to: string) => ipcRenderer.invoke('fs:rename', from, to),
   trashPath: (path: string) => ipcRenderer.invoke('fs:trash', path),
+  revealInFinder: (path: string) => ipcRenderer.invoke('fs:revealInFinder', path),
   listAllFiles: (root: string) => ipcRenderer.invoke('fs:listAllFiles', root),
   searchText: (root: string, query: string, caseSensitive: boolean) =>
     ipcRenderer.invoke('fs:searchText', root, query, caseSensitive),
