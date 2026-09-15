@@ -1,5 +1,8 @@
 # vIDE
 
+## Unreleased
+- Added end-of-line git-blame annotations for the currently open file
+
 ## v0.2.14 (2026-09-13)
 - **Llama panel**: manage and chat with local LLMs via llama.cpp — a new activity bar icon/panel detects `llama-server`/`llama.cpp` on your PATH (resolved via a login shell, same as the Claude/Docker/Graphify checks), lists your configured models with context-menu actions, and a create/edit page lets you pick a `.gguf` file (with a native file-browse button and auto-filled name/alias), launch/stop the server, and watch its output in an always-visible, resizable panel
 - Local Llama models can now be selected as a chat assistant from the same dropdown as Claude and Bridge, and the server auto-starts on first message if it isn't already running; health probing keeps the running/stopped state in sync on mount and reload

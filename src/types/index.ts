@@ -81,6 +81,19 @@ export interface GitBranchDiff {
   commits: GitCommit[]
 }
 
+export interface GitBlameLine {
+  line: number
+  hash: string
+  author: string
+  authorTime: number
+  summary: string
+}
+
+export interface GitFileBlame {
+  headCommit: string
+  lines: GitBlameLine[]
+}
+
 export interface SearchMatch {
   path: string
   line: number

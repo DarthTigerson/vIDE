@@ -1,4 +1,4 @@
-import type { FileNode, GitStatus, GitCommitResult, GitDiffContent, GitAheadBehind, GitCommandAction, GitCommandPayload, GitBranchList, GitCommit, GitBranchDiff, SearchMatch } from './index'
+import type { FileNode, GitStatus, GitCommitResult, GitDiffContent, GitAheadBehind, GitCommandAction, GitCommandPayload, GitBranchList, GitCommit, GitBranchDiff, GitFileBlame, SearchMatch } from './index'
 import type { BrowserViewEvent } from '../../electron/browserViews'
 import type { InlineEditStartPayload, InlineEditEvent } from '../../electron/inlineEdit'
 import type { LatestUsage, UsageSnapshot } from '../../electron/usagePoller'
@@ -189,6 +189,7 @@ declare global {
       gitDiscoverRepos: (root: string, maxDepth?: number) => Promise<string[]>
       gitWatchRoot: (cwd: string | null) => void
       onGitChanged: (cb: (cwd: string) => void) => () => void
+      gitBlame: (cwd: string, path: string) => Promise<GitFileBlame>
 
       dockerStatus: () => Promise<DockerStatus>
       dockerListContainers: () => Promise<DockerContainer[]>

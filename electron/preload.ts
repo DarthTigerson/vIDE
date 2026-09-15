@@ -72,6 +72,7 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('git:changed', handler)
     return () => ipcRenderer.removeListener('git:changed', handler)
   },
+  gitBlame: (cwd: string, path: string) => ipcRenderer.invoke('git:blame', cwd, path),
 
   dockerStatus: () => ipcRenderer.invoke('docker:status') as Promise<import('./docker').DockerStatus>,
   dockerListContainers: () =>

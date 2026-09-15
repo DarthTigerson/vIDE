@@ -453,3 +453,99 @@ export async function getCommitDiffContent(
   ])
   return { original, modified }
 }
+
+// One line of `git blame`'s output: which commit last touched it, and that
+// commit's author/date/summary. Backs the editor's blame annotations
+// (src/lib/gitBlame.ts + src/components/Editor/blameAnnotations.ts on the
+// renderer side).
+export interface GitBlameLine {
+  line: number
+  hash: string
+  author: string
+  authorTime: number // unix seconds, straight off `author-time`
+  summary: string
+}
+
+export interface GitFileBlame {
+  headCommit: string
+  lines: GitBlameLine[]
+}
+
+// Parses `git blame --line-porcelain` output. --line-porcelain (as opposed
+// to plain --porcelain) re-emits every metadata field - author, author-time,
+// summary, ... - above EVERY line, not just the first time a commit is seen,
+// so in practice a content line's metadata is always the block directly
+// above it. metaByHash is a defensive fallback only (kept in case a line's
+// block is ever missing a field git normally always includes), not load-
+// bearing for the common case.
+export function parseBlamePorcelain(raw: string): GitBlameLine[] {
+  const result: GitBlameLine[] = []
+  if (!raw) return result
+
+  const metaByHash = new Map<string, { author: string; authorTime: number; summary: string }>()
+  const headerRe = /^([0-9a-f]{40}) \d+ (\d+)(?: \d+)?$/
+
+  let hash = ''
+  let finalLine = 0
+  let author: string | undefined
+  let authorTime: number | undefined
+  let summary: string | undefined
+
+  for (const entry of raw.split('\n')) {
+    const header = entry.match(headerRe)
+    if (header) {
+      hash = header[1]
+      finalLine = Number(header[2])
+      continue
+    }
+    if (entry.startsWith('author ')) {
+      author = entry.slice('author '.length)
+      continue
+    }
+    if (entry.startsWith('author-time ')) {
+      authorTime = Number(entry.slice('author-time '.length))
+      continue
+    }
+    if (entry.startsWith('summary ')) {
+      summary = entry.slice('summary '.length)
+      continue
+    }
+    if (entry.startsWith('\t')) {
+      const cached = metaByHash.get(hash)
+      const resolvedAuthor = author ?? cached?.author ?? ''
+      const resolvedAuthorTime = authorTime ?? cached?.authorTime ?? 0
+      const resolvedSummary = summary ?? cached?.summary ?? ''
+      if (author !== undefined || authorTime !== undefined || summary !== undefined) {
+        metaByHash.set(hash, { author: resolvedAuthor, authorTime: resolvedAuthorTime, summary: resolvedSummary })
+      }
+      result.push({ line: finalLine, hash, author: resolvedAuthor, authorTime: resolvedAuthorTime, summary: resolvedSummary })
+      author = undefined
+      authorTime = undefined
+      summary = undefined
+      continue
+    }
+    // author-mail, committer*, previous, filename, boundary - not needed here.
+  }
+
+  return result
+}
+
+// Backs the editor's blame annotations: one `git blame` call for the whole
+// file, scoped to HEAD (never per-line, and never the live working tree) -
+// same HEAD-relative semantics as getFileAtHead above, so results stay
+// stable regardless of uncommitted edits in the buffer. Also resolves the
+// current HEAD commit in the same round trip, so the renderer can key its
+// cache on (repo, file, HEAD commit) without a second IPC call just to look
+// that up. maxBuffer bumped for the same reason as showRef - a large file's
+// blame output can exceed Node's 1MB default.
+export async function getFileBlame(cwd: string, path: string): Promise<GitFileBlame> {
+  try {
+    const [{ stdout: headOut }, { stdout: blameOut }] = await Promise.all([
+      execFileAsync('git', ['rev-parse', 'HEAD'], { cwd }),
+      execFileAsync('git', ['blame', '--line-porcelain', 'HEAD', '--', path], { cwd, maxBuffer: 10 * 1024 * 1024 }),
+    ])
+    return { headCommit: headOut.trim(), lines: parseBlamePorcelain(blameOut) }
+  } catch {
+    return { headCommit: '', lines: [] }
+  }
+}
