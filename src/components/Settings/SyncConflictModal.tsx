@@ -12,7 +12,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   integrations: 'Integrations', notes: 'Notes', todo: 'Todo', jira: 'Jira',
 }
 
-function truncate(v: string, max = 60): string {
+function truncate(v: string, max = 48): string {
   return v.length <= max ? v : v.slice(0, max) + '…'
 }
 
@@ -26,76 +26,73 @@ function ConflictCategoryRow({
   onChoose: (v: 'local' | 'remote') => void
 }) {
   return (
-    <div className="border border-border rounded-lg overflow-hidden">
-      <div className="px-3 py-2 bg-bg-subtle flex items-center justify-between gap-3">
-        <span className="text-sm font-medium text-fg">
+    <div className="font-sans">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-semibold text-fg">
           {CATEGORY_LABELS[entry.category] ?? entry.category}
         </span>
         <span className="text-xs text-fg-muted">
-          {entry.diffKeys.length} key{entry.diffKeys.length !== 1 ? 's' : ''} differ
+          {entry.diffKeys.length} setting{entry.diffKeys.length !== 1 ? 's' : ''} differ
         </span>
       </div>
 
-      <div className="divide-y divide-border/40 max-h-48 overflow-y-auto">
-        {entry.diffKeys.map((key) => {
-          const local = entry.localData[key] ?? '(absent)'
-          const remote = entry.remoteData[key] ?? '(absent)'
-          return (
-            <div key={key} className="px-3 py-2">
-              <p className="text-xs text-fg-muted mb-1 font-mono truncate">{key}</p>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div
-                  className={[
-                    'rounded px-2 py-1 border transition-colors',
-                    choice === 'local'
-                      ? 'border-accent/60 bg-accent/10 text-fg'
-                      : 'border-border text-fg-muted',
-                  ].join(' ')}
-                >
-                  <p className="text-[10px] uppercase tracking-wide mb-0.5 text-fg-muted">Yours</p>
-                  <p className="font-mono break-all">{truncate(local)}</p>
-                </div>
-                <div
-                  className={[
-                    'rounded px-2 py-1 border transition-colors',
-                    choice === 'remote'
-                      ? 'border-accent/60 bg-accent/10 text-fg'
-                      : 'border-border text-fg-muted',
-                  ].join(' ')}
-                >
-                  <p className="text-[10px] uppercase tracking-wide mb-0.5 text-fg-muted">Remote</p>
-                  <p className="font-mono break-all">{truncate(remote)}</p>
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      <div className="px-3 py-2 border-t border-border/40 flex gap-2">
+      <div className="grid grid-cols-2 gap-2 mb-3">
         <button
           type="button"
           onClick={() => onChoose('local')}
           className={[
-            'h-7 px-3 rounded text-xs border transition-colors',
+            'flex flex-col items-start gap-1 rounded-lg p-3 border text-left transition-all',
             choice === 'local'
-              ? 'bg-accent/20 border-accent/50 text-fg'
-              : 'border-border text-fg-muted hover:border-fg-subtle hover:text-fg',
+              ? 'border-accent bg-accent/10'
+              : 'border-border bg-bg hover:border-fg-subtle/50',
           ].join(' ')}
         >
-          Use mine
+          <span className={[
+            'text-xs font-semibold uppercase tracking-wide',
+            choice === 'local' ? 'text-accent' : 'text-fg-muted',
+          ].join(' ')}>
+            {choice === 'local' ? '✓ Keep mine' : 'Keep mine'}
+          </span>
+          <div className="w-full flex flex-col gap-0.5">
+            {entry.diffKeys.slice(0, 3).map((key) => (
+              <div key={key} className="text-xs text-fg-muted">
+                <span className="text-fg-subtle font-mono text-[10px]">{key.split(':').pop()}</span>
+                <span className="ml-1.5 text-fg">{truncate(entry.localData[key] ?? '(none)')}</span>
+              </div>
+            ))}
+            {entry.diffKeys.length > 3 && (
+              <span className="text-xs text-fg-muted">+{entry.diffKeys.length - 3} more</span>
+            )}
+          </div>
         </button>
+
         <button
           type="button"
           onClick={() => onChoose('remote')}
           className={[
-            'h-7 px-3 rounded text-xs border transition-colors',
+            'flex flex-col items-start gap-1 rounded-lg p-3 border text-left transition-all',
             choice === 'remote'
-              ? 'bg-accent/20 border-accent/50 text-fg'
-              : 'border-border text-fg-muted hover:border-fg-subtle hover:text-fg',
+              ? 'border-accent bg-accent/10'
+              : 'border-border bg-bg hover:border-fg-subtle/50',
           ].join(' ')}
         >
-          Use remote
+          <span className={[
+            'text-xs font-semibold uppercase tracking-wide',
+            choice === 'remote' ? 'text-accent' : 'text-fg-muted',
+          ].join(' ')}>
+            {choice === 'remote' ? '✓ Use remote' : 'Use remote'}
+          </span>
+          <div className="w-full flex flex-col gap-0.5">
+            {entry.diffKeys.slice(0, 3).map((key) => (
+              <div key={key} className="text-xs text-fg-muted">
+                <span className="text-fg-subtle font-mono text-[10px]">{key.split(':').pop()}</span>
+                <span className="ml-1.5 text-fg">{truncate(entry.remoteData[key] ?? '(none)')}</span>
+              </div>
+            ))}
+            {entry.diffKeys.length > 3 && (
+              <span className="text-xs text-fg-muted">+{entry.diffKeys.length - 3} more</span>
+            )}
+          </div>
         </button>
       </div>
     </div>
@@ -115,48 +112,54 @@ export function SyncConflictModal({ result, onResolve, onCancel }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-panel border border-border rounded-xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[85vh]">
-        <div className="px-5 py-4 border-b border-border/40">
-          <h2 className="text-sm font-semibold text-fg">Sync Conflict</h2>
-          <p className="text-xs text-fg-muted mt-0.5">
-            Your local settings differ from the remote copy. Choose which version to keep for each category.
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 font-sans">
+      <div className="bg-panel border border-border rounded-xl shadow-2xl w-full max-w-md mx-4 flex flex-col max-h-[80vh]">
+
+        {/* Header */}
+        <div className="px-5 pt-5 pb-4">
+          <h2 className="text-base font-semibold text-fg mb-1">Sync conflict</h2>
+          <p className="text-sm text-fg-muted leading-relaxed">
+            The repository already contains different values — likely synced from another machine. Choose which version to keep.
           </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3">
-          {categories.map((cat) => (
-            <ConflictCategoryRow
-              key={cat}
-              entry={result.conflicts[cat]}
-              choice={choices[cat] ?? null}
-              onChoose={(v) => setChoices((s) => ({ ...s, [cat]: v }))}
-            />
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-5 flex flex-col gap-5 pb-2">
+          {categories.map((cat, i) => (
+            <div key={cat}>
+              {i > 0 && <div className="border-t border-border/40 mb-5" />}
+              <ConflictCategoryRow
+                entry={result.conflicts[cat]}
+                choice={choices[cat] ?? null}
+                onChoose={(v) => setChoices((s) => ({ ...s, [cat]: v }))}
+              />
+            </div>
           ))}
         </div>
 
-        <div className="px-5 py-3 border-t border-border/40 flex items-center justify-between gap-2">
+        {/* Footer */}
+        <div className="px-5 py-4 border-t border-border/40 flex items-center justify-between gap-3">
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => chooseAll('local')}
-              className="h-7 px-3 rounded text-xs border border-border text-fg-muted hover:border-fg-subtle hover:text-fg transition-colors"
+              className="h-8 px-3 rounded-lg text-xs border border-border text-fg-muted hover:text-fg hover:border-fg-subtle transition-colors whitespace-nowrap"
             >
-              Use mine for all
+              Keep all mine
             </button>
             <button
               type="button"
               onClick={() => chooseAll('remote')}
-              className="h-7 px-3 rounded text-xs border border-border text-fg-muted hover:border-fg-subtle hover:text-fg transition-colors"
+              className="h-8 px-3 rounded-lg text-xs border border-border text-fg-muted hover:text-fg hover:border-fg-subtle transition-colors whitespace-nowrap"
             >
-              Use remote for all
+              Use all remote
             </button>
           </div>
           <div className="flex gap-2">
             <button
               type="button"
               onClick={onCancel}
-              className="h-7 px-3 rounded text-xs border border-border text-fg-muted hover:border-fg-subtle hover:text-fg transition-colors"
+              className="h-8 px-3 rounded-lg text-xs border border-border text-fg-muted hover:text-fg hover:border-fg-subtle transition-colors"
             >
               Cancel
             </button>
@@ -164,7 +167,7 @@ export function SyncConflictModal({ result, onResolve, onCancel }: Props) {
               type="button"
               disabled={!allResolved}
               onClick={() => onResolve(choices)}
-              className="h-7 px-3 rounded text-xs bg-accent text-white hover:bg-accent/90 transition-colors disabled:opacity-40"
+              className="h-8 px-4 rounded-lg text-xs bg-accent text-white font-medium hover:bg-accent/90 transition-colors disabled:opacity-40 whitespace-nowrap"
             >
               Apply &amp; Sync
             </button>
