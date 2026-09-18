@@ -14,6 +14,7 @@ import { useAutocompleteSettingsStore } from '@/stores/autocompleteSettingsStore
 import { useAutocompleteSessionStore } from '@/stores/autocompleteSessionStore'
 import { useAutocompleteStatusStore } from '@/stores/autocompleteStatusStore'
 import { AUTOCOMPLETE_FORCE_DISABLED } from '@/lib/autocompleteEffectiveState'
+import { useConfigRepoStore } from '@/stores/configRepoStore'
 import { FooterMessage } from './FooterMessage'
 import { NotificationPanel } from './NotificationPanel'
 import { NotificationCompactToggle } from './NotificationCompactToggle'
@@ -39,6 +40,9 @@ export function StatusBar() {
   const [gitMenuOpen, setGitMenuOpen] = useState(false)
   const { forceAction, requestForce, closeForce } = useForcePushConfirm(selectedRepo)
   const { step: resetStep, requestResetToHead, requestUndoPush, requestHardReset, pickRef, close: closeReset } = useGitResetConfirm()
+  const syncEnabled = useConfigRepoStore((s) => s.enabled)
+  const syncStatus = useConfigRepoStore((s) => s.status)
+  const syncNow = useConfigRepoStore((s) => s.sync)
   const autocompleteEnabled = useAutocompleteSettingsStore((s) => s.enabled)
   const autocompletePaused = useAutocompleteSessionStore((s) => s.paused)
   const togglePaused = useAutocompleteSessionStore((s) => s.togglePaused)
@@ -197,6 +201,29 @@ export function StatusBar() {
             <PlusIcon />
           </button>
         </div>
+        {syncEnabled && (
+          <button
+            type="button"
+            onClick={syncNow}
+            disabled={syncStatus === 'syncing' || syncStatus === 'connecting'}
+            title={
+              syncStatus === 'syncing' ? 'Syncing…' :
+              syncStatus === 'error' ? 'Sync error — click to retry' :
+              syncStatus === 'connecting' ? 'Connecting…' :
+              'vIDE Sync — click to sync now'
+            }
+            className={[
+              'ml-2 flex items-center justify-center h-5 w-5 rounded transition-colors disabled:cursor-default',
+              syncStatus === 'syncing' || syncStatus === 'connecting'
+                ? 'text-accent animate-pulse'
+                : syncStatus === 'error'
+                  ? 'text-red-400 hover:text-red-300'
+                  : 'text-fg-muted hover:text-fg',
+            ].join(' ')}
+          >
+            <SyncIcon />
+          </button>
+        )}
       </div>
     </div>
   )
@@ -216,6 +243,14 @@ function PlusIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function SyncIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
