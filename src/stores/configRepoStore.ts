@@ -63,19 +63,6 @@ function applyToLocalStorage(data: Record<string, Record<string, string>>): void
   }
 }
 
-// Returns true if merged contains any value that differs from what was local.
-function remoteChangedAnything(
-  local: Record<string, Record<string, string>>,
-  merged: Record<string, Record<string, string>>,
-): boolean {
-  for (const [cat, kvMap] of Object.entries(merged)) {
-    const localKv = local[cat] ?? {}
-    for (const [key, val] of Object.entries(kvMap)) {
-      if (localKv[key] !== val) return true
-    }
-  }
-  return false
-}
 
 export interface PendingConflicts {
   hasConflicts: true
@@ -130,7 +117,11 @@ function finishSync(set: (s: Partial<ConfigRepoStore>) => void, result: SyncResu
     return false
   }
   applyToLocalStorage(result.merged)
-  set({ status: 'connected', lastSyncAt: Date.now() })
+  if (result.pushFailed) {
+    set({ status: 'error', errorMessage: result.pushError ?? 'Push failed', lastSyncAt: Date.now() })
+  } else {
+    set({ status: 'connected', lastSyncAt: Date.now() })
+  }
   return true
 }
 
@@ -178,31 +169,41 @@ export const useConfigRepoStore = create<ConfigRepoStore>((set, get) => ({
       return
     }
 
+    // The pre-mount sync already ran before App loaded (see src/main.tsx).
+    // Stores already have the correct values — just reflect the result in UI state.
+    const { preMountSyncResult } = await import('../lib/preBootSync')
+    if (preMountSyncResult.done) {
+      if (preMountSyncResult.conflicts) {
+        set({
+          status: 'connected',
+          pendingConflicts: {
+            hasConflicts: true,
+            conflicts: preMountSyncResult.conflicts.conflicts,
+          },
+          pendingMerged: preMountSyncResult.conflicts.merged,
+        })
+      } else if (preMountSyncResult.pushFailed) {
+        set({
+          status: 'error',
+          errorMessage: preMountSyncResult.pushError ?? 'Push failed',
+          lastSyncAt: preMountSyncResult.lastSyncAt,
+        })
+        rescheduleAutoSave(get)
+      } else {
+        set({ status: 'connected', lastSyncAt: preMountSyncResult.lastSyncAt })
+        rescheduleAutoSave(get)
+      }
+      return
+    }
+
+    // Fallback: pre-mount sync didn't run (e.g. dev fast-refresh edge case).
     set({ status: 'syncing' })
     try {
       const localData = gatherData(categories)
       const result = await window.api.configRepoSync(localData)
-
-      if (result.hasConflicts) {
-        set({
-          status: 'connected',
-          pendingConflicts: { hasConflicts: true, conflicts: result.conflicts },
-          pendingMerged: result.merged,
-        })
-        return
-      }
-
-      const needsReload = remoteChangedAnything(localData, result.merged)
-      applyToLocalStorage(result.merged)
-      set({ status: 'connected', lastSyncAt: Date.now() })
-      rescheduleAutoSave(get)
-
-      if (needsReload) {
-        // Small delay so the status pill can show "Synced" before reload
-        setTimeout(() => window.location.reload(), 800)
-      }
+      finishSync(set, result)
+      if (!result.hasConflicts) rescheduleAutoSave(get)
     } catch {
-      // Non-fatal on launch — just show as connected, will retry on next auto-save
       set({ status: 'connected' })
       rescheduleAutoSave(get)
     }

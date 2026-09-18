@@ -25,6 +25,8 @@ export interface SyncResult {
   merged: Record<string, Record<string, string>>
   hasConflicts: boolean
   conflicts: Record<string, ConflictEntry>
+  pushFailed?: boolean
+  pushError?: string
 }
 
 const DEFAULT_SETTINGS: ConfigRepoSettings = {
@@ -273,9 +275,18 @@ async function syncRepo(localData: Record<string, Record<string, string>>): Prom
     return { merged, hasConflicts: true, conflicts }
   }
 
-  await pushMergedFiles(dir, merged)
+  // Push is best-effort: local settings apply regardless of network/auth failures.
+  // The next scheduled sync will retry the push.
+  let pushFailed = false
+  let pushError: string | undefined
+  try {
+    await pushMergedFiles(dir, merged)
+  } catch (e) {
+    pushFailed = true
+    pushError = (e as Error).message
+  }
   await saveBaseline(merged)
-  return { merged, hasConflicts: false, conflicts: {} }
+  return { merged, hasConflicts: false, conflicts: {}, pushFailed, pushError }
 }
 
 async function applyResolved(resolvedData: Record<string, Record<string, string>>): Promise<void> {

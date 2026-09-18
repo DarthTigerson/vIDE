@@ -58,15 +58,17 @@ export function GeneralSettingsPage() {
 
       <Section label="vIDE Sync">
         <Row>
-          <div className="flex items-start justify-between gap-3 max-w-[60ch]">
-            <Toggle
-              label="Enable vIDE Sync"
-              description="Back up and restore your IDE settings and data via a private git repository you own."
-              checked={enabled}
-              onChange={setEnabled}
-            />
-            <SyncStatusPill status={status} lastSyncAt={lastSyncAt} />
-          </div>
+          <Toggle
+            label="Enable vIDE Sync"
+            description="Back up and restore your IDE settings and data via a private git repository you own."
+            checked={enabled}
+            onChange={setEnabled}
+          />
+          {status !== 'idle' && (
+            <div className="mt-1 pl-2">
+              <SyncStatusPill status={status} lastSyncAt={lastSyncAt} />
+            </div>
+          )}
         </Row>
 
         {enabled && (
