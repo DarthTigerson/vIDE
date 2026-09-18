@@ -40,6 +40,10 @@ export function VIDESyncStep() {
 
       {enabled && (
         <div className="flex flex-col gap-3 pl-4 border-l border-border/40">
+            <ol className="text-xs text-fg-muted flex flex-col gap-0.5 list-decimal list-inside">
+            <li>Create a <span className="text-fg font-medium">private</span> repo on GitHub (or any Git host).</li>
+            <li>Generate a fine-grained token scoped to <span className="text-fg font-medium">only that repo</span> with <span className="text-fg font-medium">Contents → Read and write</span>.</li>
+          </ol>
           <TextField
             id="wizard-config-repo-url"
             label="Repository URL"
@@ -47,19 +51,14 @@ export function VIDESyncStep() {
             onChange={setRepoUrl}
             placeholder="https://github.com/you/vide-config.git"
           />
-          <div className="flex flex-col gap-1.5">
-            <TextField
-              id="wizard-config-repo-token"
-              label="Personal Access Token"
-              type="password"
-              value={token}
-              onChange={setToken}
-              placeholder="ghp_••••••••••••••••"
-            />
-            <p className="text-xs text-fg-muted">
-              Fine-grained token: grant <span className="text-fg font-medium">Contents → Read and write</span> on the target repository.
-            </p>
-          </div>
+          <TextField
+            id="wizard-config-repo-token"
+            label="Personal Access Token"
+            type="password"
+            value={token}
+            onChange={setToken}
+            placeholder="ghp_••••••••••••••••"
+          />
 
           {errorMessage && (
             <p className="text-xs text-red-400">{errorMessage}</p>

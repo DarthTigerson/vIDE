@@ -72,9 +72,11 @@ export function GeneralSettingsPage() {
         {enabled && (
           <>
             <Row>
-              <p className="text-sm text-fg-muted mb-3">
-                Create a private repo on GitHub (or any Git host), then paste its URL and a personal access token below.
-              </p>
+              <ol className="text-sm text-fg-muted mb-3 flex flex-col gap-1 list-decimal list-inside">
+                <li>Create a <span className="text-fg font-medium">private</span> repository on GitHub (or any Git host).</li>
+                <li>Generate a fine-grained personal access token scoped to <span className="text-fg font-medium">only that repository</span> with <span className="text-fg font-medium">Contents → Read and write</span> permission.</li>
+                <li>Paste the repository URL and token below.</li>
+              </ol>
               <TextField
                 id="config-repo-url"
                 label="Repository URL"
@@ -83,19 +85,15 @@ export function GeneralSettingsPage() {
                 placeholder="https://github.com/you/vide-config.git"
                 className="flex flex-col gap-1.5 max-w-md"
               />
-              <div className="mt-3 flex flex-col gap-1.5 max-w-md">
-                <TextField
-                  id="config-repo-token"
-                  label="Personal Access Token"
-                  type="password"
-                  value={token}
-                  onChange={setToken}
-                  placeholder="ghp_••••••••••••••••"
-                />
-                <p className="text-xs text-fg-muted">
-                  Fine-grained token: grant <span className="text-fg font-medium">Contents → Read and write</span> on the target repository.
-                </p>
-              </div>
+              <TextField
+                id="config-repo-token"
+                label="Personal Access Token"
+                type="password"
+                value={token}
+                onChange={setToken}
+                placeholder="ghp_••••••••••••••••"
+                className="mt-3 flex flex-col gap-1.5 max-w-md"
+              />
 
               {errorMessage && (
                 <p className="mt-2 text-xs text-red-400">{errorMessage}</p>
