@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import type { ConflictCheckResult, ConflictEntry } from '../../../electron/configRepo'
+import type { ConflictEntry } from '../../../electron/configRepo'
+import type { PendingConflicts } from '@/stores/configRepoStore'
 
 interface Props {
-  result: ConflictCheckResult
+  result: PendingConflicts
   onResolve: (resolutions: Record<string, 'local' | 'remote'>) => void
   onCancel: () => void
 }

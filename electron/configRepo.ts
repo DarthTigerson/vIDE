@@ -21,7 +21,8 @@ export interface ConflictEntry {
   diffKeys: string[]
 }
 
-export interface ConflictCheckResult {
+export interface SyncResult {
+  merged: Record<string, Record<string, string>>
   hasConflicts: boolean
   conflicts: Record<string, ConflictEntry>
 }
@@ -41,6 +42,10 @@ function settingsPath(): string {
   return join(app.getPath('userData'), 'config-repo-settings.json')
 }
 
+function baselinePath(): string {
+  return join(app.getPath('userData'), 'config-repo-baseline.json')
+}
+
 function repoDir(): string {
   return join(app.getPath('userData'), 'config-repo')
 }
@@ -56,6 +61,19 @@ async function readSettings(): Promise<ConfigRepoSettings> {
 
 async function saveSettings(s: ConfigRepoSettings): Promise<void> {
   await writeFile(settingsPath(), JSON.stringify(s, null, 2), 'utf8')
+}
+
+async function readBaseline(): Promise<Record<string, Record<string, string>>> {
+  try {
+    const raw = await readFile(baselinePath(), 'utf8')
+    return JSON.parse(raw)
+  } catch {
+    return {}
+  }
+}
+
+async function saveBaseline(data: Record<string, Record<string, string>>): Promise<void> {
+  await writeFile(baselinePath(), JSON.stringify(data), 'utf8')
 }
 
 function buildAuthUrl(repoUrl: string, token: string): string {
@@ -100,7 +118,6 @@ async function connectRepo(repoUrl: string, token: string): Promise<void> {
     try {
       await execAsync(`git clone "${authUrl}" "${dir}"`, { timeout: 60000 })
     } catch (err) {
-      // Clone fails on empty repos — init locally instead
       const msg = (err as { stderr?: string }).stderr ?? ''
       if (msg.includes('empty repository') || msg.includes('nothing to clone') || msg.includes('warning: You appear')) {
         await execAsync(`git -C "${dir}" init`)
@@ -126,63 +143,146 @@ async function readRemoteCategoryFile(category: string): Promise<Record<string, 
   }
 }
 
-async function checkConflicts(
-  localData: Record<string, Record<string, string>>
-): Promise<ConflictCheckResult> {
-  if (!await isRepoCloned()) {
-    return { hasConflicts: false, conflicts: {} }
+// On first sync (no baseline) with existing remote content — remote wins for
+// keys it knows about, local fills in any keys the remote doesn't have yet.
+// This is the "new machine joining" scenario.
+function firstSyncMerge(
+  local: Record<string, Record<string, string>>,
+  remote: Record<string, Record<string, string>>,
+): Record<string, Record<string, string>> {
+  const merged: Record<string, Record<string, string>> = {}
+  const allCats = new Set([...Object.keys(local), ...Object.keys(remote)])
+  for (const cat of allCats) {
+    merged[cat] = { ...(local[cat] ?? {}), ...(remote[cat] ?? {}) }
   }
+  return merged
+}
 
-  // Fetch latest remote state before comparing
-  const dir = repoDir()
-  try {
-    await execAsync(`git -C "${dir}" fetch origin`, { timeout: 20000 })
-  } catch {
-    // If fetch fails, proceed without remote comparison
-    return { hasConflicts: false, conflicts: {} }
-  }
-
+// Three-way merge using the last-synced baseline to detect which side changed.
+// Only keys where BOTH sides diverged from the baseline are real conflicts.
+function threeWayMerge(
+  local: Record<string, Record<string, string>>,
+  remote: Record<string, Record<string, string>>,
+  baseline: Record<string, Record<string, string>>,
+): { merged: Record<string, Record<string, string>>; conflicts: Record<string, ConflictEntry>; hasConflicts: boolean } {
+  const merged: Record<string, Record<string, string>> = {}
   const conflicts: Record<string, ConflictEntry> = {}
 
-  for (const [category, localKv] of Object.entries(localData)) {
-    const remoteKv = await readRemoteCategoryFile(category)
-    if (!remoteKv) continue // no remote file yet → no conflict
+  const allCats = new Set([...Object.keys(local), ...Object.keys(remote)])
+  for (const cat of allCats) {
+    const localKv = local[cat] ?? {}
+    const remoteKv = remote[cat] ?? {}
+    const baseKv = baseline[cat] ?? {}
 
-    const allKeys = new Set([...Object.keys(localKv), ...Object.keys(remoteKv)])
-    const diffKeys = [...allKeys].filter((k) => localKv[k] !== remoteKv[k])
+    const allKeys = new Set([...Object.keys(localKv), ...Object.keys(remoteKv), ...Object.keys(baseKv)])
+    const mergedKv: Record<string, string> = {}
+    const conflictKeys: string[] = []
 
-    if (diffKeys.length > 0) {
-      conflicts[category] = { category, localData: localKv, remoteData: remoteKv, diffKeys }
+    for (const key of allKeys) {
+      const lv = localKv[key]
+      const rv = remoteKv[key]
+      const bv = baseKv[key]
+
+      if (lv === rv) {
+        if (lv !== undefined) mergedKv[key] = lv
+      } else if (lv === bv) {
+        // Only remote changed — take remote silently
+        if (rv !== undefined) mergedKv[key] = rv
+      } else if (rv === bv) {
+        // Only local changed — keep local
+        if (lv !== undefined) mergedKv[key] = lv
+      } else {
+        // Both changed differently — real conflict
+        conflictKeys.push(key)
+        if (lv !== undefined) mergedKv[key] = lv // temp; overridden after resolution
+      }
+    }
+
+    merged[cat] = mergedKv
+    if (conflictKeys.length > 0) {
+      conflicts[cat] = { category: cat, localData: localKv, remoteData: remoteKv, diffKeys: conflictKeys }
     }
   }
 
-  return { hasConflicts: Object.keys(conflicts).length > 0, conflicts }
+  return { merged, conflicts, hasConflicts: Object.keys(conflicts).length > 0 }
 }
 
-async function syncRepo(resolvedData: Record<string, Record<string, string>>): Promise<void> {
-  const dir = repoDir()
-
-  if (!await isRepoCloned()) {
-    throw new Error('Repository not connected. Please connect first.')
+async function pushMergedFiles(
+  dir: string,
+  data: Record<string, Record<string, string>>,
+): Promise<void> {
+  // Reset to latest remote tip so we can fast-forward push without force
+  try {
+    await execAsync(`git -C "${dir}" reset --hard origin/HEAD`, { timeout: 10000 })
+  } catch {
+    // No remote HEAD yet (empty repo) — that's fine, just write into the empty tree
   }
 
-  await ensureGitUserConfig()
   await mkdir(dir, { recursive: true })
-
-  for (const [category, kvMap] of Object.entries(resolvedData)) {
-    await writeFile(join(dir, `${category}.json`), JSON.stringify(kvMap, null, 2), 'utf8')
+  for (const [cat, kvMap] of Object.entries(data)) {
+    await writeFile(join(dir, `${cat}.json`), JSON.stringify(kvMap, null, 2), 'utf8')
   }
 
   await execAsync(`git -C "${dir}" add -A`)
   try {
-    await execAsync(
-      `git -C "${dir}" commit -m "vIDE sync ${new Date().toISOString()}"`,
-      { timeout: 15000 }
-    )
+    await execAsync(`git -C "${dir}" commit -m "vIDE sync ${new Date().toISOString()}"`)
   } catch {
-    // Nothing to commit — remote is already in sync
+    // Nothing changed since last commit — silently skip
   }
-  await execAsync(`git -C "${dir}" push --force-with-lease origin HEAD`, { timeout: 30000 })
+  await execAsync(`git -C "${dir}" push origin HEAD`, { timeout: 30000 })
+}
+
+async function syncRepo(localData: Record<string, Record<string, string>>): Promise<SyncResult> {
+  const dir = repoDir()
+  if (!await isRepoCloned()) throw new Error('Repository not connected. Please connect first.')
+
+  await ensureGitUserConfig()
+
+  // Fetch latest from remote (best-effort — we can still work offline)
+  try {
+    await execAsync(`git -C "${dir}" fetch origin`, { timeout: 20000 })
+  } catch { /* offline */ }
+
+  // Read each category file from remote's fetched HEAD
+  const remoteData: Record<string, Record<string, string>> = {}
+  for (const cat of Object.keys(localData)) {
+    const rv = await readRemoteCategoryFile(cat)
+    if (rv) remoteData[cat] = rv
+  }
+
+  const baseline = await readBaseline()
+  const isFirstSync = Object.keys(baseline).length === 0
+  const remoteHasContent = Object.keys(remoteData).length > 0
+
+  let merged: Record<string, Record<string, string>>
+  let conflicts: Record<string, ConflictEntry> = {}
+  let hasConflicts = false
+
+  if (isFirstSync && remoteHasContent) {
+    // New machine joining — silently import remote, no conflict modal
+    merged = firstSyncMerge(localData, remoteData)
+  } else {
+    const result = threeWayMerge(localData, remoteData, baseline)
+    merged = result.merged
+    conflicts = result.conflicts
+    hasConflicts = result.hasConflicts
+  }
+
+  if (hasConflicts) {
+    // Return without writing — renderer resolves, then calls applyResolved
+    return { merged, hasConflicts: true, conflicts }
+  }
+
+  await pushMergedFiles(dir, merged)
+  await saveBaseline(merged)
+  return { merged, hasConflicts: false, conflicts: {} }
+}
+
+async function applyResolved(resolvedData: Record<string, Record<string, string>>): Promise<void> {
+  const dir = repoDir()
+  await ensureGitUserConfig()
+  await pushMergedFiles(dir, resolvedData)
+  await saveBaseline(resolvedData)
 }
 
 export function registerConfigRepoHandlers(): void {
@@ -200,12 +300,12 @@ export function registerConfigRepoHandlers(): void {
   })
 
   ipcMain.handle(
-    'configRepo:checkConflicts',
-    (_e, localData: Record<string, Record<string, string>>) => checkConflicts(localData)
+    'configRepo:sync',
+    (_e, localData: Record<string, Record<string, string>>) => syncRepo(localData)
   )
 
   ipcMain.handle(
-    'configRepo:sync',
-    (_e, resolvedData: Record<string, Record<string, string>>) => syncRepo(resolvedData)
+    'configRepo:applyResolved',
+    (_e, resolvedData: Record<string, Record<string, string>>) => applyResolved(resolvedData)
   )
 }
