@@ -98,6 +98,7 @@ import { TodoPanel } from './components/Todo/TodoPanel'
 import { NotesPanel } from './components/Notes/NotesPanel'
 import { LlamaPanel } from './components/Llama/LlamaPanel'
 import { useNotificationSoundSettingsStore, playNotificationSound } from './stores/notificationSoundSettingsStore'
+import { useConfigRepoStore } from './stores/configRepoStore'
 import type { AssistantKind } from './types/api'
 
 const ASSISTANT_OPTIONS: Array<{ id: AssistantKind; label: string }> = [
@@ -221,6 +222,10 @@ export default function App() {
   useDockerLiveUpdates(dockerEnabled && !!projectRoot)
   const dockerContainers = useDockerStore((s) => s.containers)
   const dockerOpenRequest = useDockerOffAlertStore((s) => s.openRequest)
+  useEffect(() => {
+    useConfigRepoStore.getState().syncOnLaunch()
+  }, [])
+
   useEffect(() => {
     if (!dockerOpenRequest) return
     setLeftPanel('docker')

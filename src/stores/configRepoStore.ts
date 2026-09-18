@@ -63,6 +63,20 @@ function applyToLocalStorage(data: Record<string, Record<string, string>>): void
   }
 }
 
+// Returns true if merged contains any value that differs from what was local.
+function remoteChangedAnything(
+  local: Record<string, Record<string, string>>,
+  merged: Record<string, Record<string, string>>,
+): boolean {
+  for (const [cat, kvMap] of Object.entries(merged)) {
+    const localKv = local[cat] ?? {}
+    for (const [key, val] of Object.entries(kvMap)) {
+      if (localKv[key] !== val) return true
+    }
+  }
+  return false
+}
+
 export interface PendingConflicts {
   hasConflicts: true
   conflicts: Record<string, ConflictEntry>
@@ -85,6 +99,7 @@ export interface ConfigRepoStore {
   pendingMerged: Record<string, Record<string, string>> | null
   // Actions
   load: () => Promise<void>
+  syncOnLaunch: () => Promise<void>
   setEnabled: (v: boolean) => void
   setRepoUrl: (v: string) => void
   setToken: (v: string) => void
@@ -144,6 +159,53 @@ export const useConfigRepoStore = create<ConfigRepoStore>((set, get) => ({
       loaded: true,
     })
     rescheduleAutoSave(get)
+  },
+
+  syncOnLaunch: async () => {
+    const s = await window.api.configRepoGetSettings()
+    const categories = { ...DEFAULT_CATEGORIES, ...s.categories }
+    set({
+      enabled: s.enabled,
+      repoUrl: s.repoUrl,
+      token: s.token,
+      categories,
+      saveRateMinutes: s.saveRateMinutes,
+      loaded: true,
+    })
+
+    if (!s.enabled || !s.repoUrl) {
+      set({ status: 'idle' })
+      return
+    }
+
+    set({ status: 'syncing' })
+    try {
+      const localData = gatherData(categories)
+      const result = await window.api.configRepoSync(localData)
+
+      if (result.hasConflicts) {
+        set({
+          status: 'connected',
+          pendingConflicts: { hasConflicts: true, conflicts: result.conflicts },
+          pendingMerged: result.merged,
+        })
+        return
+      }
+
+      const needsReload = remoteChangedAnything(localData, result.merged)
+      applyToLocalStorage(result.merged)
+      set({ status: 'connected', lastSyncAt: Date.now() })
+      rescheduleAutoSave(get)
+
+      if (needsReload) {
+        // Small delay so the status pill can show "Synced" before reload
+        setTimeout(() => window.location.reload(), 800)
+      }
+    } catch {
+      // Non-fatal on launch — just show as connected, will retry on next auto-save
+      set({ status: 'connected' })
+      rescheduleAutoSave(get)
+    }
   },
 
   setEnabled: (enabled) => {
