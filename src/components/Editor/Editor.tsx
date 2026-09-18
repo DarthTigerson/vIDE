@@ -27,7 +27,7 @@ import { registerModelPath } from '@/lib/lspModelRegistry'
 import { formatSelectionForAssistant, toRelativePath } from '@/lib/sendSelectionToAssistant'
 import { computeLineChanges } from '@/lib/lineDiff'
 import { getLastFocusedEditor, setLastFocusedEditor } from '@/lib/lastFocusedEditor'
-import { attachBlameAnnotations } from './blameAnnotations'
+import { attachCurrentLineBlame } from './currentLineBlame'
 import { TabBar } from './TabBar'
 import { EditorBreadcrumb } from './EditorBreadcrumb'
 import { EditorContextMenu } from './EditorContextMenu'
@@ -331,12 +331,31 @@ function EditorPane({ paneId }: { paneId: string }) {
   // to reach into onMount's own closure state.
   const gutterDecorationsRef = useRef<Monaco.editor.IEditorDecorationsCollection | null>(null)
   const refreshGutterRef = useRef<() => void>(() => {})
-  // End-of-line git-blame annotations (src/components/Editor/blameAnnotations.ts).
-  // Fully self-contained: attachBlameAnnotations owns its own Monaco
+  // Current-line git-blame annotation (src/components/Editor/currentLineBlame.ts).
+  // Fully self-contained: attachCurrentLineBlame owns its own Monaco
   // decoration collection, this just needs a handle to refresh/dispose it
   // on the same triggers as the gutter decorations above.
   const refreshBlameRef = useRef<() => void>(() => {})
   const blameHandleRef = useRef<{ dispose: () => void } | null>(null)
+  // Unlike refreshBlameRef (which gets overwritten to point at the attached
+  // handle's own refresh() once attached), this always points at the
+  // attach-attempt function itself, so the Settings toggle below can force a
+  // re-check when the setting flips back on after being off at mount time.
+  const ensureBlameAttachedRef = useRef<() => void>(() => {})
+  const blameAnnotationsEnabled = useEditorSettingsStore((s) => s.blameAnnotationsEnabled)
+
+  // Reacts to the Settings toggle live: turning it off disposes any already-
+  // attached blame widget immediately; turning it back on re-runs the same
+  // attach attempt normal mount/retry triggers use (ensureBlameAttached
+  // itself bails out early while the setting is off).
+  useEffect(() => {
+    if (blameAnnotationsEnabled) {
+      ensureBlameAttachedRef.current()
+    } else if (blameHandleRef.current) {
+      blameHandleRef.current.dispose()
+      blameHandleRef.current = null
+    }
+  }, [blameAnnotationsEnabled])
 
   const tabPath = paneTabs[paneId]
   const activeTab = tabs.find((t) => t.path === tabPath) ?? null
@@ -786,15 +805,22 @@ function EditorPane({ paneId }: { paneId: string }) {
                   applyGutterDecorations()
                 }
 
-                if (activeTab) {
+                // Resolves the repo and attaches current-line blame; retried below since repo discovery can still be in flight at mount.
+                function ensureBlameAttached() {
+                  if (blameHandleRef.current || cancelled || !activeTab) return
+                  if (!useEditorSettingsStore.getState().blameAnnotationsEnabled) return
                   const blameRepoRoot = useGitReposStore.getState().resolveRepoForPath(activeTab.path)
-                  if (blameRepoRoot) {
-                    const blameRelPath = toRelativePath(activeTab.path, blameRepoRoot)
-                    const blame = attachBlameAnnotations(editor, monaco, { repoRoot: blameRepoRoot, relPath: blameRelPath })
-                    blameHandleRef.current = blame
-                    refreshBlameRef.current = blame.refresh
-                  }
+                  if (!blameRepoRoot) return
+                  const blameRelPath = toRelativePath(activeTab.path, blameRepoRoot)
+                  const blame = attachCurrentLineBlame(editor, monaco, { repoRoot: blameRepoRoot, relPath: blameRelPath })
+                  blameHandleRef.current = blame
+                  refreshBlameRef.current = blame.refresh
                 }
+                refreshBlameRef.current = ensureBlameAttached
+                ensureBlameAttachedRef.current = ensureBlameAttached
+                ensureBlameAttached()
+                // Retry on selection change too - repo discovery may still be in flight at mount, and only content edits retried this before.
+                editor.onDidChangeCursorSelection(() => ensureBlameAttached())
 
                 editor.onDidDispose(() => {
                   cancelled = true
@@ -808,7 +834,10 @@ function EditorPane({ paneId }: { paneId: string }) {
                 applyGutterDecorations()
                 editor.onDidChangeModelContent(() => {
                   if (debounceTimer) clearTimeout(debounceTimer)
-                  debounceTimer = setTimeout(applyGutterDecorations, 300)
+                  debounceTimer = setTimeout(() => {
+                    applyGutterDecorations()
+                    ensureBlameAttached()
+                  }, 300)
                 })
               }}
             />

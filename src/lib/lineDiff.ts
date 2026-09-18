@@ -22,7 +22,7 @@ export interface LineChange {
 // value and reads as changed even though only the append is new). Ensuring
 // both sides always end in exactly one newline keeps every shared line's
 // representation identical without touching mid-file alignment.
-function normalizeForDiff(text: string): string {
+export function normalizeForDiff(text: string): string {
   const lf = text.replace(/\r\n/g, '\n')
   return lf === '' || lf.endsWith('\n') ? lf : lf + '\n'
 }

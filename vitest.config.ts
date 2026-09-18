@@ -17,6 +17,10 @@ export default defineConfig({
       // createMobileApi runs only in a real browser (window.location.reload
       // on disconnect) — jsdom so tests can exercise that path.
       ['src/lib/mobileApiShim/__tests__/**/*.test.ts', 'jsdom'],
+      // attachCurrentLineBlame renders via a Monaco content widget's DOM node
+      // (document.createElement), not JSX, so it stays a .test.ts — but still
+      // needs jsdom's `document` global.
+      ['src/components/Editor/__tests__/currentLineBlame.test.ts', 'jsdom'],
     ],
     include: [
       'src/stores/__tests__/**/*.test.ts',

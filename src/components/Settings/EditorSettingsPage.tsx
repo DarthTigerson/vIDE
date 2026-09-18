@@ -18,6 +18,8 @@ export function EditorSettingsPage() {
   const setOpenInBiggestPane = useEditorSettingsStore((s) => s.setOpenInBiggestPane)
   const markdownOpenMode = useEditorSettingsStore((s) => s.markdownOpenMode)
   const setMarkdownOpenMode = useEditorSettingsStore((s) => s.setMarkdownOpenMode)
+  const blameAnnotationsEnabled = useEditorSettingsStore((s) => s.blameAnnotationsEnabled)
+  const setBlameAnnotationsEnabled = useEditorSettingsStore((s) => s.setBlameAnnotationsEnabled)
   const refreshLspStatus = useLspStatusStore((s) => s.refresh)
 
   useEffect(() => {
@@ -68,6 +70,16 @@ export function EditorSettingsPage() {
             description="⌘F2 still works either way — this only hides the menu entry."
             checked={changeAllOccurrencesInMenu}
             onChange={setChangeAllOccurrencesInMenu}
+          />
+        </Row>
+
+        <Row>
+          <Toggle
+            className="max-w-[60ch]"
+            label="Git Blame Annotations"
+            description="Show the last commit's author, date, and summary at the end of the current line, GitLens-style."
+            checked={blameAnnotationsEnabled}
+            onChange={setBlameAnnotationsEnabled}
           />
         </Row>
       </Section>

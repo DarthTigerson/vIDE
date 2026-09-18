@@ -6,6 +6,7 @@ const KEYS = {
   changeAllOccurrencesInMenu: 'vide:editor:changeAllOccurrencesInMenu',
   openInBiggestPane: 'vide:editor:openInBiggestPane',
   markdownOpenMode: 'vide:editor:markdownOpenMode',
+  blameAnnotationsEnabled: 'vide:editor:blameAnnotationsEnabled',
 }
 
 export type MarkdownOpenMode = 'editor' | 'preview' | 'split'
@@ -39,6 +40,11 @@ interface EditorSettingsStore {
   // actions always ignore this and do exactly what they say.
   markdownOpenMode: MarkdownOpenMode
   setMarkdownOpenMode: (value: MarkdownOpenMode) => void
+  // Current-line git-blame annotation (end-of-line author/date/summary,
+  // GitLens-style) - on by default, matching the feature's original
+  // always-on behavior.
+  blameAnnotationsEnabled: boolean
+  setBlameAnnotationsEnabled: (value: boolean) => void
 }
 
 export const useEditorSettingsStore = create<EditorSettingsStore>((set, get) => ({
@@ -77,5 +83,12 @@ export const useEditorSettingsStore = create<EditorSettingsStore>((set, get) => 
   setMarkdownOpenMode: (value) => {
     localStorage.setItem(KEYS.markdownOpenMode, value)
     set({ markdownOpenMode: value })
+  },
+
+  blameAnnotationsEnabled: getBool(KEYS.blameAnnotationsEnabled, true),
+
+  setBlameAnnotationsEnabled: (value) => {
+    localStorage.setItem(KEYS.blameAnnotationsEnabled, String(value))
+    set({ blameAnnotationsEnabled: value })
   },
 }))

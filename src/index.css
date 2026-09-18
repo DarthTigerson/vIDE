@@ -541,6 +541,18 @@ body {
   background-color: rgba(248, 81, 73, 0.15);
 }
 
+/* Rendered via a Monaco content widget (see currentLineBlame.ts) rather than a
+   decoration's inline element, so it needs its own white-space/pointer-events
+   here instead of inheriting them from the editor's normal text flow. */
+.git-blame-annotation {
+  display: inline-block;
+  padding-left: 1em;
+  color: var(--color-fg-subtle);
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: default;
+}
+
 /* Editor gutter change indicators (uncommitted changes vs git HEAD) - colors
    the line number itself rather than adding a separate margin bar (no extra
    gutter width, no gap from the numbers). Same fixed green/amber/red as the
