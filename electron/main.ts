@@ -33,6 +33,7 @@ import { UpdateChecker } from './updateChecker'
 import { getChangelogForVersion } from './changelog'
 import { getSystemMemoryUsage } from './systemMemory'
 import { registerOnboardingHandlers } from './onboarding'
+import { registerConfigRepoHandlers } from './configRepo'
 
 function registerFsHandlers(): void {
   ipcMain.handle('fs:readDir', (_e, path: string) => buildTree(path))
@@ -598,6 +599,7 @@ app.whenReady().then(async () => {
   registerWindowHandlers()
   registerSystemHandlers()
   registerOnboardingHandlers()
+  registerConfigRepoHandlers()
 
   ptyMgr = new PtyManager()
   ptyMgr.registerHandlers()

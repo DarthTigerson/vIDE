@@ -8,6 +8,7 @@ import type { DefinitionLocation, DetectResult, LspServerId } from '../../electr
 import type { DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats } from '../../electron/docker'
 import type { LlamaLaunchConfig } from '../../electron/llama'
 import type { OnboardingStatus, GitIdentity } from '../../electron/onboarding'
+import type { ConfigRepoSettings, ConflictCheckResult } from '../../electron/configRepo'
 
 export type { LatestUsage, UsageSnapshot, UpdateInfo, DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats }
 
@@ -387,6 +388,12 @@ declare global {
       }) => Promise<DefinitionLocation[]>
       onLspInstallData: (cb: (id: string, chunk: string) => void) => () => void
       onLspInstallExit: (cb: (id: string, code: number) => void) => () => void
+
+      configRepoGetSettings: () => Promise<ConfigRepoSettings>
+      configRepoSetSettings: (patch: Partial<ConfigRepoSettings>) => Promise<void>
+      configRepoConnect: (repoUrl: string, token: string) => Promise<void>
+      configRepoCheckConflicts: (localData: Record<string, Record<string, string>>) => Promise<ConflictCheckResult>
+      configRepoSync: (resolvedData: Record<string, Record<string, string>>) => Promise<void>
     }
   }
 }

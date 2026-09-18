@@ -456,6 +456,14 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('graphify:exit', handler)
   },
 
+  configRepoGetSettings: () => ipcRenderer.invoke('configRepo:getSettings'),
+  configRepoSetSettings: (patch: unknown) => ipcRenderer.invoke('configRepo:setSettings', patch),
+  configRepoConnect: (repoUrl: string, token: string) =>
+    ipcRenderer.invoke('configRepo:connect', repoUrl, token),
+  configRepoCheckConflicts: (localData: unknown) =>
+    ipcRenderer.invoke('configRepo:checkConflicts', localData),
+  configRepoSync: (resolvedData: unknown) => ipcRenderer.invoke('configRepo:sync', resolvedData),
+
   llamaIsAvailable: () => ipcRenderer.invoke('llama:isAvailable'),
   llamaStart: (id: string, cfg: LlamaLaunchConfig) => ipcRenderer.invoke('llama:start', id, cfg),
   llamaStop: (id: string) => ipcRenderer.invoke('llama:stop', id),

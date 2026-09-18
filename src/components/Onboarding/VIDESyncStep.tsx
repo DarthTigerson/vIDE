@@ -1,11 +1,22 @@
-import { useState } from 'react'
+import { useEffect } from 'react'
+import { useConfigRepoStore } from '@/stores/configRepoStore'
 import { Toggle } from '@/components/ui/Toggle'
 import { TextField } from '@/components/Settings/SettingsLayout'
+import { SyncStatusPill } from '@/components/Settings/SyncStatusPill'
+import { SyncConflictModal } from '@/components/Settings/SyncConflictModal'
 
 export function VIDESyncStep() {
-  const [enabled, setEnabled] = useState(false)
-  const [repoUrl, setRepoUrl] = useState('')
-  const [token, setToken] = useState('')
+  const {
+    loaded, load,
+    enabled, setEnabled,
+    repoUrl, setRepoUrl,
+    token, setToken,
+    status, lastSyncAt, errorMessage,
+    pendingConflicts,
+    connect, resolveConflicts, dismissConflicts,
+  } = useConfigRepoStore()
+
+  useEffect(() => { if (!loaded) load() }, [loaded, load])
 
   return (
     <div className="flex flex-col gap-4">
@@ -17,12 +28,15 @@ export function VIDESyncStep() {
         </p>
       </div>
 
-      <Toggle
-        label="Enable vIDE Sync"
-        description="Store your settings, themes, and data in a repo you control."
-        checked={enabled}
-        onChange={setEnabled}
-      />
+      <div className="flex items-start justify-between gap-3">
+        <Toggle
+          label="Enable vIDE Sync"
+          description="Store your settings, themes, and data in a repo you control."
+          checked={enabled}
+          onChange={setEnabled}
+        />
+        <SyncStatusPill status={status} lastSyncAt={lastSyncAt} />
+      </div>
 
       {enabled && (
         <div className="flex flex-col gap-3 pl-4 border-l border-border/40">
@@ -41,15 +55,30 @@ export function VIDESyncStep() {
             onChange={setToken}
             placeholder="ghp_••••••••••••••••"
           />
+
+          {errorMessage && (
+            <p className="text-xs text-red-400">{errorMessage}</p>
+          )}
+
           {repoUrl.trim() && token.trim() && (
             <button
               type="button"
-              className="self-start h-8 px-3 rounded border border-border text-sm text-fg hover:border-fg-subtle transition-colors"
+              disabled={status === 'connecting'}
+              onClick={connect}
+              className="self-start h-8 px-3 rounded border border-border text-sm text-fg hover:border-fg-subtle transition-colors disabled:opacity-40"
             >
-              Connect
+              {status === 'connecting' ? 'Connecting…' : status === 'connected' ? 'Connected ✓' : 'Connect'}
             </button>
           )}
         </div>
+      )}
+
+      {pendingConflicts && (
+        <SyncConflictModal
+          result={pendingConflicts}
+          onResolve={resolveConflicts}
+          onCancel={dismissConflicts}
+        />
       )}
     </div>
   )
