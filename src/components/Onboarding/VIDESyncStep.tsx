@@ -47,14 +47,19 @@ export function VIDESyncStep() {
             onChange={setRepoUrl}
             placeholder="https://github.com/you/vide-config.git"
           />
-          <TextField
-            id="wizard-config-repo-token"
-            label="Personal Access Token"
-            type="password"
-            value={token}
-            onChange={setToken}
-            placeholder="ghp_••••••••••••••••"
-          />
+          <div className="flex flex-col gap-1.5">
+            <TextField
+              id="wizard-config-repo-token"
+              label="Personal Access Token"
+              type="password"
+              value={token}
+              onChange={setToken}
+              placeholder="ghp_••••••••••••••••"
+            />
+            <p className="text-xs text-fg-muted">
+              Fine-grained token: grant <span className="text-fg font-medium">Contents → Read and write</span> on the target repository.
+            </p>
+          </div>
 
           {errorMessage && (
             <p className="text-xs text-red-400">{errorMessage}</p>

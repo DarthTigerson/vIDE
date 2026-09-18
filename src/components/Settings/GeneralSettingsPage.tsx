@@ -83,15 +83,19 @@ export function GeneralSettingsPage() {
                 placeholder="https://github.com/you/vide-config.git"
                 className="flex flex-col gap-1.5 max-w-md"
               />
-              <TextField
-                id="config-repo-token"
-                label="Personal Access Token"
-                type="password"
-                value={token}
-                onChange={setToken}
-                placeholder="ghp_••••••••••••••••"
-                className="mt-3 flex flex-col gap-1.5 max-w-md"
-              />
+              <div className="mt-3 flex flex-col gap-1.5 max-w-md">
+                <TextField
+                  id="config-repo-token"
+                  label="Personal Access Token"
+                  type="password"
+                  value={token}
+                  onChange={setToken}
+                  placeholder="ghp_••••••••••••••••"
+                />
+                <p className="text-xs text-fg-muted">
+                  Fine-grained token: grant <span className="text-fg font-medium">Contents → Read and write</span> on the target repository.
+                </p>
+              </div>
 
               {errorMessage && (
                 <p className="mt-2 text-xs text-red-400">{errorMessage}</p>
