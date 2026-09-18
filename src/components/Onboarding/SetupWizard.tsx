@@ -6,6 +6,7 @@ import { FeaturesStep } from './FeaturesStep'
 import { GitIdentityStep } from './GitIdentityStep'
 import { PermissionsStep } from './PermissionsStep'
 import { DoneStep } from './DoneStep'
+import { VIDESyncStep } from './VIDESyncStep'
 
 const STEP_COMPONENTS = {
   welcome: WelcomeStep,
@@ -14,6 +15,7 @@ const STEP_COMPONENTS = {
   features: FeaturesStep,
   git: GitIdentityStep,
   permissions: PermissionsStep,
+  videsync: VIDESyncStep,
   done: DoneStep,
 }
 

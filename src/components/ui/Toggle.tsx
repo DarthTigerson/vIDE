@@ -1,6 +1,6 @@
 export function Toggle({ label, description, checked, onChange, disabled, className }: {
   label: string
-  description: string
+  description?: string
   checked: boolean
   onChange: (value: boolean) => void
   disabled?: boolean
@@ -15,7 +15,7 @@ export function Toggle({ label, description, checked, onChange, disabled, classN
     >
       <div className={className}>
         <div className="text-sm text-fg">{label}</div>
-        <div className="text-xs text-fg-muted mt-0.5">{description}</div>
+        {description && <div className="text-xs text-fg-muted mt-0.5">{description}</div>}
       </div>
       <button
         type="button"
@@ -27,7 +27,7 @@ export function Toggle({ label, description, checked, onChange, disabled, classN
         className={[
           'relative shrink-0 w-9 h-5 rounded-full border transition-colors',
           disabled ? 'cursor-not-allowed' : '',
-          checked ? 'bg-accent border-accent' : 'bg-fg-subtle border-fg-subtle',
+          checked ? 'bg-accent border-accent/80' : 'bg-white/10 border-white/15',
         ].join(' ')}
       >
         <span
