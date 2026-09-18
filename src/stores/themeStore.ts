@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { ITheme } from '@xterm/xterm'
 import { hexWithAlpha } from '@/lib/color'
+import { notifySettingChanged } from '../lib/notifySettingChanged'
 
 export type ThemeId =
   | 'claude-dark'   | 'claude-light'
@@ -52,6 +53,7 @@ export const useThemeStore = create<ThemeStore>((set, get) => ({
     applyTheme(theme)
     localStorage.setItem(MATCH_SYSTEM_STORAGE_KEY, 'false')
     set({ theme, matchSystem: false })
+    notifySettingChanged()
   },
   setMatchSystem: (matchSystem) => {
     localStorage.setItem(MATCH_SYSTEM_STORAGE_KEY, String(matchSystem))
@@ -62,6 +64,7 @@ export const useThemeStore = create<ThemeStore>((set, get) => ({
     } else {
       set({ matchSystem })
     }
+    notifySettingChanged()
   },
   // Switches only the color family (Claude/vIDE/Luuk/Link), preserving
   // whether the current variant is light or dark — including "follow
@@ -72,6 +75,7 @@ export const useThemeStore = create<ThemeStore>((set, get) => ({
     const next = variantFor(family, dark)
     applyTheme(next)
     set({ theme: next })
+    notifySettingChanged()
   },
   // Explicit light/dark pick, preserving the current family. Like setTheme,
   // an explicit choice here always turns off "follow system."
@@ -80,6 +84,7 @@ export const useThemeStore = create<ThemeStore>((set, get) => ({
     applyTheme(next)
     localStorage.setItem(MATCH_SYSTEM_STORAGE_KEY, 'false')
     set({ theme: next, matchSystem: false })
+    notifySettingChanged()
   },
 }))
 

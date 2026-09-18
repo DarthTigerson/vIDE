@@ -3,7 +3,6 @@ import { useConfigRepoStore } from '@/stores/configRepoStore'
 import { Toggle } from '@/components/ui/Toggle'
 import { TextField } from '@/components/Settings/SettingsLayout'
 import { SyncStatusPill } from '@/components/Settings/SyncStatusPill'
-import { SyncConflictModal } from '@/components/Settings/SyncConflictModal'
 
 export function VIDESyncStep() {
   const {
@@ -12,8 +11,7 @@ export function VIDESyncStep() {
     repoUrl, setRepoUrl,
     token, setToken,
     status, lastSyncAt, errorMessage,
-    pendingConflicts,
-    connect, resolveConflicts, dismissConflicts,
+    connect,
   } = useConfigRepoStore()
 
   useEffect(() => { if (!loaded) load() }, [loaded, load])
@@ -75,14 +73,6 @@ export function VIDESyncStep() {
             </button>
           )}
         </div>
-      )}
-
-      {pendingConflicts && (
-        <SyncConflictModal
-          result={pendingConflicts}
-          onResolve={resolveConflicts}
-          onCancel={dismissConflicts}
-        />
       )}
     </div>
   )

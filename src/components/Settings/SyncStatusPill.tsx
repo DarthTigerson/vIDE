@@ -21,7 +21,7 @@ export function SyncStatusPill({
     idle: '',
     connecting: 'bg-yellow-400 animate-pulse',
     connected: 'bg-green-400',
-    syncing: 'bg-yellow-400 animate-pulse',
+    pushing: 'bg-yellow-400 animate-pulse',
     error: 'bg-red-400',
   }
 
@@ -29,7 +29,7 @@ export function SyncStatusPill({
     idle: '',
     connecting: 'Connecting…',
     connected: lastSyncAt ? `Synced ${formatRelativeTime(lastSyncAt)}` : 'Connected',
-    syncing: 'Syncing…',
+    pushing: 'Pushing…',
     error: 'Sync error',
   }
 

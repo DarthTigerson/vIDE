@@ -4,7 +4,6 @@ import { useGeneralSettingsStore } from '@/stores/generalSettingsStore'
 import { useConfigRepoStore } from '@/stores/configRepoStore'
 import { Toggle } from '@/components/ui/Toggle'
 import { Section, Row, TextField } from './SettingsLayout'
-import { SyncConflictModal } from './SyncConflictModal'
 import { SyncStatusPill } from './SyncStatusPill'
 
 const SYNC_ITEMS = [
@@ -30,10 +29,8 @@ export function GeneralSettingsPage() {
     repoUrl, setRepoUrl,
     token, setToken,
     categories, toggleCategory,
-    saveRateMinutes, setSaveRateMinutes,
     status, lastSyncAt, errorMessage,
-    pendingConflicts,
-    connect, sync, resolveConflicts, dismissConflicts,
+    connect, push,
     load,
   } = useConfigRepoStore()
 
@@ -112,11 +109,11 @@ export function GeneralSettingsPage() {
                 </button>
                 <button
                   type="button"
-                  disabled={status !== 'connected' || status === 'syncing'}
-                  onClick={sync}
+                  disabled={status !== 'connected' && status !== 'error'}
+                  onClick={push}
                   className="h-8 px-3 rounded border border-border text-sm text-fg hover:border-fg-subtle transition-colors disabled:opacity-40"
                 >
-                  {status === 'syncing' ? 'Syncing…' : 'Sync Now'}
+                  {status === 'pushing' ? 'Pushing…' : 'Push Now'}
                 </button>
               </div>
             </Row>
@@ -141,19 +138,6 @@ export function GeneralSettingsPage() {
                 ))}
               </div>
             </Row>
-
-            <Row>
-              <p className="text-sm text-fg mb-2">Auto-save frequency</p>
-              <select
-                value={saveRateMinutes}
-                onChange={(e) => setSaveRateMinutes(Number(e.target.value))}
-                className="h-8 px-2 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
-              >
-                {[5, 10, 15, 30, 60].map((m) => (
-                  <option key={m} value={m}>{m} minutes</option>
-                ))}
-              </select>
-            </Row>
           </>
         )}
       </Section>
@@ -177,14 +161,6 @@ export function GeneralSettingsPage() {
           </button>
         </Row>
       </Section>
-
-      {pendingConflicts && (
-        <SyncConflictModal
-          result={pendingConflicts}
-          onResolve={resolveConflicts}
-          onCancel={dismissConflicts}
-        />
-      )}
     </div>
   )
 }

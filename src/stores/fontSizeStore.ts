@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { notifySettingChanged } from '../lib/notifySettingChanged'
 
 const MIN = 5
 const MAX = 24
@@ -29,14 +30,17 @@ export const useFontSizeStore = create<FontSizeStore>((set, get) => ({
     const next = Math.min(get().fontSize + 1, MAX)
     applyFontSize(next)
     set({ fontSize: next })
+    notifySettingChanged()
   },
   decrease: () => {
     const next = Math.max(get().fontSize - 1, MIN)
     applyFontSize(next)
     set({ fontSize: next })
+    notifySettingChanged()
   },
   reset: () => {
     applyFontSize(DEFAULT)
     set({ fontSize: DEFAULT })
+    notifySettingChanged()
   },
 }))

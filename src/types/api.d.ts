@@ -8,7 +8,7 @@ import type { DefinitionLocation, DetectResult, LspServerId } from '../../electr
 import type { DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats } from '../../electron/docker'
 import type { LlamaLaunchConfig } from '../../electron/llama'
 import type { OnboardingStatus, GitIdentity } from '../../electron/onboarding'
-import type { ConfigRepoSettings, SyncResult } from '../../electron/configRepo'
+import type { ConfigRepoSettings } from '../../electron/configRepo'
 
 export type { LatestUsage, UsageSnapshot, UpdateInfo, DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats }
 
@@ -392,8 +392,8 @@ declare global {
       configRepoGetSettings: () => Promise<ConfigRepoSettings>
       configRepoSetSettings: (patch: Partial<ConfigRepoSettings>) => Promise<void>
       configRepoConnect: (repoUrl: string, token: string) => Promise<void>
-      configRepoSync: (localData: Record<string, Record<string, string>>) => Promise<SyncResult>
-      configRepoApplyResolved: (resolvedData: Record<string, Record<string, string>>) => Promise<void>
+      configRepoPull: (categories: Record<string, boolean>) => Promise<Record<string, Record<string, string>>>
+      configRepoPush: (data: Record<string, Record<string, string>>) => Promise<void>
     }
   }
 }

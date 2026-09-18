@@ -42,7 +42,7 @@ export function StatusBar() {
   const { step: resetStep, requestResetToHead, requestUndoPush, requestHardReset, pickRef, close: closeReset } = useGitResetConfirm()
   const syncEnabled = useConfigRepoStore((s) => s.enabled)
   const syncStatus = useConfigRepoStore((s) => s.status)
-  const syncNow = useConfigRepoStore((s) => s.sync)
+  const syncNow = useConfigRepoStore((s) => s.push)
   const autocompleteEnabled = useAutocompleteSettingsStore((s) => s.enabled)
   const autocompletePaused = useAutocompleteSessionStore((s) => s.paused)
   const togglePaused = useAutocompleteSessionStore((s) => s.togglePaused)
@@ -173,16 +173,16 @@ export function StatusBar() {
           <button
             type="button"
             onClick={syncNow}
-            disabled={syncStatus === 'syncing' || syncStatus === 'connecting'}
+            disabled={syncStatus === 'pushing' || syncStatus === 'connecting'}
             title={
-              syncStatus === 'syncing' ? 'Syncing…' :
+              syncStatus === 'pushing' ? 'Pushing…' :
               syncStatus === 'error' ? 'Sync error — click to retry' :
               syncStatus === 'connecting' ? 'Connecting…' :
-              'vIDE Sync — click to sync now'
+              'vIDE Sync — click to push now'
             }
             className={[
               'flex items-center justify-center h-5 w-5 rounded transition-colors disabled:cursor-default',
-              syncStatus === 'syncing' || syncStatus === 'connecting'
+              syncStatus === 'pushing' || syncStatus === 'connecting'
                 ? 'text-accent animate-pulse'
                 : syncStatus === 'error'
                   ? 'text-red-400 hover:text-red-300'
