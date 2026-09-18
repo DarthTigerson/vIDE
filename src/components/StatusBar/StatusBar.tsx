@@ -169,10 +169,33 @@ export function StatusBar() {
           </div>
         )}
         <NotificationCompactToggle />
+        {syncEnabled && (
+          <button
+            type="button"
+            onClick={syncNow}
+            disabled={syncStatus === 'syncing' || syncStatus === 'connecting'}
+            title={
+              syncStatus === 'syncing' ? 'Syncing…' :
+              syncStatus === 'error' ? 'Sync error — click to retry' :
+              syncStatus === 'connecting' ? 'Connecting…' :
+              'vIDE Sync — click to sync now'
+            }
+            className={[
+              'flex items-center justify-center h-5 w-5 rounded transition-colors disabled:cursor-default',
+              syncStatus === 'syncing' || syncStatus === 'connecting'
+                ? 'text-accent animate-pulse'
+                : syncStatus === 'error'
+                  ? 'text-red-400 hover:text-red-300'
+                  : 'text-fg-muted hover:text-fg',
+            ].join(' ')}
+          >
+            <SyncIcon />
+          </button>
+        )}
         <div
           className={[
             'flex items-center rounded-full border border-border bg-bg overflow-hidden',
-            autocompleteVisible ? 'ml-2' : '',
+            autocompleteVisible || syncEnabled ? 'ml-2' : '',
           ].join(' ')}
         >
           <button
@@ -201,29 +224,6 @@ export function StatusBar() {
             <PlusIcon />
           </button>
         </div>
-        {syncEnabled && (
-          <button
-            type="button"
-            onClick={syncNow}
-            disabled={syncStatus === 'syncing' || syncStatus === 'connecting'}
-            title={
-              syncStatus === 'syncing' ? 'Syncing…' :
-              syncStatus === 'error' ? 'Sync error — click to retry' :
-              syncStatus === 'connecting' ? 'Connecting…' :
-              'vIDE Sync — click to sync now'
-            }
-            className={[
-              'ml-2 flex items-center justify-center h-5 w-5 rounded transition-colors disabled:cursor-default',
-              syncStatus === 'syncing' || syncStatus === 'connecting'
-                ? 'text-accent animate-pulse'
-                : syncStatus === 'error'
-                  ? 'text-red-400 hover:text-red-300'
-                  : 'text-fg-muted hover:text-fg',
-            ].join(' ')}
-          >
-            <SyncIcon />
-          </button>
-        )}
       </div>
     </div>
   )
