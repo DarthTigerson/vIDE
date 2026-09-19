@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { registerPushCallback } from '../lib/notifySettingChanged'
+import { registerPushCallback, registerNotePushCallback } from '../lib/notifySettingChanged'
 
 export type SyncStatus = 'idle' | 'connecting' | 'connected' | 'pushing' | 'error'
 
@@ -69,9 +69,11 @@ export interface ConfigRepoStore {
   connect: () => Promise<void>
   push: () => Promise<void>
   schedulePush: () => void
+  scheduleNotePush: () => void
 }
 
 let pushTimer: ReturnType<typeof setTimeout> | null = null
+let notePushTimer: ReturnType<typeof setTimeout> | null = null
 
 export const useConfigRepoStore = create<ConfigRepoStore>((set, get) => ({
   enabled: false,
@@ -164,8 +166,17 @@ export const useConfigRepoStore = create<ConfigRepoStore>((set, get) => ({
       useConfigRepoStore.getState().push()
     }, 2000)
   },
+
+  scheduleNotePush: () => {
+    if (notePushTimer) clearTimeout(notePushTimer)
+    notePushTimer = setTimeout(() => {
+      notePushTimer = null
+      useConfigRepoStore.getState().push()
+    }, 20000)
+  },
 }))
 
 // Wire notifySettingChanged → schedulePush so stores don't need to
 // import configRepoStore directly.
 registerPushCallback(() => useConfigRepoStore.getState().schedulePush())
+registerNotePushCallback(() => useConfigRepoStore.getState().scheduleNotePush())
