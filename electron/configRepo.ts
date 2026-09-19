@@ -1,10 +1,9 @@
 import { ipcMain, app } from 'electron'
-import { readFile, writeFile, mkdir, access } from 'fs/promises'
+import { readFile, writeFile, mkdir, access, readdir } from 'fs/promises'
 import { join } from 'path'
-import { exec } from 'child_process'
-import { promisify } from 'util'
-
-const execAsync = promisify(exec)
+import { execFile } from 'child_process'
+import { readTodosData, writeTodosData } from './todosStore'
+import type { TodosData, TodoProject, Todo } from './todosStore'
 
 export interface ConfigRepoSettings {
   enabled: boolean
@@ -23,12 +22,35 @@ const DEFAULT_SETTINGS: ConfigRepoSettings = {
   },
 }
 
+// Allowlist guards both shell-command arguments and file-write paths.
+const ALLOWED_CATEGORIES = new Set([
+  'general', 'models', 'git', 'docker', 'integrations', 'notes', 'todo', 'jira',
+])
+
+export interface ConflictEntry {
+  category: string
+  diffKeys: string[]
+  localData: Record<string, string>
+  remoteData: Record<string, string>
+}
+
 function settingsPath(): string {
   return join(app.getPath('userData'), 'config-repo-settings.json')
 }
 
 function repoDir(): string {
   return join(app.getPath('userData'), 'config-repo')
+}
+
+// Run git with args as an array — execFile never invokes a shell,
+// so no shell metacharacter injection is possible regardless of arg content.
+function runGit(args: string[], opts: { timeout?: number; cwd?: string } = {}): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile('git', args, { timeout: opts.timeout, cwd: opts.cwd, encoding: 'utf8' }, (err, stdout) => {
+      if (err) reject(err)
+      else resolve(stdout as string)
+    })
+  })
 }
 
 async function readSettings(): Promise<ConfigRepoSettings> {
@@ -45,14 +67,12 @@ async function saveSettings(s: ConfigRepoSettings): Promise<void> {
 }
 
 function buildAuthUrl(repoUrl: string, token: string): string {
-  try {
-    const url = new URL(repoUrl)
-    url.username = token
-    url.password = ''
-    return url.toString()
-  } catch {
-    return repoUrl
-  }
+  // new URL() throws on malformed input — the caller receives a proper error
+  // rather than the raw string being interpolated into a command.
+  const url = new URL(repoUrl)
+  url.username = token
+  url.password = ''
+  return url.toString()
 }
 
 async function isRepoCloned(): Promise<boolean> {
@@ -67,10 +87,10 @@ async function isRepoCloned(): Promise<boolean> {
 async function ensureGitUserConfig(): Promise<void> {
   const dir = repoDir()
   try {
-    await execAsync(`git -C "${dir}" config user.email`)
+    await runGit(['config', 'user.email'], { cwd: dir })
   } catch {
-    await execAsync(`git -C "${dir}" config user.email "vide-sync@local"`)
-    await execAsync(`git -C "${dir}" config user.name "vIDE Sync"`)
+    await runGit(['config', 'user.email', 'vide-sync@local'], { cwd: dir })
+    await runGit(['config', 'user.name', 'vIDE Sync'], { cwd: dir })
   }
 }
 
@@ -79,17 +99,17 @@ async function connectRepo(repoUrl: string, token: string): Promise<void> {
   const dir = repoDir()
 
   if (await isRepoCloned()) {
-    await execAsync(`git -C "${dir}" remote set-url origin "${authUrl}"`)
-    await execAsync(`git -C "${dir}" fetch origin`, { timeout: 20000 })
+    await runGit(['remote', 'set-url', 'origin', authUrl], { cwd: dir })
+    await runGit(['fetch', 'origin'], { cwd: dir, timeout: 20000 })
   } else {
     await mkdir(dir, { recursive: true })
     try {
-      await execAsync(`git clone "${authUrl}" "${dir}"`, { timeout: 60000 })
+      await runGit(['clone', authUrl, dir], { timeout: 60000 })
     } catch (err) {
       const msg = (err as { stderr?: string }).stderr ?? ''
       if (msg.includes('empty repository') || msg.includes('nothing to clone') || msg.includes('warning: You appear')) {
-        await execAsync(`git -C "${dir}" init`)
-        await execAsync(`git -C "${dir}" remote add origin "${authUrl}"`)
+        await runGit(['init'], { cwd: dir })
+        await runGit(['remote', 'add', 'origin', authUrl], { cwd: dir })
       } else {
         throw err
       }
@@ -99,26 +119,41 @@ async function connectRepo(repoUrl: string, token: string): Promise<void> {
 }
 
 async function readRemoteCategoryFile(category: string): Promise<Record<string, string> | null> {
+  if (!ALLOWED_CATEGORIES.has(category)) return null
   const dir = repoDir()
   try {
-    const { stdout } = await execAsync(
-      `git -C "${dir}" show origin/HEAD:${category}.json`,
-      { timeout: 10000 }
-    )
+    const stdout = await runGit(['show', `origin/HEAD:${category}.json`], { cwd: dir, timeout: 10000 })
     return JSON.parse(stdout)
   } catch {
     return null
   }
 }
 
-// Fetch remote and return its current settings. Never writes locally.
+// Additive merge: b wins for shared IDs, a-only items are preserved.
+// Call as mergeTodos(remote, local) to get local-wins; (local, remote) for remote-wins.
+function mergeTodosData(a: TodosData, b: TodosData): TodosData {
+  const bById = new Map<string, Todo>(b.todos.map((t) => [t.id, t]))
+  const mergedTodos = [
+    ...b.todos,
+    ...a.todos.filter((t) => !bById.has(t.id)),
+  ]
+  const bProjectById = new Map<string, TodoProject>(b.projects.map((p) => [p.id, p]))
+  const mergedProjects = [
+    ...b.projects,
+    ...a.projects.filter((p) => !bProjectById.has(p.id)),
+  ]
+  return { projects: mergedProjects, todos: mergedTodos }
+}
+
+// Fetch remote and return its current localStorage settings. Never writes locally
+// (except for file-based categories — todos and notes — handled here directly).
 async function pullSettings(
   categories: Record<string, boolean>,
 ): Promise<Record<string, Record<string, string>>> {
   if (!await isRepoCloned()) throw new Error('Repository not connected.')
   await ensureGitUserConfig()
   try {
-    await execAsync(`git -C "${repoDir()}" fetch origin`, { timeout: 20000 })
+    await runGit(['fetch', 'origin'], { cwd: repoDir(), timeout: 20000 })
   } catch { /* offline */ }
 
   const result: Record<string, Record<string, string>> = {}
@@ -127,6 +162,32 @@ async function pullSettings(
     const data = await readRemoteCategoryFile(cat)
     if (data) result[cat] = data
   }
+
+  // ── File-based: todos ──────────────────────────────────────────────────────
+  if (categories.todo) {
+    try {
+      const raw = await runGit(['show', 'origin/HEAD:todos-data.json'], { cwd: repoDir(), timeout: 10000 })
+      const remote: TodosData = JSON.parse(raw)
+      const local = await readTodosData(app.getPath('userData'))
+      // remote wins for shared IDs; local-only items preserved
+      await writeTodosData(app.getPath('userData'), mergeTodosData(local, remote))
+    } catch { /* no todos in remote yet */ }
+  }
+
+  // ── File-based: notes ──────────────────────────────────────────────────────
+  if (categories.notes) {
+    try {
+      const listing = await runGit(['ls-tree', '--name-only', 'origin/HEAD:notes'], { cwd: repoDir(), timeout: 10000 })
+      const noteFiles = listing.trim().split('\n').filter((f) => f.endsWith('.md'))
+      const localNotesDir = join(app.getPath('userData'), 'notes')
+      await mkdir(localNotesDir, { recursive: true })
+      for (const file of noteFiles) {
+        const content = await runGit(['show', `origin/HEAD:notes/${file}`], { cwd: repoDir(), timeout: 10000 })
+        await writeFile(join(localNotesDir, file), content, 'utf8')
+      }
+    } catch { /* no notes directory in remote yet */ }
+  }
+
   return result
 }
 
@@ -138,22 +199,61 @@ async function pushSettings(data: Record<string, Record<string, string>>): Promi
 
   // Fetch + reset to remote so our push is always a fast-forward.
   try {
-    await execAsync(`git -C "${dir}" fetch origin`, { timeout: 20000 })
+    await runGit(['fetch', 'origin'], { cwd: dir, timeout: 20000 })
   } catch { /* offline */ }
   try {
-    await execAsync(`git -C "${dir}" reset --hard origin/HEAD`, { timeout: 10000 })
+    await runGit(['reset', '--hard', 'origin/HEAD'], { cwd: dir, timeout: 10000 })
   } catch { /* no remote HEAD yet — empty repo */ }
 
   await mkdir(dir, { recursive: true })
+
+  // localStorage-backed categories
   for (const [cat, kvMap] of Object.entries(data)) {
+    if (!ALLOWED_CATEGORIES.has(cat)) continue
     await writeFile(join(dir, `${cat}.json`), JSON.stringify(kvMap, null, 2), 'utf8')
   }
 
-  await execAsync(`git -C "${dir}" add -A`)
+  // ── File-based: todos ──────────────────────────────────────────────────────
+  // After reset --hard the repo already contains the remote's todos-data.json.
+  // Merge local with those remote todos so neither machine's work is lost,
+  // then push the combined result and update the local file to match.
+  if ('todo' in data) {
+    try {
+      let repoTodos: TodosData = { projects: [], todos: [] }
+      try {
+        repoTodos = JSON.parse(await readFile(join(dir, 'todos-data.json'), 'utf8'))
+      } catch { /* remote had no todos yet */ }
+      const localTodos = await readTodosData(app.getPath('userData'))
+      // local wins for shared IDs; remote-only items (from other machines) preserved
+      const merged = mergeTodosData(repoTodos, localTodos)
+      await writeFile(join(dir, 'todos-data.json'), JSON.stringify(merged), 'utf8')
+      await writeTodosData(app.getPath('userData'), merged)
+    } catch { /* no todos yet */ }
+  }
+
+  // ── File-based: notes ──────────────────────────────────────────────────────
+  // After reset --hard the repo already contains notes from other machines.
+  // Writing local notes on top adds/updates them without removing remote-only
+  // notes (git won't stage untouched files as deletions).
+  if ('notes' in data) {
+    try {
+      const localNotesDir = join(app.getPath('userData'), 'notes')
+      const repoNotesDir = join(dir, 'notes')
+      await mkdir(repoNotesDir, { recursive: true })
+      const files = await readdir(localNotesDir)
+      for (const file of files) {
+        if (!file.endsWith('.md')) continue
+        const content = await readFile(join(localNotesDir, file), 'utf8')
+        await writeFile(join(repoNotesDir, file), content, 'utf8')
+      }
+    } catch { /* no notes directory yet */ }
+  }
+
+  await runGit(['add', '-A'], { cwd: dir })
   try {
-    await execAsync(`git -C "${dir}" commit -m "vIDE sync ${new Date().toISOString()}"`)
+    await runGit(['commit', '-m', `vIDE sync ${new Date().toISOString()}`], { cwd: dir })
   } catch { /* nothing changed */ }
-  await execAsync(`git -C "${dir}" push origin HEAD`, { timeout: 30000 })
+  await runGit(['push', 'origin', 'HEAD'], { cwd: dir, timeout: 30000 })
 }
 
 export function registerConfigRepoHandlers(): void {
