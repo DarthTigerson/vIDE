@@ -34,6 +34,7 @@ import { EditorContextMenu } from './EditorContextMenu'
 import { PaneDropZoneOverlay } from './PaneDropZoneOverlay'
 import { EmptyEditorBackground } from './EmptyEditorBackground'
 import { detectLang } from './utils'
+import { breadcrumbPathForTab } from './breadcrumbPath'
 import {
   isSettingsTab,
   isGitLogTab,
@@ -357,23 +358,17 @@ function EditorPane({ paneId }: { paneId: string }) {
   const isDockerLogs = !!activeTab && isDockerLogsTab(activeTab.path)
   const isImagePreview = !!activeTab && isImagePreviewTab(activeTab.path)
   const isMarkdownPreview = !!activeTab && isMarkdownPreviewTab(activeTab.path)
-  // Plain file tabs only for now - diff/image tabs encode their real file
-  // path in a scheme (diff://, etc.) rather than using it directly as
-  // activeTab.path, so they'd need separate parsing to show here.
-  // Markdown-preview tabs are the one exception — breadcrumbFilePath below
-  // parses theirs out, so the breadcrumb (and its editor/preview toggle
-  // button) also shows there.
+  // Tabs that encode their real file path in a scheme (markdown-preview://,
+  // git-diff://, git-commit-diff://) get it parsed back out by
+  // breadcrumbPathForTab, so the breadcrumb shows there too. Image previews
+  // and the rest have no breadcrumb.
   const isPlainFileTab =
     !!activeTab &&
     !isVirtual && !isTerminal && !isBrowser &&
     !isDiff && !isCommitDiff && !isGitLog && !isGitGraph && !isGitBranchDiff &&
     !isGraphifyGraph && !isUsageGraph && !isTodoBoard && !isTodoDetail &&
     !isLlamaModel && !isDockerLogs && !isImagePreview && !isMarkdownPreview
-  const breadcrumbFilePath = isPlainFileTab && activeTab
-    ? activeTab.path
-    : isMarkdownPreview && activeTab
-      ? parseMarkdownPreviewPath(activeTab.path)
-      : null
+  const breadcrumbFilePath = activeTab ? breadcrumbPathForTab(activeTab.path, isPlainFileTab) : null
 
   function activatePane() {
     setActivePane(paneId)
