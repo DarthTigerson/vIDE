@@ -392,11 +392,6 @@ contextBridge.exposeInMainWorld('api', {
   notesMcpDisable: () => ipcRenderer.invoke('notes:mcp:disable'),
   browserMcpEnable: () => ipcRenderer.invoke('browser:mcp:enable'),
   browserMcpDisable: () => ipcRenderer.invoke('browser:mcp:disable'),
-  onNotesChanged: (cb: () => void) => {
-    const handler = () => cb()
-    ipcRenderer.on('notes:changed', handler)
-    return () => ipcRenderer.removeListener('notes:changed', handler)
-  },
 
   setWindowTitle: (root: string) => ipcRenderer.send('window:setTitle', root),
 
