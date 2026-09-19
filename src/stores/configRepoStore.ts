@@ -119,6 +119,16 @@ export const useConfigRepoStore = create<ConfigRepoStore>((set, get) => ({
     // Push immediately so the remote always has the union of both machines'
     // todos, notes, and settings after every launch — not just on changes.
     get().push()
+
+    // Periodic sync: push every 5 minutes so both machines stay current while
+    // both apps are open. Each push does fetch+merge+writeTodosData which
+    // triggers the TodosWatcher → refreshAll() in the renderer automatically.
+    const SYNC_INTERVAL_MS = 5 * 60 * 1000
+    setInterval(() => {
+      if (useConfigRepoStore.getState().enabled) {
+        useConfigRepoStore.getState().push()
+      }
+    }, SYNC_INTERVAL_MS)
   },
 
   setEnabled: (enabled) => {
