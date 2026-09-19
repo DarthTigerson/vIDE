@@ -510,6 +510,12 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    return window.api.onNotesChanged(() => {
+      useNotesStore.getState().bumpSyncVersion()
+    })
+  }, [])
+
+  useEffect(() => {
     return window.api.onClaudeBusy((instanceId, busy, chunkCount) => {
       const wasBusy = useClaudeStore.getState().busyByInstance[instanceId] ?? false
       useClaudeStore.getState().setBusy(instanceId, busy)

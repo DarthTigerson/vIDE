@@ -376,6 +376,12 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('todos:changed', handler)
   },
 
+  onNotesChanged: (cb: () => void) => {
+    const handler = () => cb()
+    ipcRenderer.on('notes:changed', handler)
+    return () => ipcRenderer.removeListener('notes:changed', handler)
+  },
+
   notesGetRoot: () => ipcRenderer.invoke('notes:getRoot'),
   notesCreateNote: (dirPath: string, name: string) => ipcRenderer.invoke('notes:createNote', dirPath, name),
   notesCreateFolder: (dirPath: string, name: string) => ipcRenderer.invoke('notes:createFolder', dirPath, name),

@@ -140,6 +140,7 @@ function NotesSearchResults({
 
 export function NotesPanel() {
   const root = useNotesStore((s) => s.root)
+  const syncVersion = useNotesStore((s) => s.syncVersion)
   const loadRoot = useNotesStore((s) => s.loadRoot)
   const { openTab, openTabInPane, activeTabPath } = useEditorStore()
 
@@ -214,7 +215,7 @@ export function NotesPanel() {
 
   useEffect(() => {
     if (root) void refreshDir(root)
-  }, [root, refreshDir])
+  }, [root, refreshDir, syncVersion])
 
   useEffect(() => {
     if (!root) return

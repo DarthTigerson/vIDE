@@ -1,4 +1,4 @@
-import { ipcMain, app } from 'electron'
+import { ipcMain, app, BrowserWindow } from 'electron'
 import { readFile, writeFile, mkdir, access, readdir } from 'fs/promises'
 import { join } from 'path'
 import { execFile } from 'child_process'
@@ -129,6 +129,12 @@ async function readRemoteCategoryFile(category: string): Promise<Record<string, 
   }
 }
 
+function broadcastNotesChanged(): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send('notes:changed')
+  }
+}
+
 // Additive merge: b wins for shared IDs, a-only items are preserved.
 // Call as mergeTodos(remote, local) to get local-wins; (local, remote) for remote-wins.
 function mergeTodosData(a: TodosData, b: TodosData): TodosData {
@@ -185,6 +191,7 @@ async function pullSettings(
         const content = await runGit(['show', `origin/HEAD:notes/${file}`], { cwd: repoDir(), timeout: 10000 })
         await writeFile(join(localNotesDir, file), content, 'utf8')
       }
+      broadcastNotesChanged()
     } catch { /* no notes directory in remote yet */ }
   }
 
@@ -233,19 +240,34 @@ async function pushSettings(data: Record<string, Record<string, string>>): Promi
 
   // ── File-based: notes ──────────────────────────────────────────────────────
   // After reset --hard the repo already contains notes from other machines.
-  // Writing local notes on top adds/updates them without removing remote-only
-  // notes (git won't stage untouched files as deletions).
+  // Write local notes into the repo (additive — untouched remote-only files
+  // stay), then copy any repo-only notes back to the local dir so this
+  // machine gets the other machine's notes too.
   if ('notes' in data) {
     try {
       const localNotesDir = join(app.getPath('userData'), 'notes')
       const repoNotesDir = join(dir, 'notes')
       await mkdir(repoNotesDir, { recursive: true })
-      const files = await readdir(localNotesDir)
-      for (const file of files) {
-        if (!file.endsWith('.md')) continue
+      await mkdir(localNotesDir, { recursive: true })
+
+      // Local → repo (add/update local notes in repo)
+      const localFiles = await readdir(localNotesDir)
+      const localFileSet = new Set(localFiles.filter((f) => f.endsWith('.md')))
+      for (const file of localFileSet) {
         const content = await readFile(join(localNotesDir, file), 'utf8')
         await writeFile(join(repoNotesDir, file), content, 'utf8')
       }
+
+      // Repo-only → local (copy other machines' notes to this machine)
+      const repoFiles = await readdir(repoNotesDir).catch(() => [] as string[])
+      let notesChanged = false
+      for (const file of repoFiles) {
+        if (!file.endsWith('.md') || localFileSet.has(file)) continue
+        const content = await readFile(join(repoNotesDir, file), 'utf8')
+        await writeFile(join(localNotesDir, file), content, 'utf8')
+        notesChanged = true
+      }
+      if (notesChanged) broadcastNotesChanged()
     } catch { /* no notes directory yet */ }
   }
 

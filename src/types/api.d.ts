@@ -330,6 +330,7 @@ declare global {
       todosMcpEnable: () => Promise<void>
       todosMcpDisable: () => Promise<void>
       onTodosChanged: (cb: () => void) => () => void
+      onNotesChanged: (cb: () => void) => () => void
 
       notesGetRoot: () => Promise<string>
       notesCreateNote: (dirPath: string, name: string) => Promise<NotesEntryResult>
