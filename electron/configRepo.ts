@@ -198,84 +198,87 @@ async function pullSettings(
   return result
 }
 
-// Write local settings to the repo and push. Remote becomes source of truth.
+// Write local settings to the repo and push. Retries up to 3 times on
+// non-fast-forward so two machines pushing concurrently always converge.
 async function pushSettings(data: Record<string, Record<string, string>>): Promise<void> {
   const dir = repoDir()
   if (!await isRepoCloned()) return
   await ensureGitUserConfig()
-
-  // Fetch + reset to remote so our push is always a fast-forward.
-  try {
-    await runGit(['fetch', 'origin'], { cwd: dir, timeout: 20000 })
-  } catch { /* offline */ }
-  try {
-    await runGit(['reset', '--hard', 'origin/HEAD'], { cwd: dir, timeout: 10000 })
-  } catch { /* no remote HEAD yet — empty repo */ }
-
   await mkdir(dir, { recursive: true })
 
-  // localStorage-backed categories
-  for (const [cat, kvMap] of Object.entries(data)) {
-    if (!ALLOWED_CATEGORIES.has(cat)) continue
-    await writeFile(join(dir, `${cat}.json`), JSON.stringify(kvMap, null, 2), 'utf8')
-  }
-
-  // ── File-based: todos ──────────────────────────────────────────────────────
-  // After reset --hard the repo already contains the remote's todos-data.json.
-  // Merge local with those remote todos so neither machine's work is lost,
-  // then push the combined result and update the local file to match.
-  if ('todo' in data) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    // Fetch + reset to the current remote tip so our commit is always a
+    // fast-forward, even if another machine pushed since we last fetched.
     try {
-      let repoTodos: TodosData = { projects: [], todos: [] }
+      await runGit(['fetch', 'origin'], { cwd: dir, timeout: 20000 })
+    } catch { /* offline */ }
+    try {
+      await runGit(['reset', '--hard', 'origin/HEAD'], { cwd: dir, timeout: 10000 })
+    } catch { /* no remote HEAD yet — empty repo */ }
+
+    // localStorage-backed categories
+    for (const [cat, kvMap] of Object.entries(data)) {
+      if (!ALLOWED_CATEGORIES.has(cat)) continue
+      await writeFile(join(dir, `${cat}.json`), JSON.stringify(kvMap, null, 2), 'utf8')
+    }
+
+    // ── File-based: todos ────────────────────────────────────────────────────
+    if ('todo' in data) {
       try {
-        repoTodos = JSON.parse(await readFile(join(dir, 'todos-data.json'), 'utf8'))
-      } catch { /* remote had no todos yet */ }
-      const localTodos = await readTodosData(app.getPath('userData'))
-      // local wins for shared IDs; remote-only items (from other machines) preserved
-      const merged = mergeTodosData(repoTodos, localTodos)
-      await writeFile(join(dir, 'todos-data.json'), JSON.stringify(merged), 'utf8')
-      await writeTodosData(app.getPath('userData'), merged)
-    } catch { /* no todos yet */ }
-  }
+        let repoTodos: TodosData = { projects: [], todos: [] }
+        try {
+          repoTodos = JSON.parse(await readFile(join(dir, 'todos-data.json'), 'utf8'))
+        } catch { /* remote had no todos yet */ }
+        const localTodos = await readTodosData(app.getPath('userData'))
+        const merged = mergeTodosData(repoTodos, localTodos)
+        await writeFile(join(dir, 'todos-data.json'), JSON.stringify(merged), 'utf8')
+        await writeTodosData(app.getPath('userData'), merged)
+      } catch { /* no todos yet */ }
+    }
 
-  // ── File-based: notes ──────────────────────────────────────────────────────
-  // After reset --hard the repo already contains notes from other machines.
-  // Write local notes into the repo (additive — untouched remote-only files
-  // stay), then copy any repo-only notes back to the local dir so this
-  // machine gets the other machine's notes too.
-  if ('notes' in data) {
+    // ── File-based: notes ────────────────────────────────────────────────────
+    if ('notes' in data) {
+      try {
+        const localNotesDir = join(app.getPath('userData'), 'notes')
+        const repoNotesDir = join(dir, 'notes')
+        await mkdir(repoNotesDir, { recursive: true })
+        await mkdir(localNotesDir, { recursive: true })
+
+        const localFiles = await readdir(localNotesDir)
+        const localFileSet = new Set(localFiles.filter((f) => f.endsWith('.md')))
+        for (const file of localFileSet) {
+          const content = await readFile(join(localNotesDir, file), 'utf8')
+          await writeFile(join(repoNotesDir, file), content, 'utf8')
+        }
+
+        const repoFiles = await readdir(repoNotesDir).catch(() => [] as string[])
+        let notesChanged = false
+        for (const file of repoFiles) {
+          if (!file.endsWith('.md') || localFileSet.has(file)) continue
+          const content = await readFile(join(repoNotesDir, file), 'utf8')
+          await writeFile(join(localNotesDir, file), content, 'utf8')
+          notesChanged = true
+        }
+        if (notesChanged) broadcastNotesChanged()
+      } catch { /* no notes directory yet */ }
+    }
+
+    await runGit(['add', '-A'], { cwd: dir })
     try {
-      const localNotesDir = join(app.getPath('userData'), 'notes')
-      const repoNotesDir = join(dir, 'notes')
-      await mkdir(repoNotesDir, { recursive: true })
-      await mkdir(localNotesDir, { recursive: true })
+      await runGit(['commit', '-m', `vIDE sync ${new Date().toISOString()}`], { cwd: dir })
+    } catch { /* nothing changed — clean working tree */ }
 
-      // Local → repo (add/update local notes in repo)
-      const localFiles = await readdir(localNotesDir)
-      const localFileSet = new Set(localFiles.filter((f) => f.endsWith('.md')))
-      for (const file of localFileSet) {
-        const content = await readFile(join(localNotesDir, file), 'utf8')
-        await writeFile(join(repoNotesDir, file), content, 'utf8')
+    try {
+      await runGit(['push', 'origin', 'HEAD'], { cwd: dir, timeout: 30000 })
+      return // success
+    } catch (err) {
+      const stderr = (err as { stderr?: string }).stderr ?? ''
+      if (attempt < 2 && (stderr.includes('non-fast-forward') || stderr.includes('rejected'))) {
+        continue // another machine snuck in a push — re-fetch, re-merge, retry
       }
-
-      // Repo-only → local (copy other machines' notes to this machine)
-      const repoFiles = await readdir(repoNotesDir).catch(() => [] as string[])
-      let notesChanged = false
-      for (const file of repoFiles) {
-        if (!file.endsWith('.md') || localFileSet.has(file)) continue
-        const content = await readFile(join(repoNotesDir, file), 'utf8')
-        await writeFile(join(localNotesDir, file), content, 'utf8')
-        notesChanged = true
-      }
-      if (notesChanged) broadcastNotesChanged()
-    } catch { /* no notes directory yet */ }
+      throw err
+    }
   }
-
-  await runGit(['add', '-A'], { cwd: dir })
-  try {
-    await runGit(['commit', '-m', `vIDE sync ${new Date().toISOString()}`], { cwd: dir })
-  } catch { /* nothing changed */ }
-  await runGit(['push', 'origin', 'HEAD'], { cwd: dir, timeout: 30000 })
 }
 
 export function registerConfigRepoHandlers(): void {
