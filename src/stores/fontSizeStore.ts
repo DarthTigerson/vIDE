@@ -11,6 +11,7 @@ interface FontSizeStore {
   increase: () => void
   decrease: () => void
   reset: () => void
+  setFontSize: (n: number) => void
 }
 
 function applyFontSize(size: number) {
@@ -42,5 +43,11 @@ export const useFontSizeStore = create<FontSizeStore>((set, get) => ({
     applyFontSize(DEFAULT)
     set({ fontSize: DEFAULT })
     notifySettingChanged()
+  },
+  // Used by remote-settings sync — does not trigger a push back to avoid loops.
+  setFontSize: (n: number) => {
+    const clamped = Math.min(MAX, Math.max(MIN, n))
+    applyFontSize(clamped)
+    set({ fontSize: clamped })
   },
 }))

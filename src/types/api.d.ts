@@ -341,7 +341,6 @@ declare global {
       notesMcpDisable: () => Promise<void>
       browserMcpEnable: () => Promise<void>
       browserMcpDisable: () => Promise<void>
-      onNotesChanged: (cb: () => void) => () => void
 
       setWindowTitle: (root: string) => void
 
@@ -394,7 +393,8 @@ declare global {
       configRepoSetSettings: (patch: Partial<ConfigRepoSettings>) => Promise<void>
       configRepoConnect: (repoUrl: string, token: string) => Promise<void>
       configRepoPull: (categories: Record<string, boolean>) => Promise<Record<string, Record<string, string>>>
-      configRepoPush: (data: Record<string, Record<string, string>>) => Promise<void>
+      configRepoPush: (data: Record<string, Record<string, string>>, lastSyncAt: number) => Promise<void>
+      onRemoteSettingsApplied: (cb: (kvMap: Record<string, string>) => void) => () => void
     }
   }
 }

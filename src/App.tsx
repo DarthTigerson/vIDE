@@ -64,6 +64,7 @@ import { useGitSettingsStore } from './stores/gitSettingsStore'
 import { useMobileStore } from './stores/mobileStore'
 import { useMobileSettingsStore } from './stores/mobileSettingsStore'
 import { useThemeStore } from './stores/themeStore'
+import type { ThemeId } from './stores/themeStore'
 import { useDisplayStore } from './stores/displayStore'
 import { EMPTY_EDITOR_BACKGROUNDS } from './assets/emptyEditorBackgrounds'
 import { useEditorStore } from './stores/editorStore'
@@ -512,6 +513,27 @@ export default function App() {
   useEffect(() => {
     return window.api.onNotesChanged(() => {
       useNotesStore.getState().bumpSyncVersion()
+    })
+  }, [])
+
+  useEffect(() => {
+    return window.api.onRemoteSettingsApplied((kvMap) => {
+      // Write all synced values to localStorage so stores pick them up on
+      // next read, then reactively apply the ones that affect visible UI.
+      for (const [key, val] of Object.entries(kvMap)) {
+        localStorage.setItem(key, val)
+      }
+      const themeStore = useThemeStore.getState()
+      if ('vide:themeMatchSystem' in kvMap) {
+        themeStore.setMatchSystem(kvMap['vide:themeMatchSystem'] === 'true')
+      }
+      if ('vide:theme' in kvMap) {
+        themeStore.setTheme(kvMap['vide:theme'] as ThemeId)
+      }
+      if ('vide:fontSize' in kvMap) {
+        const n = parseInt(kvMap['vide:fontSize'], 10)
+        if (!isNaN(n)) useFontSizeStore.getState().setFontSize(n)
+      }
     })
   }, [])
 

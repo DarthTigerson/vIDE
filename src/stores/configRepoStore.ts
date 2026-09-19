@@ -162,7 +162,7 @@ export const useConfigRepoStore = create<ConfigRepoStore>((set, get) => ({
     if (!enabled) return
     set({ status: 'pushing', errorMessage: null })
     try {
-      await window.api.configRepoPush(gatherData(categories))
+      await window.api.configRepoPush(gatherData(categories), get().lastSyncAt ?? 0)
       set({ status: 'connected', lastSyncAt: Date.now() })
     } catch (err) {
       set({ status: 'error', errorMessage: (err as Error).message })

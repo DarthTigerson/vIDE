@@ -149,6 +149,12 @@ function broadcastNotesChanged(): void {
   }
 }
 
+function broadcastRemoteSettings(kvMap: Record<string, string>): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send('configRepo:remoteSettings', kvMap)
+  }
+}
+
 // Merge two usage-history JSONL line arrays: union by snapshot timestamp,
 // sorted ascending. Duplicate ts values keep the first occurrence.
 function mergeUsageHistory(a: string[], b: string[]): string[] {
@@ -246,7 +252,10 @@ let pushLock = Promise.resolve()
 
 // Write local settings to the repo and push. Retries up to 3 times on
 // non-fast-forward so two machines pushing concurrently always converge.
-async function pushSettings(data: Record<string, Record<string, string>>): Promise<void> {
+// lastSyncAt is the ms timestamp of our own last successful push — if the
+// remote commit is newer than that, another machine changed something and
+// remote wins for localStorage categories.
+async function pushSettings(data: Record<string, Record<string, string>>, lastSyncAt: number): Promise<void> {
   let release!: () => void
   const prev = pushLock
   pushLock = new Promise<void>((r) => { release = r })
@@ -267,6 +276,35 @@ async function pushSettings(data: Record<string, Record<string, string>>): Promi
       try {
         await runGit(['reset', '--hard', 'origin/HEAD'], { cwd: dir, timeout: 10000 })
       } catch { /* no remote HEAD yet — empty repo */ }
+
+      // Check whether remote has commits newer than our last push. If so,
+      // another machine changed settings since we last synced — their state
+      // is authoritative. Apply it to the renderer and merge it into `data`
+      // so we don't overwrite it on the next push.
+      try {
+        const ctStr = await runGit(['log', 'origin/HEAD', '-1', '--format=%ct'], { cwd: dir })
+        const remoteTsMs = parseInt(ctStr.trim()) * 1000
+        if (remoteTsMs > lastSyncAt) {
+          const remoteKvMap: Record<string, string> = {}
+          for (const cat of ALLOWED_CATEGORIES) {
+            try {
+              Object.assign(remoteKvMap, JSON.parse(await readFile(join(dir, `${cat}.json`), 'utf8')))
+            } catch { /* category not in remote yet */ }
+          }
+          if (Object.keys(remoteKvMap).length > 0) {
+            broadcastRemoteSettings(remoteKvMap)
+            // Merge remote into data so the category files we commit reflect
+            // the remote state — prevents the next periodic push from writing
+            // stale local values back over the remote's changes.
+            for (const [cat, kvMap] of Object.entries(data)) {
+              if (!ALLOWED_CATEGORIES.has(cat)) continue
+              try {
+                Object.assign(kvMap, JSON.parse(await readFile(join(dir, `${cat}.json`), 'utf8')))
+              } catch {}
+            }
+          }
+        }
+      } catch { /* no remote commits yet — fresh repo, local wins */ }
 
       // localStorage-backed categories
       for (const [cat, kvMap] of Object.entries(data)) {
@@ -381,6 +419,6 @@ export function registerConfigRepoHandlers(): void {
 
   ipcMain.handle(
     'configRepo:push',
-    (_e, data: Record<string, Record<string, string>>) => pushSettings(data),
+    (_e, data: Record<string, Record<string, string>>, lastSyncAt: number) => pushSettings(data, lastSyncAt),
   )
 }

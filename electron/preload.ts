@@ -462,7 +462,12 @@ contextBridge.exposeInMainWorld('api', {
   configRepoConnect: (repoUrl: string, token: string) =>
     ipcRenderer.invoke('configRepo:connect', repoUrl, token),
   configRepoPull: (categories: unknown) => ipcRenderer.invoke('configRepo:pull', categories),
-  configRepoPush: (data: unknown) => ipcRenderer.invoke('configRepo:push', data),
+  configRepoPush: (data: unknown, lastSyncAt: number) => ipcRenderer.invoke('configRepo:push', data, lastSyncAt),
+  onRemoteSettingsApplied: (cb: (kvMap: Record<string, string>) => void) => {
+    const handler = (_e: unknown, kvMap: Record<string, string>) => cb(kvMap)
+    ipcRenderer.on('configRepo:remoteSettings', handler)
+    return () => ipcRenderer.removeListener('configRepo:remoteSettings', handler)
+  },
 
   llamaIsAvailable: () => ipcRenderer.invoke('llama:isAvailable'),
   llamaStart: (id: string, cfg: LlamaLaunchConfig) => ipcRenderer.invoke('llama:start', id, cfg),
