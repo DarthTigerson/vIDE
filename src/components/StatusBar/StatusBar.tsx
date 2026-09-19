@@ -41,6 +41,7 @@ export function StatusBar() {
   const { forceAction, requestForce, closeForce } = useForcePushConfirm(selectedRepo)
   const { step: resetStep, requestResetToHead, requestUndoPush, requestHardReset, pickRef, close: closeReset } = useGitResetConfirm()
   const syncEnabled = useConfigRepoStore((s) => s.enabled)
+  const syncRepoUrl = useConfigRepoStore((s) => s.repoUrl)
   const syncStatus = useConfigRepoStore((s) => s.status)
   const syncNow = useConfigRepoStore((s) => s.push)
   const autocompleteEnabled = useAutocompleteSettingsStore((s) => s.enabled)
@@ -169,7 +170,7 @@ export function StatusBar() {
           </div>
         )}
         <NotificationCompactToggle />
-        {syncEnabled && (
+        {(syncEnabled || syncRepoUrl) && (
           <button
             type="button"
             onClick={syncNow}
@@ -195,7 +196,7 @@ export function StatusBar() {
         <div
           className={[
             'flex items-center rounded-full border border-border bg-bg overflow-hidden',
-            autocompleteVisible || syncEnabled ? 'ml-2' : '',
+            autocompleteVisible || syncEnabled || syncRepoUrl ? 'ml-2' : '',
           ].join(' ')}
         >
           <button

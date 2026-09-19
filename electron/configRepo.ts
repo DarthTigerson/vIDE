@@ -149,6 +149,19 @@ function broadcastNotesChanged(): void {
   }
 }
 
+// Merge two usage-history JSONL line arrays: union by snapshot timestamp,
+// sorted ascending. Duplicate ts values keep the first occurrence.
+function mergeUsageHistory(a: string[], b: string[]): string[] {
+  const byTs = new Map<number, string>()
+  for (const line of [...a, ...b]) {
+    try {
+      const snap = JSON.parse(line) as { ts: number }
+      if (!byTs.has(snap.ts)) byTs.set(snap.ts, line)
+    } catch { /* skip corrupt lines */ }
+  }
+  return [...byTs.entries()].sort(([x], [y]) => x - y).map(([, line]) => line)
+}
+
 // Additive merge: b wins for shared IDs, a-only items are preserved.
 // Call as mergeTodos(remote, local) to get local-wins; (local, remote) for remote-wins.
 function mergeTodosData(a: TodosData, b: TodosData): TodosData {
@@ -193,6 +206,17 @@ async function pullSettings(
       await writeTodosData(app.getPath('userData'), mergeTodosData(local, remote))
     } catch { /* no todos in remote yet */ }
   }
+
+  // ── File-based: usage history ──────────────────────────────────────────────
+  try {
+    const raw = await runGit(['show', 'origin/HEAD:usage-history.jsonl'], { cwd: repoDir(), timeout: 10000 })
+    const remoteLines = raw.trim().split('\n').filter(Boolean)
+    const localFile = join(app.getPath('userData'), 'usage-history.jsonl')
+    let localLines: string[] = []
+    try { localLines = (await readFile(localFile, 'utf8')).trim().split('\n').filter(Boolean) } catch {}
+    const merged = mergeUsageHistory(localLines, remoteLines)
+    await writeFile(localFile, merged.join('\n') + (merged.length ? '\n' : ''), 'utf8')
+  } catch { /* no usage history in remote yet */ }
 
   // ── File-based: notes ──────────────────────────────────────────────────────
   if (categories.notes) {
@@ -263,6 +287,20 @@ async function pushSettings(data: Record<string, Record<string, string>>): Promi
           await writeTodosData(app.getPath('userData'), merged)
         } catch { /* no todos yet */ }
       }
+
+      // ── File-based: usage history ──────────────────────────────────────────
+      try {
+        const localFile = join(app.getPath('userData'), 'usage-history.jsonl')
+        const repoFile = join(dir, 'usage-history.jsonl')
+        let localLines: string[] = []
+        let repoLines: string[] = []
+        try { localLines = (await readFile(localFile, 'utf8')).trim().split('\n').filter(Boolean) } catch {}
+        try { repoLines = (await readFile(repoFile, 'utf8')).trim().split('\n').filter(Boolean) } catch {}
+        const merged = mergeUsageHistory(localLines, repoLines)
+        const content = merged.join('\n') + (merged.length ? '\n' : '')
+        await writeFile(repoFile, content, 'utf8')
+        await writeFile(localFile, content, 'utf8')
+      } catch { /* no usage history yet */ }
 
       // ── File-based: notes ──────────────────────────────────────────────────
       if ('notes' in data) {
