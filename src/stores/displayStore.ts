@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { useThemeStore, familyOf } from './themeStore'
+import { notifySettingChanged } from '../lib/notifySettingChanged'
 
 const FONT_KEY = 'vide:font'
 const PANEL_STYLE_KEY = 'vide:panelStyle'
@@ -189,30 +190,37 @@ export const useDisplayStore = create<DisplayStore>((set) => ({
   setFont: (font) => {
     applyFont(font)
     set({ font })
+    notifySettingChanged()
   },
   setPanelStyle: (style) => {
     applyPanelStyle(style)
     set({ panelStyle: style })
+    notifySettingChanged()
   },
   setFooterContent: (content) => {
     localStorage.setItem(FOOTER_CONTENT_KEY, content)
     set({ footerContent: content })
+    notifySettingChanged()
   },
   setMemoryUsageVisible: (visible) => {
     localStorage.setItem(MEMORY_USAGE_VISIBLE_KEY, String(visible))
     set({ memoryUsageVisible: visible })
+    notifySettingChanged()
   },
   setBackgroundImage: (image) => {
     localStorage.setItem(BACKGROUND_IMAGE_KEY, image)
     set({ backgroundImage: image })
+    notifySettingChanged()
   },
   setNavbarPosition: (position) => {
     localStorage.setItem(NAVBAR_POSITION_KEY, position)
     set({ navbarPosition: position })
+    notifySettingChanged()
   },
   setEditorColorScheme: (scheme) => {
     localStorage.setItem(EDITOR_COLOR_SCHEME_KEY, scheme)
     set({ editorColorScheme: scheme })
+    notifySettingChanged()
   },
 }))
 

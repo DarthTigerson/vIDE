@@ -27,6 +27,7 @@ import { registerModelPath } from '@/lib/lspModelRegistry'
 import { formatSelectionForAssistant, toRelativePath } from '@/lib/sendSelectionToAssistant'
 import { computeLineChanges } from '@/lib/lineDiff'
 import { getLastFocusedEditor, setLastFocusedEditor } from '@/lib/lastFocusedEditor'
+import { notifyNoteChanged } from '@/lib/notifySettingChanged'
 import { TabBar } from './TabBar'
 import { EditorBreadcrumb } from './EditorBreadcrumb'
 import { EditorContextMenu } from './EditorContextMenu'
@@ -125,6 +126,10 @@ async function saveActiveTab({ allowCreateMissing }: { allowCreateMissing: boole
   if (root) {
     useFileStore.getState().refreshTree()
     useGitStore.getState().refreshStatus(root)
+  }
+  const notesRoot = useNotesStore.getState().root
+  if (notesRoot && tab.path.startsWith(notesRoot)) {
+    notifyNoteChanged()
   }
 }
 

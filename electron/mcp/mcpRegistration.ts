@@ -135,20 +135,25 @@ export async function enableTodoMcp(): Promise<void> {
   const claudeBin = await resolveClaudeBinary()
   // Remove first so re-enabling always works even if already registered
   try { await run(claudeBin, ['mcp', 'remove', MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
-  await run(claudeBin, [
-    'mcp',
-    'add',
-    MCP_SERVER_NAME,
-    '--scope',
-    'user',
-    '-e',
-    `VIDE_TODOS_DATA_DIR=${app.getPath('userData')}`,
-    '-e',
-    'ELECTRON_RUN_AS_NODE=1',
-    '--',
-    process.execPath,
-    scriptPath(),
-  ])
+  try {
+    await run(claudeBin, [
+      'mcp',
+      'add',
+      MCP_SERVER_NAME,
+      '--scope',
+      'user',
+      '-e',
+      `VIDE_TODOS_DATA_DIR=${app.getPath('userData')}`,
+      '-e',
+      'ELECTRON_RUN_AS_NODE=1',
+      '--',
+      process.execPath,
+      scriptPath(),
+    ])
+  } catch (err) {
+    const msg = ((err as { stderr?: string }).stderr ?? '') + ((err as Error).message ?? '')
+    if (!msg.includes('already exists')) throw err
+  }
 }
 
 // Best-effort: turning the toggle off should always succeed locally even if
@@ -186,20 +191,25 @@ export async function enableNotesMcp(): Promise<void> {
   const claudeBin = await resolveClaudeBinary()
   // Remove first so re-enabling always works even if already registered
   try { await run(claudeBin, ['mcp', 'remove', NOTES_MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
-  await run(claudeBin, [
-    'mcp',
-    'add',
-    NOTES_MCP_SERVER_NAME,
-    '--scope',
-    'user',
-    '-e',
-    `VIDE_NOTES_DATA_DIR=${app.getPath('userData')}`,
-    '-e',
-    'ELECTRON_RUN_AS_NODE=1',
-    '--',
-    process.execPath,
-    notesMcpScriptPath(),
-  ])
+  try {
+    await run(claudeBin, [
+      'mcp',
+      'add',
+      NOTES_MCP_SERVER_NAME,
+      '--scope',
+      'user',
+      '-e',
+      `VIDE_NOTES_DATA_DIR=${app.getPath('userData')}`,
+      '-e',
+      'ELECTRON_RUN_AS_NODE=1',
+      '--',
+      process.execPath,
+      notesMcpScriptPath(),
+    ])
+  } catch (err) {
+    const msg = ((err as { stderr?: string }).stderr ?? '') + ((err as Error).message ?? '')
+    if (!msg.includes('already exists')) throw err
+  }
 }
 
 export async function disableNotesMcp(): Promise<void> {
@@ -228,18 +238,25 @@ export async function enableBrowserMcp(): Promise<void> {
   const claudeBin = await resolveClaudeBinary()
   // Remove first so re-enabling always works even if already registered
   try { await run(claudeBin, ['mcp', 'remove', BROWSER_MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
-  await run(claudeBin, [
-    'mcp',
-    'add',
-    BROWSER_MCP_SERVER_NAME,
-    '--scope',
-    'user',
-    '-e',
-    'ELECTRON_RUN_AS_NODE=1',
-    '--',
-    process.execPath,
-    browserMcpScriptPath(),
-  ])
+  try {
+    await run(claudeBin, [
+      'mcp',
+      'add',
+      BROWSER_MCP_SERVER_NAME,
+      '--scope',
+      'user',
+      '-e',
+      'ELECTRON_RUN_AS_NODE=1',
+      '--',
+      process.execPath,
+      browserMcpScriptPath(),
+    ])
+  } catch (err) {
+    // If remove didn't fully clear it, "already exists" means the server is
+    // registered — which is the goal, so treat it as success.
+    const msg = ((err as { stderr?: string }).stderr ?? '') + ((err as Error).message ?? '')
+    if (!msg.includes('already exists')) throw err
+  }
 }
 
 export async function disableBrowserMcp(): Promise<void> {

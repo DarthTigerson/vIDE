@@ -8,6 +8,7 @@ import type { DefinitionLocation, DetectResult, LspServerId } from '../../electr
 import type { DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats } from '../../electron/docker'
 import type { LlamaLaunchConfig } from '../../electron/llama'
 import type { OnboardingStatus, GitIdentity } from '../../electron/onboarding'
+import type { ConfigRepoSettings } from '../../electron/configRepo'
 
 export type { LatestUsage, UsageSnapshot, UpdateInfo, DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats }
 
@@ -329,6 +330,7 @@ declare global {
       todosMcpEnable: () => Promise<void>
       todosMcpDisable: () => Promise<void>
       onTodosChanged: (cb: () => void) => () => void
+      onNotesChanged: (cb: () => void) => () => void
 
       notesGetRoot: () => Promise<string>
       notesCreateNote: (dirPath: string, name: string) => Promise<NotesEntryResult>
@@ -339,7 +341,6 @@ declare global {
       notesMcpDisable: () => Promise<void>
       browserMcpEnable: () => Promise<void>
       browserMcpDisable: () => Promise<void>
-      onNotesChanged: (cb: () => void) => () => void
 
       setWindowTitle: (root: string) => void
 
@@ -387,6 +388,14 @@ declare global {
       }) => Promise<DefinitionLocation[]>
       onLspInstallData: (cb: (id: string, chunk: string) => void) => () => void
       onLspInstallExit: (cb: (id: string, code: number) => void) => () => void
+
+      configRepoGetSettings: () => Promise<ConfigRepoSettings>
+      configRepoSetSettings: (patch: Partial<ConfigRepoSettings>) => Promise<void>
+      configRepoConnect: (repoUrl: string, token: string) => Promise<void>
+      configRepoPull: (categories: Record<string, boolean>) => Promise<Record<string, Record<string, string>>>
+      configRepoPush: (data: Record<string, Record<string, string>>, lastSyncAt: number) => Promise<void>
+      configRepoCheckRemote: (lastSyncAt: number) => Promise<void>
+      onRemoteSettingsApplied: (cb: (kvMap: Record<string, string>) => void) => () => void
     }
   }
 }

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { useEditorStore } from './editorStore'
+import { notifySettingChanged } from '../lib/notifySettingChanged'
 import type { Todo, TodoProject, TodoStatus, TodoUpdatePatch } from '@/types/api'
 
 // A stable reference for "no todos loaded yet" — selectors must never
@@ -95,12 +96,14 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
   createProject: async (name, key) => {
     const project = await window.api.todosCreateProject(name, key)
     set({ projects: [...get().projects, project] })
+    notifySettingChanged()
     return project
   },
 
   renameProject: async (id, name, key) => {
     const renamed = await window.api.todosRenameProject(id, name, key)
     set({ projects: get().projects.map((p) => (p.id === id ? renamed : p)) })
+    notifySettingChanged()
     return renamed
   },
 
@@ -113,6 +116,7 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
       lastOpenedProjectId: get().lastOpenedProjectId === id ? null : get().lastOpenedProjectId,
     })
     useEditorStore.getState().closeTabsForProject(id)
+    notifySettingChanged()
   },
 
   loadTodos: async (projectId) => {
@@ -124,12 +128,14 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
     const todo = await window.api.todosCreateTodo(projectId, title)
     const bucket = get().todosByProject[projectId] ?? []
     set({ todosByProject: { ...get().todosByProject, [projectId]: [...bucket, todo] } })
+    notifySettingChanged()
     return todo
   },
 
   updateTodo: async (id, patch) => {
     const updated = await window.api.todosUpdateTodo(id, patch)
     set({ todosByProject: replaceInBucket(get().todosByProject, updated) })
+    notifySettingChanged()
     return updated
   },
 
@@ -145,11 +151,13 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
       set({ todosByProject: { ...get().todosByProject, [projectId]: reordered } })
     }
     await window.api.todosReorderTodo(id, status, beforeId)
+    notifySettingChanged()
   },
 
   archiveTodo: async (id, archived) => {
     const updated = await window.api.todosArchiveTodo(id, archived)
     set({ todosByProject: replaceInBucket(get().todosByProject, updated) })
+    notifySettingChanged()
     return updated
   },
 
@@ -158,6 +166,7 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
     let todosByProject = get().todosByProject
     for (const todo of updated) todosByProject = replaceInBucket(todosByProject, todo)
     set({ todosByProject })
+    notifySettingChanged()
   },
 
   deleteTodo: async (id) => {
@@ -169,11 +178,13 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
       ])
     )
     set({ todosByProject })
+    notifySettingChanged()
   },
 
   addComment: async (todoId, body, attachments) => {
     const updated = await window.api.todosAddComment(todoId, body, attachments)
     set({ todosByProject: replaceInBucket(get().todosByProject, updated) })
+    notifySettingChanged()
     return updated
   },
 

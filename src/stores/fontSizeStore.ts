@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { notifySettingChanged } from '../lib/notifySettingChanged'
 
 const MIN = 5
 const MAX = 24
@@ -10,6 +11,7 @@ interface FontSizeStore {
   increase: () => void
   decrease: () => void
   reset: () => void
+  setFontSize: (n: number) => void
 }
 
 function applyFontSize(size: number) {
@@ -29,14 +31,23 @@ export const useFontSizeStore = create<FontSizeStore>((set, get) => ({
     const next = Math.min(get().fontSize + 1, MAX)
     applyFontSize(next)
     set({ fontSize: next })
+    notifySettingChanged()
   },
   decrease: () => {
     const next = Math.max(get().fontSize - 1, MIN)
     applyFontSize(next)
     set({ fontSize: next })
+    notifySettingChanged()
   },
   reset: () => {
     applyFontSize(DEFAULT)
     set({ fontSize: DEFAULT })
+    notifySettingChanged()
+  },
+  // Used by remote-settings sync — does not trigger a push back to avoid loops.
+  setFontSize: (n: number) => {
+    const clamped = Math.min(MAX, Math.max(MIN, n))
+    applyFontSize(clamped)
+    set({ fontSize: clamped })
   },
 }))

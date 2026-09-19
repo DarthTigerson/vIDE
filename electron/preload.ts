@@ -376,6 +376,12 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('todos:changed', handler)
   },
 
+  onNotesChanged: (cb: () => void) => {
+    const handler = () => cb()
+    ipcRenderer.on('notes:changed', handler)
+    return () => ipcRenderer.removeListener('notes:changed', handler)
+  },
+
   notesGetRoot: () => ipcRenderer.invoke('notes:getRoot'),
   notesCreateNote: (dirPath: string, name: string) => ipcRenderer.invoke('notes:createNote', dirPath, name),
   notesCreateFolder: (dirPath: string, name: string) => ipcRenderer.invoke('notes:createFolder', dirPath, name),
@@ -386,11 +392,6 @@ contextBridge.exposeInMainWorld('api', {
   notesMcpDisable: () => ipcRenderer.invoke('notes:mcp:disable'),
   browserMcpEnable: () => ipcRenderer.invoke('browser:mcp:enable'),
   browserMcpDisable: () => ipcRenderer.invoke('browser:mcp:disable'),
-  onNotesChanged: (cb: () => void) => {
-    const handler = () => cb()
-    ipcRenderer.on('notes:changed', handler)
-    return () => ipcRenderer.removeListener('notes:changed', handler)
-  },
 
   setWindowTitle: (root: string) => ipcRenderer.send('window:setTitle', root),
 
@@ -454,6 +455,19 @@ contextBridge.exposeInMainWorld('api', {
     const handler = (_: Electron.IpcRendererEvent, id: string, code: number) => cb(id, code)
     ipcRenderer.on('graphify:exit', handler)
     return () => ipcRenderer.removeListener('graphify:exit', handler)
+  },
+
+  configRepoGetSettings: () => ipcRenderer.invoke('configRepo:getSettings'),
+  configRepoSetSettings: (patch: unknown) => ipcRenderer.invoke('configRepo:setSettings', patch),
+  configRepoConnect: (repoUrl: string, token: string) =>
+    ipcRenderer.invoke('configRepo:connect', repoUrl, token),
+  configRepoPull: (categories: unknown) => ipcRenderer.invoke('configRepo:pull', categories),
+  configRepoPush: (data: unknown, lastSyncAt: number) => ipcRenderer.invoke('configRepo:push', data, lastSyncAt),
+  configRepoCheckRemote: (lastSyncAt: number) => ipcRenderer.invoke('configRepo:checkRemote', lastSyncAt),
+  onRemoteSettingsApplied: (cb: (kvMap: Record<string, string>) => void) => {
+    const handler = (_e: unknown, kvMap: Record<string, string>) => cb(kvMap)
+    ipcRenderer.on('configRepo:remoteSettings', handler)
+    return () => ipcRenderer.removeListener('configRepo:remoteSettings', handler)
   },
 
   llamaIsAvailable: () => ipcRenderer.invoke('llama:isAvailable'),
