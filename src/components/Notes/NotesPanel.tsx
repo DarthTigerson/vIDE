@@ -6,6 +6,7 @@ import type { NotesSearchResult } from '@/types/api'
 import { useNotesStore } from '@/stores/notesStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { useNotesSettingsStore } from '@/stores/notesSettingsStore'
+import { notifySettingChanged } from '@/lib/notifySettingChanged'
 import { getBiggestPaneId } from '@/lib/paneLayout'
 import { buildMarkdownPreviewPath } from '@/components/Viewer/paths'
 import { Modal } from '@/components/ui/Modal'
@@ -363,6 +364,7 @@ export function NotesPanel() {
       }
       setPrompt(null)
       setPromptError(null)
+      notifySettingChanged()
     } catch (e) {
       setPromptError(e instanceof Error ? e.message : 'That name is not available')
     }
@@ -388,6 +390,7 @@ export function NotesPanel() {
     useEditorStore.getState().markTabsMissingForDeletedPath(node.path)
     await refreshDir(dirname(node.path))
     setDeleteTarget(null)
+    notifySettingChanged()
   }
 
   async function moveNode(sourcePath: string, targetDir: string) {
@@ -401,6 +404,7 @@ export function NotesPanel() {
     await refreshDir(sourceParent)
     await refreshDir(targetDir)
     armUndo(sourcePath, destPath)
+    notifySettingChanged()
   }
 
   function armUndo(from: string, to: string) {
@@ -417,6 +421,7 @@ export function NotesPanel() {
     await window.api.renamePath(to, from)
     await refreshDir(dirname(from))
     await refreshDir(dirname(to))
+    notifySettingChanged()
   }
 
   return (
