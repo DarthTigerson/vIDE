@@ -113,6 +113,10 @@ export const useConfigRepoStore = create<ConfigRepoStore>((set, get) => ({
     // Pre-boot already pulled — just reflect the result in UI state.
     const { preMountSyncResult } = await import('../lib/preBootSync')
     set({ status: 'connected', lastSyncAt: preMountSyncResult.lastSyncAt })
+
+    // Push immediately so the remote always has the union of both machines'
+    // todos, notes, and settings after every launch — not just on changes.
+    get().push()
   },
 
   setEnabled: (enabled) => {
