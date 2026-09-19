@@ -1,5 +1,17 @@
 # vIDE
 
+## v0.2.15 (2026-09-19)
+- **vIDE Sync**: back up and sync your settings across machines through a private git repo of your own — set it up in Settings (with instructions for creating a private repo and a scoped access token) or as a new step in the first-launch setup wizard
+- Settings, To Do boards, Notes (including nested folders), and Claude usage history all sync; the remote wins on conflict, and remote changes are pulled before the UI loads on launch, then applied live to the renderer instead of being overwritten
+- Changes push automatically: setting changes, To Do and note edits are debounced into a push, notes sync after 20 seconds idle while you type, both machines push on launch so their data merges immediately, and a 5-minute periodic sync keeps every running machine current
+- A sync status icon in the footer (left of the zoom pill) shows connecting/connected/error state and a manual sync button whenever a repo URL is set; bad credentials surface as an error instead of failing silently
+- Concurrent pushes from multiple machines are serialized, and a rejected non-fast-forward push is retried so simultaneous syncs converge
+- Added a fast pull-only remote check, so detecting remote changes doesn't need a full push cycle
+
+**Bug fixes**
+- Fixed notes not reaching a second machine: remote notes are now copied to the local library and the Notes UI refreshes afterwards
+- Config repo sync now runs git through `execFile` instead of a shell command string
+
 ## v0.2.14 (2026-09-13)
 - **Llama panel**: manage and chat with local LLMs via llama.cpp — a new activity bar icon/panel detects `llama-server`/`llama.cpp` on your PATH (resolved via a login shell, same as the Claude/Docker/Graphify checks), lists your configured models with context-menu actions, and a create/edit page lets you pick a `.gguf` file (with a native file-browse button and auto-filled name/alias), launch/stop the server, and watch its output in an always-visible, resizable panel
 - Local Llama models can now be selected as a chat assistant from the same dropdown as Claude and Bridge, and the server auto-starts on first message if it isn't already running; health probing keeps the running/stopped state in sync on mount and reload
