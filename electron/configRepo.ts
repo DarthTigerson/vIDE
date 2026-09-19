@@ -398,6 +398,33 @@ async function pushSettings(data: Record<string, Record<string, string>>, lastSy
   }
 }
 
+// Lightweight pull-only check: fetch remote, and if it has commits newer than
+// lastSyncAt, broadcast the remote settings to all windows. No commit, no push.
+async function checkRemote(lastSyncAt: number): Promise<void> {
+  if (!await isRepoCloned()) return
+  const dir = repoDir()
+  try {
+    await runGit(['fetch', 'origin'], { cwd: dir, timeout: 20000 })
+  } catch { return /* offline */ }
+
+  try {
+    const ctStr = await runGit(['log', 'origin/HEAD', '-1', '--format=%ct'], { cwd: dir })
+    const remoteTsMs = parseInt(ctStr.trim()) * 1000
+    if (remoteTsMs <= lastSyncAt) return // remote has nothing newer than what we pushed
+
+    const remoteKvMap: Record<string, string> = {}
+    for (const cat of ALLOWED_CATEGORIES) {
+      try {
+        const raw = await runGit(['show', `origin/HEAD:${cat}.json`], { cwd: dir, timeout: 10000 })
+        Object.assign(remoteKvMap, JSON.parse(raw))
+      } catch { /* category not in remote yet */ }
+    }
+    if (Object.keys(remoteKvMap).length > 0) {
+      broadcastRemoteSettings(remoteKvMap)
+    }
+  } catch { /* no remote commits yet */ }
+}
+
 export function registerConfigRepoHandlers(): void {
   ipcMain.handle('configRepo:getSettings', () => readSettings())
 
@@ -420,5 +447,10 @@ export function registerConfigRepoHandlers(): void {
   ipcMain.handle(
     'configRepo:push',
     (_e, data: Record<string, Record<string, string>>, lastSyncAt: number) => pushSettings(data, lastSyncAt),
+  )
+
+  ipcMain.handle(
+    'configRepo:checkRemote',
+    (_e, lastSyncAt: number) => checkRemote(lastSyncAt),
   )
 }

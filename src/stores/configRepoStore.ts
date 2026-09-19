@@ -120,15 +120,22 @@ export const useConfigRepoStore = create<ConfigRepoStore>((set, get) => ({
     // todos, notes, and settings after every launch — not just on changes.
     get().push()
 
-    // Periodic sync: push every 5 minutes so both machines stay current while
-    // both apps are open. Each push does fetch+merge+writeTodosData which
-    // triggers the TodosWatcher → refreshAll() in the renderer automatically.
-    const SYNC_INTERVAL_MS = 5 * 60 * 1000
+    // Fast pull-check: every 30 s, fetch remote and apply any settings changes
+    // from the other machine without committing or pushing. This is what makes
+    // theme/display changes visible on the second machine within ~30 seconds.
+    setInterval(() => {
+      if (useConfigRepoStore.getState().enabled) {
+        window.api.configRepoCheckRemote(useConfigRepoStore.getState().lastSyncAt ?? 0)
+      }
+    }, 30_000)
+
+    // Full bidirectional sync: push every 2 minutes to merge todos, notes,
+    // usage history, and settings, and push them back to the remote.
     setInterval(() => {
       if (useConfigRepoStore.getState().enabled) {
         useConfigRepoStore.getState().push()
       }
-    }, SYNC_INTERVAL_MS)
+    }, 2 * 60 * 1000)
   },
 
   setEnabled: (enabled) => {

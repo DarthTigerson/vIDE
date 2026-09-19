@@ -463,6 +463,7 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('configRepo:connect', repoUrl, token),
   configRepoPull: (categories: unknown) => ipcRenderer.invoke('configRepo:pull', categories),
   configRepoPush: (data: unknown, lastSyncAt: number) => ipcRenderer.invoke('configRepo:push', data, lastSyncAt),
+  configRepoCheckRemote: (lastSyncAt: number) => ipcRenderer.invoke('configRepo:checkRemote', lastSyncAt),
   onRemoteSettingsApplied: (cb: (kvMap: Record<string, string>) => void) => {
     const handler = (_e: unknown, kvMap: Record<string, string>) => cb(kvMap)
     ipcRenderer.on('configRepo:remoteSettings', handler)
