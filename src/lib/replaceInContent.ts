@@ -1,4 +1,4 @@
-import { buildRegExp } from './searchInMemory'
+import { createReplacer } from './findInText'
 
 export interface ReplaceOptions {
   query: string
@@ -32,10 +32,9 @@ export interface ReplaceResult {
 export function replaceInContent(content: string, targets: ReplaceTarget[], options: ReplaceOptions): ReplaceResult {
   if (targets.length === 0) return { content, replaced: 0, skipped: 0 }
 
-  let sticky: RegExp
+  let replacer: ReturnType<typeof createReplacer>
   try {
-    const base = buildRegExp(options)
-    sticky = new RegExp(base.source, base.flags.replace('g', '') + 'y')
+    replacer = createReplacer(options)
   } catch (error) {
     return { content, replaced: 0, skipped: targets.length, error: (error as Error).message }
   }
@@ -57,21 +56,11 @@ export function replaceInContent(content: string, targets: ReplaceTarget[], opti
 
     const index = (target.line - 1) * 2
     const line = parts[index]
+    const replacement = line === undefined ? null : replacer(line, target.col)
+    if (!replacement) { skipped++; continue }
+
     const at = target.col - 1
-    if (line === undefined || at < 0 || at >= line.length) { skipped++; continue }
-
-    sticky.lastIndex = at
-    const match = sticky.exec(line)
-    if (!match || match[0].length === 0) { skipped++; continue }
-
-    if (options.regex) {
-      // String replacement, so $1 / $& / $<name> expand; the sticky regex
-      // replaces only the match at `at`, using the full line as context.
-      sticky.lastIndex = at
-      parts[index] = line.replace(sticky, options.replacement)
-    } else {
-      parts[index] = line.slice(0, at) + options.replacement + line.slice(at + match[0].length)
-    }
+    parts[index] = line.slice(0, at) + replacement.text + line.slice(at + replacement.length)
     replaced++
   }
 
