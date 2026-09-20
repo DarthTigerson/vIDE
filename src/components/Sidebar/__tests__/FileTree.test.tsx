@@ -40,6 +40,7 @@ function renderTree(activeTabPath: string | null) {
       dragOverPath={null}
       setDragOverPath={noop}
       onMoveNode={noop}
+      onDropExternal={noop}
     />
   )
 }

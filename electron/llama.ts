@@ -89,7 +89,15 @@ export function resolveLlamaPath(): Promise<string | null> {
         return
       }
 
-      console.error('[llama] failed to resolve llama.cpp binary path via login shell:', err ?? `unexpected output: ${JSON.stringify(stdout)}`)
+      // `command -v a || command -v b` exits 1 when neither binary exists —
+      // that's just "llama.cpp isn't installed", an expected state the renderer
+      // surfaces in the footer notification and the Llama panel. Only a shell
+      // that couldn't run, exited any other way, or printed something that isn't
+      // a path is worth an error log.
+      const notInstalled = !!err && (err as { code?: unknown }).code === 1
+      if (!notInstalled) {
+        console.error('[llama] failed to resolve llama.cpp binary path via login shell:', err ?? `unexpected output: ${JSON.stringify(stdout)}`)
+      }
       resolve(null)
     })
   })

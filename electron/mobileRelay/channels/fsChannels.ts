@@ -2,6 +2,7 @@ import { registerChannel } from '../dispatch'
 import {
   buildTree, readTextFile, readImageDataUrl, pathExists, getHomeDir,
   writeFile, mkdir, renamePath, trashPath, listAllFiles, searchText,
+  copyInto, moveInto,
 } from '../../fsOps'
 
 // Plain request/response filesystem channels, mirroring the ipcMain.handle
@@ -21,6 +22,8 @@ export function registerFsRelayChannels(): void {
   registerChannel('fs:mkdir', (path: string) => mkdir(path))
   registerChannel('fs:rename', (from: string, to: string) => renamePath(from, to))
   registerChannel('fs:trash', (path: string) => trashPath(path))
+  registerChannel('fs:copyInto', (source: string, destDir: string) => copyInto(source, destDir))
+  registerChannel('fs:moveInto', (source: string, destDir: string) => moveInto(source, destDir))
   registerChannel('fs:listAllFiles', (root: string) => listAllFiles(root))
   registerChannel('fs:searchText', (root: string, query: string, caseSensitive: boolean) =>
     searchText(root, query, caseSensitive))

@@ -327,6 +327,7 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
           onClose={() => setMenu(null)}
           onDuplicate={() => duplicateTodo(menu.todo)}
           onMoveTo={(status) => updateTodo(menu.todo.id, { status })}
+          onSetLabel={(label) => updateTodo(menu.todo.id, { label })}
           onArchive={() => archiveTodo(menu.todo.id, true)}
           onSortColumnMode={(mode) =>
             setSortModes((prev) => ({ ...prev, [menu.todo.status]: mode }))

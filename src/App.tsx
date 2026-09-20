@@ -89,6 +89,9 @@ import { useTodoSettingsStore } from './stores/todoSettingsStore'
 import { useNotesSettingsStore } from './stores/notesSettingsStore'
 import { useLlamaSettingsStore } from './stores/llamaSettingsStore'
 import { useLlamaModelsStore } from './stores/llamaModelsStore'
+import { useRunningLlamaCount } from './hooks/useRunningLlamaCount'
+import { useLlamaAvailability } from './hooks/useLlamaAvailability'
+import { usePanelRequests } from './hooks/usePanelRequests'
 import { useGraphifySettingsStore } from './stores/graphifySettingsStore'
 import { useGraphifyAutoBuild } from './hooks/useGraphifyAutoBuild'
 import { useNotesStore } from './stores/notesStore'
@@ -231,6 +234,7 @@ export default function App() {
     if (!dockerOpenRequest) return
     setLeftPanel('docker')
   }, [dockerOpenRequest])
+  usePanelRequests(setLeftPanel)
   const gitPanelOpenRequest = useGitPanelOpenAlertStore((s) => s.openRequest)
   useEffect(() => {
     if (!gitPanelOpenRequest) return
@@ -250,6 +254,8 @@ export default function App() {
   const todoEnabled = useTodoSettingsStore((s) => s.enabled)
   const notesEnabled = useNotesSettingsStore((s) => s.enabled)
   const llamaEnabled = useLlamaSettingsStore((s) => s.enabled)
+  const runningLlamaCount = useRunningLlamaCount(llamaEnabled)
+  useLlamaAvailability(llamaEnabled)
   const graphifyEnabled = useGraphifySettingsStore((s) => s.enabled)
 
   function openNewTerminal() {
@@ -917,7 +923,7 @@ export default function App() {
               icon: <LlamaIcon />,
               title: 'Llama',
               active: leftPanel === 'llama',
-              badge: llamaModels.length > 0 ? llamaModels.length : undefined,
+              badge: runningLlamaCount > 0 ? runningLlamaCount : undefined,
               onClick: () => setLeftPanel((p) => (p === 'llama' ? null : 'llama')),
             }] : []),
             ...(mobileEnabled && projectRoot ? [{

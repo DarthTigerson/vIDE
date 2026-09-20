@@ -95,6 +95,49 @@ describe('GitPanel — generate commit message', () => {
     expect(useGitStore.getState().repos['/proj'].commitMessage).toBe('wip')
   })
 
+  it('records the failure in the git store so the notification center can show it', async () => {
+    ;(window.api.commitMessageGenerate as ReturnType<typeof vi.fn>).mockResolvedValue(null)
+    render(<GitPanel />)
+    fireEvent.click(generateButton())
+
+    await waitFor(() =>
+      expect(useGitStore.getState().repos['/proj'].commitMessageError).toBe('Could not generate a commit message')
+    )
+  })
+
+  it('records a failure when reading the staged diff throws, instead of failing silently', async () => {
+    ;(window.api.gitStagedDiff as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('git exploded'))
+    render(<GitPanel />)
+    fireEvent.click(generateButton())
+
+    await waitFor(() =>
+      expect(useGitStore.getState().repos['/proj'].commitMessageError).toBe('Could not generate a commit message')
+    )
+    expect(screen.getByText('Could not generate a commit message')).toBeTruthy()
+  })
+
+  it('keeps showing the error after the Git panel is closed and reopened', async () => {
+    ;(window.api.commitMessageGenerate as ReturnType<typeof vi.fn>).mockResolvedValue(null)
+    const first = render(<GitPanel />)
+    fireEvent.click(generateButton())
+    await waitFor(() => expect(screen.getByText('Could not generate a commit message')).toBeTruthy())
+    first.unmount()
+
+    render(<GitPanel />)
+    expect(screen.getByText('Could not generate a commit message')).toBeTruthy()
+  })
+
+  it('clears the previous error when a later generation succeeds', async () => {
+    useGitStore.setState({
+      repos: { '/proj': { ...emptyRepoGitState, status: staged, commitMessageError: 'Could not generate a commit message' } },
+    })
+    render(<GitPanel />)
+    fireEvent.click(generateButton())
+
+    await waitFor(() => expect(useGitStore.getState().repos['/proj'].commitMessage).toBe('Fix the login bug'))
+    expect(useGitStore.getState().repos['/proj'].commitMessageError).toBeNull()
+  })
+
   it('swaps to a looping gif while generating, then reverts to the Claude icon once done', async () => {
     let resolveGenerate!: (msg: string) => void
     window.api.commitMessageGenerate = vi.fn(

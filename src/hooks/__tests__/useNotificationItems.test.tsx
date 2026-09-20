@@ -9,6 +9,9 @@ import { useDockerOffAlertStore } from '@/stores/dockerOffAlertStore'
 import { useGitStore, emptyRepoGitState } from '@/stores/gitStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitPanelOpenAlertStore } from '@/stores/gitPanelOpenAlertStore'
+import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
+import { useLlamaStore } from '@/stores/llamaStore'
+import { usePanelRequestStore } from '@/stores/panelRequestStore'
 
 beforeEach(() => {
   useUsageAlertStore.setState({ alerts: [] })
@@ -19,6 +22,9 @@ beforeEach(() => {
   useGitStore.setState({ repos: {} })
   useGitReposStore.setState({ selectedRepo: null, hasExplicitSelection: false })
   useGitPanelOpenAlertStore.setState({ openRequest: 0 })
+  useLlamaSettingsStore.setState({ enabled: false })
+  useLlamaStore.setState({ available: null })
+  usePanelRequestStore.setState({ request: null })
 })
 
 afterEach(() => {
@@ -153,6 +159,85 @@ describe('useNotificationItems', () => {
     useGitStore.setState({ repos: { '/repo/one': { ...emptyRepoGitState, commitError: null } } })
     const { result } = renderHook(() => useNotificationItems())
     expect(result.current.find((i) => i.id.startsWith('commit-error-'))).toBeUndefined()
+  })
+
+  it('includes a commit-message-error item when generating a message failed, and its action selects the repo and requests the panel to open', () => {
+    useGitStore.setState({
+      repos: { '/repo/one': { ...emptyRepoGitState, commitMessageError: 'Could not generate a commit message' } },
+    })
+    const { result } = renderHook(() => useNotificationItems())
+    const item = result.current.find((i) => i.id === 'commit-message-error-/repo/one')
+    expect(item?.text).toBe('Could not generate a commit message in one')
+    expect(item?.icon).toBeTruthy()
+    act(() => item!.onClick!())
+    expect(useGitReposStore.getState().selectedRepo).toBe('/repo/one')
+    expect(useGitPanelOpenAlertStore.getState().openRequest).toBe(1)
+  })
+
+  it('includes one commit-message-error item per affected repo only', () => {
+    useGitStore.setState({
+      repos: {
+        '/repo/one': { ...emptyRepoGitState, commitMessageError: 'x' },
+        '/repo/two': { ...emptyRepoGitState, commitMessageError: 'x' },
+        '/repo/three': { ...emptyRepoGitState, commitMessageError: null },
+      },
+    })
+    const { result } = renderHook(() => useNotificationItems())
+    const ids = result.current.map((i) => i.id)
+    expect(ids).toContain('commit-message-error-/repo/one')
+    expect(ids).toContain('commit-message-error-/repo/two')
+    expect(ids).not.toContain('commit-message-error-/repo/three')
+  })
+
+  it('a commit error and a generation error in the same repo are separate rows', () => {
+    useGitStore.setState({
+      repos: { '/repo/one': { ...emptyRepoGitState, commitError: 'hook failed', commitMessageError: 'x' } },
+    })
+    const { result } = renderHook(() => useNotificationItems())
+    expect(result.current.map((i) => i.id)).toEqual(['commit-error-/repo/one', 'commit-message-error-/repo/one'])
+  })
+
+  it("includes a llama item when the Llama feature is on but llama.cpp isn't installed, and its action opens the Llama panel (VIDE-110)", () => {
+    useLlamaSettingsStore.setState({ enabled: true })
+    useLlamaStore.setState({ available: false })
+    const { result } = renderHook(() => useNotificationItems())
+    const item = result.current.find((i) => i.id === 'llama-unavailable')
+    expect(item?.text).toBe("llama.cpp isn't installed")
+    expect(item?.disabled).toBe(false)
+    expect(item?.icon).toBeTruthy()
+    act(() => item!.onClick!())
+    expect(usePanelRequestStore.getState().request?.panel).toBe('llama')
+  })
+
+  it('stays silent about llama.cpp while availability is still unknown', () => {
+    useLlamaSettingsStore.setState({ enabled: true })
+    useLlamaStore.setState({ available: null })
+    const { result } = renderHook(() => useNotificationItems())
+    expect(result.current.find((i) => i.id === 'llama-unavailable')).toBeUndefined()
+  })
+
+  it('stays silent when llama.cpp is installed', () => {
+    useLlamaSettingsStore.setState({ enabled: true })
+    useLlamaStore.setState({ available: true })
+    const { result } = renderHook(() => useNotificationItems())
+    expect(result.current.find((i) => i.id === 'llama-unavailable')).toBeUndefined()
+  })
+
+  it('stays silent when the Llama feature is switched off, even though llama.cpp is missing', () => {
+    useLlamaSettingsStore.setState({ enabled: false })
+    useLlamaStore.setState({ available: false })
+    const { result } = renderHook(() => useNotificationItems())
+    expect(result.current.find((i) => i.id === 'llama-unavailable')).toBeUndefined()
+  })
+
+  it('orders the llama item after docker and before the update item', () => {
+    useDockerSettingsStore.setState({ enabled: true })
+    useDockerStore.setState({ status: 'stopped' })
+    useLlamaSettingsStore.setState({ enabled: true })
+    useLlamaStore.setState({ available: false })
+    useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com' }, status: 'idle' })
+    const { result } = renderHook(() => useNotificationItems())
+    expect(result.current.map((i) => i.id)).toEqual(['docker', 'llama-unavailable', 'update'])
   })
 
   it('orders usage before docker before update', () => {

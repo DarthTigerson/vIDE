@@ -18,6 +18,10 @@ export interface RepoGitState {
   ignoredPaths: string[]
   commitMessage: string
   commitError: string | null
+  // Set when Claude couldn't generate a commit message. Lives here (not in
+  // RepoSection's local state) so it outlasts the Git panel being closed and
+  // can surface in the notification center — same lifecycle as commitError.
+  commitMessageError: string | null
   commandStatus: 'idle' | 'running'
   // Bumped (never reset) each time a git command exits non-zero or throws —
   // GitActivityBar watches for it increasing to trigger a one-shot error
@@ -33,6 +37,7 @@ export const emptyRepoGitState: RepoGitState = {
   ignoredPaths: [],
   commitMessage: '',
   commitError: null,
+  commitMessageError: null,
   commandStatus: 'idle',
   commandError: 0,
   silentFetchInFlight: false,
@@ -50,6 +55,7 @@ interface GitStore {
   discard: (cwd: string, path: string) => Promise<void>
   discardAll: (cwd: string) => Promise<void>
   setCommitMessage: (cwd: string, message: string) => void
+  setCommitMessageError: (cwd: string, error: string | null) => void
   commit: (cwd: string, noVerify?: boolean) => Promise<void>
   fetch: (cwd: string) => Promise<void>
   pull: (cwd: string) => Promise<void>
@@ -240,14 +246,17 @@ export const useGitStore = create<GitStore>((set, get) => {
     }
   },
 
-  setCommitMessage: (cwd, message) => setRepo(cwd, { commitMessage: message, commitError: null }),
+  setCommitMessage: (cwd, message) =>
+    setRepo(cwd, { commitMessage: message, commitError: null, commitMessageError: null }),
+
+  setCommitMessageError: (cwd, error) => setRepo(cwd, { commitMessageError: error }),
 
   commit: async (cwd, noVerify) => {
     const { commitMessage } = stateFor(cwd)
     setRepo(cwd, { commandStatus: 'running' })
     const result = await window.api.gitCommit(cwd, commitMessage, noVerify)
     if (result.ok) {
-      setRepo(cwd, { commandStatus: 'idle', commitMessage: '', commitError: null })
+      setRepo(cwd, { commandStatus: 'idle', commitMessage: '', commitError: null, commitMessageError: null })
       await get().refresh(cwd)
       await refreshGraphIfOpen(cwd)
     } else {

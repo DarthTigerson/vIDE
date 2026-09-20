@@ -23,7 +23,9 @@ import { LanguageServerManager } from './lsp/manager'
 import {
   listAllFiles, searchText, buildTree, readImageDataUrl,
   readTextFile, pathExists, getHomeDir, writeFile as fsWriteFile, mkdir, renamePath, trashPath,
+  copyInto, moveInto,
 } from './fsOps'
+import { writeClipboardFiles, readClipboardFiles } from './fileClipboard'
 import { registerSessionHandlers } from './session'
 import { registerRecentProjectsHandlers, readRecents, addRecentProject, clearRecentProjects } from './recentProjects'
 import { registerTodoHandlers } from './todos'
@@ -45,6 +47,10 @@ function registerFsHandlers(): void {
   ipcMain.handle('fs:mkdir', (_e, path: string) => mkdir(path))
   ipcMain.handle('fs:rename', (_e, from: string, to: string) => renamePath(from, to))
   ipcMain.handle('fs:trash', (_e, path: string) => trashPath(path))
+  ipcMain.handle('fs:copyInto', (_e, source: string, destDir: string) => copyInto(source, destDir))
+  ipcMain.handle('fs:moveInto', (_e, source: string, destDir: string) => moveInto(source, destDir))
+  ipcMain.handle('clipboard:writeFiles', (_e, paths: string[], mode: 'copy' | 'cut') => writeClipboardFiles(paths, mode))
+  ipcMain.handle('clipboard:readFiles', () => readClipboardFiles())
   ipcMain.handle('fs:listAllFiles', (_e, root: string) => listAllFiles(root))
   ipcMain.handle('fs:searchText', (_e, root: string, query: string, caseSensitive: boolean) =>
     searchText(root, query, caseSensitive)

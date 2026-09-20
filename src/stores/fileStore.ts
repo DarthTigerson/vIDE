@@ -148,10 +148,17 @@ export const useFileStore = create<FileState>((set, get) => {
     }))
   },
 
+  // Collapsing a folder also collapses every folder that was expanded inside
+  // it. Otherwise reopening it re-fetches its children as fresh, unexpanded
+  // nodes while the nested folder is still in expandedPaths — it would render
+  // as open (chevron + icon) with nothing under it.
   collapseDir: (dirPath: string) => {
     set((state) => {
-      const next = new Set(state.expandedPaths)
-      next.delete(dirPath)
+      const nestedPrefix = `${dirPath}/`
+      const next = new Set<string>()
+      for (const path of state.expandedPaths) {
+        if (path !== dirPath && !path.startsWith(nestedPrefix)) next.add(path)
+      }
       return { expandedPaths: next }
     })
   },

@@ -222,6 +222,75 @@ describe('LlamaManager', () => {
       expect(resolved).toBeNull()
     })
 
+    describe('when llama.cpp is simply not installed', () => {
+      // `command -v a || command -v b` exits 1 when neither exists — the normal
+      // "not installed" answer, not a failure worth an error log (VIDE-110).
+      function notInstalled() {
+        execFileMock.mockImplementation((_shell: string, _args: string[], cb: (err: Error | null, stdout: string) => void) => {
+          cb(Object.assign(new Error('Command failed'), { code: 1 }), '')
+        })
+      }
+
+      it('resolves null without logging an error', async () => {
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        notInstalled()
+        expect(await resolveLlamaPath()).toBeNull()
+        expect(errorSpy).not.toHaveBeenCalled()
+        errorSpy.mockRestore()
+      })
+
+      it('stays quiet even when the login shell printed a banner before exiting 1', async () => {
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        execFileMock.mockImplementation((_shell: string, _args: string[], cb: (err: Error | null, stdout: string) => void) => {
+          cb(Object.assign(new Error('Command failed'), { code: 1 }), 'Welcome back!\nnvm loaded\n')
+        })
+        expect(await resolveLlamaPath()).toBeNull()
+        expect(errorSpy).not.toHaveBeenCalled()
+        errorSpy.mockRestore()
+      })
+
+      it('is still re-checked next time (a later install must be picked up), not cached', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => {})
+        notInstalled()
+        await resolveLlamaPath()
+        await resolveLlamaPath()
+        expect(execFileMock).toHaveBeenCalledTimes(2)
+        vi.mocked(console.error).mockRestore()
+      })
+    })
+
+    describe('when resolving fails for a real reason', () => {
+      it('still logs a failure to launch the login shell', async () => {
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        execFileMock.mockImplementation((_shell: string, _args: string[], cb: (err: Error | null, stdout: string) => void) => {
+          cb(Object.assign(new Error('spawn /bin/zsh ENOENT'), { code: 'ENOENT' }), '')
+        })
+        expect(await resolveLlamaPath()).toBeNull()
+        expect(errorSpy).toHaveBeenCalledTimes(1)
+        errorSpy.mockRestore()
+      })
+
+      it('still logs an unexpected exit code from the login shell', async () => {
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        execFileMock.mockImplementation((_shell: string, _args: string[], cb: (err: Error | null, stdout: string) => void) => {
+          cb(Object.assign(new Error('Command failed'), { code: 127 }), '')
+        })
+        expect(await resolveLlamaPath()).toBeNull()
+        expect(errorSpy).toHaveBeenCalledTimes(1)
+        errorSpy.mockRestore()
+      })
+
+      it('still logs when the shell succeeds but prints something that is not a path', async () => {
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        execFileMock.mockImplementation((_shell: string, _args: string[], cb: (err: Error | null, stdout: string) => void) => {
+          cb(null, 'not a path\n')
+        })
+        expect(await resolveLlamaPath()).toBeNull()
+        expect(errorSpy).toHaveBeenCalledTimes(1)
+        errorSpy.mockRestore()
+      })
+    })
+
     it('falls back to llama-cli when llama-server is absent', async () => {
       execFileMock.mockImplementation((_shell: string, args: string[], cb: (err: Error | null, stdout: string) => void) => {
         // Verify the probe checks both binaries.

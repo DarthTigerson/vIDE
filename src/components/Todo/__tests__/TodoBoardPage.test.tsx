@@ -434,4 +434,68 @@ describe('TodoBoardPage', () => {
       })
     })
   })
+
+  describe('card context menu — Label (VIDE-109)', () => {
+    function openLabelSubmenu(cardTitle = 'Fix bug') {
+      fireEvent.contextMenu(screen.getByText(cardTitle))
+      fireEvent.mouseEnter(screen.getByRole('button', { name: 'Label' }))
+    }
+
+    it('has a Label submenu on a card right-click', () => {
+      render(<TodoBoardPage projectId="p1" />)
+      fireEvent.contextMenu(screen.getByText('Fix bug'))
+      expect(screen.getByRole('button', { name: 'Label' })).toBeInTheDocument()
+    })
+
+    it('lists No label plus every label', () => {
+      render(<TodoBoardPage projectId="p1" />)
+      openLabelSubmenu()
+      // The checked entry's accessible name carries its ✓, so match the start.
+      for (const name of ['No label', 'Bug', 'Feature', 'Nice to have']) {
+        expect(screen.getByRole('button', { name: new RegExp(`^${name}`) })).toBeInTheDocument()
+      }
+    })
+
+    it('puts a checkmark on the card\'s current label only', () => {
+      useTodoStore.setState({
+        todosByProject: { p1: [makeTodo({ id: 'H-1', title: 'Fix bug', label: 'bug' })] },
+      })
+      render(<TodoBoardPage projectId="p1" />)
+      openLabelSubmenu()
+      expect(screen.getByRole('button', { name: /^Bug/ })).toHaveTextContent('✓')
+      expect(screen.getByRole('button', { name: /^Feature/ })).not.toHaveTextContent('✓')
+      expect(screen.getByRole('button', { name: /^No label/ })).not.toHaveTextContent('✓')
+    })
+
+    it('checks No label when the card has none', () => {
+      render(<TodoBoardPage projectId="p1" />)
+      openLabelSubmenu()
+      expect(screen.getByRole('button', { name: /^No label/ })).toHaveTextContent('✓')
+    })
+
+    it('choosing a label sets it on that card and closes the menu', () => {
+      render(<TodoBoardPage projectId="p1" />)
+      openLabelSubmenu()
+      fireEvent.click(screen.getByRole('button', { name: 'Feature' }))
+      expect(updateTodoMock).toHaveBeenCalledWith('H-1', { label: 'feature' })
+      expect(screen.queryByRole('button', { name: 'Label' })).not.toBeInTheDocument()
+    })
+
+    it('choosing No label clears an existing label', () => {
+      useTodoStore.setState({
+        todosByProject: { p1: [makeTodo({ id: 'H-1', title: 'Fix bug', label: 'bug' })] },
+      })
+      render(<TodoBoardPage projectId="p1" />)
+      openLabelSubmenu()
+      fireEvent.click(screen.getByRole('button', { name: /^No label/ }))
+      expect(updateTodoMock).toHaveBeenCalledWith('H-1', { label: null })
+    })
+
+    it('targets the card that was right-clicked, not another one', () => {
+      render(<TodoBoardPage projectId="p1" />)
+      openLabelSubmenu('Ship feature')
+      fireEvent.click(screen.getByRole('button', { name: 'Bug' }))
+      expect(updateTodoMock).toHaveBeenCalledWith('H-2', { label: 'bug' })
+    })
+  })
 })

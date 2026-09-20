@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { MouseEvent, ReactNode } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent, ReactNode } from 'react'
 import type { FileNode } from '@/types/index'
 import type { RecentProject } from '@/types/api'
 import { useFileStore } from '@/stores/fileStore'
@@ -15,6 +15,8 @@ import { clampToViewport } from '@/components/ui/clampToViewport'
 import { buildTerminalPath } from '@/components/Settings/paths'
 import { pendingTerminalCommands } from '@/components/Terminal/TerminalTab'
 import { UndoToast } from '@/components/ui/UndoToast'
+import { copyToClipboard, pasteInto, dropExternalFiles } from '@/lib/fileClipboardActions'
+import { findNodeByPath, isExternalFileDrag } from './treeUtils'
 
 const UNDO_TIMEOUT_MS = 10000
 
@@ -76,9 +78,10 @@ function copyText(text: string): void {
 }
 
 export function Sidebar() {
-  const { projectRoot, tree, openFolder, refreshTree, expandDir, collapseAll } = useFileStore()
+  const { projectRoot, tree, openFolder, refreshTree, expandDir, collapseAll, selectedPath } = useFileStore()
   const { openTab, activeTabPath } = useEditorStore()
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
+  const [canPaste, setCanPaste] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const [prompt, setPrompt] = useState<TreePromptState | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<FileNode | null>(null)
@@ -200,6 +203,8 @@ export function Sidebar() {
     event.preventDefault()
     event.stopPropagation()
     setMenu({ x: event.clientX, y: event.clientY, node })
+    setCanPaste(false)
+    window.api.readClipboardFiles().then((clip) => setCanPaste(!!clip && clip.paths.length > 0))
   }
 
   async function startCreate(kind: CreateKind, node: FileNode | null) {
@@ -305,6 +310,57 @@ export function Sidebar() {
     armUndo(sourcePath, destPath)
   }
 
+  async function copyNode(node: FileNode, mode: 'copy' | 'cut') {
+    setMenu(null)
+    try {
+      await copyToClipboard(node.path, mode)
+    } catch (error) {
+      console.error('Copy to clipboard failed', error)
+    }
+  }
+
+  async function finishPaste(targetDir: string, moved: { from: string; to: string }[]) {
+    await refreshTree()
+    if (targetDir !== projectRoot) await expandDir(targetDir)
+    if (moved.length === 1) armUndo(moved[0].from, moved[0].to)
+  }
+
+  async function pasteNode(node: FileNode | null) {
+    setMenu(null)
+    const targetDir = targetDirectory(node)
+    if (!targetDir) return
+    try {
+      const result = await pasteInto(targetDir)
+      if (result) await finishPaste(targetDir, result.moved)
+    } catch (error) {
+      console.error('Paste failed', error)
+      await refreshTree()
+    }
+  }
+
+  async function dropExternal(files: File[], targetDir: string) {
+    try {
+      await dropExternalFiles(files, targetDir)
+    } catch (error) {
+      console.error('Drop failed', error)
+    }
+    await finishPaste(targetDir, [])
+  }
+
+  function handleTreeKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return
+    if (event.target instanceof HTMLInputElement) return
+    const selected = selectedPath ? findNodeByPath(tree, selectedPath) : null
+    const key = event.key.toLowerCase()
+    if ((key === 'c' || key === 'x') && selected) {
+      event.preventDefault()
+      void copyNode(selected, key === 'c' ? 'copy' : 'cut')
+    } else if (key === 'v') {
+      event.preventDefault()
+      void pasteNode(selected)
+    }
+  }
+
   function armUndo(from: string, to: string) {
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
     setUndoMove({ from, to })
@@ -341,14 +397,20 @@ export function Sidebar() {
 
           <div
             className={`flex-1 overflow-y-auto py-1 ${dragOverPath === projectRoot ? 'bg-accent/5' : ''}`}
+            onKeyDown={handleTreeKeyDown}
             onDragOver={(event) => {
               event.preventDefault()
-              event.dataTransfer.dropEffect = 'move'
+              event.dataTransfer.dropEffect = isExternalFileDrag(event.dataTransfer) ? 'copy' : 'move'
               if (dragOverPath !== projectRoot) setDragOverPath(projectRoot)
             }}
             onDrop={(event) => {
               event.preventDefault()
               setDragOverPath(null)
+              if (isExternalFileDrag(event.dataTransfer)) {
+                const files = Array.from(event.dataTransfer.files)
+                if (files.length > 0) void dropExternal(files, projectRoot)
+                return
+              }
               const sourcePath = event.dataTransfer.getData('text/plain')
               if (sourcePath) moveNode(sourcePath, projectRoot)
             }}
@@ -364,6 +426,7 @@ export function Sidebar() {
               dragOverPath={dragOverPath}
               setDragOverPath={setDragOverPath}
               onMoveNode={moveNode}
+              onDropExternal={dropExternal}
             />
           </div>
 
@@ -399,6 +462,20 @@ export function Sidebar() {
               </ContextMenuButton>
               <ContextMenuButton onClick={() => startCreate('directory', menu.node)}>
                 Create Directory
+              </ContextMenuButton>
+              <ContextMenuDivider />
+              {menu.node && (
+                <>
+                  <ContextMenuButton onClick={() => copyNode(menu.node!, 'cut')}>
+                    Cut
+                  </ContextMenuButton>
+                  <ContextMenuButton onClick={() => copyNode(menu.node!, 'copy')}>
+                    Copy
+                  </ContextMenuButton>
+                </>
+              )}
+              <ContextMenuButton disabled={!canPaste} onClick={() => pasteNode(menu.node)}>
+                Paste
               </ContextMenuButton>
               <ContextMenuDivider />
               <ContextMenuButton onClick={() => {
@@ -522,20 +599,24 @@ function RecentProjectsList() {
   )
 }
 
-function ContextMenuButton({ children, danger = false, onClick }: {
+function ContextMenuButton({ children, danger = false, disabled = false, onClick }: {
   children: ReactNode
   danger?: boolean
+  disabled?: boolean
   onClick: () => void
 }) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={onClick}
       className={[
         'w-full rounded px-2 py-1.5 text-left text-xs transition-colors',
-        danger
-          ? 'text-red-300 hover:bg-red-500/15 hover:text-red-200'
-          : 'text-fg-muted hover:bg-white/5 hover:text-fg',
+        disabled
+          ? 'text-fg-subtle cursor-default'
+          : danger
+            ? 'text-red-300 hover:bg-red-500/15 hover:text-red-200'
+            : 'text-fg-muted hover:bg-white/5 hover:text-fg',
       ].join(' ')}
     >
       {children}

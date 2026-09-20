@@ -8,10 +8,13 @@ import { useDockerOffAlertStore } from '@/stores/dockerOffAlertStore'
 import { useGitStore } from '@/stores/gitStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitPanelOpenAlertStore } from '@/stores/gitPanelOpenAlertStore'
+import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
+import { useLlamaStore } from '@/stores/llamaStore'
+import { usePanelRequestStore } from '@/stores/panelRequestStore'
 import { formatCountdownClock } from '@/components/UsagePanel/format'
 import { useEditorStore } from '@/stores/editorStore'
 import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
-import { ClaudeIcon, DockerIcon, GitIcon, UpdateAvailableIcon } from '@/components/ActivityBar/ActivityBar'
+import { ClaudeIcon, DockerIcon, GitIcon, LlamaIcon, UpdateAvailableIcon } from '@/components/ActivityBar/ActivityBar'
 
 export interface NotificationItem {
   id: string
@@ -27,6 +30,8 @@ export function useNotificationItems(): NotificationItem[] {
   const dockerEnabled = useDockerSettingsStore((s) => s.enabled)
   const dockerStatus = useDockerStore((s) => s.status)
   const requestDockerOpen = useDockerOffAlertStore((s) => s.requestOpen)
+  const llamaEnabled = useLlamaSettingsStore((s) => s.enabled)
+  const llamaAvailable = useLlamaStore((s) => s.available)
   const available = useUpdateStore((s) => s.available)
   const status = useUpdateStore((s) => s.status)
   const startUpdate = useUpdateStore((s) => s.startUpdate)
@@ -79,6 +84,23 @@ export function useNotificationItems(): NotificationItem[] {
     })
   }
 
+  // Same shape as the commit-error rows above: lives in gitStore until the
+  // message is edited, a commit succeeds, or the next generation starts.
+  for (const [cwd, repoState] of Object.entries(gitRepos)) {
+    if (!repoState.commitMessageError) continue
+    const repoName = cwd.split('/').pop()
+    items.push({
+      id: `commit-message-error-${cwd}`,
+      text: `${repoState.commitMessageError} in ${repoName}`,
+      disabled: false,
+      icon: <GitIcon />,
+      onClick: () => {
+        useGitReposStore.getState().selectRepo(cwd)
+        useGitPanelOpenAlertStore.getState().requestOpen()
+      },
+    })
+  }
+
   if (dockerEnabled && dockerStatus === 'stopped') {
     items.push({
       id: 'docker',
@@ -86,6 +108,18 @@ export function useNotificationItems(): NotificationItem[] {
       disabled: false,
       icon: <DockerIcon />,
       onClick: requestDockerOpen,
+    })
+  }
+
+  // null means "not probed yet" — only a confirmed false is worth telling the
+  // user about. Clicking opens the Llama panel, which shows how to install it.
+  if (llamaEnabled && llamaAvailable === false) {
+    items.push({
+      id: 'llama-unavailable',
+      text: "llama.cpp isn't installed",
+      disabled: false,
+      icon: <LlamaIcon />,
+      onClick: () => usePanelRequestStore.getState().requestPanel('llama'),
     })
   }
 

@@ -17,6 +17,12 @@ export function formatSelectionForAssistant({ relPath, startLine, endLine, langu
   return `In ${relPath} (${lineLabel}):\n\`\`\`${language}\n${code}\n\`\`\``
 }
 
+// A terminal selection has no file or line range to cite, so it's labelled as
+// terminal output instead.
+export function formatTerminalSelectionForAssistant(text: string): string {
+  return `Terminal output:\n\`\`\`\n${text}\n\`\`\``
+}
+
 // The bracketed-paste protocol every real terminal uses to deliver a
 // multi-line paste to a foreground CLI in one shot, so embedded newlines
 // aren't read as separate keystrokes/submits by the CLI's line editor.

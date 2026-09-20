@@ -176,6 +176,87 @@ describe('fileStore', () => {
     expect(useFileStore.getState().expandedPaths.size).toBe(0)
   })
 
+  describe('collapsing a parent folder (VIDE-107)', () => {
+    const nestedRoot: FileNode[] = [
+      { name: 'p', path: '/proj/p', isDirectory: true },
+      { name: 'p-two', path: '/proj/p-two', isDirectory: true },
+    ]
+    const pChildren: FileNode[] = [
+      { name: 'a', path: '/proj/p/a', isDirectory: true },
+      { name: 'f.txt', path: '/proj/p/f.txt', isDirectory: false },
+    ]
+    const aChildren: FileNode[] = [{ name: 'x.txt', path: '/proj/p/a/x.txt', isDirectory: false }]
+
+    function findNode(nodes: FileNode[], path: string): FileNode | undefined {
+      for (const node of nodes) {
+        if (node.path === path) return node
+        const found = node.children ? findNode(node.children, path) : undefined
+        if (found) return found
+      }
+      return undefined
+    }
+
+    beforeEach(() => {
+      useFileStore.setState({ projectRoot: '/proj', tree: nestedRoot, expandedPaths: new Set() })
+    })
+
+    it('never leaves a nested folder marked expanded without its children after the parent is reopened', async () => {
+      vi.mocked(window.api.readDir)
+        .mockResolvedValueOnce(pChildren) // expand p
+        .mockResolvedValueOnce(aChildren) // expand p/a
+        .mockResolvedValueOnce(pChildren) // reopen p — fresh listing, a comes back with no children loaded
+      const store = useFileStore.getState()
+      await store.expandDir('/proj/p')
+      await store.expandDir('/proj/p/a')
+      store.collapseDir('/proj/p')
+      await store.expandDir('/proj/p')
+
+      const { tree, expandedPaths } = useFileStore.getState()
+      for (const path of expandedPaths) {
+        expect(findNode(tree, path)?.children, `${path} is marked expanded but has no children`).toBeDefined()
+      }
+    })
+
+    it('collapsing a folder also collapses the folders that were expanded inside it', async () => {
+      vi.mocked(window.api.readDir).mockResolvedValueOnce(pChildren).mockResolvedValueOnce(aChildren)
+      const store = useFileStore.getState()
+      await store.expandDir('/proj/p')
+      await store.expandDir('/proj/p/a')
+      store.collapseDir('/proj/p')
+
+      const { expandedPaths } = useFileStore.getState()
+      expect(expandedPaths.has('/proj/p')).toBe(false)
+      expect(expandedPaths.has('/proj/p/a')).toBe(false)
+    })
+
+    it('reopening the parent shows the nested folder closed', async () => {
+      vi.mocked(window.api.readDir)
+        .mockResolvedValueOnce(pChildren)
+        .mockResolvedValueOnce(aChildren)
+        .mockResolvedValueOnce(pChildren)
+      const store = useFileStore.getState()
+      await store.expandDir('/proj/p')
+      await store.expandDir('/proj/p/a')
+      store.collapseDir('/proj/p')
+      await store.expandDir('/proj/p')
+
+      expect(useFileStore.getState().expandedPaths.has('/proj/p/a')).toBe(false)
+    })
+
+    it('leaves unrelated expanded folders alone, including ones whose name merely starts the same', async () => {
+      vi.mocked(window.api.readDir).mockResolvedValue([])
+      const store = useFileStore.getState()
+      await store.expandDir('/proj/p')
+      await store.expandDir('/proj/p-two')
+      store.collapseDir('/proj/p')
+
+      const { expandedPaths } = useFileStore.getState()
+      expect(expandedPaths.has('/proj/p')).toBe(false)
+      expect(expandedPaths.has('/proj/p-two')).toBe(true)
+      vi.mocked(window.api.readDir).mockResolvedValue(mockTree)
+    })
+  })
+
   it('refreshTree reloads the root and every expanded directory, preserving expansion', async () => {
     useFileStore.setState({ projectRoot: '/proj', tree: mockTree, expandedPaths: new Set() })
     vi.mocked(window.api.readDir).mockResolvedValueOnce([

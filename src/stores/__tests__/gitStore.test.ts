@@ -167,6 +167,31 @@ describe('gitStore', () => {
     expect(useGitStore.getState().repos['/repoB'].commitMessage).toBe('b')
   })
 
+  it('setCommitMessageError sets and clears the generation error for the given repo only', () => {
+    useGitStore.setState({
+      repos: { '/repoA': { ...emptyRepoGitState }, '/repoB': { ...emptyRepoGitState } },
+    })
+    useGitStore.getState().setCommitMessageError('/repoA', 'Could not generate a commit message')
+    expect(useGitStore.getState().repos['/repoA'].commitMessageError).toBe('Could not generate a commit message')
+    expect(useGitStore.getState().repos['/repoB'].commitMessageError).toBeNull()
+    useGitStore.getState().setCommitMessageError('/repoA', null)
+    expect(useGitStore.getState().repos['/repoA'].commitMessageError).toBeNull()
+  })
+
+  it('setCommitMessage clears a generation error (editing the message dismisses it)', () => {
+    useGitStore.setState({ repos: { '/proj': { ...emptyRepoGitState, commitMessageError: 'boom' } } })
+    useGitStore.getState().setCommitMessage('/proj', 'typed by hand')
+    expect(useGitStore.getState().repos['/proj'].commitMessageError).toBeNull()
+  })
+
+  it('a successful commit clears a generation error', async () => {
+    useGitStore.setState({
+      repos: { '/proj': { ...emptyRepoGitState, commitMessage: 'fix bug', commitMessageError: 'boom' } },
+    })
+    await useGitStore.getState().commit('/proj')
+    expect(useGitStore.getState().repos['/proj'].commitMessageError).toBeNull()
+  })
+
   it('commit clears the message and refreshes on success', async () => {
     useGitStore.setState({ repos: { '/proj': { ...emptyRepoGitState, commitMessage: 'fix bug' } } })
     await useGitStore.getState().commit('/proj')

@@ -1,11 +1,14 @@
 /// <reference types="@testing-library/jest-dom" />
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { TabContextMenu } from '../TabContextMenu'
 import { useEditorStore } from '@/stores/editorStore'
 import { useBrowserStore } from '@/stores/browserStore'
 import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
-import { buildBrowserPath } from '@/components/Settings/paths'
+import { buildBrowserPath, buildTerminalPath } from '@/components/Settings/paths'
+import { buildGitDiffPath, buildGitCommitDiffPath } from '@/components/Git/paths'
+import { buildImagePreviewPath } from '@/components/Viewer/paths'
+import { usePanelRequestStore } from '@/stores/panelRequestStore'
 
 function resetStores() {
   useEditorStore.setState({
@@ -115,6 +118,70 @@ describe('TabContextMenu — browser tab', () => {
     render(<TabContextMenu x={10} y={10} paneId="pane-1" path={browserPath} onClose={() => {}} />)
     expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Duplicate' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Copy File Path' })).not.toBeInTheDocument()
+  })
+})
+
+describe('TabContextMenu — diff tabs', () => {
+  const diffPath = buildGitDiffPath('/proj', 'src/a.ts', false)
+  let pathExists: ReturnType<typeof vi.fn>
+  let writeText: ReturnType<typeof vi.fn>
+
+  function setup(path: string, exists = true) {
+    resetStores()
+    pathExists = vi.fn().mockResolvedValue(exists)
+    writeText = vi.fn().mockResolvedValue(undefined)
+    ;(global as any).window.api = { pathExists, readFile: vi.fn().mockResolvedValue('contents') }
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    useEditorStore.setState({
+      tabs: [{ path, content: '', dirty: false }],
+      activeTabPath: path,
+      paneTabs: { 'pane-1': path },
+      paneTabLists: { 'pane-1': [path] },
+    })
+    usePanelRequestStore.setState({ request: null })
+    render(<TabContextMenu x={10} y={10} paneId="pane-1" path={path} onClose={() => {}} />)
+  }
+
+  it('shows Open File for a working-tree diff whose file exists, and opens it in the tree', async () => {
+    setup(diffPath)
+    fireEvent.click(await screen.findByRole('button', { name: 'Open File' }))
+    await waitFor(() => expect(useEditorStore.getState().activeTabPath).toBe('/proj/src/a.ts'))
+    expect(usePanelRequestStore.getState().request?.panel).toBe('files')
+    expect(pathExists).toHaveBeenCalledWith('/proj/src/a.ts')
+  })
+
+  it('shows Open File for a commit diff too', async () => {
+    setup(buildGitCommitDiffPath('/proj', 'abc123', 'src/a.ts'))
+    expect(await screen.findByRole('button', { name: 'Open File' })).toBeInTheDocument()
+  })
+
+  it('hides Open File when the file no longer exists', async () => {
+    setup(diffPath, false)
+    await waitFor(() => expect(pathExists).toHaveBeenCalled())
+    expect(screen.queryByRole('button', { name: 'Open File' })).not.toBeInTheDocument()
+  })
+
+  it('does not offer Open File on a plain file tab', () => {
+    setup('/proj/src/a.ts')
+    expect(screen.queryByRole('button', { name: 'Open File' })).not.toBeInTheDocument()
+    expect(pathExists).not.toHaveBeenCalled()
+  })
+
+  it('Copy File Path copies the real file path, not the internal diff tab path', () => {
+    setup(diffPath)
+    fireEvent.click(screen.getByRole('button', { name: 'Copy File Path' }))
+    expect(writeText).toHaveBeenCalledWith('/proj/src/a.ts')
+  })
+
+  it('Copy File Path unwraps an image preview tab', () => {
+    setup(buildImagePreviewPath('/proj/logo.png'))
+    fireEvent.click(screen.getByRole('button', { name: 'Copy File Path' }))
+    expect(writeText).toHaveBeenCalledWith('/proj/logo.png')
+  })
+
+  it('has no Copy File Path on a tab that is not a file', () => {
+    setup(buildTerminalPath('t1'))
     expect(screen.queryByRole('button', { name: 'Copy File Path' })).not.toBeInTheDocument()
   })
 })
