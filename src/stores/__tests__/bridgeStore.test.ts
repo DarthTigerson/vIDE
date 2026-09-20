@@ -76,10 +76,13 @@ describe('bridgeStore', () => {
     expect(state.messages[0]).toMatchObject({ role: 'user', content: 'hello' })
   })
 
-  it('toggleAgentMode flips and persists agentMode', () => {
+  it('toggleAgentMode flips agentMode for the session without persisting it', () => {
     useBridgeStore.getState().toggleAgentMode()
     expect(useBridgeStore.getState().agentMode).toBe(true)
-    expect(store['vide:bridge:agentMode']).toBe('true')
+    useBridgeStore.getState().toggleAgentMode()
+    expect(useBridgeStore.getState().agentMode).toBe(false)
+    // The launch default is a Bridge setting (agentModeOnLaunch), not the toggle.
+    expect(store['vide:bridge:agentMode']).toBeUndefined()
   })
 
   it('newSession moves current messages to previousMessages and clears the transcript', () => {

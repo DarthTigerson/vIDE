@@ -1,35 +1,9 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import * as pty from 'node-pty'
-import type { GitCommandAction, GitCommandPayload, GitCheckoutPayload, GitPublishBranchPayload, GitHardResetPayload } from '../src/types/index'
+import type { GitCommandAction, GitCommandPayload } from '../src/types/index'
+import { buildGitArgs, gitEnvFor } from './gitArgs'
 import { getGitBranch, getGitBranches, getDefaultBranch, getBranchList, getAheadBehind, getGitStatus, stageFiles, unstageFiles, stageAll, unstageAll, commit, discardFileChanges, discardAllChanges, getDiffContent, getFileAtHead, getCommitDiffContent, getGitGraph, getGitBranchDiff, getGitShowStat, getIgnoredPaths, fetchRemote, getStagedDiff, discoverRepos } from './git'
 import { getMobileBroadcaster } from './mobile'
-
-const ARGS: Record<Exclude<GitCommandAction, 'checkout' | 'publishBranch' | 'hardReset'>, string[]> = {
-  fetch:           ['fetch'],
-  pull:            ['pull'],
-  push:            ['push'],
-  forcePush:       ['push', '--force'],
-  forcePushLease:  ['push', '--force-with-lease'],
-  undoLastCommit:  ['reset', '--soft', 'HEAD~1'],
-}
-
-function buildArgs(action: GitCommandAction, payload?: GitCommandPayload): string[] {
-  if (action === 'checkout') {
-    const { ref, create, track } = payload as GitCheckoutPayload
-    if (track) return ['checkout', '-b', ref, '--track', track]
-    if (create) return ['checkout', '-b', ref]
-    return ['checkout', ref]
-  }
-  if (action === 'publishBranch') {
-    const { branch } = payload as GitPublishBranchPayload
-    return ['push', '--set-upstream', 'origin', branch]
-  }
-  if (action === 'hardReset') {
-    const { ref } = payload as GitHardResetPayload
-    return ['reset', '--hard', ref]
-  }
-  return ARGS[action]
-}
 
 function hasValidSize(cols: number, rows: number): boolean {
   return Number.isFinite(cols) && Number.isFinite(rows) && cols > 0 && rows > 0
@@ -61,12 +35,12 @@ export class GitRunner {
       // triggers, e.g. lint-on-precommit — see a TTY and keep its normal
       // color output instead of falling back to plain text.
       const { cols, rows } = this.sizeByWindow.get(win.id) ?? { cols: 80, rows: 24 }
-      const proc = pty.spawn('git', buildArgs(action, payload), {
+      const proc = pty.spawn('git', buildGitArgs(action, payload), {
         name: 'xterm-color',
         cols,
         rows,
         cwd,
-        env: process.env as Record<string, string>,
+        env: { ...(process.env as Record<string, string>), ...gitEnvFor(action) },
       })
       this.runningByWindow.set(win.id, proc)
 

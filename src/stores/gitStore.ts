@@ -66,6 +66,16 @@ interface GitStore {
   publishBranch: (cwd: string, branch: string) => Promise<void>
   undoLastCommit: (cwd: string) => Promise<void>
   hardReset: (cwd: string, ref: string) => Promise<void>
+  stash: (cwd: string) => Promise<void>
+  stashUntracked: (cwd: string) => Promise<void>
+  stashPop: (cwd: string) => Promise<void>
+  amend: (cwd: string) => Promise<void>
+  mergeAbort: (cwd: string) => Promise<void>
+  rebaseAbort: (cwd: string) => Promise<void>
+  rebaseContinue: (cwd: string) => Promise<void>
+  merge: (cwd: string, ref: string) => Promise<void>
+  rebase: (cwd: string, ref: string) => Promise<void>
+  deleteBranch: (cwd: string, branch: string) => Promise<void>
 }
 
 function describeCommand(action: GitCommandAction, payload?: GitCommandPayload): string {
@@ -84,6 +94,16 @@ function describeCommand(action: GitCommandAction, payload?: GitCommandPayload):
   if (action === 'hardReset' && payload && 'ref' in payload) {
     return `reset --hard ${payload.ref}`
   }
+  if (action === 'stash') return 'stash push'
+  if (action === 'stashUntracked') return 'stash push --include-untracked'
+  if (action === 'stashPop') return 'stash pop'
+  if (action === 'amend') return 'commit --amend --no-edit'
+  if (action === 'mergeAbort') return 'merge --abort'
+  if (action === 'rebaseAbort') return 'rebase --abort'
+  if (action === 'rebaseContinue') return 'rebase --continue'
+  if (action === 'merge' && payload && 'ref' in payload) return `merge --no-edit ${payload.ref}`
+  if (action === 'rebase' && payload && 'ref' in payload) return `rebase ${payload.ref}`
+  if (action === 'deleteBranch' && payload && 'branch' in payload) return `branch -d ${payload.branch}`
   return action
 }
 
@@ -273,6 +293,16 @@ export const useGitStore = create<GitStore>((set, get) => {
   publishBranch:  (cwd, branch) => runCommand(cwd, 'publishBranch', { branch }),
   undoLastCommit: (cwd) => runCommand(cwd, 'undoLastCommit'),
   hardReset:      (cwd, ref) => runCommand(cwd, 'hardReset', { ref }),
+  stash:          (cwd) => runCommand(cwd, 'stash'),
+  stashUntracked: (cwd) => runCommand(cwd, 'stashUntracked'),
+  stashPop:       (cwd) => runCommand(cwd, 'stashPop'),
+  amend:          (cwd) => runCommand(cwd, 'amend'),
+  mergeAbort:     (cwd) => runCommand(cwd, 'mergeAbort'),
+  rebaseAbort:    (cwd) => runCommand(cwd, 'rebaseAbort'),
+  rebaseContinue: (cwd) => runCommand(cwd, 'rebaseContinue'),
+  merge:          (cwd, ref) => runCommand(cwd, 'merge', { ref }),
+  rebase:         (cwd, ref) => runCommand(cwd, 'rebase', { ref }),
+  deleteBranch:   (cwd, branch) => runCommand(cwd, 'deleteBranch', { branch }),
   }
 })
 

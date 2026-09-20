@@ -65,7 +65,9 @@ describe('mcpRegistration', () => {
     await enableTodoMcp()
 
     expect(calls[0].args).toContain('command -v claude')
-    const addCall = calls[1]
+    // Removes any existing registration first so re-enabling always works.
+    expect(calls[1].args.slice(0, 3)).toEqual(['mcp', 'remove', MCP_SERVER_NAME])
+    const addCall = calls[2]
     expect(addCall.cmd).toBe('/usr/local/bin/claude')
     expect(addCall.args.slice(0, 3)).toEqual(['mcp', 'add', MCP_SERVER_NAME])
     expect(addCall.args).toContain('--scope')

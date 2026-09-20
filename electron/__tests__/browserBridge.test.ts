@@ -12,6 +12,7 @@ vi.mock('electron', () => ({
 }))
 
 import { BrowserBridge, parseShimRequest } from '../browserBridge'
+import { CLAUDE_TAB_ID } from '../browserViews'
 
 describe('parseShimRequest', () => {
   it('parses a window-id header and url-encoded body', () => {
@@ -212,7 +213,7 @@ describe('BrowserBridge — Claude tab control routes (VIDE-53)', () => {
 
   it('/screenshot returns the captured PNG bytes, with image-size/view-bounds diagnostic headers', async () => {
     const res = await post(socketPath, '/screenshot', { 'X-Vide-Window-Id': '7' }, '')
-    expect(browserViews.captureClaudeTab).toHaveBeenCalledWith(7)
+    expect(browserViews.captureClaudeTab).toHaveBeenCalledWith(7, CLAUDE_TAB_ID)
     expect(res.body).toBe('fake-png')
     expect(res.headers['x-vide-image-size']).toBe('650x400')
     expect(res.headers['x-vide-view-bounds']).toBe('650x400')
@@ -220,7 +221,7 @@ describe('BrowserBridge — Claude tab control routes (VIDE-53)', () => {
 
   it('/click forwards x and y as numbers and returns the focused element afterward', async () => {
     const res = await post(socketPath, '/click', { 'X-Vide-Window-Id': '7' }, new URLSearchParams({ x: '12', y: '34' }).toString())
-    expect(browserViews.clickClaudeTab).toHaveBeenCalledWith(7, 12, 34)
+    expect(browserViews.clickClaudeTab).toHaveBeenCalledWith(7, 12, 34, CLAUDE_TAB_ID)
     expect(JSON.parse(res.body)).toEqual({ ok: true, activeElement: 'INPUT#test-input' })
   })
 
@@ -232,18 +233,18 @@ describe('BrowserBridge — Claude tab control routes (VIDE-53)', () => {
 
   it('/type forwards the text', async () => {
     await post(socketPath, '/type', { 'X-Vide-Window-Id': '7' }, new URLSearchParams({ text: 'hello world' }).toString())
-    expect(browserViews.typeIntoClaudeTab).toHaveBeenCalledWith(7, 'hello world')
+    expect(browserViews.typeIntoClaudeTab).toHaveBeenCalledWith(7, 'hello world', CLAUDE_TAB_ID)
   })
 
   it('/console-logs returns the buffered logs as JSON', async () => {
     const res = await post(socketPath, '/console-logs', { 'X-Vide-Window-Id': '7' }, '')
-    expect(browserViews.getClaudeTabConsoleLogs).toHaveBeenCalledWith(7)
+    expect(browserViews.getClaudeTabConsoleLogs).toHaveBeenCalledWith(7, CLAUDE_TAB_ID)
     expect(JSON.parse(res.body)).toEqual({ logs: ['[info] hello'] })
   })
 
   it('/read-text returns the page text as JSON', async () => {
     const res = await post(socketPath, '/read-text', { 'X-Vide-Window-Id': '7' }, '')
-    expect(browserViews.readClaudeTabText).toHaveBeenCalledWith(7)
+    expect(browserViews.readClaudeTabText).toHaveBeenCalledWith(7, CLAUDE_TAB_ID)
     expect(JSON.parse(res.body)).toEqual({ text: 'page text' })
   })
 

@@ -89,12 +89,24 @@ Git Log auto-show setting) pop the Git Log tab open on error gets all of
 that for free — and nothing else to wire up — by running through
 `gitStore.ts`'s internal `runCommand()` helper, i.e. by adding a
 `GitCommandAction` (`src/types/index.ts`) with its arg-building in
-`electron/gitRunner.ts` and a thin store method that calls
+`electron/gitArgs.ts` (pure, unit-tested; `gitRunner.ts` only spawns the PTY)
+and a thin store method that calls
 `runCommand(cwd, action, payload)`. `runCommand` drives the per-repo
 `commandStatus`/`commandError` fields that `GitActivityBar.tsx` watches;
 don't build a bespoke IPC round-trip for a new git action unless it
 genuinely doesn't fit that model (e.g. `commit`, which has its own
 request/response shape instead of streaming PTY output).
+
+**Action Palette (`⌘⇧P`)**: commands live in per-domain providers
+(`src/components/Search/{page,panel,git}Commands.ts`) aggregated by
+`commandRegistry.ts`; add a command by adding an entry to the right provider,
+never to `ActionPalette.tsx`. A command can set `disabledReason` (greys the
+row with the reason), `danger` (red), or use `pick` instead of `action` to
+show a second list first. Git commands that need the existing confirms open
+them through `gitPromptStore` (rendered by `GitPromptHost` in `App.tsx`)
+instead of building a new confirm. A new `settings://` page needs a row in
+`SETTINGS_PAGES` (`pageCommands.ts`); a test fails if it is missing. Search
+is `src/lib/paletteSearch.ts`; there are deliberately no palette keybindings.
 
 **Design-doc workflow**: nontrivial features go through a brainstorm →
 spec → plan cycle before implementation, with artifacts committed to

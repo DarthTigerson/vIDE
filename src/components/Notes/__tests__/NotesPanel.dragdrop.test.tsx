@@ -46,6 +46,7 @@ beforeEach(() => {
     renamePath,
     pathExists,
     notesGetRoot: vi.fn().mockResolvedValue(ROOT),
+    onNotesChanged: vi.fn(() => () => {}),
   }
   useNotesStore.setState({ root: null })
 })
