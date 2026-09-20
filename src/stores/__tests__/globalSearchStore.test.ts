@@ -16,6 +16,7 @@ const { api, listeners } = vi.hoisted(() => {
     onSearchDone: vi.fn((cb: (d: any) => void) => { listeners.done = cb; return () => {} }),
     onFsChanged: vi.fn((cb: (cwd: string) => void) => { listeners.fs = cb; return () => {} }),
     readFile: vi.fn(),
+    writeFile: vi.fn(),
   }
   return { api, listeners }
 })
@@ -48,6 +49,7 @@ function reset() {
   useGlobalSearchStore.getState().clear()
   useGlobalSearchStore.setState({
     query: '', caseSensitive: false, wholeWord: false, regex: false, include: '', exclude: '', collapsed: {},
+    replacement: '', replacing: false, pendingReplaceAll: null, replaceOutcome: null,
   })
   useFileStore.setState({ projectRoot: ROOT })
   useEditorStore.setState({ tabs: [], revealRequest: null })
@@ -58,6 +60,8 @@ beforeEach(() => {
   api.searchStart.mockClear()
   api.searchCancel.mockClear()
   api.readFile.mockReset()
+  api.writeFile.mockReset()
+  api.writeFile.mockResolvedValue(undefined)
   reset()
   api.searchStart.mockClear()
   api.searchCancel.mockClear()
@@ -297,3 +301,220 @@ describe('globalSearchStore — navigation', () => {
     expect(s().moveActive(1)).toMatchObject({ path: '/proj/b.ts', line: 2 })
   })
 })
+
+describe('globalSearchStore — replace', () => {
+  const A = '/proj/a.ts'
+  const B = '/proj/b.ts'
+
+  function seed(groups: Array<{ path: string; hits: SearchHit[] }>, extra: Record<string, unknown> = {}) {
+    useGlobalSearchStore.setState({
+      query: 'needle',
+      replacement: 'pin',
+      status: 'done',
+      groups: groups.map((g) => ({ ...g, stale: false })),
+      matchCount: groups.reduce((n, g) => n + g.hits.length, 0),
+      searchId: 's-seed',
+      root: ROOT,
+      ...extra,
+    })
+    api.searchStart.mockClear()
+  }
+
+  const getS = () => useGlobalSearchStore.getState()
+  const tab = (path: string) => useEditorStore.getState().tabs.find((t) => t.path === path)
+
+  it('replaces a hit inside an open tab in place, leaving it unsaved and never touching the disk', async () => {
+    useEditorStore.setState({ tabs: [{ path: A, content: 'const needle = 1\n', dirty: false }] as any })
+    seed([{ path: A, hits: [hit(A, 1)] }])
+
+    await getS().replaceHit(hit(A, 1))
+
+    expect(tab(A)).toMatchObject({ content: 'const pin = 1\n', dirty: true })
+    expect(api.writeFile).not.toHaveBeenCalled()
+    expect(api.readFile).not.toHaveBeenCalled()
+    expect(getS().replaceOutcome?.message).toMatch(/replaced 1 match in 1 file/i)
+  })
+
+  it('reads, replaces and writes a file that is not open', async () => {
+    api.readFile.mockResolvedValue('const needle = 1\nneedle\n')
+    seed([{ path: A, hits: [hit(A, 1), hit(A, 2, 'needle', 1)] }])
+
+    await getS().replaceFile(A)
+
+    expect(api.writeFile).toHaveBeenCalledWith(A, 'const pin = 1\npin\n')
+    expect(getS().replaceOutcome?.message).toMatch(/replaced 2 matches in 1 file/i)
+  })
+
+  it('replaceHit changes only that hit, not the rest of the file', async () => {
+    api.readFile.mockResolvedValue('needle\nneedle\n')
+    seed([{ path: A, hits: [hit(A, 1, 'needle', 1), hit(A, 2, 'needle', 1)] }])
+
+    await getS().replaceHit(hit(A, 2, 'needle', 1))
+
+    expect(api.writeFile).toHaveBeenCalledWith(A, 'needle\npin\n')
+  })
+
+  it('refreshes the search afterwards so the list reflects what is left', async () => {
+    api.readFile.mockResolvedValue('needle\n')
+    seed([{ path: A, hits: [hit(A, 1, 'needle', 1)] }])
+    await getS().replaceFile(A)
+    expect(api.searchStart).toHaveBeenCalledTimes(1)
+    expect(getS().status).toBe('searching')
+  })
+
+  it('does nothing while a search is still running (results would be incomplete)', async () => {
+    seed([{ path: A, hits: [hit(A, 1)] }], { status: 'searching' })
+    await getS().replaceFile(A)
+    expect(api.writeFile).not.toHaveBeenCalled()
+    expect(getS().replaceOutcome).toBeNull()
+  })
+
+  it('skips hits whose file changed since the search, writes nothing for them, and says so', async () => {
+    api.readFile.mockResolvedValue('totally different now\n')
+    seed([{ path: A, hits: [hit(A, 1)] }])
+
+    await getS().replaceFile(A)
+
+    expect(api.writeFile).not.toHaveBeenCalled()
+    expect(getS().replaceOutcome?.records).toEqual([])
+    expect(getS().replaceOutcome?.message).toMatch(/changed since/i)
+  })
+
+  it('reports a partial result when only some hits still match', async () => {
+    api.readFile.mockResolvedValue('needle\nchanged\n')
+    seed([{ path: A, hits: [hit(A, 1, 'needle', 1), hit(A, 2, 'needle', 1)] }])
+    await getS().replaceFile(A)
+    expect(api.writeFile).toHaveBeenCalledWith(A, 'pin\nchanged\n')
+    expect(getS().replaceOutcome?.message).toMatch(/replaced 1 match in 1 file.*1 no longer matched/i)
+  })
+
+  it('carries on past a file that cannot be read, and counts it', async () => {
+    api.readFile.mockImplementation(async (path: string) => {
+      if (path === A) throw new Error('EACCES')
+      return 'needle\n'
+    })
+    seed([{ path: A, hits: [hit(A, 1, 'needle', 1)] }, { path: B, hits: [hit(B, 1, 'needle', 1)] }])
+    getS().requestReplaceAll()
+    await getS().confirmReplaceAll()
+    expect(api.writeFile).toHaveBeenCalledTimes(1)
+    expect(api.writeFile).toHaveBeenCalledWith(B, 'pin\n')
+    expect(getS().replaceOutcome?.message).toMatch(/1 file.*could not be updated/i)
+  })
+
+  it('allows replacing with nothing', async () => {
+    api.readFile.mockResolvedValue('a needle b\n')
+    seed([{ path: A, hits: [hit(A, 1, 'a needle b', 3)] }], { replacement: '' })
+    await getS().replaceFile(A)
+    expect(api.writeFile).toHaveBeenCalledWith(A, 'a  b\n')
+  })
+
+  describe('replace all', () => {
+    it('asks first, reporting how many matches in how many files, and writes nothing until confirmed', () => {
+      seed([
+        { path: A, hits: [hit(A, 1), hit(A, 2)] },
+        { path: B, hits: [hit(B, 1)] },
+      ])
+      getS().requestReplaceAll()
+      expect(getS().pendingReplaceAll).toEqual({ matches: 3, files: 2 })
+      expect(api.writeFile).not.toHaveBeenCalled()
+    })
+
+    it('does not ask when there is nothing to replace', () => {
+      seed([])
+      getS().requestReplaceAll()
+      expect(getS().pendingReplaceAll).toBeNull()
+    })
+
+    it('cancel drops the request without touching anything', () => {
+      seed([{ path: A, hits: [hit(A, 1)] }])
+      getS().requestReplaceAll()
+      getS().cancelReplaceAll()
+      expect(getS().pendingReplaceAll).toBeNull()
+      expect(api.writeFile).not.toHaveBeenCalled()
+    })
+
+    it('confirm replaces in every file — tabs in place, the rest on disk', async () => {
+      useEditorStore.setState({ tabs: [{ path: A, content: 'needle\n', dirty: false }] as any })
+      api.readFile.mockResolvedValue('needle\n')
+      seed([
+        { path: A, hits: [hit(A, 1, 'needle', 1)] },
+        { path: B, hits: [hit(B, 1, 'needle', 1)] },
+      ])
+      getS().requestReplaceAll()
+      await getS().confirmReplaceAll()
+
+      expect(tab(A)).toMatchObject({ content: 'pin\n', dirty: true })
+      expect(api.writeFile).toHaveBeenCalledTimes(1)
+      expect(api.writeFile).toHaveBeenCalledWith(B, 'pin\n')
+      expect(getS().pendingReplaceAll).toBeNull()
+      expect(getS().replaceOutcome?.message).toMatch(/replaced 2 matches in 2 files/i)
+      expect(getS().replacing).toBe(false)
+    })
+  })
+
+  describe('undo', () => {
+    it('restores a file written to disk', async () => {
+      api.readFile.mockResolvedValueOnce('needle\n')
+      seed([{ path: A, hits: [hit(A, 1, 'needle', 1)] }])
+      await getS().replaceFile(A)
+
+      api.readFile.mockResolvedValueOnce('pin\n') // what is on disk now
+      api.writeFile.mockClear()
+      await getS().undoReplace()
+
+      expect(api.writeFile).toHaveBeenCalledWith(A, 'needle\n')
+      expect(getS().replaceOutcome).toBeNull()
+    })
+
+    it('leaves a disk file alone if it changed again since the replace, and says so', async () => {
+      api.readFile.mockResolvedValueOnce('needle\n')
+      seed([{ path: A, hits: [hit(A, 1, 'needle', 1)] }])
+      await getS().replaceFile(A)
+
+      api.readFile.mockResolvedValueOnce('pin\nsomeone edited me\n')
+      api.writeFile.mockClear()
+      await getS().undoReplace()
+
+      expect(api.writeFile).not.toHaveBeenCalled()
+      expect(getS().replaceOutcome?.message).toMatch(/changed since.*left alone/i)
+    })
+
+    it('restores an open tab, and returns it to clean if it was clean before', async () => {
+      useEditorStore.setState({ tabs: [{ path: A, content: 'needle\n', dirty: false }] as any })
+      seed([{ path: A, hits: [hit(A, 1, 'needle', 1)] }])
+      await getS().replaceFile(A)
+      expect(tab(A)).toMatchObject({ content: 'pin\n', dirty: true })
+
+      await getS().undoReplace()
+      expect(tab(A)).toMatchObject({ content: 'needle\n', dirty: false })
+    })
+
+    it('keeps a tab dirty on undo if it already had unsaved edits before the replace', async () => {
+      useEditorStore.setState({ tabs: [{ path: A, content: 'needle unsaved\n', dirty: true }] as any })
+      seed([{ path: A, hits: [hit(A, 1, 'needle unsaved', 1)] }])
+      await getS().replaceFile(A)
+      await getS().undoReplace()
+      expect(tab(A)).toMatchObject({ content: 'needle unsaved\n', dirty: true })
+    })
+
+    it('does not clobber an open tab edited again after the replace', async () => {
+      useEditorStore.setState({ tabs: [{ path: A, content: 'needle\n', dirty: false }] as any })
+      seed([{ path: A, hits: [hit(A, 1, 'needle', 1)] }])
+      await getS().replaceFile(A)
+      useEditorStore.getState().updateContent(A, 'pin\nplus new typing\n')
+
+      await getS().undoReplace()
+      expect(tab(A)?.content).toBe('pin\nplus new typing\n')
+      expect(getS().replaceOutcome?.message).toMatch(/left alone/i)
+    })
+
+    it('can be dismissed', async () => {
+      api.readFile.mockResolvedValue('needle\n')
+      seed([{ path: A, hits: [hit(A, 1, 'needle', 1)] }])
+      await getS().replaceFile(A)
+      getS().dismissReplaceOutcome()
+      expect(getS().replaceOutcome).toBeNull()
+    })
+  })
+})
+

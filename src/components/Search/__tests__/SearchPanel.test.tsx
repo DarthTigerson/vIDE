@@ -47,11 +47,14 @@ beforeEach(() => {
     onSearchResults: vi.fn(() => () => {}),
     onSearchDone: vi.fn(() => () => {}),
     onFsChanged: vi.fn(() => () => {}),
+    readFile: vi.fn().mockResolvedValue('const needle = 1\nreturn needle\n'),
+    writeFile: vi.fn().mockResolvedValue(undefined),
   }
   openFileAtLocation.mockClear()
   useGlobalSearchStore.getState().clear()
   useGlobalSearchStore.setState({
     query: '', caseSensitive: false, wholeWord: false, regex: false, include: '', exclude: '', collapsed: {},
+    replacement: '', replacing: false, pendingReplaceAll: null, replaceOutcome: null,
   })
   useFileStore.setState({ projectRoot: '/proj' })
   useEditorStore.setState({ tabs: [] })
@@ -238,3 +241,172 @@ describe('SearchPanel', () => {
     expect(openFileAtLocation).toHaveBeenCalledWith('/proj/src/a.ts', 9, 8, 'needle')
   })
 })
+
+describe('SearchPanel — replace', () => {
+  const api = () => (window as any).api
+
+  // The panel opens the replace field by itself when there is already
+  // replacement text (so it survives switching sidebar panels), so only click
+  // the toggle if it is still closed.
+  async function openReplace(user: ReturnType<typeof userEvent.setup>) {
+    if (screen.queryByRole('textbox', { name: /replace with/i })) return
+    await user.click(screen.getByRole('button', { name: /toggle replace/i }))
+  }
+
+  it('opens the replace field by itself when there is already replacement text, e.g. after switching panels', () => {
+    seedResults({ replacement: 'pin' })
+    render(<SearchPanel />)
+    expect((screen.getByRole('textbox', { name: /replace with/i }) as HTMLInputElement).value).toBe('pin')
+  })
+
+  it('reveals a replace field from a button beside the folder filter, and stores what you type', async () => {
+    const user = userEvent.setup()
+    render(<SearchPanel />)
+    expect(screen.queryByRole('textbox', { name: /replace with/i })).toBeNull()
+    await openReplace(user)
+    await user.type(screen.getByRole('textbox', { name: /replace with/i }), 'pin')
+    expect(useGlobalSearchStore.getState().replacement).toBe('pin')
+    await user.click(screen.getByRole('button', { name: /toggle replace/i }))
+    expect(screen.queryByRole('textbox', { name: /replace with/i })).toBeNull()
+  })
+
+  it('names the replace button on hover, like the other options', async () => {
+    const user = userEvent.setup()
+    render(<SearchPanel />)
+    await user.hover(screen.getByRole('button', { name: /toggle replace/i }))
+    expect(screen.getByRole('tooltip').textContent).toBe('Replace')
+  })
+
+  it('hints at $1 groups only when regex is on', async () => {
+    const user = userEvent.setup()
+    render(<SearchPanel />)
+    await openReplace(user)
+    expect(screen.getByRole('textbox', { name: /replace with/i }).getAttribute('placeholder')).toBe('Replace')
+    await user.click(screen.getByRole('button', { name: /regular expression/i }))
+    expect(screen.getByRole('textbox', { name: /replace with/i }).getAttribute('placeholder')).toMatch(/\$1/)
+  })
+
+  it('disables Replace all until there are results to replace', async () => {
+    const user = userEvent.setup()
+    render(<SearchPanel />)
+    await openReplace(user)
+    expect((screen.getByRole('button', { name: /replace all/i }) as HTMLButtonElement).disabled).toBe(true)
+    cleanup()
+
+    seedResults({ replacement: 'pin' })
+    render(<SearchPanel />)
+    await openReplace(user)
+    expect((screen.getByRole('button', { name: /replace all/i }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('asks before replacing everything, with the real counts, and does nothing on cancel', async () => {
+    const user = userEvent.setup()
+    seedResults({ replacement: 'pin' })
+    render(<SearchPanel />)
+    await openReplace(user)
+    await user.click(screen.getByRole('button', { name: /replace all/i }))
+
+    expect(screen.getByText(/replace 3 matches in 2 files/i)).toBeTruthy()
+    expect(api().writeFile).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: /^cancel$/i }))
+    expect(screen.queryByText(/replace 3 matches in 2 files/i)).toBeNull()
+    expect(api().writeFile).not.toHaveBeenCalled()
+  })
+
+  it('says so plainly when replacing with nothing', async () => {
+    const user = userEvent.setup()
+    seedResults({ replacement: '' })
+    render(<SearchPanel />)
+    await openReplace(user)
+    await user.click(screen.getByRole('button', { name: /replace all/i }))
+    expect(screen.getByText(/with nothing/i)).toBeTruthy()
+  })
+
+  it('replaces everywhere once confirmed', async () => {
+    const user = userEvent.setup()
+    api().readFile.mockImplementation(async (path: string) =>
+      path === '/proj/src/a.ts' ? 'x\nx\nconst needle = 1\nx\nx\nx\nx\nx\nreturn needle\n' : 'needle()\n')
+    seedResults({ replacement: 'pin' })
+    render(<SearchPanel />)
+    await openReplace(user)
+    await user.click(screen.getByRole('button', { name: /replace all/i }))
+    await user.click(screen.getByRole('button', { name: /^replace$/i }))
+
+    await screen.findByText(/replaced 3 matches in 2 files/i)
+    expect(api().writeFile).toHaveBeenCalledWith('/proj/b.ts', 'pin()\n')
+    expect(api().writeFile).toHaveBeenCalledWith(
+      '/proj/src/a.ts',
+      'x\nx\nconst pin = 1\nx\nx\nx\nx\nx\nreturn pin\n',
+    )
+  })
+
+  it('offers per-file and per-match replace buttons only while the replace field is open', async () => {
+    const user = userEvent.setup()
+    seedResults({ replacement: '' })
+    render(<SearchPanel />)
+    expect(screen.queryByRole('button', { name: /replace in b\.ts/i })).toBeNull()
+    await openReplace(user)
+    expect(screen.getByRole('button', { name: /replace in b\.ts/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /replace match on line 1 of b\.ts/i })).toBeTruthy()
+  })
+
+  it('replaces just one match from its own button', async () => {
+    const user = userEvent.setup()
+    api().readFile.mockResolvedValue('needle()\n')
+    seedResults({ replacement: 'pin' })
+    render(<SearchPanel />)
+    await openReplace(user)
+    await user.click(screen.getByRole('button', { name: /replace match on line 1 of b\.ts/i }))
+    await screen.findByText(/replaced 1 match in 1 file/i)
+    expect(api().writeFile).toHaveBeenCalledTimes(1)
+    expect(api().writeFile).toHaveBeenCalledWith('/proj/b.ts', 'pin()\n')
+  })
+
+  it('replaces a whole file from its header button', async () => {
+    const user = userEvent.setup()
+    api().readFile.mockResolvedValue('needle()\n')
+    seedResults({ replacement: 'pin' })
+    render(<SearchPanel />)
+    await openReplace(user)
+    await user.click(screen.getByRole('button', { name: /replace in b\.ts/i }))
+    await screen.findByText(/replaced 1 match in 1 file/i)
+    expect(api().writeFile).toHaveBeenCalledWith('/proj/b.ts', 'pin()\n')
+  })
+
+  it('shows an Undo after a replace and restores the file when used', async () => {
+    const user = userEvent.setup()
+    api().readFile.mockResolvedValueOnce('needle()\n')
+    seedResults({ replacement: 'pin' })
+    render(<SearchPanel />)
+    await openReplace(user)
+    await user.click(screen.getByRole('button', { name: /replace in b\.ts/i }))
+    await screen.findByText(/replaced 1 match in 1 file/i)
+
+    api().readFile.mockResolvedValueOnce('pin()\n')
+    api().writeFile.mockClear()
+    await user.click(screen.getByRole('button', { name: /^undo$/i }))
+    expect(api().writeFile).toHaveBeenCalledWith('/proj/b.ts', 'needle()\n')
+    expect(screen.queryByRole('button', { name: /^undo$/i })).toBeNull()
+  })
+
+  it('pressing Enter in the replace field asks to replace all', async () => {
+    const user = userEvent.setup()
+    seedResults({ replacement: 'pin' })
+    render(<SearchPanel />)
+    await openReplace(user)
+    await user.click(screen.getByRole('textbox', { name: /replace with/i }))
+    await user.keyboard('{Enter}')
+    expect(screen.getByText(/replace 3 matches in 2 files/i)).toBeTruthy()
+  })
+
+  it('hides the replace buttons while a search is still running', async () => {
+    const user = userEvent.setup()
+    seedResults({ replacement: 'pin', status: 'searching' })
+    render(<SearchPanel />)
+    await openReplace(user)
+    expect(screen.queryByRole('button', { name: /replace in b\.ts/i })).toBeNull()
+    expect((screen.getByRole('button', { name: /replace all/i }) as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+

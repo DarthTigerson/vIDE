@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import type { SearchHit } from '../../../electron/searchTypes'
 import { useFileStore } from '@/stores/fileStore'
+import { Modal } from '@/components/ui/Modal'
+import { UndoToast } from '@/components/ui/UndoToast'
 import { hitKey, useGlobalSearchStore, type ResultGroup, type SearchToggle } from '@/stores/globalSearchStore'
 
 function basename(path: string): string {
@@ -15,8 +17,8 @@ function relativeDir(root: string | null, path: string): string {
   return idx === -1 ? '' : rel.slice(0, idx)
 }
 
-function plural(count: number, word: string): string {
-  return `${count.toLocaleString()} ${word}${count === 1 ? '' : 's'}`
+function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
+  return `${count.toLocaleString()} ${count === 1 ? singular : pluralForm}`
 }
 
 function HitText({ hit }: { hit: SearchHit }) {
@@ -49,6 +51,7 @@ const TIPS = {
   wholeWord: 'Match Whole Word',
   regex: 'Use Regular Expression',
   files: 'Filter by files or folders',
+  replace: 'Replace',
 } satisfies Record<string, Tip>
 
 function OptionToggle({ flag, label, children, tip, setTip }: {
@@ -117,25 +120,53 @@ function IconButton({ label, onClick, active = false, tip, setTip, children }: {
   )
 }
 
-function GroupRow({ group, root, collapsed, activeKey, onToggle, onOpen }: {
+function SwapIcon({ size = '0.875rem' }: { size?: string }) {
+  return (
+    <svg data-icon="replace" width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M2.5 5h10m0 0L10 2.5M12.5 5L10 7.5M13.5 11h-10m0 0L6 8.5M3.5 11L6 13.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+// Revealed on row hover (or keyboard focus) so the result list stays quiet.
+function RowReplaceButton({ label, title, onClick }: { label: string; title: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={title}
+      onClick={onClick}
+      className="mr-1 flex h-5 w-5 shrink-0 items-center justify-center rounded text-fg-muted opacity-0 transition-opacity hover:bg-white/10 hover:text-fg focus-visible:opacity-100 group-hover:opacity-100"
+    >
+      <SwapIcon size="0.75rem" />
+    </button>
+  )
+}
+
+function GroupRow({ group, root, collapsed, activeKey, canReplace, onToggle, onOpen, onReplaceFile, onReplaceHit }: {
   group: ResultGroup
   root: string | null
   collapsed: boolean
   activeKey: string | null
+  canReplace: boolean
   onToggle: () => void
   onOpen: (hit: SearchHit) => void
+  onReplaceFile: () => void
+  onReplaceHit: (hit: SearchHit) => void
 }) {
+  const name = basename(group.path)
   const dir = relativeDir(root, group.path)
   return (
     <li>
+      <div className="group flex items-center hover:bg-white/5">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={!collapsed}
-        className="flex w-full items-center gap-1 px-2 py-1 text-left hover:bg-white/5"
+        className="flex min-w-0 flex-1 items-center gap-1 px-2 py-1 text-left"
       >
         <Chevron open={!collapsed} />
-        <span className="shrink-0 text-sm text-fg">{basename(group.path)}</span>
+        <span className="shrink-0 text-sm text-fg">{name}</span>
         {dir && <span className="min-w-0 truncate text-[0.65rem] text-fg-subtle">{dir}</span>}
         {group.stale && (
           <span
@@ -149,23 +180,40 @@ function GroupRow({ group, root, collapsed, activeKey, onToggle, onOpen }: {
           {group.hits.length}
         </span>
       </button>
+      {canReplace && (
+        <RowReplaceButton
+          label={`Replace in ${name}`}
+          title="Replace all matches in this file"
+          onClick={onReplaceFile}
+        />
+      )}
+      </div>
       {!collapsed && (
         <ul>
           {group.hits.map((hit) => {
             const key = hitKey(hit)
             return (
               <li key={key}>
-                <button
-                  type="button"
-                  data-hit-key={key}
-                  onClick={() => onOpen(hit)}
-                  className={`flex w-full items-baseline gap-2 py-0.5 pl-6 pr-2 text-left hover:bg-white/5 ${
-                    activeKey === key ? 'bg-accent/20' : ''
-                  } ${group.stale ? 'opacity-60' : ''}`}
-                >
-                  <span className="w-7 shrink-0 text-right font-mono text-[0.65rem] text-fg-subtle">{hit.line}</span>
-                  <HitText hit={hit} />
-                </button>
+                <div className={`group flex items-center hover:bg-white/5 ${activeKey === key ? 'bg-accent/20' : ''}`}>
+                  <button
+                    type="button"
+                    data-hit-key={key}
+                    onClick={() => onOpen(hit)}
+                    className={`flex min-w-0 flex-1 items-baseline gap-2 py-0.5 pl-6 pr-2 text-left ${
+                      group.stale ? 'opacity-60' : ''
+                    }`}
+                  >
+                    <span className="w-7 shrink-0 text-right font-mono text-[0.65rem] text-fg-subtle">{hit.line}</span>
+                    <HitText hit={hit} />
+                  </button>
+                  {canReplace && (
+                    <RowReplaceButton
+                      label={`Replace match on line ${hit.line} of ${name}`}
+                      title="Replace this match"
+                      onClick={() => onReplaceHit(hit)}
+                    />
+                  )}
+                </div>
               </li>
             )
           })}
@@ -189,10 +237,18 @@ export function SearchPanel() {
   const collapsed = useGlobalSearchStore((s) => s.collapsed)
   const activeKey = useGlobalSearchStore((s) => s.activeKey)
   const focusTick = useGlobalSearchStore((s) => s.focusTick)
+  const regex = useGlobalSearchStore((s) => s.regex)
+  const replacement = useGlobalSearchStore((s) => s.replacement)
+  const replacing = useGlobalSearchStore((s) => s.replacing)
+  const pendingReplaceAll = useGlobalSearchStore((s) => s.pendingReplaceAll)
+  const replaceOutcome = useGlobalSearchStore((s) => s.replaceOutcome)
+  const { setReplacement, replaceHit, replaceFile, requestReplaceAll, cancelReplaceAll, confirmReplaceAll, undoReplace, dismissReplaceOutcome } =
+    useGlobalSearchStore.getState()
   const { setQuery, setInclude, setExclude, refresh, clear, toggleCollapsed, moveActive, openHit } =
     useGlobalSearchStore.getState()
 
   const [showDetails, setShowDetails] = useState(() => include !== '' || exclude !== '')
+  const [showReplace, setShowReplace] = useState(() => replacement !== '')
   const [tip, setTip] = useState<Tip | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -208,7 +264,18 @@ export function SearchPanel() {
     el?.scrollIntoView({ block: 'nearest' })
   }, [activeKey])
 
+  // The undo toast (and any "nothing replaced" notice) clears itself; undo
+  // stays available for as long as it is showing.
+  useEffect(() => {
+    if (!replaceOutcome) return
+    const timer = setTimeout(dismissReplaceOutcome, 10_000)
+    return () => clearTimeout(timer)
+  }, [replaceOutcome, dismissReplaceOutcome])
+
   const stale = groups.some((g) => g.stale)
+  // Replacing needs a finished search: while results are still streaming the
+  // list is incomplete, so "replace all" would miss some.
+  const canReplace = showReplace && status === 'done' && matchCount > 0 && !replacing
   const canRefresh = status !== 'idle'
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -299,6 +366,15 @@ export function SearchPanel() {
                   <path d="M1.75 4.5c0-.69.56-1.25 1.25-1.25h2.6c.33 0 .65.13.88.37l.8.8c.23.24.55.37.88.37H13c.69 0 1.25.56 1.25 1.25v5.4c0 .69-.56 1.25-1.25 1.25H3c-.69 0-1.25-.56-1.25-1.25V4.5Z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" />
                 </svg>
               </IconButton>
+              <IconButton
+                label="Toggle Replace"
+                onClick={() => setShowReplace((v) => !v)}
+                active={showReplace}
+                tip={TIPS.replace}
+                setTip={setTip}
+              >
+                <SwapIcon />
+              </IconButton>
               {tip && (
                 <div
                   role="tooltip"
@@ -308,6 +384,30 @@ export function SearchPanel() {
                 </div>
               )}
             </div>
+
+            {showReplace && (
+              <div className="flex items-center gap-1">
+                <input
+                  value={replacement}
+                  onChange={(e) => setReplacement(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); requestReplaceAll() }
+                  }}
+                  placeholder={regex ? 'Replace ($1, $2 for groups)' : 'Replace'}
+                  aria-label="Replace with"
+                  spellCheck={false}
+                  className="h-7 min-w-0 flex-1 rounded border border-border bg-bg px-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-1 focus:ring-accent/70"
+                />
+                <button
+                  type="button"
+                  disabled={!canReplace}
+                  onClick={requestReplaceAll}
+                  className="h-7 shrink-0 rounded border border-border px-2 text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
+                >
+                  Replace all
+                </button>
+              </div>
+            )}
 
             {showDetails && (
               <div className="space-y-1">
@@ -349,8 +449,11 @@ export function SearchPanel() {
                       root={projectRoot}
                       collapsed={!!collapsed[group.path]}
                       activeKey={activeKey}
+                      canReplace={canReplace}
                       onToggle={() => toggleCollapsed(group.path)}
                       onOpen={(hit) => void openHit(hit)}
+                      onReplaceFile={() => void replaceFile(group.path)}
+                      onReplaceHit={(hit) => void replaceHit(hit)}
                     />
                   ))}
                 </ul>
@@ -358,6 +461,50 @@ export function SearchPanel() {
             )}
           </div>
         </>
+      )}
+
+      {replaceOutcome && (
+        replaceOutcome.records.length > 0
+          ? <UndoToast message={replaceOutcome.message} onUndo={() => void undoReplace()} />
+          : (
+            <button
+              type="button"
+              onClick={dismissReplaceOutcome}
+              title="Dismiss"
+              className="absolute bottom-2 left-2 right-2 z-10 rounded-lg border border-border bg-popover px-3 py-2 text-left text-xs text-fg shadow-lg shadow-black/40"
+            >
+              {replaceOutcome.message}
+            </button>
+          )
+      )}
+
+      {pendingReplaceAll && (
+        <Modal onClose={cancelReplaceAll}>
+          <h2 className="mb-1 text-sm font-semibold text-fg">Replace all</h2>
+          <p className="mb-2 text-sm text-fg-muted">
+            {`Replace ${plural(pendingReplaceAll.matches, 'match', 'matches')} in ${plural(pendingReplaceAll.files, 'file')} with ${replacement === '' ? 'nothing' : `“${replacement}”`}?`}
+          </p>
+          <p className="mb-5 text-xs text-fg-subtle">
+            Files open in an editor are changed there and left unsaved. Other files are written to disk. You can undo right afterwards.
+          </p>
+          <div className="flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={cancelReplaceAll}
+              className="rounded-lg border border-border px-4 py-1.5 text-sm text-fg-muted transition-colors hover:border-fg-muted hover:text-fg"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              autoFocus
+              onClick={() => void confirmReplaceAll()}
+              className="rounded-lg bg-accent px-4 py-1.5 text-sm font-semibold text-panel transition-colors hover:bg-accent/80"
+            >
+              Replace
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   )

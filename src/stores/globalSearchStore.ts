@@ -4,6 +4,7 @@ import { useEditorStore } from './editorStore'
 import { useFileStore } from './fileStore'
 import { openFileAtLocation } from '@/lib/openFileLocation'
 import { pathAllowed, searchInMemory } from '@/lib/searchInMemory'
+import { replaceInContent, type ReplaceOptions } from '@/lib/replaceInContent'
 
 // All state of the sidebar Global Search panel lives here rather than in the
 // component: the sidebar panels are conditionally rendered, so switching to Git
@@ -15,6 +16,23 @@ export interface ResultGroup {
   hits: SearchHit[]
   // The file was edited after this search ran, so its hits may have moved.
   stale: boolean
+}
+
+// What a replace changed in one file, kept so it can be undone.
+export interface ReplaceRecord {
+  path: string
+  before: string
+  after: string
+  // Edited in an open tab (left unsaved) rather than written to disk.
+  inTab: boolean
+  // The tab already had unsaved edits before the replace.
+  wasDirty: boolean
+}
+
+export interface ReplaceOutcome {
+  message: string
+  // Empty when nothing was changed (nothing to undo).
+  records: ReplaceRecord[]
 }
 
 export type SearchStatus = 'idle' | 'searching' | 'done' | 'error'
@@ -47,6 +65,12 @@ interface GlobalSearchState {
   // Bumped to ask the panel's input to take focus (Find in Files shortcut).
   focusTick: number
 
+  replacement: string
+  replacing: boolean
+  // Set while the "Replace N matches in M files?" confirmation is showing.
+  pendingReplaceAll: { matches: number; files: number } | null
+  replaceOutcome: ReplaceOutcome | null
+
   // Internal bookkeeping for the search currently in flight / last completed.
   searchId: string | null
   root: string | null
@@ -62,6 +86,15 @@ interface GlobalSearchState {
   toggleCollapsed: (path: string) => void
   moveActive: (delta: 1 | -1) => SearchHit | null
   openHit: (hit: SearchHit) => Promise<void>
+
+  setReplacement: (replacement: string) => void
+  replaceHit: (hit: SearchHit) => Promise<void>
+  replaceFile: (path: string) => Promise<void>
+  requestReplaceAll: () => void
+  cancelReplaceAll: () => void
+  confirmReplaceAll: () => Promise<void>
+  undoReplace: () => Promise<void>
+  dismissReplaceOutcome: () => void
 }
 
 const emptyResults = {
@@ -82,6 +115,10 @@ let wired = false
 
 function clearDebounce() {
   if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null }
+}
+
+function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
+  return `${count.toLocaleString()} ${count === 1 ? singular : pluralForm}`
 }
 
 function visibleHits(state: GlobalSearchState): SearchHit[] {
@@ -105,6 +142,10 @@ export const useGlobalSearchStore = create<GlobalSearchState>((set, get) => {
     ...emptyResults,
     collapsed: {},
     focusTick: 0,
+    replacement: '',
+    replacing: false,
+    pendingReplaceAll: null,
+    replaceOutcome: null,
 
     setQuery: (query) => { set({ query }); schedule() },
     setInclude: (include) => { set({ include }); if (get().query.trim()) schedule() },
@@ -197,8 +238,124 @@ export const useGlobalSearchStore = create<GlobalSearchState>((set, get) => {
       const matched = hit.text.slice(hit.matchStart, hit.matchStart + hit.length)
       await openFileAtLocation(hit.path, hit.line, hit.col, matched)
     },
+
+    setReplacement: (replacement) => set({ replacement }),
+
+    replaceHit: (hit) => runReplace(get, set, [{ path: hit.path, hits: [hit] }]),
+
+    replaceFile: async (path) => {
+      const group = get().groups.find((g) => g.path === path)
+      if (group) await runReplace(get, set, [{ path, hits: group.hits }])
+    },
+
+    requestReplaceAll: () => {
+      const { groups, status, replacing } = get()
+      if (status !== 'done' || replacing) return
+      const matches = groups.reduce((n, g) => n + g.hits.length, 0)
+      if (matches === 0) return
+      set({ pendingReplaceAll: { matches, files: groups.length } })
+    },
+
+    cancelReplaceAll: () => set({ pendingReplaceAll: null }),
+
+    confirmReplaceAll: async () => {
+      if (!get().pendingReplaceAll) return
+      set({ pendingReplaceAll: null })
+      await runReplace(get, set, get().groups.map((g) => ({ path: g.path, hits: g.hits })))
+    },
+
+    undoReplace: async () => {
+      const outcome = get().replaceOutcome
+      if (!outcome || outcome.records.length === 0 || get().replacing) return
+      set({ replacing: true })
+
+      let conflicts = 0
+      for (const record of outcome.records) {
+        if (record.inTab) {
+          const tab = useEditorStore.getState().tabs.find((t) => t.path === record.path)
+          if (!tab) continue // closed since: the edit only ever lived in memory
+          if (tab.content !== record.after) { conflicts++; continue }
+          useEditorStore.getState().updateContent(record.path, record.before)
+          if (!record.wasDirty) useEditorStore.getState().markSaved(record.path, record.before)
+        } else {
+          try {
+            const current = await window.api.readFile(record.path)
+            if (current !== record.after) { conflicts++; continue }
+            await window.api.writeFile(record.path, record.before)
+          } catch {
+            conflicts++
+          }
+        }
+      }
+
+      set({
+        replacing: false,
+        replaceOutcome: conflicts > 0
+          ? { message: `Undone, except ${plural(conflicts, 'file')} that changed since the replace and ${conflicts === 1 ? 'was' : 'were'} left alone`, records: [] }
+          : null,
+      })
+      get().runNow()
+    },
+
+    dismissReplaceOutcome: () => set({ replaceOutcome: null }),
   }
 })
+
+type StoreGet = () => GlobalSearchState
+type StoreSet = (partial: Partial<GlobalSearchState>) => void
+
+// Replaces the given hits, file by file. Files open in a tab are edited in
+// place and left unsaved (like typing would); everything else is written to
+// disk. Every hit is re-checked against the file's content as it is now, so a
+// file that changed since the search is skipped rather than clobbered.
+async function runReplace(get: StoreGet, set: StoreSet, targets: Array<{ path: string; hits: SearchHit[] }>): Promise<void> {
+  const state = get()
+  if (state.status !== 'done' || state.replacing || targets.length === 0) return
+  set({ replacing: true, replaceOutcome: null })
+
+  const options: ReplaceOptions = {
+    query: state.query,
+    caseSensitive: state.caseSensitive,
+    wholeWord: state.wholeWord,
+    regex: state.regex,
+    replacement: state.replacement,
+  }
+
+  const records: ReplaceRecord[] = []
+  let replaced = 0
+  let skipped = 0
+  let failed = 0
+  for (const target of targets) {
+    try {
+      const tab = useEditorStore.getState().tabs.find((t) => t.path === target.path)
+      const before = tab ? tab.content : await window.api.readFile(target.path)
+      const result = replaceInContent(before, target.hits, options)
+      skipped += result.skipped
+      if (result.error || result.replaced === 0) continue
+
+      if (tab) useEditorStore.getState().updateContent(target.path, result.content)
+      else await window.api.writeFile(target.path, result.content)
+      records.push({ path: target.path, before, after: result.content, inTab: !!tab, wasDirty: !!tab?.dirty })
+      replaced += result.replaced
+    } catch {
+      failed++
+    }
+  }
+
+  const notes = [
+    skipped > 0 ? `${skipped.toLocaleString()} no longer matched` : null,
+    failed > 0 ? `${plural(failed, 'file')} could not be updated` : null,
+  ].filter(Boolean)
+  const message = replaced > 0
+    ? [`Replaced ${plural(replaced, 'match', 'matches')} in ${plural(records.length, 'file')}`, ...notes].join('; ')
+    : skipped > 0
+      ? 'Nothing replaced — the files changed since this search. Refresh and try again.'
+      : failed > 0 ? `${plural(failed, 'file')} could not be updated` : 'Nothing to replace'
+
+  set({ replacing: false, replaceOutcome: { message, records } })
+  // The list is now out of date (replaced hits are gone); search again.
+  get().runNow()
+}
 
 function onResults(batch: SearchBatch) {
   const state = useGlobalSearchStore.getState()
@@ -265,6 +422,8 @@ function wire() {
   })
 
   useFileStore.subscribe((state, prev) => {
-    if (state.projectRoot !== prev.projectRoot) useGlobalSearchStore.getState().clear()
+    if (state.projectRoot === prev.projectRoot) return
+    useGlobalSearchStore.getState().clear()
+    useGlobalSearchStore.getState().dismissReplaceOutcome()
   })
 }

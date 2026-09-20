@@ -5,6 +5,8 @@ import { join } from 'path'
 import { SearchManager } from '../search'
 import type { SearchDone, SearchHit, SearchOptions } from '../searchArgs'
 import { pathAllowed } from '../../src/lib/searchInMemory'
+import { replaceInContent } from '../../src/lib/replaceInContent'
+import { readFile } from 'fs/promises'
 
 const base: SearchOptions = {
   query: 'needle',
@@ -190,5 +192,58 @@ describe('include/exclude parity: renderer pathAllowed vs real ripgrep', () => {
       expect(fromRenderer).toEqual(fromRg)
     })
   }
+})
+
+// The riskiest seam of replace: ripgrep reports UTF-8 byte offsets that are
+// converted to UTF-16 columns, and replaceInContent edits by those columns. Run
+// the real search, feed its hits to the real replacer, write, and compare.
+describe('search → replace round trip (real ripgrep, real files)', () => {
+  async function replaceAllOnDisk(options: Partial<SearchOptions>, replacement: string) {
+    const { hits } = await run(options)
+    const byFile = new Map<string, SearchHit[]>()
+    for (const h of hits) byFile.set(h.path, [...(byFile.get(h.path) ?? []), h])
+    const full = { ...base, ...options }
+    for (const [path, fileHits] of byFile) {
+      const before = await readFile(path, 'utf-8')
+      const result = replaceInContent(before, fileHits, { ...full, replacement })
+      expect(result.skipped).toBe(0)
+      await writeFile(path, result.content)
+    }
+    return byFile.size
+  }
+
+  it('rewrites every match exactly, across CRLF, emoji, accents and repeated hits on a line', async () => {
+    const a = await put('a.txt', 'needle\r\né😀 needle needle\r\nplain\r\n')
+    const b = await put('b.txt', 'ünïcödé needle, needle\nlast needle')
+    const files = await replaceAllOnDisk({}, 'pin')
+    expect(files).toBe(2)
+    expect(await readFile(a, 'utf-8')).toBe('pin\r\né😀 pin pin\r\nplain\r\n')
+    expect(await readFile(b, 'utf-8')).toBe('ünïcödé pin, pin\nlast pin')
+  })
+
+  it('honours case-insensitive matching when replacing different casings', async () => {
+    const a = await put('a.txt', 'Needle NEEDLE needle\n')
+    await replaceAllOnDisk({}, 'x')
+    expect(await readFile(a, 'utf-8')).toBe('x x x\n')
+  })
+
+  it('expands capture groups from a regex search', async () => {
+    const a = await put('a.txt', 'get(1) get(22)\n')
+    await replaceAllOnDisk({ query: 'get\\((\\d+)\\)', regex: true }, 'fetch[$1]')
+    expect(await readFile(a, 'utf-8')).toBe('fetch[1] fetch[22]\n')
+  })
+
+  it('only changes whole words when whole-word is on', async () => {
+    const a = await put('a.txt', 'needles needle (needle) my_needle\n')
+    await replaceAllOnDisk({ wholeWord: true }, 'X')
+    expect(await readFile(a, 'utf-8')).toBe('needles X (X) my_needle\n')
+  })
+
+  it('leaves files that were not matched byte-for-byte identical', async () => {
+    const untouched = await put('other.txt', 'nothing to see\r\nhere\n')
+    await put('a.txt', 'needle\n')
+    await replaceAllOnDisk({}, 'pin')
+    expect(await readFile(untouched, 'utf-8')).toBe('nothing to see\r\nhere\n')
+  })
 })
 

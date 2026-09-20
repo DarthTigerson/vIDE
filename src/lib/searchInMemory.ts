@@ -28,7 +28,7 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-function buildRegExp(options: InMemoryOptions): RegExp {
+export function buildRegExp(options: Pick<InMemoryOptions, 'query' | 'caseSensitive' | 'wholeWord' | 'regex'>): RegExp {
   const source = options.regex ? options.query : escapeRegExp(options.query)
   // Same meaning as rg --word-regexp: no word character directly on either
   // side (so `(needle)` matches, `my_needle` doesn't), which plain \b gets
