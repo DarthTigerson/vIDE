@@ -5,6 +5,7 @@ import {
 import { join, extname, basename, dirname, relative, resolve, isAbsolute } from 'path'
 import { homedir } from 'os'
 import { shell } from 'electron'
+import { IGNORED_SEGMENTS } from './ignoredSegments'
 
 const IMAGE_MIME_TYPES: Record<string, string> = {
   '.png': 'image/png',
@@ -30,11 +31,6 @@ export interface SearchMatch {
   col: number
   text: string
 }
-
-const IGNORED_SEGMENTS = new Set([
-  'node_modules', '.git', 'dist', 'out', '.next', 'build',
-  'coverage', '.cache', '__pycache__', '.turbo', '.vite',
-])
 
 const BINARY_EXTENSIONS = new Set([
   '.zip', '.tar', '.gz', '.tgz', '.bz2', '.7z', '.rar', '.xz',

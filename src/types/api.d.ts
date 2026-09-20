@@ -9,6 +9,7 @@ import type { DockerStatus, DockerContainer, DockerActionResult, DockerContainer
 import type { LlamaLaunchConfig } from '../../electron/llama'
 import type { OnboardingStatus, GitIdentity } from '../../electron/onboarding'
 import type { ConfigRepoSettings } from '../../electron/configRepo'
+import type { SearchHit, SearchOptions, SearchBatch, SearchDone } from '../../electron/searchTypes'
 
 export type { LatestUsage, UsageSnapshot, UpdateInfo, DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats }
 
@@ -161,6 +162,10 @@ declare global {
       pathForFile: (file: File) => string
       listAllFiles: (root: string) => Promise<string[]>
       searchText: (root: string, query: string, caseSensitive: boolean) => Promise<SearchMatch[]>
+      searchStart: (searchId: string, root: string, options: SearchOptions) => void
+      searchCancel: (searchId: string) => void
+      onSearchResults: (cb: (batch: SearchBatch) => void) => () => void
+      onSearchDone: (cb: (done: SearchDone) => void) => () => void
       openFolder: () => Promise<string | null>
       getSystemMemoryUsage: () => Promise<{ usedBytes: number; totalBytes: number; appBytes: number }>
       fsWatchRoot: (cwd: string | null) => void
