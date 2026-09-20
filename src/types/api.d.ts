@@ -154,6 +154,11 @@ declare global {
       mkdir: (path: string) => Promise<void>
       renamePath: (from: string, to: string) => Promise<void>
       trashPath: (path: string) => Promise<void>
+      copyInto: (source: string, destDir: string) => Promise<string>
+      moveInto: (source: string, destDir: string) => Promise<string>
+      writeClipboardFiles: (paths: string[], mode: 'copy' | 'cut') => Promise<void>
+      readClipboardFiles: () => Promise<{ paths: string[]; mode: 'copy' | 'cut' } | null>
+      pathForFile: (file: File) => string
       listAllFiles: (root: string) => Promise<string[]>
       searchText: (root: string, query: string, caseSensitive: boolean) => Promise<SearchMatch[]>
       openFolder: () => Promise<string | null>

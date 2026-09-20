@@ -18,6 +18,7 @@ import {
 import { isImageFile, isMarkdownFile } from '@/lib/fileKinds'
 import { isIgnoredPath } from '@/lib/gitIgnore'
 import { FileIcon, FolderIcon } from './FileIcon'
+import { isExternalFileDrag } from './treeUtils'
 
 export type TreePromptKind = 'file' | 'directory' | 'rename'
 
@@ -40,6 +41,7 @@ interface FileTreeProps {
   dragOverPath: string | null
   setDragOverPath: (path: string | null) => void
   onMoveNode: (sourcePath: string, targetDir: string) => void
+  onDropExternal: (files: File[], targetDir: string) => void
 }
 
 function InlineNameInput({ prompt, depth, setPromptValue, commitPrompt, cancelPrompt }: {
@@ -90,6 +92,7 @@ export function FileTree({
   dragOverPath,
   setDragOverPath,
   onMoveNode,
+  onDropExternal,
 }: FileTreeProps) {
   const { select, expandDir, collapseDir } = useFileStore()
   const expandedPaths = useFileStore((s) => s.expandedPaths)
@@ -131,6 +134,7 @@ export function FileTree({
   async function handleClick(node: FileNode) {
     useFileStore.getState().clearRevealedPath()
     if (node.isDirectory) {
+      select(node.path)
       if (expandedPaths.has(node.path)) {
         collapseDir(node.path)
       } else {
@@ -209,7 +213,7 @@ export function FileTree({
                   if (!node.isDirectory) return
                   event.preventDefault()
                   event.stopPropagation()
-                  event.dataTransfer.dropEffect = 'move'
+                  event.dataTransfer.dropEffect = isExternalFileDrag(event.dataTransfer) ? 'copy' : 'move'
                   if (dragOverPath !== node.path) setDragOverPath(node.path)
                 }}
                 onDrop={(event) => {
@@ -217,6 +221,11 @@ export function FileTree({
                   event.stopPropagation()
                   setDragOverPath(null)
                   if (!node.isDirectory) return
+                  if (isExternalFileDrag(event.dataTransfer)) {
+                    const files = Array.from(event.dataTransfer.files)
+                    if (files.length > 0) onDropExternal(files, node.path)
+                    return
+                  }
                   const sourcePath = event.dataTransfer.getData('text/plain')
                   if (sourcePath) onMoveNode(sourcePath, node.path)
                 }}
@@ -251,6 +260,7 @@ export function FileTree({
                 dragOverPath={dragOverPath}
                 setDragOverPath={setDragOverPath}
                 onMoveNode={onMoveNode}
+                onDropExternal={onDropExternal}
               />
             )}
           </li>

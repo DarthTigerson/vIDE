@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { LlamaLaunchConfig } from './llama'
 
 contextBridge.exposeInMainWorld('api', {
@@ -12,6 +12,12 @@ contextBridge.exposeInMainWorld('api', {
   mkdir: (path: string) => ipcRenderer.invoke('fs:mkdir', path),
   renamePath: (from: string, to: string) => ipcRenderer.invoke('fs:rename', from, to),
   trashPath: (path: string) => ipcRenderer.invoke('fs:trash', path),
+  copyInto: (source: string, destDir: string) => ipcRenderer.invoke('fs:copyInto', source, destDir),
+  moveInto: (source: string, destDir: string) => ipcRenderer.invoke('fs:moveInto', source, destDir),
+  writeClipboardFiles: (paths: string[], mode: 'copy' | 'cut') =>
+    ipcRenderer.invoke('clipboard:writeFiles', paths, mode),
+  readClipboardFiles: () => ipcRenderer.invoke('clipboard:readFiles'),
+  pathForFile: (file: File) => webUtils.getPathForFile(file),
   listAllFiles: (root: string) => ipcRenderer.invoke('fs:listAllFiles', root),
   searchText: (root: string, query: string, caseSensitive: boolean) =>
     ipcRenderer.invoke('fs:searchText', root, query, caseSensitive),

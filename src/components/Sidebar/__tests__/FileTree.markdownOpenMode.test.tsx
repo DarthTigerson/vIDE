@@ -49,6 +49,7 @@ function renderTree() {
       dragOverPath={null}
       setDragOverPath={noop}
       onMoveNode={noop}
+      onDropExternal={noop}
     />
   )
 }

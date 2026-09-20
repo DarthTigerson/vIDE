@@ -6,6 +6,8 @@ vi.mock('../../fsOps', async (importOriginal) => ({
   listAllFiles: vi.fn(async (root: string) => [`${root}/a.ts`]),
   writeFile: vi.fn(async (path: string, content: string) => ({ path, content })),
   renamePath: vi.fn(async (from: string, to: string) => ({ from, to })),
+  copyInto: vi.fn(async (source: string, destDir: string) => ({ source, destDir, op: 'copy' })),
+  moveInto: vi.fn(async (source: string, destDir: string) => ({ source, destDir, op: 'move' })),
   searchText: vi.fn(async (root: string, query: string, caseSensitive: boolean) => [
     `${root}:${query}:${caseSensitive}`,
   ]),
@@ -55,5 +57,12 @@ describe('fsChannels', () => {
       args: ['/root', 'needle', true],
     })
     expect(res).toEqual({ type: 'response', id: '4', result: ['/root:needle:true'] })
+  })
+
+  it('passes fs:copyInto and fs:moveInto args through in order (source, destDir)', async () => {
+    const copied = await dispatch({ type: 'invoke', id: '5', method: 'fs:copyInto', args: ['/a.txt', '/dest'] })
+    expect(copied).toEqual({ type: 'response', id: '5', result: { source: '/a.txt', destDir: '/dest', op: 'copy' } })
+    const moved = await dispatch({ type: 'invoke', id: '6', method: 'fs:moveInto', args: ['/a.txt', '/dest'] })
+    expect(moved).toEqual({ type: 'response', id: '6', result: { source: '/a.txt', destDir: '/dest', op: 'move' } })
   })
 })

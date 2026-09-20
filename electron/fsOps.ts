@@ -1,8 +1,8 @@
 import {
-  readdir, readFile, stat, access,
+  readdir, readFile, stat, access, cp,
   writeFile as fsWriteFile, mkdir as fsMkdir, rename as fsRename,
 } from 'fs/promises'
-import { join, extname } from 'path'
+import { join, extname, basename, dirname, relative, resolve, isAbsolute } from 'path'
 import { homedir } from 'os'
 import { shell } from 'electron'
 
@@ -158,4 +158,42 @@ export function renamePath(from: string, to: string): Promise<void> {
 
 export function trashPath(path: string): Promise<void> {
   return shell.trashItem(path)
+}
+
+// Finder-style unique name inside destDir: "a.txt" -> "a copy.txt" ->
+// "a copy 2.txt". Directories have no extension (so "v1.2" -> "v1.2 copy").
+export async function uniqueDestPath(destDir: string, name: string, isDirectory: boolean): Promise<string> {
+  const plain = join(destDir, name)
+  if (!(await pathExists(plain))) return plain
+  const ext = isDirectory ? '' : extname(name)
+  const stem = ext ? name.slice(0, -ext.length) : name
+  let candidate = join(destDir, `${stem} copy${ext}`)
+  for (let n = 2; await pathExists(candidate); n++) {
+    candidate = join(destDir, `${stem} copy ${n}${ext}`)
+  }
+  return candidate
+}
+
+function assertNotIntoSelf(source: string, destDir: string): void {
+  const rel = relative(resolve(source), resolve(destDir))
+  if (rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))) {
+    throw new Error(`Cannot put "${basename(source)}" into itself`)
+  }
+}
+
+export async function copyInto(source: string, destDir: string): Promise<string> {
+  assertNotIntoSelf(source, destDir)
+  const info = await stat(source)
+  const dest = await uniqueDestPath(destDir, basename(source), info.isDirectory())
+  await cp(source, dest, { recursive: true, errorOnExist: true, force: false })
+  return dest
+}
+
+export async function moveInto(source: string, destDir: string): Promise<string> {
+  assertNotIntoSelf(source, destDir)
+  if (dirname(resolve(source)) === resolve(destDir)) return source
+  const info = await stat(source)
+  const dest = await uniqueDestPath(destDir, basename(source), info.isDirectory())
+  await fsRename(source, dest)
+  return dest
 }
