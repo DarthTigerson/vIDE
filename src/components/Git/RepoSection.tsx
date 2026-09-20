@@ -146,7 +146,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
   const isExpanded = !showHeader || repo === selectedRepo
   const closeRepo = useGitOpenReposStore((s) => s.closeRepo)
   const closeAll = useGitOpenReposStore((s) => s.closeAll)
-  const { branch, status, commitMessage, commitError, commandStatus, aheadBehind } = useRepoGitState(repo)
+  const { branch, status, commitMessage, commitError, commitMessageError, commandStatus, aheadBehind } = useRepoGitState(repo)
   const {
     refresh,
     refreshStatus,
@@ -157,6 +157,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
     discard,
     discardAll,
     setCommitMessage,
+    setCommitMessageError,
     commit,
     fetch: gitFetch,
     pull,
@@ -172,21 +173,23 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
   const commitMessageModel = useCommitMessageSettingsStore((s) => s.model)
   const commitMessagePrompt = useCommitMessageSettingsStore((s) => s.prompt)
   const [generatingMessage, setGeneratingMessage] = useState(false)
-  const [generateError, setGenerateError] = useState<string | null>(null)
   const [generatingGif, setGeneratingGif] = useState<string | null>(null)
 
   async function generateCommitMessage() {
     setGeneratingMessage(true)
     setGeneratingGif(pickClaudeGif())
-    setGenerateError(null)
+    setCommitMessageError(repo, null)
     try {
       const diff = await window.api.gitStagedDiff(repo)
       const message = await window.api.commitMessageGenerate(diff, commitMessageModel, commitMessagePrompt)
       if (message) {
         setCommitMessage(repo, message)
       } else {
-        setGenerateError('Could not generate a commit message')
+        setCommitMessageError(repo, 'Could not generate a commit message')
       }
+    } catch (error) {
+      console.error('commit message generation failed', error)
+      setCommitMessageError(repo, 'Could not generate a commit message')
     } finally {
       setGeneratingMessage(false)
     }
@@ -369,7 +372,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
             </button>
           )}
         </div>
-        {generateError && <p className="text-xs text-red-400">{generateError}</p>}
+        {commitMessageError && <p className="text-xs text-red-400">{commitMessageError}</p>}
         {commitError && <p className="text-xs text-red-400">{commitError}</p>}
         <SplitCommandButton
           label="Commit"

@@ -79,6 +79,23 @@ export function useNotificationItems(): NotificationItem[] {
     })
   }
 
+  // Same shape as the commit-error rows above: lives in gitStore until the
+  // message is edited, a commit succeeds, or the next generation starts.
+  for (const [cwd, repoState] of Object.entries(gitRepos)) {
+    if (!repoState.commitMessageError) continue
+    const repoName = cwd.split('/').pop()
+    items.push({
+      id: `commit-message-error-${cwd}`,
+      text: `${repoState.commitMessageError} in ${repoName}`,
+      disabled: false,
+      icon: <GitIcon />,
+      onClick: () => {
+        useGitReposStore.getState().selectRepo(cwd)
+        useGitPanelOpenAlertStore.getState().requestOpen()
+      },
+    })
+  }
+
   if (dockerEnabled && dockerStatus === 'stopped') {
     items.push({
       id: 'docker',
