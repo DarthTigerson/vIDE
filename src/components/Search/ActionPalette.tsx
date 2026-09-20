@@ -1,33 +1,49 @@
 import { useEffect, useRef, useState } from 'react'
 import { getAllCommands } from './commandRegistry'
-import type { Command } from './commands'
+import type { Command, PaletteStep } from './commands'
+import { rankBySearch, withRecentsFirst } from '@/lib/paletteSearch'
+import { getRecents, recordRecent } from '@/lib/paletteRecents'
 import { ShortcutKeys } from '@/components/ui/ShortcutKeys'
 
 interface Props {
   onClose: () => void
 }
 
-function filterCommands(query: string): Command[] {
-  const all = getAllCommands()
-  const visible = all.filter((cmd) => cmd.condition === undefined || cmd.condition())
-  if (!query.trim()) return visible
+interface Row {
+  id: string
+  label: string
+  detail?: string
+  reason: string | null
+  danger: boolean
+  shortcut?: string
+}
 
-  const q = query.toLowerCase()
-  return visible.filter((cmd) => {
-    if (cmd.label.toLowerCase().includes(q)) return true
-    if (cmd.description?.toLowerCase().includes(q)) return true
-    if (cmd.keywords?.some((k) => k.toLowerCase().includes(q))) return true
-    return false
-  })
+function listCommands(query: string): Command[] {
+  const visible = getAllCommands().filter((cmd) => cmd.condition === undefined || cmd.condition())
+  return query.trim() ? rankBySearch(visible, query) : withRecentsFirst(visible, getRecents())
 }
 
 export function ActionPalette({ onClose }: Props) {
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
+  const [step, setStep] = useState<PaletteStep | null>(null)
+  const [busy, setBusy] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
 
-  const commands = filterCommands(query)
+  const commands = step ? [] : listCommands(query)
+  const rows: Row[] = step
+    ? rankBySearch(step.items, query).map((item) => ({
+        id: item.id, label: item.label, detail: item.description, reason: null, danger: false,
+      }))
+    : commands.map((cmd) => ({
+        id: cmd.id,
+        label: cmd.label,
+        detail: cmd.description,
+        reason: cmd.disabledReason?.() ?? null,
+        danger: cmd.danger === true,
+        shortcut: cmd.shortcut,
+      }))
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -35,14 +51,37 @@ export function ActionPalette({ onClose }: Props) {
 
   useEffect(() => {
     setActiveIndex(0)
-  }, [query])
+  }, [query, step])
 
   useEffect(() => {
     const el = listRef.current?.children[activeIndex] as HTMLElement | undefined
     el?.scrollIntoView({ block: 'nearest' })
   }, [activeIndex])
 
-  function execute(cmd: Command) {
+  async function choose(row: Row | undefined) {
+    if (!row || row.reason || busy) return
+    if (step) {
+      onClose()
+      step.onPick(row.id)
+      return
+    }
+    const cmd = commands.find((c) => c.id === row.id)
+    if (!cmd) return
+    recordRecent(cmd.id)
+    if (cmd.pick) {
+      setBusy(true)
+      try {
+        setStep(await cmd.pick())
+        setQuery('')
+      } catch (err) {
+        console.error('palette picker failed', err)
+      } finally {
+        setBusy(false)
+      }
+      return
+    }
+    // Close first, then run: same order as before, so actions that move focus
+    // (new terminal, editor commands) aren't fighting the palette's input.
     onClose()
     cmd.action?.()
   }
@@ -50,18 +89,24 @@ export function ActionPalette({ onClose }: Props) {
   function onKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setActiveIndex((i) => Math.min(i + 1, commands.length - 1))
+      setActiveIndex((i) => Math.min(i + 1, rows.length - 1))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       setActiveIndex((i) => Math.max(i - 1, 0))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      const cmd = commands[activeIndex]
-      if (cmd) execute(cmd)
+      void choose(rows[activeIndex])
     } else if (e.key === 'Escape') {
-      onClose()
+      if (step) {
+        setStep(null)
+        setQuery('')
+      } else {
+        onClose()
+      }
     }
   }
+
+  const emptyText = step ? step.emptyText : `No commands matching "${query}"`
 
   return (
     <div
@@ -77,7 +122,7 @@ export function ActionPalette({ onClose }: Props) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Run a command…"
+            placeholder={step ? step.placeholder : 'Run a command…'}
             className="flex-1 bg-transparent text-sm text-fg placeholder:text-fg-subtle outline-none"
           />
           {query && (
@@ -87,30 +132,41 @@ export function ActionPalette({ onClose }: Props) {
           )}
         </div>
 
-        {commands.length > 0 && (
+        {rows.length > 0 && (
           <ul ref={listRef} className="overflow-y-auto flex-1 py-1">
-            {commands.map((cmd, i) => {
+            {rows.map((row, i) => {
               const isActive = i === activeIndex
+              const disabled = row.reason !== null
               return (
-                <li key={cmd.id}>
+                <li key={row.id}>
                   <button
                     type="button"
-                    onMouseDown={() => execute(cmd)}
+                    aria-disabled={disabled}
+                    data-danger={row.danger}
+                    onMouseDown={() => void choose(row)}
                     onMouseEnter={() => setActiveIndex(i)}
                     className={[
                       'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors',
-                      isActive ? 'bg-accent/20' : 'hover:bg-white/5',
+                      disabled ? 'opacity-50 cursor-not-allowed' : '',
+                      isActive && !disabled ? 'bg-accent/20' : 'hover:bg-white/5',
                     ].join(' ')}
                   >
                     <div className="flex-1 min-w-0">
-                      <div className={['text-sm font-medium', isActive ? 'text-fg' : 'text-fg-muted'].join(' ')}>
-                        {cmd.label}
+                      <div
+                        className={[
+                          'text-sm font-medium',
+                          row.danger ? 'text-red-400' : isActive ? 'text-fg' : 'text-fg-muted',
+                        ].join(' ')}
+                      >
+                        {row.label}
                       </div>
-                      {cmd.description && (
-                        <div className="text-xs text-fg-subtle truncate">{cmd.description}</div>
+                      {(row.reason ?? row.detail) && (
+                        <div className={['text-xs text-fg-subtle truncate', disabled ? 'italic' : ''].join(' ')}>
+                          {row.reason ?? row.detail}
+                        </div>
                       )}
                     </div>
-                    {cmd.shortcut && <ShortcutKeys shortcut={cmd.shortcut} />}
+                    {row.shortcut && <ShortcutKeys shortcut={row.shortcut} />}
                   </button>
                 </li>
               )
@@ -118,8 +174,8 @@ export function ActionPalette({ onClose }: Props) {
           </ul>
         )}
 
-        {commands.length === 0 && (
-          <div className="px-4 py-6 text-sm text-fg-subtle text-center">No commands matching "{query}"</div>
+        {rows.length === 0 && (
+          <div className="px-4 py-6 text-sm text-fg-subtle text-center">{emptyText}</div>
         )}
       </div>
     </div>
