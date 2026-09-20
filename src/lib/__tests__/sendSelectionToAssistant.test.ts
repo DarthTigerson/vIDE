@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   toRelativePath,
   formatSelectionForAssistant,
+  formatTerminalSelectionForAssistant,
   wrapBracketedPaste,
   BRACKETED_PASTE_START,
   BRACKETED_PASTE_END,
@@ -65,5 +66,13 @@ describe('wrapBracketedPaste', () => {
     const inner = wrapped.slice(BRACKETED_PASTE_START.length, -BRACKETED_PASTE_END.length)
     expect(inner).not.toContain('\x1b')
     expect(inner).toBe('before[201~after')
+  })
+})
+
+describe('formatTerminalSelectionForAssistant', () => {
+  it('labels the text as terminal output inside a plain code fence', () => {
+    expect(formatTerminalSelectionForAssistant('npm ERR! code ELIFECYCLE\nnpm ERR! errno 1')).toBe(
+      'Terminal output:\n```\nnpm ERR! code ELIFECYCLE\nnpm ERR! errno 1\n```'
+    )
   })
 })

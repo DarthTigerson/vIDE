@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Terminal as XTerm } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
@@ -10,6 +10,8 @@ import { useDisplayStore } from '@/stores/displayStore'
 import { useFileStore } from '@/stores/fileStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { buildTerminalPath } from '@/components/Settings/paths'
+import { createTerminalKeyHandler } from './terminalKeys'
+import { TerminalContextMenu } from './TerminalContextMenu'
 
 interface Props {
   terminalId: string
@@ -46,6 +48,8 @@ export function TerminalTab({ terminalId }: Props) {
   const fontSizeOverride = useInstanceFontSizeStore((s) => s.overrides[terminalId])
   const effectiveFontSize = fontSizeOverride ?? fontSize
   const font = useDisplayStore((s) => s.font)
+  const [menu, setMenu] = useState<{ x: number; y: number; selection: string } | null>(null)
+  const closeMenu = useCallback(() => setMenu(null), [])
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -96,27 +100,7 @@ export function TerminalTab({ terminalId }: Props) {
         pendingTerminalCommands.delete(terminalId)
         spawnPromise.then(() => window.api.termWrite(terminalId, pendingCommand))
       }
-      // CmdOrCtrl+=/-/0 (unshifted) resize just this terminal; shifted variants are
-      // left unhandled so they pass through to the app-level global zoom shortcut.
-      xterm.attachCustomKeyEventHandler((event) => {
-        if (event.type !== 'keydown') return true
-        const isMod = event.metaKey || event.ctrlKey
-        if (!isMod || event.shiftKey || event.altKey) return true
-
-        if (event.key === '=' || event.key === '+') {
-          useInstanceFontSizeStore.getState().increase(terminalId)
-          return false
-        }
-        if (event.key === '-' || event.key === '_') {
-          useInstanceFontSizeStore.getState().decrease(terminalId)
-          return false
-        }
-        if (event.key === '0') {
-          useInstanceFontSizeStore.getState().reset(terminalId)
-          return false
-        }
-        return true
-      })
+      xterm.attachCustomKeyEventHandler(createTerminalKeyHandler(terminalId, xterm))
     }
 
     instanceRef.current = instance
@@ -185,6 +169,19 @@ export function TerminalTab({ terminalId }: Props) {
   }, [font, terminalId])
 
   return (
-    <div ref={containerRef} className="h-full w-full overflow-hidden bg-bg p-1" />
+    <>
+      <div
+        ref={containerRef}
+        className="h-full w-full overflow-hidden bg-bg p-1"
+        onContextMenu={(event) => {
+          event.preventDefault()
+          // Read after xterm's own right-click handling (which may select the
+          // word under the cursor on macOS) so the menu acts on what's shown.
+          const selection = instanceRef.current?.xterm.getSelection() ?? ''
+          setMenu({ x: event.clientX, y: event.clientY, selection })
+        }}
+      />
+      {menu && <TerminalContextMenu x={menu.x} y={menu.y} selection={menu.selection} onClose={closeMenu} />}
+    </>
   )
 }
