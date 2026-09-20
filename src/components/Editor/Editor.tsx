@@ -4,6 +4,9 @@ import type * as Monaco from 'monaco-editor'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { useEditorStore, type EditorLayoutNode } from '@/stores/editorStore'
 import { useSearchStore } from '@/stores/searchStore'
+import { useGlobalSearchStore } from '@/stores/globalSearchStore'
+import { useEditorFindStore } from '@/stores/editorFindStore'
+import { EditorFindBox } from './EditorFindBox'
 import { useThemeStore, MONACO_THEMES } from '@/stores/themeStore'
 import { useCustomThemeStore } from '@/stores/customThemeStore'
 import {
@@ -327,6 +330,9 @@ function EditorPane({ paneId }: { paneId: string }) {
   const [diffContent, setDiffContent] = useState<GitDiffContent | null>(null)
   const [editorContextMenu, setEditorContextMenu] = useState<{ x: number; y: number } | null>(null)
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null)
+  // The same editor as editorRef, but as state so the find box re-attaches when the
+  // pane's Monaco instance is recreated (it is keyed per tab).
+  const [findEditor, setFindEditor] = useState<Monaco.editor.IStandaloneCodeEditor | null>(null)
   const decorationsRef = useRef<Monaco.editor.IEditorDecorationsCollection | null>(null)
   // Gutter change indicators (colored line numbers for uncommitted changes).
   // Separate from decorationsRef above, which is the ephemeral search-reveal
@@ -610,7 +616,8 @@ function EditorPane({ paneId }: { paneId: string }) {
             )}
           </div>
         ) : (
-          <div className="h-full overflow-hidden">
+          <div className="relative h-full overflow-hidden">
+            <EditorFindBox paneId={paneId} editor={findEditor} />
             <MonacoEditor
               key={`${paneId}:${activeTab.path}`}
               value={activeTab.content}
@@ -639,6 +646,8 @@ function EditorPane({ paneId }: { paneId: string }) {
               onChange={(val) => updateContent(activeTab.path, val ?? '')}
               onMount={(editor, monaco) => {
                 editorRef.current = editor
+                setFindEditor(editor)
+                editor.onDidDispose(() => setFindEditor((current) => (current === editor ? null : current)))
                 editor.onContextMenu((e) => {
                   setEditorContextMenu({ x: e.event.posx, y: e.event.posy })
                 })
@@ -666,12 +675,30 @@ function EditorPane({ paneId }: { paneId: string }) {
                     useEditorStore.getState().splitActivePane('vertical')
                   }
                 )
-                // Cmd+F is deliberately left unbound here so Monaco's own
-                // built-in find widget (already bound to Cmd+F internally)
-                // handles it - basic in-file search, no app-level modal.
+                // In-file find / replace is our own box (EditorFindBox), not Monaco's
+                // built-in widget: these bindings take over its keys. Cmd+Shift+F
+                // (below) is the project-wide search in the sidebar Search panel.
+                const openFind = (replace?: boolean) => {
+                  activatePane()
+                  const selection = editor.getSelection()
+                  const model = editor.getModel()
+                  const seed = selection && !selection.isEmpty() && model ? model.getValueInRange(selection) : null
+                  useEditorFindStore.getState().openFind(paneId, { replace, seed })
+                }
+                const stepFind = (delta: 1 | -1) => {
+                  activatePane()
+                  useEditorFindStore.getState().requestNav(paneId, delta)
+                }
+                editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () => openFind())
+                editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyF, () => openFind(true))
+                editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH, () => openFind(true))
+                editor.addCommand(monaco.KeyCode.F3, () => stepFind(1))
+                editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.F3, () => stepFind(-1))
+                editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyG, () => stepFind(1))
+                editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyG, () => stepFind(-1))
                 editor.addCommand(
                   monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF,
-                  () => { useSearchStore.getState().openSearch() }
+                  () => { useGlobalSearchStore.getState().requestFocus() }
                 )
                 editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyP, () => {
                   useSearchStore.getState().openCommandPalette()

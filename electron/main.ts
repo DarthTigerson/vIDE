@@ -31,6 +31,7 @@ import { registerRecentProjectsHandlers, readRecents, addRecentProject, clearRec
 import { registerTodoHandlers } from './todos'
 import { registerTodoMcpHandlers, registerNotesMcpHandlers, registerBrowserMcpHandlers } from './mcp/mcpRegistration'
 import { registerNotesHandlers } from './notes'
+import { registerSearchHandlers } from './search'
 import { UpdateChecker } from './updateChecker'
 import { getChangelogForVersion } from './changelog'
 import { getSystemMemoryUsage } from './systemMemory'
@@ -593,6 +594,7 @@ app.whenReady().then(async () => {
   }
 
   registerFsHandlers()
+  registerSearchHandlers()
   registerBridgeSettingsHandlers()
   registerDevtoolsHandlers()
   registerSessionHandlers()

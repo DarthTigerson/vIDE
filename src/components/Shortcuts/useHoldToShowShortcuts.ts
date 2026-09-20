@@ -26,11 +26,11 @@ export function useHoldToShowShortcuts() {
 
         if (tapCountRef.current >= TAPS_REQUIRED) {
           tapCountRef.current = 0
-          const { commandPaletteOpen, searchOpen, actionPaletteOpen, shortcutsOverlayOpen, openShortcutsOverlay, closeShortcutsOverlay } =
+          const { commandPaletteOpen, actionPaletteOpen, shortcutsOverlayOpen, openShortcutsOverlay, closeShortcutsOverlay } =
             useSearchStore.getState()
           if (shortcutsOverlayOpen) {
             closeShortcutsOverlay()
-          } else if (!commandPaletteOpen && !searchOpen && !actionPaletteOpen) {
+          } else if (!commandPaletteOpen && !actionPaletteOpen) {
             openShortcutsOverlay()
           }
         }

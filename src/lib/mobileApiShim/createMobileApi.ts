@@ -137,6 +137,11 @@ export function createMobileApi(wsUrl: string) {
     trashPath: invoke('fs:trash'),
     listAllFiles: invoke('fs:listAllFiles'),
     searchText: invoke('fs:searchText'),
+    // The streaming panel search is desktop-only (spawns a local ripgrep).
+    searchStart: stubSend(),
+    searchCancel: stubSend(),
+    onSearchResults: stubOn(),
+    onSearchDone: stubOn(),
     onFsChanged: on('fs:changed'),
     // Explicit watch-registration is moot: the relay broadcasts fs:changed
     // to every connected mobile client unconditionally (no per-connection

@@ -2,7 +2,6 @@ import { create } from 'zustand'
 
 interface SearchState {
   commandPaletteOpen: boolean
-  searchOpen: boolean
   actionPaletteOpen: boolean
   shortcutsOverlayOpen: boolean
   recentProjectsPaletteOpen: boolean
@@ -10,8 +9,6 @@ interface SearchState {
   repoPaletteOpen: boolean
   openCommandPalette: () => void
   closeCommandPalette: () => void
-  openSearch: () => void
-  closeSearch: () => void
   openActionPalette: () => void
   closeActionPalette: () => void
   openShortcutsOverlay: () => void
@@ -26,7 +23,6 @@ interface SearchState {
 
 export const useSearchStore = create<SearchState>((set) => ({
   commandPaletteOpen: false,
-  searchOpen: false,
   actionPaletteOpen: false,
   shortcutsOverlayOpen: false,
   recentProjectsPaletteOpen: false,
@@ -34,8 +30,6 @@ export const useSearchStore = create<SearchState>((set) => ({
   repoPaletteOpen: false,
   openCommandPalette: () => set({ commandPaletteOpen: true }),
   closeCommandPalette: () => set({ commandPaletteOpen: false }),
-  openSearch: () => set({ searchOpen: true }),
-  closeSearch: () => set({ searchOpen: false }),
   openActionPalette: () => set({ actionPaletteOpen: true }),
   closeActionPalette: () => set({ actionPaletteOpen: false }),
   openShortcutsOverlay: () => set({ shortcutsOverlayOpen: true }),

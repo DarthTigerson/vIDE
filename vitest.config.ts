@@ -31,6 +31,9 @@ export default defineConfig({
       'electron/__tests__/**/*.test.ts',
       'electron/**/__tests__/**/*.test.ts'
     ],
-    setupFiles: ['./vitest.setup.ts']
+    setupFiles: ['./vitest.setup.ts'],
+    // Lets a test import the real monaco-editor (ESM with CSS imports) — see
+    // src/lib/__tests__/editorFindController.monaco.test.ts
+    server: { deps: { inline: [/monaco-editor/] } }
   }
 })

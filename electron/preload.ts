@@ -21,6 +21,19 @@ contextBridge.exposeInMainWorld('api', {
   listAllFiles: (root: string) => ipcRenderer.invoke('fs:listAllFiles', root),
   searchText: (root: string, query: string, caseSensitive: boolean) =>
     ipcRenderer.invoke('fs:searchText', root, query, caseSensitive),
+  searchStart: (searchId: string, root: string, options: unknown) =>
+    ipcRenderer.send('search:start', searchId, root, options),
+  searchCancel: (searchId: string) => ipcRenderer.send('search:cancel', searchId),
+  onSearchResults: (cb: (batch: unknown) => void) => {
+    const handler = (_e: unknown, batch: unknown) => cb(batch)
+    ipcRenderer.on('search:results', handler)
+    return () => ipcRenderer.removeListener('search:results', handler)
+  },
+  onSearchDone: (cb: (done: unknown) => void) => {
+    const handler = (_e: unknown, done: unknown) => cb(done)
+    ipcRenderer.on('search:done', handler)
+    return () => ipcRenderer.removeListener('search:done', handler)
+  },
   openFolder: () => ipcRenderer.invoke('dialog:openFolder'),
   openFile: (opts: { defaultPath?: string; filters?: { name: string; extensions: string[] }[] }) => ipcRenderer.invoke('dialog:openFile', opts),
   getSystemMemoryUsage: () => ipcRenderer.invoke('system:getMemoryUsage'),
