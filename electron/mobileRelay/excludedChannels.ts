@@ -21,6 +21,7 @@ export const EXCLUDED_CHANNELS = new Set<string>([
   'browserView:zoomOut', 'browserView:zoomReset', 'browserView:setMobileMode', 'browserView:clearCache',
   'browserView:clearCookies', 'browserView:destroy',  // native Electron BrowserView instances — composite ON THE MAC'S SCREEN, not visible to phone user
   'dialog:openFolder',  // native macOS/Linux folder picker — no phone equivalent
+  'dialog:openFile',  // native file picker — no phone equivalent
   'clipboard:writeFiles', 'clipboard:readFiles',  // the desktop's OS file clipboard (Finder/Nautilus interop) — meaningless to a phone
   'menu:openProject', 'menu:closeActiveTab', 'menu:zoomIn', 'menu:zoomOut',
   'menu:resetZoom', 'menu:openSettings', 'menu:newFile', 'menu:newFolder',
@@ -35,6 +36,13 @@ export const EXCLUDED_CHANNELS = new Set<string>([
   'browser:mcp:enable', 'browser:mcp:disable',
   'todos:mcp:enable', 'todos:mcp:disable',
   'notes:mcp:enable', 'notes:mcp:disable',
+
+  // vIDE Sync — backs up this desktop's settings to a private git repo; the repo lives on this machine
+  'configRepo:getSettings', 'configRepo:setSettings', 'configRepo:connect', 'configRepo:pull',
+  'configRepo:push', 'configRepo:checkRemote',
+
+  // Local Llama server lifecycle — starts/stops a long-running model process (and reads its memory use) on this machine
+  'llama:isAvailable', 'llama:start', 'llama:stop', 'llama:getMemoryUsage',
 
   // App-level operations
   'update:restart',  // quits the desktop app

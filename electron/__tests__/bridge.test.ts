@@ -282,7 +282,11 @@ describe('BridgeManager tool calls', () => {
 
     expect(await readFileFs(target, 'utf-8')).toBe('hello world\n')
     const events = win.webContents.send.mock.calls.filter((c: any[]) => c[0] === 'bridge:event').map((c: any[]) => c[1])
-    expect(events).toContainEqual({ type: 'tool-result', id: 'call_1', result: `old_string not found in ${target}`, isError: true })
+    const result = events.find((e: any) => e.type === 'tool-result' && e.id === 'call_1')
+    expect(result).toMatchObject({ isError: true })
+    expect(result.result).toContain(`old_string not found in ${target}`)
+    // The error also shows the file's real lines so the model can retry with exact whitespace.
+    expect(result.result).toContain('1: hello world')
   })
 
   it('edit_file errors when old_string is not unique', async () => {

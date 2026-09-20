@@ -84,14 +84,14 @@ describe('UpdateChecker', () => {
   it('swallows fetch errors without throwing', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
     const checker = new UpdateChecker('0.1.0')
-    await expect(checker.check()).resolves.toBeUndefined()
+    await expect(checker.check()).resolves.toBeNull()
     expect(checker.getLatest()).toBeNull()
   })
 
   it('swallows a non-ok response without throwing', async () => {
     mockFetchOnce({}, false)
     const checker = new UpdateChecker('0.1.0')
-    await expect(checker.check()).resolves.toBeUndefined()
+    await expect(checker.check()).resolves.toBeNull()
     expect(checker.getLatest()).toBeNull()
   })
 
