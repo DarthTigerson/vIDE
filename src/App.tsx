@@ -71,6 +71,7 @@ import { EMPTY_EDITOR_BACKGROUNDS } from './assets/emptyEditorBackgrounds'
 import { useEditorStore } from './stores/editorStore'
 import { useSearchStore } from './stores/searchStore'
 import { useGlobalSearchStore } from './stores/globalSearchStore'
+import { useEditorFindStore } from './stores/editorFindStore'
 import { useFontSizeStore } from './stores/fontSizeStore'
 import { useInstanceFontSizeStore } from './stores/instanceFontSizeStore'
 import { useSidebarUiStore } from './stores/sidebarUiStore'
@@ -752,13 +753,10 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    // Cmd+F itself reaches Monaco's own find widget directly (nothing
-    // intercepts the keystroke anymore) - this only backs the Edit menu's
-    // "Find" item for a mouse click, mirroring that same native behavior on
-    // whichever editor currently has focus.
+    // Cmd+F is bound inside each editor pane (Editor.tsx); this backs the Edit
+    // menu's "Find" item by opening the find box in the active pane.
     return window.api.onMenuFind(() => {
-      const editor = monaco.editor.getEditors().find((e) => e.hasTextFocus())
-      editor?.getAction('actions.find')?.run()
+      useEditorFindStore.getState().openFind(useEditorStore.getState().activePaneId)
     })
   }, [])
 

@@ -531,6 +531,17 @@ body {
 
 .monaco-editor { user-select: text; }
 
+/* In-editor find box: every match, and the current one on top. */
+.find-match {
+  background-color: rgb(var(--color-accent) / 0.28);
+  border-radius: 2px;
+}
+.find-match-current {
+  background-color: rgb(var(--color-accent) / 0.6);
+  outline: 1px solid rgb(var(--color-accent));
+  border-radius: 2px;
+}
+
 .search-reveal-highlight {
   background-color: rgba(255, 200, 0, 0.35);
   border-radius: 2px;
