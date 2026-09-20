@@ -168,6 +168,23 @@ describe('SearchPanel', () => {
     }
   })
 
+  it('shows a clear button only while there is text, and clearing empties the query and results and refocuses', async () => {
+    const user = userEvent.setup()
+    render(<SearchPanel />)
+    expect(screen.queryByRole('button', { name: /clear search/i })).toBeNull()
+
+    seedResults()
+    cleanup()
+    render(<SearchPanel />)
+    await user.click(screen.getByRole('button', { name: /clear search/i }))
+
+    expect(useGlobalSearchStore.getState().query).toBe('')
+    expect(useGlobalSearchStore.getState().groups).toEqual([])
+    expect(useGlobalSearchStore.getState().status).toBe('idle')
+    expect(document.activeElement).toBe(screen.getByRole('textbox', { name: /^search$/i }))
+    expect(screen.queryByRole('button', { name: /clear search/i })).toBeNull()
+  })
+
   it('shows a folder icon (not dots) for the files filter', () => {
     render(<SearchPanel />)
     const button = screen.getByRole('button', { name: /filter by files or folders/i })

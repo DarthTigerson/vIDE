@@ -265,8 +265,23 @@ export function SearchPanel() {
                   placeholder="Search"
                   aria-label="Search"
                   spellCheck={false}
-                  className="h-7 w-full rounded border border-border bg-bg pl-2 pr-[4.75rem] text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-1 focus:ring-accent/70"
+                  className="h-7 w-full rounded border border-border bg-bg pl-2 pr-[6.5rem] text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-1 focus:ring-accent/70"
                 />
+                {query && (
+                  <button
+                    type="button"
+                    aria-label="Clear search"
+                    onClick={() => {
+                      setQuery('')
+                      inputRef.current?.focus()
+                    }}
+                    className="absolute right-[4.75rem] top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+                  >
+                    <svg width="0.625rem" height="0.625rem" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                )}
                 <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
                   <OptionToggle flag="caseSensitive" label="Match Case" tip={TIPS.caseSensitive} setTip={setTip}>Aa</OptionToggle>
                   <OptionToggle flag="wholeWord" label="Match Whole Word" tip={TIPS.wholeWord} setTip={setTip}>ab</OptionToggle>
