@@ -149,11 +149,35 @@ describe('SearchPanel', () => {
     const user = userEvent.setup()
     render(<SearchPanel />)
     expect(screen.queryByRole('textbox', { name: /files to include/i })).toBeNull()
-    await user.click(screen.getByRole('button', { name: /toggle search details/i }))
+    await user.click(screen.getByRole('button', { name: /filter by files or folders/i }))
     await user.type(screen.getByRole('textbox', { name: /files to include/i }), 'src/**')
     await user.type(screen.getByRole('textbox', { name: /files to exclude/i }), '*.test.ts')
     expect(useGlobalSearchStore.getState().include).toBe('src/**')
     expect(useGlobalSearchStore.getState().exclude).toBe('*.test.ts')
+  })
+
+  it('explains each search option in plain words on hover, and hides it again on leave', async () => {
+    const user = userEvent.setup()
+    render(<SearchPanel />)
+    const cases: Array<[RegExp, RegExp]> = [
+      [/match case/i, /exact upper.*lower case/i],
+      [/whole word/i, /longer words/i],
+      [/regular expression/i, /pattern/i],
+      [/filter by files or folders/i, /folders or file types/i],
+    ]
+    for (const [name, explanation] of cases) {
+      const button = screen.getByRole('button', { name })
+      await user.hover(button)
+      expect(screen.getByRole('tooltip').textContent).toMatch(explanation)
+      await user.unhover(button)
+      expect(screen.queryByRole('tooltip')).toBeNull()
+    }
+  })
+
+  it('shows a folder icon (not dots) for the files filter', () => {
+    render(<SearchPanel />)
+    const button = screen.getByRole('button', { name: /filter by files or folders/i })
+    expect(button.querySelector('[data-icon="folder"]')).toBeTruthy()
   })
 
   it('marks files edited since the search with a "changed" badge', () => {

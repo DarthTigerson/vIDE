@@ -31,7 +31,33 @@ function HitText({ hit }: { hit: SearchHit }) {
   )
 }
 
-function OptionToggle({ flag, label, children }: { flag: SearchToggle; label: string; children: string }) {
+interface Tip { title: string; body: string }
+
+// One tooltip for the whole input row (rendered under it), instead of one per
+// button: a per-button popup would be clipped or overflow in a narrow sidebar.
+function tipHandlers(tip: Tip, setTip: (tip: Tip | null) => void) {
+  return {
+    onMouseEnter: () => setTip(tip),
+    onMouseLeave: () => setTip(null),
+    onFocus: () => setTip(tip),
+    onBlur: () => setTip(null),
+  }
+}
+
+const TIPS = {
+  caseSensitive: { title: 'Match Case', body: 'Only match the exact upper/lower case you typed, so “Cat” will not find “cat”.' },
+  wholeWord: { title: 'Match Whole Word', body: 'Skip matches inside longer words, so “cat” will not find “category”.' },
+  regex: { title: 'Use Regular Expression', body: 'Treat what you typed as a pattern instead of plain text. For example, \\d+ finds numbers.' },
+  files: { title: 'Filter by files or folders', body: 'Limit the search to certain folders or file types, or leave some out.' },
+} satisfies Record<string, Tip>
+
+function OptionToggle({ flag, label, children, tip, setTip }: {
+  flag: SearchToggle
+  label: string
+  children: string
+  tip: Tip
+  setTip: (tip: Tip | null) => void
+}) {
   const pressed = useGlobalSearchStore((s) => s[flag])
   const toggle = useGlobalSearchStore((s) => s.toggle)
   return (
@@ -39,8 +65,8 @@ function OptionToggle({ flag, label, children }: { flag: SearchToggle; label: st
       type="button"
       aria-label={label}
       aria-pressed={pressed}
-      title={label}
       onClick={() => toggle(flag)}
+      {...tipHandlers(tip, setTip)}
       className={[
         'flex h-5 min-w-5 items-center justify-center rounded px-0.5 font-mono text-[0.6875rem] leading-none transition-colors',
         pressed ? 'bg-accent/30 text-fg' : 'text-fg-muted hover:bg-white/5 hover:text-fg',
@@ -66,13 +92,21 @@ function Chevron({ open }: { open: boolean }) {
   )
 }
 
-function IconButton({ label, onClick, active = false, children }: { label: string; onClick: () => void; active?: boolean; children: React.ReactNode }) {
+function IconButton({ label, onClick, active = false, tip, setTip, children }: {
+  label: string
+  onClick: () => void
+  active?: boolean
+  tip?: Tip
+  setTip?: (tip: Tip | null) => void
+  children: React.ReactNode
+}) {
   return (
     <button
       type="button"
       aria-label={label}
-      title={label}
+      title={tip ? undefined : label}
       onClick={onClick}
+      {...(tip && setTip ? tipHandlers(tip, setTip) : {})}
       className={[
         'flex h-6 w-6 items-center justify-center rounded transition-colors',
         active ? 'text-accent hover:bg-white/5' : 'text-fg-muted hover:bg-white/5 hover:text-fg',
@@ -159,6 +193,7 @@ export function SearchPanel() {
     useGlobalSearchStore.getState()
 
   const [showDetails, setShowDetails] = useState(() => include !== '' || exclude !== '')
+  const [tip, setTip] = useState<Tip | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -220,7 +255,7 @@ export function SearchPanel() {
       ) : (
         <>
           <div className="shrink-0 space-y-1.5 border-b border-border p-2">
-            <div className="flex items-center gap-1">
+            <div className="relative flex items-center gap-1">
               <div className="relative min-w-0 flex-1">
                 <input
                   ref={inputRef}
@@ -233,16 +268,31 @@ export function SearchPanel() {
                   className="h-7 w-full rounded border border-border bg-bg pl-2 pr-[4.75rem] text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-1 focus:ring-accent/70"
                 />
                 <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
-                  <OptionToggle flag="caseSensitive" label="Match Case">Aa</OptionToggle>
-                  <OptionToggle flag="wholeWord" label="Match Whole Word">ab</OptionToggle>
-                  <OptionToggle flag="regex" label="Use Regular Expression">.*</OptionToggle>
+                  <OptionToggle flag="caseSensitive" label="Match Case" tip={TIPS.caseSensitive} setTip={setTip}>Aa</OptionToggle>
+                  <OptionToggle flag="wholeWord" label="Match Whole Word" tip={TIPS.wholeWord} setTip={setTip}>ab</OptionToggle>
+                  <OptionToggle flag="regex" label="Use Regular Expression" tip={TIPS.regex} setTip={setTip}>.*</OptionToggle>
                 </div>
               </div>
-              <IconButton label="Toggle search details" onClick={() => setShowDetails((v) => !v)} active={showDetails}>
-                <svg width="0.875rem" height="0.875rem" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                  <circle cx="3" cy="8" r="1.25" /><circle cx="8" cy="8" r="1.25" /><circle cx="13" cy="8" r="1.25" />
+              <IconButton
+                label="Filter by files or folders"
+                onClick={() => setShowDetails((v) => !v)}
+                active={showDetails}
+                tip={TIPS.files}
+                setTip={setTip}
+              >
+                <svg data-icon="folder" width="0.9375rem" height="0.9375rem" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M1.75 4.5c0-.69.56-1.25 1.25-1.25h2.6c.33 0 .65.13.88.37l.8.8c.23.24.55.37.88.37H13c.69 0 1.25.56 1.25 1.25v5.4c0 .69-.56 1.25-1.25 1.25H3c-.69 0-1.25-.56-1.25-1.25V4.5Z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" />
                 </svg>
               </IconButton>
+              {tip && (
+                <div
+                  role="tooltip"
+                  className="pointer-events-none absolute inset-x-0 top-full z-50 mt-1 rounded border border-border bg-popover px-2 py-1.5 shadow-lg shadow-black/40"
+                >
+                  <div className="text-xs font-semibold text-fg">{tip.title}</div>
+                  <div className="text-[0.7rem] leading-snug text-fg-muted">{tip.body}</div>
+                </div>
+              )}
             </div>
 
             {showDetails && (
