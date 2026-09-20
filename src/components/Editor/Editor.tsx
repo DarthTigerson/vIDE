@@ -4,6 +4,7 @@ import type * as Monaco from 'monaco-editor'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { useEditorStore, type EditorLayoutNode } from '@/stores/editorStore'
 import { useSearchStore } from '@/stores/searchStore'
+import { useGlobalSearchStore } from '@/stores/globalSearchStore'
 import { useThemeStore, MONACO_THEMES } from '@/stores/themeStore'
 import { useCustomThemeStore } from '@/stores/customThemeStore'
 import {
@@ -668,10 +669,11 @@ function EditorPane({ paneId }: { paneId: string }) {
                 )
                 // Cmd+F is deliberately left unbound here so Monaco's own
                 // built-in find widget (already bound to Cmd+F internally)
-                // handles it - basic in-file search, no app-level modal.
+                // handles it - basic in-file search. Cmd+Shift+F (below) is the
+                // project-wide search, which lives in the sidebar Search panel.
                 editor.addCommand(
                   monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF,
-                  () => { useSearchStore.getState().openSearch() }
+                  () => { useGlobalSearchStore.getState().requestFocus() }
                 )
                 editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyP, () => {
                   useSearchStore.getState().openCommandPalette()

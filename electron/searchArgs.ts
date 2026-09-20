@@ -1,15 +1,11 @@
 import { IGNORED_SEGMENTS } from './ignoredSegments'
+import { makeDisplay, splitGlobs } from './searchShared'
 import type { SearchHit, SearchOptions } from './searchTypes'
 
 export type { SearchBatch, SearchDone, SearchHit, SearchOptions } from './searchTypes'
+export { splitGlobs }
 
 const MAX_FILE_SIZE = '2M'
-const MAX_TEXT_LENGTH = 300
-const WINDOW_LEAD = 60
-
-export function splitGlobs(input: string): string[] {
-  return input.split(',').map((g) => g.trim()).filter(Boolean)
-}
 
 // Meant to run with cwd set to the project root. Searching "." instead of the
 // absolute root matters: ripgrep matches anchored globs (`skip/**`) relative to
@@ -72,29 +68,15 @@ export function parseRgMessage(line: string): SearchHit[] | null {
     const col0 = byteOffsetToUnits(buf, sub.start)
     const length = byteOffsetToUnits(buf, sub.end) - col0
 
-    let text: string
-    let matchStart: number
-    if (stripped.length <= MAX_TEXT_LENGTH) {
-      text = stripped
-      matchStart = col0
-    } else {
-      const start = Math.max(0, col0 - WINDOW_LEAD)
-      const end = start + MAX_TEXT_LENGTH
-      text = (start > 0 ? '…' : '') + stripped.slice(start, end) + (end < stripped.length ? '…' : '')
-      matchStart = col0 - start + (start > 0 ? 1 : 0)
-    }
-
-    const lead = text.length - text.trimStart().length
-    text = text.trimStart()
-    matchStart = Math.max(0, matchStart - lead)
+    const display = makeDisplay(stripped, col0, length)
 
     hits.push({
       path,
       line: lineNumber,
       col: col0 + 1,
-      length: Math.min(length, Math.max(0, text.length - matchStart)),
-      text,
-      matchStart,
+      length: display.length,
+      text: display.text,
+      matchStart: display.matchStart,
     })
   }
   return hits

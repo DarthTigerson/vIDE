@@ -8,6 +8,9 @@ export const EXCLUDED_CHANNELS = new Set<string>([
   // Task 5 broadcaster already pushes git:changed/fs:changed to all connected clients regardless
   // of watched root; no per-connection registration point to wire this channel against
   'git:watchRoot', 'fs:watchRoot',
+  // Panel search spawns ripgrep on this machine and pushes results to the requesting window
+  // (search:results / search:done); same per-connection streaming gap as the channels above
+  'search:start', 'search:cancel',
   // Docker event streaming — new streaming wiring comparable to term:data, deferred
   'docker:runLogs', 'docker:stopLogs', 'docker:watch', 'docker:unwatch',
 

@@ -28,8 +28,6 @@ describe('useHoldToShowShortcuts', () => {
     vi.useFakeTimers()
     useSearchStore.setState({
       commandPaletteOpen: false,
-      searchOpen: false,
-      searchCaseSensitive: false,
       actionPaletteOpen: false,
       shortcutsOverlayOpen: false,
     })

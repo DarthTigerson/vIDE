@@ -226,7 +226,6 @@ export function BrowserTab({ browserId }: Props) {
   const anyOverlayOpen = useSearchStore(
     (s) =>
       s.commandPaletteOpen ||
-      s.searchOpen ||
       s.actionPaletteOpen ||
       s.shortcutsOverlayOpen ||
       s.recentProjectsPaletteOpen ||

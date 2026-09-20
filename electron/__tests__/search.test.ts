@@ -4,6 +4,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { SearchManager } from '../search'
 import type { SearchDone, SearchHit, SearchOptions } from '../searchArgs'
+import { pathAllowed } from '../../src/lib/searchInMemory'
 
 const base: SearchOptions = {
   query: 'needle',
@@ -153,3 +154,41 @@ describe('SearchManager (real ripgrep)', () => {
     expect(dones).toHaveLength(0)
   })
 })
+
+// The renderer searches tabs with unsaved edits itself and must exclude exactly
+// the files ripgrep would have. Run both over the same tree and compare.
+describe('include/exclude parity: renderer pathAllowed vs real ripgrep', () => {
+  const files = [
+    'a.ts', 'a.md', 'src/a.ts', 'src/deep/b.ts', 'src/x.test.ts', 'src/deep/y.test.ts',
+    'skip/a.ts', 'skipper/a.ts', 'docs/a.md', 'lib/c.tsx', 'node_modules/p/i.ts', '.github/ci.yml',
+    'x/src/a.ts', 'x/docs/a.md', 'deep/skip/z.ts',
+  ]
+  const matrix: Array<[string, string]> = [
+    ['*.ts', ''],
+    ['src/**', ''],
+    ['', 'skip'],
+    ['', 'skip/'],
+    ['*.{ts,md}', '**/*.test.ts'],
+    ['src/*.ts', ''],
+    ['', 'docs/**'],
+    ['*.ts, *.md', 'src/deep'],
+    ['a.?s', ''],
+    ['', '*.test.ts'],
+    ['**/deep/*.ts', ''],
+    ['/a.ts', ''],
+  ]
+
+  for (const [include, exclude] of matrix) {
+    it(`include=${JSON.stringify(include)} exclude=${JSON.stringify(exclude)}`, async () => {
+      for (const f of files) await put(f, 'needle\n')
+      const { hits } = await run({ include, exclude })
+      const fromRg = [...new Set(hits.map((h) => h.path))].sort()
+      const fromRenderer = files
+        .map((f) => join(root, f))
+        .filter((abs) => pathAllowed(abs, root, include, exclude))
+        .sort()
+      expect(fromRenderer).toEqual(fromRg)
+    })
+  }
+})
+

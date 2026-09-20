@@ -17,6 +17,7 @@ import { openUrlInBrowserTab } from './components/Chat/terminalLinks'
 import {
   ActivityBar,
   FilesIcon,
+  SearchIcon,
   GitIcon,
   DockerIcon,
   TodoIcon,
@@ -51,7 +52,7 @@ import { StatusBar } from './components/StatusBar/StatusBar'
 import { EasterEgg } from './components/EasterEgg'
 import { CommandPalette } from './components/Search/CommandPalette'
 import { RecentProjectsPalette } from './components/Search/RecentProjectsPalette'
-import { SearchModal } from './components/Search/SearchModal'
+import { SearchPanel } from './components/Search/SearchPanel'
 import { useFileStore } from './stores/fileStore'
 import { useClaudeStore } from './stores/claudeStore'
 import { useBridgeStore } from './stores/bridgeStore'
@@ -69,6 +70,7 @@ import { useDisplayStore } from './stores/displayStore'
 import { EMPTY_EDITOR_BACKGROUNDS } from './assets/emptyEditorBackgrounds'
 import { useEditorStore } from './stores/editorStore'
 import { useSearchStore } from './stores/searchStore'
+import { useGlobalSearchStore } from './stores/globalSearchStore'
 import { useFontSizeStore } from './stores/fontSizeStore'
 import { useInstanceFontSizeStore } from './stores/instanceFontSizeStore'
 import { useSidebarUiStore } from './stores/sidebarUiStore'
@@ -161,15 +163,14 @@ export default function App() {
       .map((m) => ({ id: `llama:${m.id}`, label: m.displayName || m.alias || 'Llama Model' })),
   ]
   const repoName = projectRoot ? projectRoot.split('/').pop() : null
-  const [leftPanel, setLeftPanel] = useState<'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'llama' | 'settings' | null>('files')
-  const lastLeftPanelRef = useRef<'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'llama' | 'settings'>('files')
+  const [leftPanel, setLeftPanel] = useState<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'llama' | 'settings' | null>('files')
+  const lastLeftPanelRef = useRef<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'llama' | 'settings'>('files')
   const [sidebarSize, setSidebarSize] = useState(loadSidebarSize)
   const [chatSize, setChatSize] = useState(loadChatSize)
   const [assistantMenuOpen, setAssistantMenuOpen] = useState(false)
   const [sessionMenu, setSessionMenu] = useState<{ x: number; y: number; instanceId: string } | null>(null)
   const [memoryUsage, setMemoryUsage] = useState<{ usedBytes: number; totalBytes: number; appBytes: number } | null>(null)
   const commandPaletteOpen = useSearchStore((s) => s.commandPaletteOpen)
-  const searchOpen = useSearchStore((s) => s.searchOpen)
   const actionPaletteOpen = useSearchStore((s) => s.actionPaletteOpen)
   const shortcutsOverlayOpen = useSearchStore((s) => s.shortcutsOverlayOpen)
   const recentProjectsPaletteOpen = useSearchStore((s) => s.recentProjectsPaletteOpen)
@@ -414,7 +415,7 @@ export default function App() {
     return () => { cancelled = true }
   }, [projectRoot])
 
-  // Git/Docker/Mobile Display/Graphify only make sense with a project open
+  // Search/Git/Docker/Mobile Display/Graphify only make sense with a project open
   // (their ActivityBar icons disappear entirely when projectRoot is null,
   // see primaryActivityBar below) — fall back to Explorer so a project
   // closing mid-session doesn't strand the sidebar (or a later Cmd+B
@@ -422,7 +423,7 @@ export default function App() {
   useEffect(() => {
     if (projectRoot) return
     const isProjectOnly = (p: typeof leftPanel) =>
-      p === 'git' || p === 'docker' || p === 'mobile' || p === 'graphify'
+      p === 'search' || p === 'git' || p === 'docker' || p === 'mobile' || p === 'graphify'
     if (isProjectOnly(lastLeftPanelRef.current)) lastLeftPanelRef.current = 'files'
     setLeftPanel((p) => (isProjectOnly(p) ? 'files' : p))
   }, [projectRoot])
@@ -447,6 +448,13 @@ export default function App() {
   useEffect(() => {
     if (revealRequest) setLeftPanel('files')
   }, [revealRequest])
+
+  // Find in Files (menu, or Cmd+Shift+F from inside Monaco) bumps focusTick;
+  // switch to the Search panel, which focuses its own input on mount / bump.
+  const searchFocusTick = useGlobalSearchStore((s) => s.focusTick)
+  useEffect(() => {
+    if (searchFocusTick > 0 && useFileStore.getState().projectRoot) setLeftPanel('search')
+  }, [searchFocusTick])
 
   useEffect(() => {
     const isValid = visibleAssistantOptions.some((o) => o.id === assistant)
@@ -757,7 +765,7 @@ export default function App() {
   useEffect(() => {
     return window.api.onMenuFindInFiles(() => {
       if (!useFileStore.getState().projectRoot) return
-      useSearchStore.getState().openSearch()
+      useGlobalSearchStore.getState().requestFocus()
     })
   }, [])
 
@@ -903,6 +911,13 @@ export default function App() {
               onClick: () => setLeftPanel((p) => (p === 'files' ? null : 'files')),
             },
             ...(projectRoot ? [{
+              id: 'search',
+              icon: <SearchIcon />,
+              title: 'Search',
+              active: leftPanel === 'search',
+              onClick: () => setLeftPanel((p) => (p === 'search' ? null : 'search')),
+            }] : []),
+            ...(projectRoot ? [{
               id: 'git',
               icon: <GitIcon />,
               title: 'Git',
@@ -1013,7 +1028,7 @@ export default function App() {
           >
             {(() => {
               const activeLeftPanel = leftPanel ?? lastLeftPanelRef.current
-              return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'docker' ? <DockerPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : activeLeftPanel === 'todos' ? <TodoPanel /> : activeLeftPanel === 'notes' ? <NotesPanel /> : activeLeftPanel === 'llama' ? <LlamaPanel /> : <SettingsPanel />
+              return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'search' ? <SearchPanel /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'docker' ? <DockerPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : activeLeftPanel === 'todos' ? <TodoPanel /> : activeLeftPanel === 'notes' ? <NotesPanel /> : activeLeftPanel === 'llama' ? <LlamaPanel /> : <SettingsPanel />
             })()}
           </Panel>
           )
@@ -1221,12 +1236,6 @@ export default function App() {
       <StatusBar />
       {commandPaletteOpen && projectRoot && (
         <CommandPalette projectRoot={projectRoot} onClose={() => useSearchStore.getState().closeCommandPalette()} />
-      )}
-      {searchOpen && projectRoot && (
-        <SearchModal
-          projectRoot={projectRoot}
-          onClose={() => useSearchStore.getState().closeSearch()}
-        />
       )}
       {actionPaletteOpen && (
         <ActionPalette onClose={() => useSearchStore.getState().closeActionPalette()} />

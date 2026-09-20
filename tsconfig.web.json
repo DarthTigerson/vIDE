@@ -13,5 +13,10 @@
     "types": ["vite/client"],
     "paths": { "@/*": ["./src/*"] }
   },
-  "include": ["src/**/*"]
+  "include": [
+    "src/**/*",
+    "electron/ignoredSegments.ts",
+    "electron/searchShared.ts",
+    "electron/searchTypes.ts"
+  ]
 }
