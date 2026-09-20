@@ -36,7 +36,10 @@ export interface GitAheadBehind {
 
 export type GitCommandAction =
   'fetch' | 'pull' | 'push' | 'forcePush' | 'forcePushLease' | 'checkout' | 'publishBranch' |
-  'undoLastCommit' | 'hardReset'
+  'undoLastCommit' | 'hardReset' |
+  'stash' | 'stashUntracked' | 'stashPop' | 'amend' |
+  'mergeAbort' | 'rebaseAbort' | 'rebaseContinue' |
+  'merge' | 'rebase' | 'deleteBranch'
 
 export interface GitCheckoutPayload {
   ref: string
@@ -58,7 +61,19 @@ export interface GitHardResetPayload {
   ref: string
 }
 
-export type GitCommandPayload = GitCheckoutPayload | GitPublishBranchPayload | GitHardResetPayload
+// merge / rebase target: a branch name (local or remote-tracking), picked
+// from the action palette's branch list.
+export interface GitRefPayload {
+  ref: string
+}
+
+// git branch -d <branch> — local branch to delete.
+export interface GitDeleteBranchPayload {
+  branch: string
+}
+
+export type GitCommandPayload =
+  GitCheckoutPayload | GitPublishBranchPayload | GitHardResetPayload | GitRefPayload | GitDeleteBranchPayload
 
 export interface GitBranchList {
   current: string | null
