@@ -2,7 +2,10 @@ import {
   isGitDiffTab, parseGitDiffPath,
   isGitCommitDiffTab, parseGitCommitDiffPath,
 } from '@/components/Git/paths'
-import { isMarkdownPreviewTab, parseMarkdownPreviewPath } from '@/components/Viewer/paths'
+import {
+  isMarkdownPreviewTab, parseMarkdownPreviewPath,
+  isImagePreviewTab, parseImagePreviewPath,
+} from '@/components/Viewer/paths'
 
 function joinPath(root: string, rel: string): string {
   return root.endsWith('/') ? root + rel : `${root}/${rel}`
@@ -25,4 +28,18 @@ export function breadcrumbPathForTab(tabPath: string, isPlainFileTab: boolean): 
     return joinPath(repoRoot, path)
   }
   return null
+}
+
+// The file behind a working-tree or commit diff tab, or null for any other tab.
+export function diffFilePathForTab(tabPath: string): string | null {
+  return isGitDiffTab(tabPath) || isGitCommitDiffTab(tabPath) ? breadcrumbPathForTab(tabPath, false) : null
+}
+
+// The real file a tab is showing, for actions like Copy File Path — unwraps
+// the scheme-encoded tab kinds and returns null for tabs that aren't a file
+// (terminals, settings pages, …), which all carry a "://" scheme.
+export function filePathForTab(tabPath: string): string | null {
+  if (isImagePreviewTab(tabPath)) return parseImagePreviewPath(tabPath)
+  if (!tabPath.includes('://')) return tabPath
+  return breadcrumbPathForTab(tabPath, false)
 }

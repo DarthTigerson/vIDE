@@ -6,6 +6,9 @@ import { useBrowserStore } from '@/stores/browserStore'
 import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
 import { isBrowserTab, getBrowserId, buildBrowserPath } from '@/components/Settings/paths'
 import { clampToViewport } from '@/components/ui/clampToViewport'
+import { diffFilePathForTab, filePathForTab } from './breadcrumbPath'
+import { useFileExists } from './useFileExists'
+import { openFileInTree } from '@/lib/openFileInTree'
 
 const DIRECTIONS: { direction: PaneDirection; label: string }[] = [
   { direction: 'right', label: 'Right' },
@@ -120,6 +123,9 @@ export function TabContextMenu({ x, y, paneId, path, onClose }: {
   }, [x, y])
 
   const isBrowser = isBrowserTab(path)
+  const diffFilePath = diffFilePathForTab(path)
+  const diffFileExists = useFileExists(diffFilePath)
+  const realFilePath = filePathForTab(path)
   const isPinned = pinnedPaths.has(path)
   const paneList = paneTabLists[paneId] ?? []
   const canSplit = paneList.length >= 2
@@ -164,6 +170,19 @@ export function TabContextMenu({ x, y, paneId, path, onClose }: {
         </>
       )}
 
+      {diffFilePath && diffFileExists && (
+        <>
+          <MenuButton
+            onClick={withClose(() => {
+              void openFileInTree(diffFilePath, paneId).catch((error) => console.error('Open file failed', error))
+            })}
+          >
+            Open File
+          </MenuButton>
+          <MenuDivider />
+        </>
+      )}
+
       <MenuButton onClick={withClose(() => closeTabInPane(paneId, path))}>Close</MenuButton>
       <MenuButton onClick={withClose(closeAllTabs)}>Close All</MenuButton>
       {!autoSaveEnabled && (
@@ -199,10 +218,10 @@ export function TabContextMenu({ x, y, paneId, path, onClose }: {
         />
       )}
 
-      {!isBrowser && (
+      {realFilePath && (
         <>
           <MenuDivider />
-          <MenuButton onClick={withClose(() => copyToClipboard(path))}>Copy File Path</MenuButton>
+          <MenuButton onClick={withClose(() => copyToClipboard(realFilePath))}>Copy File Path</MenuButton>
         </>
       )}
     </div>,

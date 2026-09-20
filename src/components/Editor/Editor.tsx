@@ -34,7 +34,8 @@ import { EditorContextMenu } from './EditorContextMenu'
 import { PaneDropZoneOverlay } from './PaneDropZoneOverlay'
 import { EmptyEditorBackground } from './EmptyEditorBackground'
 import { detectLang } from './utils'
-import { breadcrumbPathForTab } from './breadcrumbPath'
+import { breadcrumbPathForTab, diffFilePathForTab } from './breadcrumbPath'
+import { OpenFileButton } from './OpenFileButton'
 import {
   isSettingsTab,
   isGitLogTab,
@@ -485,13 +486,17 @@ function EditorPane({ paneId }: { paneId: string }) {
           <EditorBreadcrumb
             path={breadcrumbFilePath}
             projectRoot={projectRoot}
-            right={isMarkdownFile(breadcrumbFilePath) && (
-              <MarkdownModeToggleButton
-                filePath={breadcrumbFilePath}
-                mode={isMarkdownPreview ? 'preview' : 'editor'}
-                paneId={paneId}
-              />
-            )}
+            right={
+              isMarkdownFile(breadcrumbFilePath) ? (
+                <MarkdownModeToggleButton
+                  filePath={breadcrumbFilePath}
+                  mode={isMarkdownPreview ? 'preview' : 'editor'}
+                  paneId={paneId}
+                />
+              ) : diffFilePathForTab(activeTab?.path ?? '') ? (
+                <OpenFileButton absPath={breadcrumbFilePath} paneId={paneId} refreshKey={diffRefreshTick} />
+              ) : null
+            }
           />
         )}
       <div className="relative flex-1 min-h-0 overflow-hidden">
