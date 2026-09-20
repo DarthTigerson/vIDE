@@ -46,6 +46,7 @@ import { ClaudeSessionContextMenu } from './components/ActivityBar/ClaudeSession
 import { SettingsPanel } from './components/Settings/SettingsPanel'
 import { GitPanel } from './components/Git/GitPanel'
 import { BranchPalette } from './components/Git/BranchPalette'
+import { GitPromptHost } from './components/Git/GitPromptHost'
 import { DockerPanel } from './components/Docker/DockerPanel'
 import { MobileDisplayPanel } from './components/MobileDisplay/MobileDisplayPanel'
 import { GraphifyPanel } from './components/Graphify/GraphifyPanel'
@@ -1239,6 +1240,7 @@ export default function App() {
       {branchPaletteOpen && selectedRepo && (
         <BranchPalette projectRoot={selectedRepo} onClose={() => useSearchStore.getState().closeBranchPalette()} />
       )}
+      <GitPromptHost />
       {sessionMenu && (
         <ClaudeSessionContextMenu
           x={sessionMenu.x}
