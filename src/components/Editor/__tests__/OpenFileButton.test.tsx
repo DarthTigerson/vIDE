@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { OpenFileButton } from '../OpenFileButton'
 import { useEditorStore } from '@/stores/editorStore'
-import { useLeftPanelStore } from '@/stores/leftPanelStore'
+import { usePanelRequestStore } from '@/stores/panelRequestStore'
 
 let api: { pathExists: ReturnType<typeof vi.fn>; readFile: ReturnType<typeof vi.fn> }
 
@@ -20,7 +20,7 @@ beforeEach(() => {
     closedTabs: [],
     pinnedPaths: new Set(),
   } as any)
-  useLeftPanelStore.setState({ panel: 'git', lastPanel: 'git' })
+  usePanelRequestStore.setState({ request: null })
 })
 afterEach(() => cleanup())
 
@@ -43,6 +43,6 @@ describe('OpenFileButton', () => {
     render(<OpenFileButton absPath="/proj/a.ts" paneId="pane-1" />)
     fireEvent.click(await screen.findByRole('button', { name: 'Open File' }))
     await waitFor(() => expect(useEditorStore.getState().activeTabPath).toBe('/proj/a.ts'))
-    expect(useLeftPanelStore.getState().panel).toBe('files')
+    expect(usePanelRequestStore.getState().request?.panel).toBe('files')
   })
 })

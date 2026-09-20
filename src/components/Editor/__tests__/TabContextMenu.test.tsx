@@ -8,7 +8,7 @@ import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
 import { buildBrowserPath, buildTerminalPath } from '@/components/Settings/paths'
 import { buildGitDiffPath, buildGitCommitDiffPath } from '@/components/Git/paths'
 import { buildImagePreviewPath } from '@/components/Viewer/paths'
-import { useLeftPanelStore } from '@/stores/leftPanelStore'
+import { usePanelRequestStore } from '@/stores/panelRequestStore'
 
 function resetStores() {
   useEditorStore.setState({
@@ -139,7 +139,7 @@ describe('TabContextMenu — diff tabs', () => {
       paneTabs: { 'pane-1': path },
       paneTabLists: { 'pane-1': [path] },
     })
-    useLeftPanelStore.setState({ panel: 'git', lastPanel: 'git' })
+    usePanelRequestStore.setState({ request: null })
     render(<TabContextMenu x={10} y={10} paneId="pane-1" path={path} onClose={() => {}} />)
   }
 
@@ -147,7 +147,7 @@ describe('TabContextMenu — diff tabs', () => {
     setup(diffPath)
     fireEvent.click(await screen.findByRole('button', { name: 'Open File' }))
     await waitFor(() => expect(useEditorStore.getState().activeTabPath).toBe('/proj/src/a.ts'))
-    expect(useLeftPanelStore.getState().panel).toBe('files')
+    expect(usePanelRequestStore.getState().request?.panel).toBe('files')
     expect(pathExists).toHaveBeenCalledWith('/proj/src/a.ts')
   })
 

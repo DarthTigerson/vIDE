@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { openFileInTree } from '../openFileInTree'
 import { useEditorStore } from '@/stores/editorStore'
-import { useLeftPanelStore } from '@/stores/leftPanelStore'
+import { usePanelRequestStore } from '@/stores/panelRequestStore'
 import { useSidebarUiStore } from '@/stores/sidebarUiStore'
 
 let readFile: ReturnType<typeof vi.fn>
@@ -19,7 +19,7 @@ beforeEach(() => {
     closedTabs: [],
     pinnedPaths: new Set(),
   } as any)
-  useLeftPanelStore.setState({ panel: 'git', lastPanel: 'git' })
+  usePanelRequestStore.setState({ request: null })
   useSidebarUiStore.setState({ revealRequest: null })
 })
 
@@ -33,16 +33,16 @@ describe('openFileInTree', () => {
     expect(useEditorStore.getState().activeTabPath).toBe('/proj/src/a.ts')
   })
 
-  it('switches the left panel to the file tree and asks it to reveal the file', async () => {
+  it('requests the file tree panel (App applies it to the real left panel) and asks it to reveal the file', async () => {
     await openFileInTree('/proj/src/a.ts', 'pane-1')
-    expect(useLeftPanelStore.getState().panel).toBe('files')
+    expect(usePanelRequestStore.getState().request?.panel).toBe('files')
     expect(useSidebarUiStore.getState().revealRequest).toEqual({ path: '/proj/src/a.ts', expandTarget: undefined })
   })
 
   it('leaves the panel and tabs untouched when the file cannot be read', async () => {
     readFile.mockRejectedValue(new Error('ENOENT'))
     await expect(openFileInTree('/proj/gone.ts', 'pane-1')).rejects.toThrow('ENOENT')
-    expect(useLeftPanelStore.getState().panel).toBe('git')
+    expect(usePanelRequestStore.getState().request).toBeNull()
     expect(useSidebarUiStore.getState().revealRequest).toBeNull()
     expect(useEditorStore.getState().tabs).toHaveLength(1)
   })
