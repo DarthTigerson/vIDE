@@ -39,6 +39,52 @@ export type SearchStatus = 'idle' | 'searching' | 'done' | 'error'
 export type SearchToggle = 'caseSensitive' | 'wholeWord' | 'regex'
 
 const DEBOUNCE_MS = 300
+// One or two characters are rarely the finished query and match a huge part of
+// the project, so wait longer before searching for them (Enter still searches
+// at once).
+const SHORT_QUERY_DEBOUNCE_MS = 600
+const SHORT_QUERY_LENGTH = 2
+
+// Drawing thousands of result rows freezes the UI (and typing with it), so the
+// panel draws a window of the results and grows it on request. Counts, replace
+// and navigation all still know about every hit.
+export const INITIAL_RENDER_LIMIT = 300
+export const RENDER_STEP = 500
+
+export interface RenderPlan {
+  // How many hits of each drawn file to draw.
+  visible: Record<string, number>
+  // Files past this count are not drawn at all (groups are drawn as a prefix).
+  shownGroups: number
+  // Hits in expanded files that are not drawn.
+  hidden: number
+}
+
+export function planRender(groups: ResultGroup[], collapsed: Record<string, true>, limit: number): RenderPlan {
+  const visible: Record<string, number> = {}
+  let budget = limit
+  let shownGroups = 0
+  let hidden = 0
+  for (const group of groups) {
+    if (budget <= 0) {
+      if (!collapsed[group.path]) hidden += group.hits.length
+      continue
+    }
+    shownGroups++
+    if (collapsed[group.path]) { visible[group.path] = 0; continue }
+    const shown = Math.min(group.hits.length, budget)
+    visible[group.path] = shown
+    budget -= shown
+    hidden += group.hits.length - shown
+  }
+  return { visible, shownGroups, hidden }
+}
+
+function renderedHits(state: Pick<GlobalSearchState, 'groups' | 'collapsed' | 'renderLimit'>): { hits: SearchHit[]; hidden: number } {
+  const plan = planRender(state.groups, state.collapsed, state.renderLimit)
+  const hits = state.groups.slice(0, plan.shownGroups).flatMap((g) => g.hits.slice(0, plan.visible[g.path]))
+  return { hits, hidden: plan.hidden }
+}
 
 export function hitKey(hit: SearchHit): string {
   return `${hit.path}:${hit.line}:${hit.col}`
@@ -64,6 +110,8 @@ interface GlobalSearchState {
   activeKey: string | null
   // Bumped to ask the panel's input to take focus (Find in Files shortcut).
   focusTick: number
+  // How many hits the panel draws right now (see planRender).
+  renderLimit: number
 
   replacement: string
   replacing: boolean
@@ -83,6 +131,7 @@ interface GlobalSearchState {
   refresh: () => void
   clear: () => void
   requestFocus: () => void
+  showMore: () => void
   toggleCollapsed: (path: string) => void
   moveActive: (delta: 1 | -1) => SearchHit | null
   openHit: (hit: SearchHit) => Promise<void>
@@ -107,6 +156,7 @@ const emptyResults = {
   activeKey: null,
   searchId: null,
   root: null,
+  renderLimit: INITIAL_RENDER_LIMIT,
 }
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -121,15 +171,26 @@ function plural(count: number, singular: string, pluralForm = `${singular}s`): s
   return `${count.toLocaleString()} ${count === 1 ? singular : pluralForm}`
 }
 
-function visibleHits(state: GlobalSearchState): SearchHit[] {
-  return state.groups.filter((g) => !state.collapsed[g.path]).flatMap((g) => g.hits)
-}
-
 export const useGlobalSearchStore = create<GlobalSearchState>((set, get) => {
-  function schedule() {
+  // Typing again makes the running search obsolete. Stop it now instead of
+  // letting it keep streaming results (and the panel keep drawing them) until
+  // the debounce fires for the next one. Clearing searchId makes any batch
+  // already on its way get ignored.
+  function interrupt() {
+    const { status, searchId } = get()
+    if (status === 'searching' && searchId) {
+      window.api.searchCancel(searchId)
+      set({ searchId: null })
+    }
+  }
+
+  function schedule(delay?: number) {
     clearDebounce()
-    if (!get().query.trim()) { get().clear(); return }
-    debounceTimer = setTimeout(() => get().runNow(), DEBOUNCE_MS)
+    const query = get().query.trim()
+    if (!query) { get().clear(); return }
+    interrupt()
+    const wait = delay ?? (query.length <= SHORT_QUERY_LENGTH ? SHORT_QUERY_DEBOUNCE_MS : DEBOUNCE_MS)
+    debounceTimer = setTimeout(() => get().runNow(), wait)
   }
 
   return {
@@ -148,8 +209,8 @@ export const useGlobalSearchStore = create<GlobalSearchState>((set, get) => {
     replaceOutcome: null,
 
     setQuery: (query) => { set({ query }); schedule() },
-    setInclude: (include) => { set({ include }); if (get().query.trim()) schedule() },
-    setExclude: (exclude) => { set({ exclude }); if (get().query.trim()) schedule() },
+    setInclude: (include) => { set({ include }); if (get().query.trim()) schedule(DEBOUNCE_MS) },
+    setExclude: (exclude) => { set({ exclude }); if (get().query.trim()) schedule(DEBOUNCE_MS) },
     toggle: (flag) => {
       set({ [flag]: !get()[flag] } as Pick<GlobalSearchState, SearchToggle>)
       if (get().query.trim()) get().runNow()
@@ -213,6 +274,8 @@ export const useGlobalSearchStore = create<GlobalSearchState>((set, get) => {
 
     requestFocus: () => set({ focusTick: get().focusTick + 1 }),
 
+    showMore: () => set({ renderLimit: get().renderLimit + RENDER_STEP }),
+
     toggleCollapsed: (path) => {
       const collapsed = { ...get().collapsed }
       if (collapsed[path]) delete collapsed[path]
@@ -221,9 +284,15 @@ export const useGlobalSearchStore = create<GlobalSearchState>((set, get) => {
     },
 
     moveActive: (delta) => {
-      const hits = visibleHits(get())
+      const drawn = renderedHits(get())
+      let hits = drawn.hits
       if (hits.length === 0) return null
       const current = hits.findIndex((h) => hitKey(h) === get().activeKey)
+      // Stepping past the last drawn hit reveals the next batch.
+      if (delta === 1 && current === hits.length - 1 && drawn.hidden > 0) {
+        get().showMore()
+        hits = renderedHits(get()).hits
+      }
       const next = current === -1
         ? (delta === 1 ? 0 : hits.length - 1)
         : Math.min(hits.length - 1, Math.max(0, current + delta))

@@ -54,7 +54,7 @@ beforeEach(() => {
   useGlobalSearchStore.getState().clear()
   useGlobalSearchStore.setState({
     query: '', caseSensitive: false, wholeWord: false, regex: false, include: '', exclude: '', collapsed: {},
-    replacement: '', replacing: false, pendingReplaceAll: null, replaceOutcome: null,
+    replacement: '', replacing: false, pendingReplaceAll: null, replaceOutcome: null, renderLimit: 300,
   })
   useFileStore.setState({ projectRoot: '/proj' })
   useEditorStore.setState({ tabs: [] })
@@ -186,6 +186,19 @@ describe('SearchPanel', () => {
     expect(useGlobalSearchStore.getState().status).toBe('idle')
     expect(document.activeElement).toBe(screen.getByRole('textbox', { name: /^search$/i }))
     expect(screen.queryByRole('button', { name: /clear search/i })).toBeNull()
+  })
+
+  it('puts the clear button to the right of the regex toggle, at the end of the option row', () => {
+    seedResults()
+    render(<SearchPanel />)
+    const toggles = ['Match Case', 'Match Whole Word', 'Use Regular Expression'].map((name) =>
+      screen.getByRole('button', { name }))
+    const clear = screen.getByRole('button', { name: /clear search/i })
+    for (const toggle of toggles) {
+      expect(toggle.compareDocumentPosition(clear) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    }
+    // Same row as the toggles, so it lines up with them rather than floating on its own.
+    expect(clear.parentElement?.parentElement).toBe(toggles[0].parentElement)
   })
 
   it('shows a folder icon (not dots) for the files filter', () => {
@@ -407,6 +420,59 @@ describe('SearchPanel — replace', () => {
     await openReplace(user)
     expect(screen.queryByRole('button', { name: /replace in b\.ts/i })).toBeNull()
     expect((screen.getByRole('button', { name: /replace all/i }) as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+describe('SearchPanel — big result lists', () => {
+  function seedBig(count: number) {
+    const hits = Array.from({ length: count }, (_, i) => hit('/proj/big.ts', i + 1, 'needle here', 0, 6))
+    seedResults({ groups: [{ path: '/proj/big.ts', hits, stale: false }], matchCount: count, renderLimit: 300 })
+  }
+
+  it('draws only the first 300 hits, while the summary still reports every match', () => {
+    seedBig(700)
+    render(<SearchPanel />)
+    expect(document.querySelectorAll('mark')).toHaveLength(300)
+    expect(screen.getByText(/700 results in 1 file/i)).toBeTruthy()
+    expect(within(screen.getByRole('button', { name: /big\.ts/ })).getByText('700')).toBeTruthy()
+  })
+
+  it('offers to show more, and shows 500 more when asked', async () => {
+    const user = userEvent.setup()
+    seedBig(700)
+    render(<SearchPanel />)
+    await user.click(screen.getByRole('button', { name: /show 400 more/i }))
+    expect(document.querySelectorAll('mark')).toHaveLength(700)
+    expect(screen.queryByRole('button', { name: /show .* more/i })).toBeNull()
+  })
+
+  it('caps a single step at 500', () => {
+    seedBig(5000)
+    render(<SearchPanel />)
+    expect(screen.getByRole('button', { name: /show 500 more/i })).toBeTruthy()
+    expect(screen.getByText(/4,700 not shown/i)).toBeTruthy()
+  })
+
+  it('shows no button when everything is drawn', () => {
+    seedBig(10)
+    render(<SearchPanel />)
+    expect(screen.queryByRole('button', { name: /show .* more/i })).toBeNull()
+  })
+
+  it('replace all still reports the true total, not just what is drawn', async () => {
+    const user = userEvent.setup()
+    seedBig(700)
+    useGlobalSearchStore.setState({ replacement: 'pin' })
+    render(<SearchPanel />)
+    await user.click(screen.getByRole('button', { name: /^replace all$/i }))
+    expect(screen.getByText(/replace 700 matches in 1 file/i)).toBeTruthy()
+  })
+
+  it('searches straight away when you press Enter, without waiting for the pause', async () => {
+    const user = userEvent.setup()
+    render(<SearchPanel />)
+    await user.type(screen.getByRole('textbox', { name: /^search$/i }), 'ab{Enter}')
+    expect((window as any).api.searchStart).toHaveBeenCalledTimes(1)
   })
 })
 

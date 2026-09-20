@@ -22,7 +22,7 @@ const { api, listeners } = vi.hoisted(() => {
 })
 vi.stubGlobal('window', { api })
 
-import { useGlobalSearchStore, hitKey } from '../globalSearchStore'
+import { useGlobalSearchStore, hitKey, planRender, INITIAL_RENDER_LIMIT } from '../globalSearchStore'
 import { useEditorStore } from '../editorStore'
 import { useFileStore } from '../fileStore'
 
@@ -49,7 +49,7 @@ function reset() {
   useGlobalSearchStore.getState().clear()
   useGlobalSearchStore.setState({
     query: '', caseSensitive: false, wholeWord: false, regex: false, include: '', exclude: '', collapsed: {},
-    replacement: '', replacing: false, pendingReplaceAll: null, replaceOutcome: null,
+    replacement: '', replacing: false, pendingReplaceAll: null, replaceOutcome: null, renderLimit: INITIAL_RENDER_LIMIT,
   })
   useFileStore.setState({ projectRoot: ROOT })
   useEditorStore.setState({ tabs: [], revealRequest: null })
@@ -515,6 +515,158 @@ describe('globalSearchStore — replace', () => {
       getS().dismissReplaceOutcome()
       expect(getS().replaceOutcome).toBeNull()
     })
+  })
+})
+
+describe('globalSearchStore — typing while a search is running', () => {
+  it('cancels the in-flight search the moment you type again, and ignores its late results', () => {
+    useGlobalSearchStore.getState().setQuery('needle')
+    vi.advanceTimersByTime(300)
+    const first = lastStart().id
+    deliver(first, [hit('/proj/a.ts', 1)])
+    api.searchCancel.mockClear()
+
+    useGlobalSearchStore.getState().setQuery('needles')
+    expect(api.searchCancel).toHaveBeenCalledWith(first)
+
+    const before = useGlobalSearchStore.getState().groups
+    deliver(first, [hit('/proj/late.ts', 9)]) // a batch already on its way
+    finish(first)
+    expect(useGlobalSearchStore.getState().groups).toBe(before)
+    expect(useGlobalSearchStore.getState().groups.map((g) => g.path)).not.toContain('/proj/late.ts')
+  })
+
+  it('then still runs the new query once you stop typing', () => {
+    useGlobalSearchStore.getState().setQuery('needle')
+    vi.advanceTimersByTime(300)
+    useGlobalSearchStore.getState().setQuery('needles')
+    api.searchStart.mockClear()
+    vi.advanceTimersByTime(300)
+    expect(api.searchStart).toHaveBeenCalledTimes(1)
+    expect(lastStart().options.query).toBe('needles')
+  })
+
+  it('does not send a cancel when nothing is running', () => {
+    useGlobalSearchStore.getState().setQuery('needle')
+    vi.advanceTimersByTime(300)
+    finish(lastStart().id)
+    api.searchCancel.mockClear()
+    useGlobalSearchStore.getState().setQuery('needles')
+    expect(api.searchCancel).not.toHaveBeenCalled()
+  })
+
+  it('also interrupts when the file filters are edited', () => {
+    useGlobalSearchStore.getState().setQuery('needle')
+    vi.advanceTimersByTime(300)
+    const id = lastStart().id
+    api.searchCancel.mockClear()
+    useGlobalSearchStore.getState().setInclude('src/**')
+    expect(api.searchCancel).toHaveBeenCalledWith(id)
+  })
+})
+
+describe('globalSearchStore — waiting longer for very short queries', () => {
+  it('waits 600 ms for one or two characters', () => {
+    useGlobalSearchStore.getState().setQuery('ne')
+    vi.advanceTimersByTime(599)
+    expect(api.searchStart).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    expect(api.searchStart).toHaveBeenCalledTimes(1)
+  })
+
+  it('counts characters after trimming, so padding does not shorten the wait', () => {
+    useGlobalSearchStore.getState().setQuery('  a  ')
+    vi.advanceTimersByTime(599)
+    expect(api.searchStart).not.toHaveBeenCalled()
+  })
+
+  it('keeps the normal 300 ms from three characters up', () => {
+    useGlobalSearchStore.getState().setQuery('nee')
+    vi.advanceTimersByTime(300)
+    expect(api.searchStart).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not slow down file-filter edits, whatever the query length', () => {
+    useGlobalSearchStore.setState({ query: 'a' })
+    useGlobalSearchStore.getState().setInclude('src/**')
+    vi.advanceTimersByTime(300)
+    expect(api.searchStart).toHaveBeenCalledTimes(1)
+  })
+
+  it('still searches instantly on a toggle or an explicit run', () => {
+    useGlobalSearchStore.setState({ query: 'a' })
+    useGlobalSearchStore.getState().runNow()
+    expect(api.searchStart).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('planRender — how much of the result list is drawn', () => {
+  const g = (path: string, n: number) => ({ path, hits: Array.from({ length: n }, (_, i) => hit(path, i + 1)), stale: false })
+
+  it('draws everything when it fits in the budget', () => {
+    expect(planRender([g('a', 3), g('b', 2)], {}, 10)).toEqual({ visible: { a: 3, b: 2 }, shownGroups: 2, hidden: 0 })
+  })
+
+  it('cuts off mid-file when the budget runs out, and counts what is hidden', () => {
+    expect(planRender([g('a', 6), g('b', 6), g('c', 6)], {}, 8)).toEqual({ visible: { a: 6, b: 2 }, shownGroups: 2, hidden: 10 })
+  })
+
+  it('does not draw files past the budget at all', () => {
+    const plan = planRender([g('a', 5), g('b', 5)], {}, 5)
+    expect(plan.shownGroups).toBe(1)
+    expect(plan.hidden).toBe(5)
+  })
+
+  it('collapsed files show a header but spend none of the budget', () => {
+    const plan = planRender([g('a', 100), g('b', 3)], { a: true }, 10)
+    expect(plan.visible).toEqual({ a: 0, b: 3 })
+    expect(plan.hidden).toBe(0)
+  })
+
+  it('hidden hits inside collapsed files are not counted as hidden', () => {
+    expect(planRender([g('a', 5), g('b', 50)], { b: true }, 5).hidden).toBe(0)
+  })
+})
+
+describe('globalSearchStore — capped rendering', () => {
+  function seedMany(count: number) {
+    const hits = Array.from({ length: count }, (_, i) => hit('/proj/big.ts', i + 1))
+    useGlobalSearchStore.setState({
+      query: 'needle', status: 'done', groups: [{ path: '/proj/big.ts', hits, stale: false }],
+      matchCount: count, searchId: 's-many', root: ROOT, renderLimit: INITIAL_RENDER_LIMIT, activeKey: null,
+    })
+  }
+  const getS = () => useGlobalSearchStore.getState()
+
+  it('starts at the initial limit and grows by 500 on demand', () => {
+    seedMany(2000)
+    expect(getS().renderLimit).toBe(INITIAL_RENDER_LIMIT)
+    getS().showMore()
+    expect(getS().renderLimit).toBe(INITIAL_RENDER_LIMIT + 500)
+  })
+
+  it('goes back to the initial limit on every new search', () => {
+    seedMany(2000)
+    getS().showMore()
+    getS().runNow()
+    expect(getS().renderLimit).toBe(INITIAL_RENDER_LIMIT)
+  })
+
+  it('keyboard navigation only walks drawn hits, but reveals more when it reaches the end', () => {
+    seedMany(INITIAL_RENDER_LIMIT + 50)
+    for (let i = 0; i < INITIAL_RENDER_LIMIT; i++) getS().moveActive(1)
+    expect(getS().activeKey).toBe(hitKey(hit('/proj/big.ts', INITIAL_RENDER_LIMIT)))
+    expect(getS().renderLimit).toBe(INITIAL_RENDER_LIMIT)
+
+    const next = getS().moveActive(1)
+    expect(next).toMatchObject({ line: INITIAL_RENDER_LIMIT + 1 })
+    expect(getS().renderLimit).toBe(INITIAL_RENDER_LIMIT + 500)
+  })
+
+  it('does not grow the limit when nothing is hidden', () => {
+    seedMany(3)
+    getS().moveActive(1); getS().moveActive(1); getS().moveActive(1); getS().moveActive(1)
+    expect(getS().renderLimit).toBe(INITIAL_RENDER_LIMIT)
   })
 })
 

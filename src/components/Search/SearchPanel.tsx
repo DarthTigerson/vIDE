@@ -4,7 +4,7 @@ import type { SearchHit } from '../../../electron/searchTypes'
 import { useFileStore } from '@/stores/fileStore'
 import { Modal } from '@/components/ui/Modal'
 import { UndoToast } from '@/components/ui/UndoToast'
-import { hitKey, useGlobalSearchStore, type ResultGroup, type SearchToggle } from '@/stores/globalSearchStore'
+import { hitKey, planRender, RENDER_STEP, useGlobalSearchStore, type ResultGroup, type SearchToggle } from '@/stores/globalSearchStore'
 
 function basename(path: string): string {
   return path.split('/').pop() ?? path
@@ -143,10 +143,12 @@ function RowReplaceButton({ label, title, onClick }: { label: string; title: str
   )
 }
 
-function GroupRow({ group, root, collapsed, activeKey, canReplace, onToggle, onOpen, onReplaceFile, onReplaceHit }: {
+function GroupRow({ group, root, collapsed, visibleCount, activeKey, canReplace, onToggle, onOpen, onReplaceFile, onReplaceHit }: {
   group: ResultGroup
   root: string | null
   collapsed: boolean
+  // How many of the group's hits to draw (the rest are behind "Show more").
+  visibleCount: number
   activeKey: string | null
   canReplace: boolean
   onToggle: () => void
@@ -190,7 +192,7 @@ function GroupRow({ group, root, collapsed, activeKey, canReplace, onToggle, onO
       </div>
       {!collapsed && (
         <ul>
-          {group.hits.map((hit) => {
+          {group.hits.slice(0, visibleCount).map((hit) => {
             const key = hitKey(hit)
             return (
               <li key={key}>
@@ -237,12 +239,13 @@ export function SearchPanel() {
   const collapsed = useGlobalSearchStore((s) => s.collapsed)
   const activeKey = useGlobalSearchStore((s) => s.activeKey)
   const focusTick = useGlobalSearchStore((s) => s.focusTick)
+  const renderLimit = useGlobalSearchStore((s) => s.renderLimit)
   const regex = useGlobalSearchStore((s) => s.regex)
   const replacement = useGlobalSearchStore((s) => s.replacement)
   const replacing = useGlobalSearchStore((s) => s.replacing)
   const pendingReplaceAll = useGlobalSearchStore((s) => s.pendingReplaceAll)
   const replaceOutcome = useGlobalSearchStore((s) => s.replaceOutcome)
-  const { setReplacement, replaceHit, replaceFile, requestReplaceAll, cancelReplaceAll, confirmReplaceAll, undoReplace, dismissReplaceOutcome } =
+  const { showMore, setReplacement, replaceHit, replaceFile, requestReplaceAll, cancelReplaceAll, confirmReplaceAll, undoReplace, dismissReplaceOutcome } =
     useGlobalSearchStore.getState()
   const { setQuery, setInclude, setExclude, refresh, clear, toggleCollapsed, moveActive, openHit } =
     useGlobalSearchStore.getState()
@@ -272,6 +275,7 @@ export function SearchPanel() {
     return () => clearTimeout(timer)
   }, [replaceOutcome, dismissReplaceOutcome])
 
+  const plan = planRender(groups, collapsed, renderLimit)
   const stale = groups.some((g) => g.stale)
   // Replacing needs a finished search: while results are still streaming the
   // list is incomplete, so "replace all" would miss some.
@@ -334,25 +338,28 @@ export function SearchPanel() {
                   spellCheck={false}
                   className="h-7 w-full rounded border border-border bg-bg pl-2 pr-[6.5rem] text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-1 focus:ring-accent/70"
                 />
-                {query && (
-                  <button
-                    type="button"
-                    aria-label="Clear search"
-                    onClick={() => {
-                      setQuery('')
-                      inputRef.current?.focus()
-                    }}
-                    className="absolute right-[4.75rem] top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
-                  >
-                    <svg width="0.625rem" height="0.625rem" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                      <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-                    </svg>
-                  </button>
-                )}
                 <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
                   <OptionToggle flag="caseSensitive" label="Match Case" tip={TIPS.caseSensitive} setTip={setTip}>Aa</OptionToggle>
                   <OptionToggle flag="wholeWord" label="Match Whole Word" tip={TIPS.wholeWord} setTip={setTip}>ab</OptionToggle>
                   <OptionToggle flag="regex" label="Use Regular Expression" tip={TIPS.regex} setTip={setTip}>.*</OptionToggle>
+                  {/* The slot is always reserved so the toggles don't shift when the button appears. */}
+                  <span className="flex h-5 w-5 items-center justify-center">
+                    {query && (
+                      <button
+                        type="button"
+                        aria-label="Clear search"
+                        onClick={() => {
+                          setQuery('')
+                          inputRef.current?.focus()
+                        }}
+                        className="flex h-5 w-5 items-center justify-center rounded text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+                      >
+                        <svg width="0.625rem" height="0.625rem" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                          <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+                        </svg>
+                      </button>
+                    )}
+                  </span>
                 </div>
               </div>
               <IconButton
@@ -442,12 +449,13 @@ export function SearchPanel() {
                   {diskChanged && <div className="text-accent">Files changed on disk since this search.</div>}
                 </div>
                 <ul>
-                  {groups.map((group) => (
+                  {groups.slice(0, plan.shownGroups).map((group) => (
                     <GroupRow
                       key={group.path}
                       group={group}
                       root={projectRoot}
                       collapsed={!!collapsed[group.path]}
+                      visibleCount={plan.visible[group.path] ?? 0}
                       activeKey={activeKey}
                       canReplace={canReplace}
                       onToggle={() => toggleCollapsed(group.path)}
@@ -457,6 +465,16 @@ export function SearchPanel() {
                     />
                   ))}
                 </ul>
+                {plan.hidden > 0 && (
+                  <button
+                    type="button"
+                    onClick={showMore}
+                    className="mx-3 my-2 rounded border border-border px-2 py-1 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+                  >
+                    {`Show ${Math.min(RENDER_STEP, plan.hidden).toLocaleString()} more`}
+                    <span className="ml-1 text-fg-subtle">{`(${plan.hidden.toLocaleString()} not shown)`}</span>
+                  </button>
+                )}
               </>
             )}
           </div>
