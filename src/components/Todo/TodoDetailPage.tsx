@@ -9,8 +9,15 @@ import { AttachmentThumbnails } from './AttachmentThumbnails'
 import { TODO_AUTHOR_META } from './authors'
 import { TODO_LABELS, TODO_LABEL_META } from './labels'
 import { TodoTagInput } from './TodoTagInput'
+import { Select } from '@/components/ui/Select'
 import { inputClass, uploadPastedImages } from './todoFormShared'
 import type { TodoLabel, TodoStatus } from '@/types/api'
+
+const STATUS_OPTIONS = TODO_COLUMNS.map((col) => ({ value: col.status, label: col.title }))
+const LABEL_OPTIONS = [
+  { value: '', label: 'No label' },
+  ...TODO_LABELS.map((label) => ({ value: label, label: TODO_LABEL_META[label].text })),
+]
 
 export function TodoDetailPage({ projectId, todoId }: { projectId: string; todoId: string }) {
   const todo = useTodoStore((s) => s.todosByProject[projectId]?.find((t) => t.id === todoId))
@@ -160,35 +167,22 @@ export function TodoDetailPage({ projectId, todoId }: { projectId: string; todoI
           <div className="w-72 flex-shrink-0 flex flex-col gap-4">
             <label htmlFor="todo-status" className="flex flex-col gap-1 text-xs text-fg-muted">
               Status
-              <select
+              <Select
                 id="todo-status"
                 value={todo.status}
-                onChange={(e) => handleStatusChange(e.target.value as TodoStatus)}
-                className={inputClass}
-              >
-                {TODO_COLUMNS.map((col) => (
-                  <option key={col.status} value={col.status}>
-                    {col.title}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => handleStatusChange(value as TodoStatus)}
+                options={STATUS_OPTIONS}
+              />
             </label>
 
             <label htmlFor="todo-label" className="flex flex-col gap-1 text-xs text-fg-muted">
               Label
-              <select
+              <Select
                 id="todo-label"
                 value={todo.label ?? ''}
-                onChange={(e) => handleLabelChange(e.target.value)}
-                className={inputClass}
-              >
-                <option value="">No label</option>
-                {TODO_LABELS.map((label) => (
-                  <option key={label} value={label}>
-                    {TODO_LABEL_META[label].text}
-                  </option>
-                ))}
-              </select>
+                onChange={handleLabelChange}
+                options={LABEL_OPTIONS}
+              />
             </label>
 
             <TodoTagInput

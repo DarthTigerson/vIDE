@@ -68,22 +68,52 @@ describe('TodoDetailPage', () => {
     expect(updateTodoMock).not.toHaveBeenCalled()
   })
 
+  it('uses the themed dropdown, not a native <select>, for Status and Label (VIDE-111)', () => {
+    const { container } = render(<TodoDetailPage projectId="p1" todoId="H-1" />)
+    expect(container.querySelector('select')).toBeNull()
+    expect(screen.getByLabelText('Status').tagName).toBe('BUTTON')
+    expect(screen.getByLabelText('Label').tagName).toBe('BUTTON')
+  })
+
+  it('shows the current status and label on the dropdown triggers', () => {
+    useTodoStore.setState({ todosByProject: { p1: [makeTodo({ status: 'in_progress', label: 'feature' })] } })
+    render(<TodoDetailPage projectId="p1" todoId="H-1" />)
+    expect(screen.getByLabelText('Status')).toHaveTextContent('In Progress')
+    expect(screen.getByLabelText('Label')).toHaveTextContent('Feature')
+  })
+
+  it('shows "No label" when the todo has none', () => {
+    render(<TodoDetailPage projectId="p1" todoId="H-1" />)
+    expect(screen.getByLabelText('Label')).toHaveTextContent('No label')
+  })
+
+  it('offers No label plus every label, with the current one selected', () => {
+    useTodoStore.setState({ todosByProject: { p1: [makeTodo({ label: 'bug' })] } })
+    render(<TodoDetailPage projectId="p1" todoId="H-1" />)
+    fireEvent.click(screen.getByLabelText('Label'))
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['No label', 'Bug', 'Feature', 'Nice to have'])
+    expect(screen.getByRole('option', { name: 'Bug' })).toHaveAttribute('aria-selected', 'true')
+  })
+
   it('selecting a label calls updateTodo with the single label', () => {
     render(<TodoDetailPage projectId="p1" todoId="H-1" />)
-    fireEvent.change(screen.getByLabelText('Label'), { target: { value: 'bug' } })
+    fireEvent.click(screen.getByLabelText('Label'))
+    fireEvent.click(screen.getByRole('option', { name: 'Bug' }))
     expect(updateTodoMock).toHaveBeenCalledWith('H-1', { label: 'bug' })
   })
 
   it('selecting "No label" clears an already-applied label', () => {
     useTodoStore.setState({ todosByProject: { p1: [makeTodo({ label: 'bug' })] } })
     render(<TodoDetailPage projectId="p1" todoId="H-1" />)
-    fireEvent.change(screen.getByLabelText('Label'), { target: { value: '' } })
+    fireEvent.click(screen.getByLabelText('Label'))
+    fireEvent.click(screen.getByRole('option', { name: 'No label' }))
     expect(updateTodoMock).toHaveBeenCalledWith('H-1', { label: null })
   })
 
   it('changing the status calls updateTodo with the new status', () => {
     render(<TodoDetailPage projectId="p1" todoId="H-1" />)
-    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'done' } })
+    fireEvent.click(screen.getByLabelText('Status'))
+    fireEvent.click(screen.getByRole('option', { name: 'Done' }))
     expect(updateTodoMock).toHaveBeenCalledWith('H-1', { status: 'done' })
   })
 

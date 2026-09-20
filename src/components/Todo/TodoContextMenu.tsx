@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom'
 import { clampToViewport } from '@/components/ui/clampToViewport'
 import { TODO_COLUMNS, TODO_SORT_MODES } from '@/lib/todoBoard'
 import type { TodoSortDirection, TodoSortMode } from '@/lib/todoBoard'
-import type { Todo, TodoStatus } from '@/types/api'
+import { TODO_LABELS, TODO_LABEL_META } from './labels'
+import type { Todo, TodoLabel, TodoStatus } from '@/types/api'
 
 function MenuButton({
   children,
@@ -178,6 +179,7 @@ export function TodoCardMenu({
   onClose,
   onDuplicate,
   onMoveTo,
+  onSetLabel,
   onArchive,
   onSortColumnMode,
   onSortAllMode,
@@ -193,6 +195,7 @@ export function TodoCardMenu({
   onClose: () => void
   onDuplicate: () => void
   onMoveTo: (status: TodoStatus) => void
+  onSetLabel: (label: TodoLabel | null) => void
   onArchive: () => void
   onSortColumnMode: (mode: TodoSortMode) => void
   onSortAllMode: (mode: TodoSortMode) => void
@@ -229,6 +232,20 @@ export function TodoCardMenu({
           </MenuButton>
         ))}
         <MenuButton onClick={withClose(onArchive)}>Archive</MenuButton>
+      </SubMenuButton>
+      <SubMenuButton label="Label">
+        <CheckableMenuButton checked={todo.label === null} onClick={withClose(() => onSetLabel(null))}>
+          No label
+        </CheckableMenuButton>
+        {TODO_LABELS.map((label) => (
+          <CheckableMenuButton
+            key={label}
+            checked={todo.label === label}
+            onClick={withClose(() => onSetLabel(label))}
+          >
+            {TODO_LABEL_META[label].text}
+          </CheckableMenuButton>
+        ))}
       </SubMenuButton>
       <MenuDivider />
       <SortSubmenus
