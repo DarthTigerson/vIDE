@@ -156,19 +156,13 @@ describe('SearchPanel', () => {
     expect(useGlobalSearchStore.getState().exclude).toBe('*.test.ts')
   })
 
-  it('explains each search option in plain words on hover, and hides it again on leave', async () => {
+  it('names each search option on hover (name only, no description), and hides it on leave', async () => {
     const user = userEvent.setup()
     render(<SearchPanel />)
-    const cases: Array<[RegExp, RegExp]> = [
-      [/match case/i, /exact upper.*lower case/i],
-      [/whole word/i, /longer words/i],
-      [/regular expression/i, /pattern/i],
-      [/filter by files or folders/i, /folders or file types/i],
-    ]
-    for (const [name, explanation] of cases) {
+    for (const name of ['Match Case', 'Match Whole Word', 'Use Regular Expression', 'Filter by files or folders']) {
       const button = screen.getByRole('button', { name })
       await user.hover(button)
-      expect(screen.getByRole('tooltip').textContent).toMatch(explanation)
+      expect(screen.getByRole('tooltip').textContent).toBe(name)
       await user.unhover(button)
       expect(screen.queryByRole('tooltip')).toBeNull()
     }

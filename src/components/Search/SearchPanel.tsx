@@ -31,7 +31,7 @@ function HitText({ hit }: { hit: SearchHit }) {
   )
 }
 
-interface Tip { title: string; body: string }
+type Tip = string
 
 // One tooltip for the whole input row (rendered under it), instead of one per
 // button: a per-button popup would be clipped or overflow in a narrow sidebar.
@@ -45,10 +45,10 @@ function tipHandlers(tip: Tip, setTip: (tip: Tip | null) => void) {
 }
 
 const TIPS = {
-  caseSensitive: { title: 'Match Case', body: 'Only match the exact upper/lower case you typed, so “Cat” will not find “cat”.' },
-  wholeWord: { title: 'Match Whole Word', body: 'Skip matches inside longer words, so “cat” will not find “category”.' },
-  regex: { title: 'Use Regular Expression', body: 'Treat what you typed as a pattern instead of plain text. For example, \\d+ finds numbers.' },
-  files: { title: 'Filter by files or folders', body: 'Limit the search to certain folders or file types, or leave some out.' },
+  caseSensitive: 'Match Case',
+  wholeWord: 'Match Whole Word',
+  regex: 'Use Regular Expression',
+  files: 'Filter by files or folders',
 } satisfies Record<string, Tip>
 
 function OptionToggle({ flag, label, children, tip, setTip }: {
@@ -287,10 +287,9 @@ export function SearchPanel() {
               {tip && (
                 <div
                   role="tooltip"
-                  className="pointer-events-none absolute inset-x-0 top-full z-50 mt-1 rounded border border-border bg-popover px-2 py-1.5 shadow-lg shadow-black/40"
+                  className="pointer-events-none absolute right-0 top-full z-50 mt-1 whitespace-nowrap rounded border border-border bg-popover px-2 py-1 text-xs text-fg shadow-lg shadow-black/40"
                 >
-                  <div className="text-xs font-semibold text-fg">{tip.title}</div>
-                  <div className="text-[0.7rem] leading-snug text-fg-muted">{tip.body}</div>
+                  {tip}
                 </div>
               )}
             </div>
