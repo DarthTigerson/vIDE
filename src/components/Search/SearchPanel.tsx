@@ -287,7 +287,7 @@ export function SearchPanel() {
               {tip && (
                 <div
                   role="tooltip"
-                  className="pointer-events-none absolute right-0 top-full z-50 mt-1 whitespace-nowrap rounded border border-border bg-popover px-2 py-1 text-xs text-fg shadow-lg shadow-black/40"
+                  className="pointer-events-none absolute right-0 top-full z-50 mt-1 whitespace-nowrap rounded bg-black/90 px-2 py-1 text-xs text-gray-200"
                 >
                   {tip}
                 </div>
