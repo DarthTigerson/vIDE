@@ -1,35 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect } from 'react'
 import { useDockerStore } from '@/stores/dockerStore'
 import { parseDockerLogsPath } from './paths'
+import { DockerLogTerminal } from './DockerLogTerminal'
 
 const POLL_INTERVAL_MS = 5000
-
-function useDockerLogs(containerId: string) {
-  const [lines, setLines] = useState('')
-  const streamIdRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    setLines('')
-    const streamId = `docker-logs-${containerId}-${Date.now().toString(36)}`
-    streamIdRef.current = streamId
-    window.api.dockerRunLogs(streamId, containerId)
-
-    const offData = window.api.onDockerLogData((id, data) => {
-      if (id === streamId) setLines((prev) => prev + data)
-    })
-    const offExit = window.api.onDockerLogExit((id) => {
-      if (id === streamId) streamIdRef.current = null
-    })
-
-    return () => {
-      offData()
-      offExit()
-      if (streamIdRef.current) window.api.dockerStopLogs(streamIdRef.current)
-    }
-  }, [containerId])
-
-  return lines
-}
 
 export function DockerLogsPage({ path }: { path: string }) {
   const { containerId, containerName } = parseDockerLogsPath(path)
@@ -40,7 +14,6 @@ export function DockerLogsPage({ path }: { path: string }) {
   const startContainer = useDockerStore((s) => s.startContainer)
   const stopContainer = useDockerStore((s) => s.stopContainer)
   const restartContainer = useDockerStore((s) => s.restartContainer)
-  const lines = useDockerLogs(containerId)
 
   useEffect(() => {
     refresh()
@@ -88,9 +61,7 @@ export function DockerLogsPage({ path }: { path: string }) {
         </div>
       </div>
       <div className="flex-1 min-h-0 px-6 pb-6">
-        <pre className="h-full overflow-auto whitespace-pre-wrap break-all bg-black/30 text-xs text-fg-muted font-mono p-3 rounded-lg border border-border/60">
-          {lines || 'Waiting for output…'}
-        </pre>
+        <DockerLogTerminal containerId={containerId} zoomKey={path} />
       </div>
     </div>
   )
