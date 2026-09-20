@@ -1,5 +1,25 @@
 # vIDE
 
+## v0.2.16 (2026-09-20)
+- **Search is now a sidebar panel**: the old search modal is replaced by a persistent Search panel in the activity bar (⌘⇧F focuses it), so your results stay put while you open files and work through them. It runs on a bundled ripgrep engine that honours `.gitignore` and adds case, whole-word and regex toggles plus include/exclude glob filters; unsaved tabs are still searched from memory, and a file edited after the search gets a "changed" badge with a refresh button to re-run it
+- **Replace across files**: a replace field with Replace all (confirming the match and file counts) plus per-file and per-match replace buttons. Open tabs are edited in place and left unsaved, other files are written to disk, any file that changed since the search is skipped instead of overwritten, and a 10-second Undo toast restores the previous content; regex replacements expand `$1` groups
+- Search stays responsive on big result sets: typing cancels the running search immediately, the first 300 hits are drawn with a "Show more" button, and one- or two-character queries wait a little longer before searching (Enter still searches at once)
+- **Find and replace in the editor**: ⌘F now opens vIDE's own floating find box in the top-right of each editor pane instead of Monaco's built-in widget — themed with the app, sized with the global font size, with case/whole-word/regex toggles, a match count with next/previous arrows, and Replace / Replace all (one undo step). ⌘⌥F opens it with replace showing; F3 / ⌘G step through matches
+- **Action Palette overhaul (⌘⇧P)**: search is now ranked and fuzzy — type `git pu` or `set disp` — and an empty query shows your recently used commands first. Commands that can't run right now are greyed out with the reason instead of vanishing, and destructive ones are shown in red
+- The palette now reaches every settings page (it covered 3 of 14 before), the Usage Graph, Graphify Graph, Todo Board and Notes views, plus `Claude: New Session`, `Bridge: New Session`, `Browser: New Tab` and `Graphify: Rebuild`
+- **Git from the palette**: Fetch, Pull, Push, Publish Branch, Force Push (still honouring your force-push safety setting), Commit, Commit (no verify), Undo Last Commit, Stage All, Unstage All, Discard All Changes, Hard Reset…, Checkout… and Switch Repo…, plus new Stash, Stash (include untracked), Stash Pop, Amend Last Commit, Merge…, Rebase Onto…, Delete Branch…, and Merge Abort / Rebase Abort / Rebase Continue to get out of a conflict. Merge, rebase and delete pick from a branch list inside the same palette; rebase and delete confirm first, and delete only removes fully merged branches
+- **File tree copy, cut and paste**: from the right-click menu or ⌘C / ⌘X / ⌘V on the selected item, plus dragging files and folders in from Finder and pasting files copied elsewhere. Copies made in vIDE can be pasted into other apps, and name clashes resolve Finder-style (`foo copy.ts`). Collapsing a folder now also collapses the folders expanded inside it
+- **Diff tabs**: working-tree and commit diff tabs now show a file path breadcrumb, and an "Open File" button (also in the tab's right-click menu) opens the real file and reveals it in the file tree
+- **Terminal selections**: a new right-click menu with Copy and Send to Claude, and ⌘L sends the selected text to Claude, the same as in the editor. Docker container logs now render in a read-only terminal, so the text stays selectable and can be sent to Claude too
+- **Llama**: the activity bar badge now counts running Llama servers (models are probed on startup), and a footer notification tells you when llama.cpp isn't installed and opens the Llama panel to show how to install it
+- **To Do**: cards get a Label submenu in their right-click menu, and the detail page's dropdowns now use the themed dropdown
+- A failed AI commit-message generation now raises a notification instead of only showing in the Git panel, so you still see it if the panel is closed
+
+**Bug fixes**
+- Fixed "Copy File Path" on a diff tab not giving the file's real path
+- llama.cpp being missing is no longer logged as an error
+
+
 ## v0.2.15 (2026-09-19)
 - **vIDE Sync**: back up and sync your settings across machines through a private git repo of your own — set it up in Settings (with instructions for creating a private repo and a scoped access token) or as a new step in the first-launch setup wizard
 - Settings, To Do boards, Notes (including nested folders), and Claude usage history all sync; the remote wins on conflict, and remote changes are pulled before the UI loads on launch, then applied live to the renderer instead of being overwritten
@@ -11,6 +31,7 @@
 **Bug fixes**
 - Fixed notes not reaching a second machine: remote notes are now copied to the local library and the Notes UI refreshes afterwards
 - Config repo sync now runs git through `execFile` instead of a shell command string
+
 
 ## v0.2.14 (2026-09-13)
 - **Llama panel**: manage and chat with local LLMs via llama.cpp — a new activity bar icon/panel detects `llama-server`/`llama.cpp` on your PATH (resolved via a login shell, same as the Claude/Docker/Graphify checks), lists your configured models with context-menu actions, and a create/edit page lets you pick a `.gguf` file (with a native file-browse button and auto-filled name/alias), launch/stop the server, and watch its output in an always-visible, resizable panel
@@ -24,6 +45,7 @@
 
 **Bug fixes**
 - Fixed a new Llama model's tab path not updating to match its saved model after the initial save
+
 
 ## v0.2.13 (2026-09-13)
 - **Mobile Display: full vIDE client**: pairing now offers a choice between the existing usage-stats view and loading the real editor, terminal, and Claude/Bridge sessions as a fully interactive second client of the same backend, over a new authenticated WebSocket relay — a "Default mode after pairing" setting skips the chooser next time, with a "Switch mode" link to change it later
