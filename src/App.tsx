@@ -4,6 +4,7 @@ import * as monaco from 'monaco-editor'
 import { ImperativePanelHandle, Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { clampSize, loadPanelSize } from '@/lib/panelSize'
 import { getBiggestPaneId } from '@/lib/paneLayout'
+import { openNewBrowserTab } from '@/lib/openBrowserTab'
 import { syncOpenTabsFromDisk } from '@/lib/syncOpenTabsFromDisk'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import { Editor } from './components/Editor/Editor'
@@ -266,14 +267,7 @@ export default function App() {
   }
 
   function openNewBrowser() {
-    const id = Date.now().toString(36)
-    const tab = { path: buildBrowserPath(id), content: '', dirty: false }
-    const biggestPaneId = useBrowserSettingsStore.getState().openInBiggestPane ? getBiggestPaneId() : null
-    if (biggestPaneId) {
-      useEditorStore.getState().openTabInPane(tab, biggestPaneId)
-    } else {
-      useEditorStore.getState().openTab(tab)
-    }
+    openNewBrowserTab()
     if (useBrowserSettingsStore.getState().closeSidePanelOnOpen) setLeftPanel(null)
   }
 
