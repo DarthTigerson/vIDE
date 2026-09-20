@@ -89,6 +89,7 @@ import { useTodoSettingsStore } from './stores/todoSettingsStore'
 import { useNotesSettingsStore } from './stores/notesSettingsStore'
 import { useLlamaSettingsStore } from './stores/llamaSettingsStore'
 import { useLlamaModelsStore } from './stores/llamaModelsStore'
+import { useRunningLlamaCount } from './hooks/useRunningLlamaCount'
 import { useGraphifySettingsStore } from './stores/graphifySettingsStore'
 import { useGraphifyAutoBuild } from './hooks/useGraphifyAutoBuild'
 import { useNotesStore } from './stores/notesStore'
@@ -250,6 +251,7 @@ export default function App() {
   const todoEnabled = useTodoSettingsStore((s) => s.enabled)
   const notesEnabled = useNotesSettingsStore((s) => s.enabled)
   const llamaEnabled = useLlamaSettingsStore((s) => s.enabled)
+  const runningLlamaCount = useRunningLlamaCount(llamaEnabled)
   const graphifyEnabled = useGraphifySettingsStore((s) => s.enabled)
 
   function openNewTerminal() {
@@ -917,7 +919,7 @@ export default function App() {
               icon: <LlamaIcon />,
               title: 'Llama',
               active: leftPanel === 'llama',
-              badge: llamaModels.length > 0 ? llamaModels.length : undefined,
+              badge: runningLlamaCount > 0 ? runningLlamaCount : undefined,
               onClick: () => setLeftPanel((p) => (p === 'llama' ? null : 'llama')),
             }] : []),
             ...(mobileEnabled && projectRoot ? [{
