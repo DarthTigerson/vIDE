@@ -1,7 +1,8 @@
-import type { Command } from './commands'
+import type { Command, PaletteStep } from './commands'
 import { useGitStore, emptyRepoGitState } from '@/stores/gitStore'
 import type { RepoGitState } from '@/stores/gitStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
+import { useGitBranchStore, emptyRepoBranchState } from '@/stores/gitBranchStore'
 import { useSearchStore } from '@/stores/searchStore'
 import { usePanelRequestStore } from '@/stores/panelRequestStore'
 import { useGitPromptStore, requestForcePush } from '@/stores/gitPromptStore'
@@ -43,6 +44,31 @@ function stateReason(check: (state: RepoGitState) => string | null): () => strin
     const base = baseReason()
     if (base) return base
     return check(repoState(targetRepo() as string))
+  }
+}
+
+// Builds the branch list for a two-step command. Loads fresh branch data
+// first (same call BranchPalette makes on open). The current branch is never
+// offered — you can't merge, rebase onto or delete the branch you're on.
+async function branchStep(options: {
+  placeholder: string
+  includeRemote: boolean
+  onPick: (cwd: string, ref: string) => void
+}): Promise<PaletteStep> {
+  const cwd = targetRepo()
+  if (!cwd) throw new Error(NO_REPO)
+  await useGitBranchStore.getState().load(cwd)
+  const { current, local, remote } = useGitBranchStore.getState().repos[cwd] ?? emptyRepoBranchState
+  const refs = [
+    ...local.filter((branch) => branch !== current),
+    // Bare "origin" and origin/HEAD are symbolic refs, not branches.
+    ...(options.includeRemote ? remote.filter((ref) => ref.includes('/') && !ref.endsWith('/HEAD')) : []),
+  ]
+  return {
+    placeholder: options.placeholder,
+    emptyText: 'No other branches',
+    items: refs.map((ref) => ({ id: ref, label: ref })),
+    onPick: (ref) => options.onPick(cwd, ref),
   }
 }
 
@@ -171,6 +197,100 @@ export function gitCommands(): Command[] {
         usePanelRequestStore.getState().requestPanel('git')
         useSearchStore.getState().openRepoPalette()
       },
+    },
+    {
+      id: 'git-stash', label: 'Git: Stash', description: desc('Stash tracked changes'),
+      keywords: ['shelve', 'save', 'wip'],
+      disabledReason: baseReason,
+      action: withRepo((cwd) => void useGitStore.getState().stash(cwd)),
+    },
+    {
+      id: 'git-stash-untracked', label: 'Git: Stash (include untracked)',
+      description: desc('Stash tracked and untracked files'),
+      keywords: ['shelve', 'save', 'wip', 'new files'],
+      disabledReason: baseReason,
+      action: withRepo((cwd) => void useGitStore.getState().stashUntracked(cwd)),
+    },
+    {
+      id: 'git-stash-pop', label: 'Git: Stash Pop', description: desc('Apply and drop the latest stash'),
+      keywords: ['unstash', 'restore', 'apply'],
+      disabledReason: baseReason,
+      action: withRepo((cwd) => void useGitStore.getState().stashPop(cwd)),
+    },
+    {
+      id: 'git-amend', label: 'Git: Amend Last Commit',
+      description: desc('Add staged changes to the last commit, keeping its message'),
+      keywords: ['fixup', 'commit'],
+      disabledReason: baseReason,
+      action: withRepo((cwd) => void useGitStore.getState().amend(cwd)),
+    },
+    {
+      id: 'git-merge-abort', label: 'Git: Merge Abort', description: desc('Abort an in-progress merge'),
+      keywords: ['cancel', 'conflict'],
+      disabledReason: baseReason,
+      action: withRepo((cwd) => void useGitStore.getState().mergeAbort(cwd)),
+    },
+    {
+      id: 'git-rebase-abort', label: 'Git: Rebase Abort', description: desc('Abort an in-progress rebase'),
+      keywords: ['cancel', 'conflict'],
+      disabledReason: baseReason,
+      action: withRepo((cwd) => void useGitStore.getState().rebaseAbort(cwd)),
+    },
+    {
+      id: 'git-rebase-continue', label: 'Git: Rebase Continue',
+      description: desc('Continue a rebase after resolving conflicts'),
+      keywords: ['resume', 'conflict'],
+      disabledReason: baseReason,
+      action: withRepo((cwd) => void useGitStore.getState().rebaseContinue(cwd)),
+    },
+    {
+      id: 'git-merge', label: 'Git: Merge…', description: desc('Merge a branch into the current one'),
+      keywords: ['combine', 'branch'],
+      disabledReason: baseReason,
+      pick: () =>
+        branchStep({
+          placeholder: 'Merge which branch into the current one?',
+          includeRemote: true,
+          onPick: (cwd, ref) => void useGitStore.getState().merge(cwd, ref),
+        }),
+    },
+    {
+      id: 'git-rebase', label: 'Git: Rebase Onto…', description: desc('Rebase the current branch onto another'),
+      keywords: ['replay', 'branch', 'history'], danger: true,
+      disabledReason: baseReason,
+      pick: () =>
+        branchStep({
+          placeholder: 'Rebase the current branch onto…',
+          includeRemote: true,
+          onPick: (cwd, ref) =>
+            useGitPromptStore.getState().open({
+              kind: 'confirm',
+              cwd,
+              title: 'Rebase',
+              message: `Rebase the current branch onto ${ref}? This rewrites the current branch's commit history.`,
+              confirmLabel: 'Rebase',
+              onConfirm: () => void useGitStore.getState().rebase(cwd, ref),
+            }),
+        }),
+    },
+    {
+      id: 'git-delete-branch', label: 'Git: Delete Branch…', description: desc('Delete a local branch'),
+      keywords: ['remove', 'branch'], danger: true,
+      disabledReason: baseReason,
+      pick: () =>
+        branchStep({
+          placeholder: 'Delete which local branch?',
+          includeRemote: false,
+          onPick: (cwd, branch) =>
+            useGitPromptStore.getState().open({
+              kind: 'confirm',
+              cwd,
+              title: 'Delete Branch',
+              message: `Delete the local branch ${branch}? Git refuses if it has commits that aren't merged.`,
+              confirmLabel: 'Delete',
+              onConfirm: () => void useGitStore.getState().deleteBranch(cwd, branch),
+            }),
+        }),
     },
   ]
 }

@@ -19,6 +19,7 @@ import { useGitPromptStore } from '@/stores/gitPromptStore'
 import { useGitSettingsStore } from '@/stores/gitSettingsStore'
 import { useSearchStore } from '@/stores/searchStore'
 import { usePanelRequestStore } from '@/stores/panelRequestStore'
+import { useGitBranchStore } from '@/stores/gitBranchStore'
 
 const find = (id: string) => {
   const cmd = gitCommands().find((c) => c.id === id)
@@ -166,5 +167,90 @@ describe('reset and pickers', () => {
     find('git-switch-repo').action?.()
     expect(usePanelRequestStore.getState().request?.panel).toBe('git')
     expect(useSearchStore.getState().repoPaletteOpen).toBe(true)
+  })
+})
+
+describe('stash, amend and abort/continue', () => {
+  it.each([
+    ['git-stash', 'stash'],
+    ['git-stash-untracked', 'stashUntracked'],
+    ['git-stash-pop', 'stashPop'],
+    ['git-amend', 'amend'],
+    ['git-merge-abort', 'mergeAbort'],
+    ['git-rebase-abort', 'rebaseAbort'],
+    ['git-rebase-continue', 'rebaseContinue'],
+  ] as const)('%s calls store.%s for the selected repo and is always selectable', (id, method) => {
+    const spy = vi.fn()
+    useGitStore.setState({ [method]: spy } as never)
+    expect(find(id).disabledReason?.()).toBeNull()
+    find(id).action?.()
+    expect(spy).toHaveBeenCalledWith('/a')
+  })
+
+  it('are greyed with no repo', () => {
+    useGitReposStore.setState({ repos: [], selectedRepo: null })
+    expect(find('git-stash').disabledReason?.()).toBe('No git repository open')
+  })
+})
+
+describe('branch-picker commands', () => {
+  beforeEach(() => {
+    useGitBranchStore.setState({
+      load: vi.fn().mockResolvedValue(undefined),
+      repos: {
+        '/a': {
+          current: 'main',
+          local: ['main', 'feature', 'old'],
+          remote: ['origin/main', 'origin/feature', 'origin/HEAD', 'origin'],
+          loading: false,
+        },
+      },
+    })
+  })
+
+  it('Merge… lists other local and remote branches, and merges the pick', async () => {
+    const merge = vi.fn()
+    useGitStore.setState({ merge })
+    const cmd = find('git-merge')
+    const step = await cmd.pick!()
+    expect(step.items.map((i) => i.id)).toEqual(['feature', 'old', 'origin/main', 'origin/feature'])
+    step.onPick('feature')
+    expect(merge).toHaveBeenCalledWith('/a', 'feature')
+  })
+
+  it('Rebase Onto… is dangerous and confirms before rebasing', async () => {
+    const rebase = vi.fn()
+    useGitStore.setState({ rebase })
+    const cmd = find('git-rebase')
+    expect(cmd.danger).toBe(true)
+    const step = await cmd.pick!()
+    step.onPick('origin/main')
+    expect(rebase).not.toHaveBeenCalled()
+    const prompt = useGitPromptStore.getState().prompt
+    expect(prompt?.kind).toBe('confirm')
+    if (prompt?.kind === 'confirm') {
+      expect(prompt.message).toContain('origin/main')
+      prompt.onConfirm()
+    }
+    expect(rebase).toHaveBeenCalledWith('/a', 'origin/main')
+  })
+
+  it('Delete Branch… lists only other local branches and confirms before deleting', async () => {
+    const deleteBranch = vi.fn()
+    useGitStore.setState({ deleteBranch })
+    const cmd = find('git-delete-branch')
+    expect(cmd.danger).toBe(true)
+    const step = await cmd.pick!()
+    expect(step.items.map((i) => i.id)).toEqual(['feature', 'old'])
+    step.onPick('old')
+    expect(deleteBranch).not.toHaveBeenCalled()
+    const prompt = useGitPromptStore.getState().prompt
+    if (prompt?.kind === 'confirm') prompt.onConfirm()
+    expect(deleteBranch).toHaveBeenCalledWith('/a', 'old')
+  })
+
+  it('are greyed with no repo or while a command is running', () => {
+    setRepo({ commandStatus: 'running' })
+    expect(find('git-merge').disabledReason?.()).toBe('A git command is already running')
   })
 })
