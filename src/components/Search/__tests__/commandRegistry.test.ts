@@ -1,5 +1,15 @@
 import { describe, it, expect, vi } from 'vitest'
 
+// Some stores read localStorage at import time, and this suite runs in node.
+vi.hoisted(() => {
+  const data = new Map<string, string>()
+  ;(globalThis as { localStorage?: unknown }).localStorage = {
+    getItem: (k: string) => data.get(k) ?? null,
+    setItem: (k: string, v: string) => void data.set(k, v),
+    removeItem: (k: string) => void data.delete(k),
+  }
+})
+
 vi.mock('@/lib/platform', () => ({ isMac: true }))
 vi.mock('@/lib/monacoCommands', () => ({ getMonacoCommands: () => [] }))
 
