@@ -4,6 +4,7 @@ import { join, dirname, relative } from 'path'
 import { execFile } from 'child_process'
 import { readTodosData, writeTodosData } from './todosStore'
 import type { TodosData, TodoProject, Todo } from './todosStore'
+import { shouldSkipUsageOnlyCommit } from './usageCommitThrottle'
 
 export interface ConfigRepoSettings {
   enabled: boolean
@@ -250,12 +251,16 @@ async function pullSettings(
 // race over the git index and produce an index.lock error.
 let pushLock = Promise.resolve()
 
+// When this machine last pushed a commit (0 until its first this launch).
+// Per process on purpose — see usageCommitThrottle.
+let lastCommitAt = 0
+
 // Write local settings to the repo and push. Retries up to 3 times on
 // non-fast-forward so two machines pushing concurrently always converge.
 // lastSyncAt is the ms timestamp of our own last successful push — if the
 // remote commit is newer than that, another machine changed something and
 // remote wins for localStorage categories.
-async function pushSettings(data: Record<string, Record<string, string>>, lastSyncAt: number): Promise<void> {
+export async function pushSettings(data: Record<string, Record<string, string>>, lastSyncAt: number): Promise<void> {
   let release!: () => void
   const prev = pushLock
   pushLock = new Promise<void>((r) => { release = r })
@@ -373,12 +378,25 @@ async function pushSettings(data: Record<string, Record<string, string>>, lastSy
       }
 
       await runGit(['add', '-A'], { cwd: dir })
+
+      // Usage snapshots land every poll, so a push that changed nothing else
+      // would commit every couple of minutes. Wait it out (see usageCommitThrottle);
+      // the local usage file keeps the data and the next real commit carries it.
+      const staged = (await runGit(['diff', '--cached', '--name-only'], { cwd: dir })).split('\n').filter(Boolean)
+      if (shouldSkipUsageOnlyCommit(staged, lastCommitAt, Date.now())) {
+        await runGit(['reset'], { cwd: dir })
+        return
+      }
+
+      let committed = false
       try {
         await runGit(['commit', '-m', `vIDE sync ${new Date().toISOString()}`], { cwd: dir })
+        committed = true
       } catch { /* nothing changed — clean working tree */ }
 
       try {
         await runGit(['push', 'origin', 'HEAD'], { cwd: dir, timeout: 30000 })
+        if (committed) lastCommitAt = Date.now()
         return // success
       } catch (err) {
         // Check both .stderr and .message — Node's execFile may put text in either
