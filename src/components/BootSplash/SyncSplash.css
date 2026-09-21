@@ -102,8 +102,10 @@
 @keyframes sync-splash-breathe {
   50% { opacity: 0.7; }
 }
+/* Counter-clockwise: this icon's arrowheads point that way, so spinning it
+   clockwise (as the old splash did) looks like it is running backwards. */
 @keyframes sync-splash-spin {
-  to { transform: rotate(360deg); }
+  to { transform: rotate(-360deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -59,7 +59,6 @@ export function SyncSplash({ palette }: { palette: SplashPalette }) {
         {NODES.map(([cx, cy]) => (
           <circle key={`${cx},${cy}`} className="sync-splash__node" cx={cx} cy={cy} r={3.6} />
         ))}
-        <rect className="sync-splash__chip" x={352} y={202} width={96} height={96} rx={16} />
         <svg x={376} y={226} width={48} height={48} viewBox="0 0 24 24" fill="none">
           <path
             className="sync-splash__icon"
