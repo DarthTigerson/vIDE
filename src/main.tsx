@@ -1,7 +1,10 @@
 import './lib/migrateStorageKeys'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { flushSync } from 'react-dom'
 import './index.css'
+import { SyncSplash, swapHoldMs } from './components/BootSplash/SyncSplash'
+import { DEFAULT_SPLASH_PALETTE, loadSplashPalette } from './lib/splashPalette'
 
 if (import.meta.env.VITE_MOBILE_CLIENT === 'true') {
   const { createMobileApi } = await import('./lib/mobileApiShim/createMobileApi')
@@ -12,35 +15,30 @@ if (import.meta.env.VITE_MOBILE_CLIENT === 'true') {
 
 const root = ReactDOM.createRoot(document.getElementById('root')!)
 
-// Show a minimal loading screen before any store initializes.
-// Plain inline styles — CSS variables aren't set yet.
-root.render(
-  <div style={{
-    height: '100vh', width: '100vw',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: '#141414',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-  }}>
-    <style>{`@keyframes vide-spin { to { transform: rotate(360deg) } }`}</style>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'rgba(255,255,255,0.28)', fontSize: 13 }}>
-      <svg
-        style={{ animation: 'vide-spin 1s linear infinite', flexShrink: 0 }}
-        width="14" height="14" viewBox="0 0 24 24" fill="none"
-      >
-        <path
-          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-        />
-      </svg>
-      Syncing settings…
-    </div>
-  </div>
-)
+// Show the sync splash before any store initializes. It starts in a fixed
+// default colour — no theme exists yet — and takes on the synced theme's colour
+// once the pull has landed (see SyncSplash.tsx / lib/splashPalette.ts).
+// flushSync so the default colours are committed before the pull can finish.
+flushSync(() => root.render(<SyncSplash palette={DEFAULT_SPLASH_PALETTE} />))
 
 // Run sync BEFORE importing App. Zustand stores read localStorage at module-load
 // time (module-level constants), so they must see the synced values on first import.
-const { runPreMountSync } = await import('./lib/preBootSync')
+const { runPreMountSync, preMountSyncResult } = await import('./lib/preBootSync')
 await runPreMountSync()
+
+// Only a successful pull swaps colours: sync off or offline goes straight to
+// the app instead of pretending something synced.
+if (preMountSyncResult.lastSyncAt !== null) {
+  // Let the default colours paint first, or a fast pull would jump straight to
+  // the synced colours with nothing to transition from. rAF never fires in a
+  // hidden window, so don't wait on it forever.
+  await new Promise<void>((resolve) => {
+    const fallback = setTimeout(resolve, 100)
+    requestAnimationFrame(() => requestAnimationFrame(() => { clearTimeout(fallback); resolve() }))
+  })
+  root.render(<SyncSplash palette={loadSplashPalette()} />)
+  await new Promise((resolve) => setTimeout(resolve, swapHoldMs()))
+}
 
 // Dynamic import — stores initialize NOW with the already-updated localStorage.
 const { default: App } = await import('./App')
