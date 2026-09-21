@@ -11,7 +11,8 @@ export function swapHoldMs(): number {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : SPLASH_SWAP_MS
 }
 
-// Three pipes in from each side, converging on the chip at (352..448, 202..298).
+// Three pipes in from each side, stopping just short of the icon at the centre
+// (x 352 / 448).
 const LEFT_PIPES = [
   'M0 130 H140 L180 170 H260 L300 210 H352',
   'M0 250 H352',
