@@ -1,5 +1,12 @@
 # vIDE
 
+## v0.2.17 (2026-09-21)
+- **Animated sync screen**: while vIDE pulls your synced settings on launch, the startup screen now shows light pulses running along circuit traces into a spinning refresh icon. It starts in neutral grey, and once the pull lands your theme's colour flows in along the traces — pulses first, then traces, icon, and background — before the app appears. It follows built-in themes, custom themes and "match system", and adapts its label to light themes. If sync is off or you're offline the app opens straight away with no swap, and with reduced motion enabled the colour change is instant
+
+**Bug fixes**
+- Fixed vIDE Sync flooding your config repo with commits — around 700 a day per running machine, because the Claude usage history changes every minute and every 2-minute sync committed it. A sync whose only change is usage history is now committed at most once every 10 minutes per machine, and it rides along with the next real change; settings, To Do and note changes still sync as fast as before
+
+
 ## v0.2.16 (2026-09-20)
 - **Search is now a sidebar panel**: the old search modal is replaced by a persistent Search panel in the activity bar (⌘⇧F focuses it), so your results stay put while you open files and work through them. It runs on a bundled ripgrep engine that honours `.gitignore` and adds case, whole-word and regex toggles plus include/exclude glob filters; unsaved tabs are still searched from memory, and a file edited after the search gets a "changed" badge with a refresh button to re-run it
 - **Replace across files**: a replace field with Replace all (confirming the match and file counts) plus per-file and per-match replace buttons. Open tabs are edited in place and left unsaved, other files are written to disk, any file that changed since the search is skipped instead of overwritten, and a 10-second Undo toast restores the previous content; regex replacements expand `$1` groups
