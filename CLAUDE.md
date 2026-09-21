@@ -108,6 +108,24 @@ instead of building a new confirm. A new `settings://` page needs a row in
 `SETTINGS_PAGES` (`pageCommands.ts`); a test fails if it is missing. Search
 is `src/lib/paletteSearch.ts`; there are deliberately no palette keybindings.
 
+**Config sync (vIDE Sync)**: `electron/configRepo.ts` keeps multiple
+machines aligned through a private git repo cloned into `userData/config-repo`
+(`src/stores/configRepoStore.ts` drives it from the renderer). `localStorage`
+categories are written as `<category>.json`; todos, notes and
+`usage-history.jsonl` are file-based and merged additively (deletions do not
+propagate). Every commit is pushed to the remote, so commit *frequency* is a
+real cost — the config repo's history is user-visible. Triggers: a push on
+launch, a 2s debounce after setting/todo edits (`notifySettingChanged`), a 20s
+debounce after note edits (`notifyNoteChanged`), and a full push every 2
+minutes (this is also how todos/notes from another machine get pulled in).
+`checkRemote` runs every 30s but only fetches, it never commits. `usagePoller`
+appends a snapshot every poll, so without a guard every 2-minute push commits:
+a push whose only changed path is `usage-history.jsonl` is skipped unless this
+machine's own last commit is 10+ minutes old (`shouldSkipUsageOnlyCommit`,
+tracked per process, not from HEAD's age — HEAD age would let one machine
+starve the other). Don't add a new sync trigger or file to the repo without
+checking it can't produce a commit on every periodic push (VIDE-119).
+
 **Design-doc workflow**: nontrivial features go through a brainstorm →
 spec → plan cycle before implementation, with artifacts committed to
 `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md` and

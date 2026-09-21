@@ -1,0 +1,107 @@
+/* Boot sync splash. Runs before any theme is applied, so it takes every colour
+   from --splash-bg / --splash-accent (set inline by SyncSplash) and never from
+   the app's theme variables. When the palette changes, each element transitions
+   its own colour with a delay so the new colour runs in along the pipes:
+   pulses, then traces (0 - 0.8 s), nodes and icon (0.5 - 1.0 s), ground and
+   dot grid (0.8 - 1.3 s). Keep SPLASH_SWAP_MS in SyncSplash.tsx in step. */
+
+.sync-splash {
+  --splash-fg: rgba(255, 255, 255, 0.5);
+  --splash-tint: #ffffff;
+  position: relative;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  isolation: isolate;
+  background-color: var(--splash-bg);
+  color: var(--splash-fg);
+  transition: background-color 0.5s ease 0.8s;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.sync-splash[data-tone="light"] {
+  --splash-fg: rgba(0, 0, 0, 0.55);
+  --splash-tint: #000000;
+}
+
+.sync-splash__grid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  color: color-mix(in srgb, var(--splash-accent) 22%, transparent);
+  transition: color 0.5s ease 0.8s;
+  background-image: radial-gradient(currentColor 1px, transparent 1.4px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 25%, transparent 78%);
+  mask-image: radial-gradient(ellipse at center, #000 25%, transparent 78%);
+}
+
+.sync-splash > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.sync-splash__label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 9%;
+  z-index: 3;
+  text-align: center;
+  font-size: 13px;
+}
+
+.sync-splash__trace {
+  fill: none;
+  stroke-width: 1.6;
+  stroke: color-mix(in srgb, var(--splash-accent) 26%, transparent);
+  transition: stroke 0.5s ease var(--sd, 0s);
+}
+
+.sync-splash__pulse {
+  fill: none;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke: var(--splash-accent);
+  transition: stroke 0.3s ease 0s;
+  stroke-dasharray: 9 91;
+  stroke-dashoffset: 9;
+  animation: sync-splash-travel var(--t) linear var(--d) infinite;
+}
+
+.sync-splash__node {
+  stroke-width: 1.6;
+  fill: var(--splash-bg);
+  stroke: color-mix(in srgb, var(--splash-accent) 70%, transparent);
+  transition: stroke 0.5s ease 0.5s, fill 0.5s ease 0.8s;
+}
+
+.sync-splash__icon {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sync-splash-spin 1.2s linear infinite;
+  color: color-mix(in srgb, var(--splash-accent) 88%, var(--splash-tint));
+  transition: color 0.5s ease 0.5s;
+}
+
+@keyframes sync-splash-travel {
+  from { stroke-dashoffset: 9; }
+  to { stroke-dashoffset: -100; }
+}
+/* Counter-clockwise: this icon's arrowheads point that way, so spinning it
+   clockwise (as the old splash did) looks like it is running backwards. */
+@keyframes sync-splash-spin {
+  to { transform: rotate(-360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sync-splash, .sync-splash * {
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+  }
+  .sync-splash *, .sync-splash *::after {
+    animation-play-state: paused !important;
+  }
+}
