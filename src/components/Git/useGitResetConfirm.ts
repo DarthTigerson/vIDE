@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 type ResetStep =
-  | { kind: 'confirmUndoPush' }
+  | { kind: 'confirmUndoCommit' }
   | { kind: 'pickRef' }
   | { kind: 'confirmHard'; ref: string }
 
@@ -9,7 +9,10 @@ type ResetStep =
 // accordion section) — both trigger the same "Reset" split button:
 //   - main click            → hard-reset to HEAD (discard uncommitted changes)
 //   - "Hard Reset…"         → hard-reset to a picked branch/tag/hash
-//   - "Undo Last Push"      → soft-reset one commit back, changes stay staged
+//   - "Undo Last Commit"    → soft-reset one commit back, changes stay staged
+// (also surfaced as its own pill in RepoSection's footer row — it undoes a
+// local commit and touches no remote, which is why it is NOT called "Undo
+// Last Push" any more.)
 // No safety-setting bypass here (unlike force push): everything always
 // confirms before running.
 export function useGitResetConfirm() {
@@ -18,7 +21,7 @@ export function useGitResetConfirm() {
   return {
     step,
     requestResetToHead: () => setStep({ kind: 'confirmHard', ref: 'HEAD' }),
-    requestUndoPush: () => setStep({ kind: 'confirmUndoPush' }),
+    requestUndoCommit: () => setStep({ kind: 'confirmUndoCommit' }),
     requestHardReset: () => setStep({ kind: 'pickRef' }),
     pickRef: (ref: string) => setStep({ kind: 'confirmHard', ref }),
     close: () => setStep(null),

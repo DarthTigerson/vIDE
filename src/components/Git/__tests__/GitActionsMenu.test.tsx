@@ -31,11 +31,11 @@ afterEach(() => {
 })
 
 // Every test that doesn't specifically exercise onRequestResetToHead /
-// onRequestUndoPush / onRequestHardReset passes no-op stubs for them —
+// onRequestUndoCommit / onRequestHardReset passes no-op stubs for them —
 // they're required props but not what that test is about.
 const noopResetProps = {
   onRequestResetToHead: vi.fn(),
-  onRequestUndoPush: vi.fn(),
+  onRequestUndoCommit: vi.fn(),
   onRequestHardReset: vi.fn(),
 }
 
@@ -193,20 +193,20 @@ describe('GitActionsMenu', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('clicking Undo Last Push delegates to onRequestUndoPush and closes the menu', () => {
+  it('clicking Undo Last Commit delegates to onRequestUndoCommit and closes the menu', () => {
     const onClose = vi.fn()
-    const onRequestUndoPush = vi.fn()
+    const onRequestUndoCommit = vi.fn()
     render(
       <GitActionsMenu
         onClose={onClose}
         onRequestForce={vi.fn()}
         {...noopResetProps}
-        onRequestUndoPush={onRequestUndoPush}
+        onRequestUndoCommit={onRequestUndoCommit}
       />
     )
-    fireEvent.click(screen.getByText('Undo Last Push'))
+    fireEvent.click(screen.getByText('Undo Last Commit'))
 
-    expect(onRequestUndoPush).toHaveBeenCalled()
+    expect(onRequestUndoCommit).toHaveBeenCalled()
     expect(onClose).toHaveBeenCalled()
   })
 
@@ -221,6 +221,6 @@ describe('GitActionsMenu', () => {
     expect(screen.getByText('Force Push').closest('button')).toBeDisabled()
     expect(screen.getByText('Reset').closest('button')).toBeDisabled()
     expect(screen.getByText('Hard Reset…').closest('button')).toBeDisabled()
-    expect(screen.getByText('Undo Last Push').closest('button')).toBeDisabled()
+    expect(screen.getByText('Undo Last Commit').closest('button')).toBeDisabled()
   })
 })

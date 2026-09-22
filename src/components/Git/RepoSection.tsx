@@ -32,6 +32,13 @@ import { useSidebarUiStore } from '@/stores/sidebarUiStore'
 // now, instead of each having its own translucent-gradient-and-ring style.
 const accentSolidColor = 'bg-accent/80 text-on-accent hover:bg-accent'
 
+// Unpushed commits turn the Push pill amber instead of the shared accent
+// fill — amber-400/500 is already this codebase's "needs your attention"
+// colour (modified files in FileRow, the undo-commit warning, the TabBar
+// badge), so it reads as a nag without introducing a new colour. Only the
+// Push pill takes it; the rest of the row stays on accent.
+const pendingPushColor = 'bg-amber-500/80 text-black hover:bg-amber-500'
+
 const pillButtonClass =
   `w-full h-7 rounded-full flex items-center justify-center text-[0.625rem] font-bold tracking-tight transition-colors active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${accentSolidColor}`
 
@@ -73,6 +80,9 @@ function SplitCommandButton({
   direction,
   children,
   optionsChildren,
+  badge,
+  anchorRow,
+  hideChevron,
 }: {
   label: string
   onClick: () => void
@@ -84,6 +94,17 @@ function SplitCommandButton({
   direction: 'down' | 'up'
   children: ReactNode
   optionsChildren: ReactNode
+  badge?: ReactNode
+  // When two of these sit side by side (Pull/Push), the dropdown should
+  // span the whole row rather than just its own half — the caller marks
+  // both as anchorRow and makes the shared row div `relative` itself, so
+  // this one's own root skips `relative` and lets the dropdown's
+  // `absolute left-0 right-0` resolve against that row instead.
+  anchorRow?: boolean
+  // Git Functions has no primary action separate from "open the list" —
+  // there's nothing to split, so the chevron segment (and its divider)
+  // is hidden and `onClick` doubles as the only way to toggle the panel.
+  hideChevron?: boolean
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null)
 
@@ -98,29 +119,43 @@ function SplitCommandButton({
   }, [open])
 
   return (
-    <div ref={rootRef} className="relative flex-1 min-w-0">
+    <div ref={rootRef} className={anchorRow ? 'flex-1 min-w-0' : 'relative flex-1 min-w-0'}>
       <div className={['flex h-7 rounded-full overflow-hidden transition-colors', colorClassName].join(' ')}>
         <button
           type="button"
           disabled={disabled}
           onClick={onClick}
-          className="flex-1 min-w-0 flex items-center justify-center gap-1.5 text-xs font-semibold transition-colors hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
+          aria-haspopup={hideChevron ? 'true' : undefined}
+          aria-expanded={hideChevron ? open : undefined}
+          className="relative flex-1 min-w-0 flex items-center justify-center text-xs font-semibold transition-colors hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {children}
+          {hideChevron && (
+            <span className="absolute right-0 top-0 bottom-0 w-7 flex items-center justify-center border-l border-black/15">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className={direction === 'up' ? 'rotate-180' : ''}>
+                <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+          )}
+          {badge && (
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2">{badge}</span>
+          )}
         </button>
-        <button
-          type="button"
-          aria-label={`${label} options`}
-          aria-haspopup="true"
-          aria-expanded={open}
-          disabled={disabled}
-          onClick={onToggleOptions}
-          className="w-7 shrink-0 flex items-center justify-center border-l border-black/15 transition-colors hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className={direction === 'up' ? 'rotate-180' : ''}>
-            <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
+        {!hideChevron && (
+          <button
+            type="button"
+            aria-label={`${label} options`}
+            aria-haspopup="true"
+            aria-expanded={open}
+            disabled={disabled}
+            onClick={onToggleOptions}
+            className="w-7 shrink-0 flex items-center justify-center border-l border-black/15 transition-colors hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className={direction === 'up' ? 'rotate-180' : ''}>
+              <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {open && (
@@ -147,6 +182,11 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
   const closeRepo = useGitOpenReposStore((s) => s.closeRepo)
   const closeAll = useGitOpenReposStore((s) => s.closeAll)
   const { branch, status, commitMessage, commitError, commitMessageError, commandStatus, aheadBehind } = useRepoGitState(repo)
+  // getAheadBehind() returns null when the branch has no upstream at all, so
+  // there is no meaningful count to show and Publish Branch — not Push — is
+  // the action that applies. Treat that as "nothing pending" rather than
+  // nagging with a number that doesn't exist yet.
+  const unpushedCount = aheadBehind?.ahead ?? 0
   const {
     refresh,
     refreshStatus,
@@ -168,7 +208,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
   const openTabInPane = useEditorStore((s) => s.openTabInPane)
   const loadGraph = useGitGraphStore((s) => s.load)
   const { forceAction, requestForce, closeForce } = useForcePushConfirm(repo)
-  const { step: resetStep, requestResetToHead, requestUndoPush, requestHardReset, pickRef, close: closeReset } = useGitResetConfirm()
+  const { step: resetStep, requestResetToHead, requestUndoCommit, requestHardReset, pickRef, close: closeReset } = useGitResetConfirm()
   const commitMessageEnabled = useCommitMessageSettingsStore((s) => s.enabled)
   const commitMessageModel = useCommitMessageSettingsStore((s) => s.model)
   const commitMessagePrompt = useCommitMessageSettingsStore((s) => s.prompt)
@@ -202,8 +242,9 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
   const [discardTarget, setDiscardTarget] = useState<GitFileEntry | null>(null)
   const [discardAllConfirmOpen, setDiscardAllConfirmOpen] = useState(false)
   const [commitOptionsOpen, setCommitOptionsOpen] = useState(false)
+  const [pullOptionsOpen, setPullOptionsOpen] = useState(false)
   const [pushOptionsOpen, setPushOptionsOpen] = useState(false)
-  const [resetOptionsOpen, setResetOptionsOpen] = useState(false)
+  const [gitFunctionsOpen, setGitFunctionsOpen] = useState(false)
 
   // Mount does a full refresh (branch + ahead/behind + status): every section's
   // header shows branch and ahead/behind, not just the selected repo's, and
@@ -468,92 +509,132 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
       <div className="border-t border-border shrink-0 px-3 py-2 flex flex-col gap-1.5">
         <button
           type="button"
-          className={`${pillButtonClass} px-2 overflow-hidden`}
+          className={`w-full rounded-2xl flex flex-col items-center justify-center gap-1 py-2 px-3 min-w-0 overflow-hidden font-bold tracking-tight transition-colors active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${accentSolidColor}`}
           disabled={remoteActionDisabled}
           onClick={() => { selectRepo(repo); useSearchStore.getState().openBranchPalette() }}
         >
-          <span className="truncate min-w-0">Branch: {branch ?? '—'}</span>
+          <span className="leading-none text-[0.625rem] uppercase tracking-wide opacity-80">Checkout</span>
+          <span className="truncate max-w-full leading-none text-sm font-mono normal-case tracking-normal">{branch ?? '—'}</span>
         </button>
-        <div className="flex gap-1.5">
-          <button
-            type="button"
-            className={pillButtonClass}
-            disabled={remoteActionDisabled}
-            onClick={() => runOnThisRepo(() => gitFetch(repo))}
-          >
-            Fetch
-          </button>
-          <button
-            type="button"
-            className={pillButtonClass}
+        <div className="relative flex gap-1.5">
+          <SplitCommandButton
+            label="Pull"
             disabled={remoteActionDisabled}
             onClick={() => runOnThisRepo(() => pull(repo))}
+            colorClassName={accentSolidColor}
+            open={pullOptionsOpen}
+            onToggleOptions={() => setPullOptionsOpen((v) => !v)}
+            onCloseOptions={() => setPullOptionsOpen(false)}
+            direction="up"
+            anchorRow
+            optionsChildren={
+              <div className="flex flex-col gap-0.5">
+                <button
+                  type="button"
+                  disabled={remoteActionDisabled}
+                  onClick={() => { runOnThisRepo(() => gitFetch(repo)); setPullOptionsOpen(false) }}
+                  className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-fg transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <span className="font-semibold">Fetch</span>
+                  <span className="text-fg-subtle">Fetch from the remote without merging into your branch.</span>
+                </button>
+              </div>
+            }
           >
             Pull
-          </button>
+          </SplitCommandButton>
+          <SplitCommandButton
+            label="Push"
+            disabled={remoteActionDisabled}
+            onClick={() => runOnThisRepo(() => push(repo))}
+            colorClassName={unpushedCount > 0 ? pendingPushColor : accentSolidColor}
+            open={pushOptionsOpen}
+            onToggleOptions={() => setPushOptionsOpen((v) => !v)}
+            onCloseOptions={() => setPushOptionsOpen(false)}
+            direction="up"
+            anchorRow
+            optionsChildren={
+              <div className="flex flex-col gap-0.5">
+                <button
+                  type="button"
+                  disabled={remoteActionDisabled || !branch}
+                  onClick={() => {
+                    if (branch) runOnThisRepo(() => publishBranch(repo, branch))
+                    setPushOptionsOpen(false)
+                  }}
+                  className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-fg transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <span className="font-semibold">Publish Branch</span>
+                  <span className="text-fg-subtle font-mono">git push -u origin {branch ?? '…'}</span>
+                  <span className="text-fg-subtle">Push a new branch and set its upstream, so a plain Push works after.</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={remoteActionDisabled}
+                  onClick={() => { runOnThisRepo(() => requestForce('forcePush')); setPushOptionsOpen(false) }}
+                  className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <span className="font-semibold">Force Push</span>
+                  <span className="text-red-400/70">Overwrites the remote branch with your local history.</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={remoteActionDisabled}
+                  onClick={() => { runOnThisRepo(() => requestForce('forcePushLease')); setPushOptionsOpen(false) }}
+                  className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <span className="font-semibold">Force Push with Lease</span>
+                  <span className="text-red-400/70">Safer force push — fails if the remote has commits you haven't fetched.</span>
+                </button>
+              </div>
+            }
+            badge={unpushedCount > 0 && (
+              <span
+                aria-label={`${unpushedCount} commit${unpushedCount === 1 ? '' : 's'} to push`}
+                className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full border border-black/30 bg-black/15 px-1 text-[0.625rem] font-bold leading-none"
+              >
+                {unpushedCount}
+              </span>
+            )}
+          >
+            Push
+          </SplitCommandButton>
         </div>
+        {/* A pure dropdown trigger, not a split primary/secondary action
+            like Pull/Push — Reset, Hard Reset, and Undo Last Commit are
+            each destructive/history-editing enough (or, for Undo, just
+            unusual enough) that none of them belongs as the one-click
+            default. ConfirmUndoCommitModal still carries the
+            already-pushed warning for Undo Last Commit; ahead/behind
+            gating is deliberately not applied to it for the same reason
+            it wasn't when it was its own pill — getAheadBehind() returns
+            null on a branch with no upstream, which would hide it exactly
+            where it's still useful. */}
         <SplitCommandButton
-          label="Push"
+          label="Git Functions"
           disabled={remoteActionDisabled}
-          onClick={() => runOnThisRepo(() => push(repo))}
+          onClick={() => setGitFunctionsOpen((v) => !v)}
           colorClassName={accentSolidColor}
-          open={pushOptionsOpen}
-          onToggleOptions={() => setPushOptionsOpen((v) => !v)}
-          onCloseOptions={() => setPushOptionsOpen(false)}
+          open={gitFunctionsOpen}
+          onToggleOptions={() => setGitFunctionsOpen((v) => !v)}
+          onCloseOptions={() => setGitFunctionsOpen(false)}
           direction="up"
+          hideChevron
           optionsChildren={
             <div className="flex flex-col gap-0.5">
               <button
                 type="button"
-                disabled={remoteActionDisabled || !branch}
-                onClick={() => {
-                  if (branch) runOnThisRepo(() => publishBranch(repo, branch))
-                  setPushOptionsOpen(false)
-                }}
+                disabled={remoteActionDisabled}
+                onClick={() => { runOnThisRepo(() => requestResetToHead()); setGitFunctionsOpen(false) }}
                 className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-fg transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <span className="font-semibold">Publish Branch</span>
-                <span className="text-fg-subtle font-mono">git push -u origin {branch ?? '…'}</span>
-                <span className="text-fg-subtle">Push a new branch and set its upstream, so a plain Push works after.</span>
+                <span className="font-semibold">Reset</span>
+                <span className="text-fg-subtle">Reset to HEAD — discards uncommitted changes.</span>
               </button>
               <button
                 type="button"
                 disabled={remoteActionDisabled}
-                onClick={() => { runOnThisRepo(() => requestForce('forcePush')); setPushOptionsOpen(false) }}
-                className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <span className="font-semibold">Force Push</span>
-                <span className="text-red-400/70">Overwrites the remote branch with your local history.</span>
-              </button>
-              <button
-                type="button"
-                disabled={remoteActionDisabled}
-                onClick={() => { runOnThisRepo(() => requestForce('forcePushLease')); setPushOptionsOpen(false) }}
-                className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <span className="font-semibold">Force Push with Lease</span>
-                <span className="text-red-400/70">Safer force push — fails if the remote has commits you haven't fetched.</span>
-              </button>
-            </div>
-          }
-        >
-          Push
-        </SplitCommandButton>
-        <SplitCommandButton
-          label="Reset"
-          disabled={remoteActionDisabled}
-          onClick={() => runOnThisRepo(() => requestResetToHead())}
-          colorClassName={accentSolidColor}
-          open={resetOptionsOpen}
-          onToggleOptions={() => setResetOptionsOpen((v) => !v)}
-          onCloseOptions={() => setResetOptionsOpen(false)}
-          direction="up"
-          optionsChildren={
-            <div className="flex flex-col gap-0.5">
-              <button
-                type="button"
-                disabled={remoteActionDisabled}
-                onClick={() => { runOnThisRepo(() => requestHardReset()); setResetOptionsOpen(false) }}
+                onClick={() => { runOnThisRepo(() => requestHardReset()); setGitFunctionsOpen(false) }}
                 className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <span className="font-semibold">Hard Reset…</span>
@@ -562,16 +643,16 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
               <button
                 type="button"
                 disabled={remoteActionDisabled}
-                onClick={() => { runOnThisRepo(() => requestUndoPush()); setResetOptionsOpen(false) }}
+                onClick={() => { runOnThisRepo(() => requestUndoCommit()); setGitFunctionsOpen(false) }}
                 className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-fg transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <span className="font-semibold">Undo Last Push</span>
-                <span className="text-fg-subtle">Undo the last commit, keeping its changes staged to re-commit after pulling.</span>
+                <span className="font-semibold">Undo Last Commit</span>
+                <span className="text-fg-subtle">Soft reset — keeps your changes staged.</span>
               </button>
             </div>
           }
         >
-          Reset
+          Git Functions
         </SplitCommandButton>
         <div className="flex gap-1.5">
           <button
@@ -705,7 +786,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
         <ConfirmForcePushModal action={forceAction} cwd={repo} onClose={closeForce} />
       )}
 
-      {resetStep?.kind === 'confirmUndoPush' && (
+      {resetStep?.kind === 'confirmUndoCommit' && (
         <ConfirmUndoCommitModal cwd={repo} onClose={closeReset} />
       )}
       {resetStep?.kind === 'pickRef' && (
