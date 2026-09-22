@@ -81,6 +81,7 @@ function SplitCommandButton({
   children,
   optionsChildren,
   badge,
+  anchorRow,
 }: {
   label: string
   onClick: () => void
@@ -93,6 +94,12 @@ function SplitCommandButton({
   children: ReactNode
   optionsChildren: ReactNode
   badge?: ReactNode
+  // When two of these sit side by side (Pull/Push), the dropdown should
+  // span the whole row rather than just its own half — the caller marks
+  // both as anchorRow and makes the shared row div `relative` itself, so
+  // this one's own root skips `relative` and lets the dropdown's
+  // `absolute left-0 right-0` resolve against that row instead.
+  anchorRow?: boolean
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null)
 
@@ -107,7 +114,7 @@ function SplitCommandButton({
   }, [open])
 
   return (
-    <div ref={rootRef} className="relative flex-1 min-w-0">
+    <div ref={rootRef} className={anchorRow ? 'flex-1 min-w-0' : 'relative flex-1 min-w-0'}>
       <div className={['flex h-7 rounded-full overflow-hidden transition-colors', colorClassName].join(' ')}>
         <button
           type="button"
@@ -492,7 +499,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
         >
           <span className="truncate min-w-0">Branch: {branch ?? '—'}</span>
         </button>
-        <div className="flex gap-1.5">
+        <div className="relative flex gap-1.5">
           <SplitCommandButton
             label="Pull"
             disabled={remoteActionDisabled}
@@ -502,6 +509,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
             onToggleOptions={() => setPullOptionsOpen((v) => !v)}
             onCloseOptions={() => setPullOptionsOpen(false)}
             direction="up"
+            anchorRow
             optionsChildren={
               <div className="flex flex-col gap-0.5">
                 <button
@@ -527,6 +535,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
             onToggleOptions={() => setPushOptionsOpen((v) => !v)}
             onCloseOptions={() => setPushOptionsOpen(false)}
             direction="up"
+            anchorRow
             optionsChildren={
               <div className="flex flex-col gap-0.5">
                 <button
