@@ -177,6 +177,7 @@ describe('GitPanel — multi-repo accordion', () => {
     setTwoRepos('/proj/repoA')
     render(<GitPanel />)
     fireEvent.click(screen.getByText('repoB'))
+    fireEvent.click(screen.getByLabelText('Pull options'))
     fireEvent.click(screen.getByText('Fetch'))
     expect(window.api.gitRunCommand).toHaveBeenCalledWith(
       expect.any(String), '/proj/repoB', 'fetch'
