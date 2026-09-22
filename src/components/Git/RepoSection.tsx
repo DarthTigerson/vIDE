@@ -32,6 +32,13 @@ import { useSidebarUiStore } from '@/stores/sidebarUiStore'
 // now, instead of each having its own translucent-gradient-and-ring style.
 const accentSolidColor = 'bg-accent/80 text-on-accent hover:bg-accent'
 
+// Unpushed commits turn the Push pill amber instead of the shared accent
+// fill — amber-400/500 is already this codebase's "needs your attention"
+// colour (modified files in FileRow, the undo-commit warning, the TabBar
+// badge), so it reads as a nag without introducing a new colour. Only the
+// Push pill takes it; the rest of the row stays on accent.
+const pendingPushColor = 'bg-amber-500/80 text-black hover:bg-amber-500'
+
 const pillButtonClass =
   `w-full h-7 rounded-full flex items-center justify-center text-[0.625rem] font-bold tracking-tight transition-colors active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${accentSolidColor}`
 
@@ -147,6 +154,11 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
   const closeRepo = useGitOpenReposStore((s) => s.closeRepo)
   const closeAll = useGitOpenReposStore((s) => s.closeAll)
   const { branch, status, commitMessage, commitError, commitMessageError, commandStatus, aheadBehind } = useRepoGitState(repo)
+  // getAheadBehind() returns null when the branch has no upstream at all, so
+  // there is no meaningful count to show and Publish Branch — not Push — is
+  // the action that applies. Treat that as "nothing pending" rather than
+  // nagging with a number that doesn't exist yet.
+  const unpushedCount = aheadBehind?.ahead ?? 0
   const {
     refresh,
     refreshStatus,
@@ -168,7 +180,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
   const openTabInPane = useEditorStore((s) => s.openTabInPane)
   const loadGraph = useGitGraphStore((s) => s.load)
   const { forceAction, requestForce, closeForce } = useForcePushConfirm(repo)
-  const { step: resetStep, requestResetToHead, requestUndoPush, requestHardReset, pickRef, close: closeReset } = useGitResetConfirm()
+  const { step: resetStep, requestResetToHead, requestUndoCommit, requestHardReset, pickRef, close: closeReset } = useGitResetConfirm()
   const commitMessageEnabled = useCommitMessageSettingsStore((s) => s.enabled)
   const commitMessageModel = useCommitMessageSettingsStore((s) => s.model)
   const commitMessagePrompt = useCommitMessageSettingsStore((s) => s.prompt)
@@ -496,7 +508,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
           label="Push"
           disabled={remoteActionDisabled}
           onClick={() => runOnThisRepo(() => push(repo))}
-          colorClassName={accentSolidColor}
+          colorClassName={unpushedCount > 0 ? pendingPushColor : accentSolidColor}
           open={pushOptionsOpen}
           onToggleOptions={() => setPushOptionsOpen((v) => !v)}
           onCloseOptions={() => setPushOptionsOpen(false)}
@@ -538,6 +550,14 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
           }
         >
           Push
+          {unpushedCount > 0 && (
+            <span
+              aria-label={`${unpushedCount} commit${unpushedCount === 1 ? '' : 's'} to push`}
+              className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full border border-black/30 bg-black/15 px-1 text-[0.625rem] font-bold leading-none"
+            >
+              {unpushedCount}
+            </span>
+          )}
         </SplitCommandButton>
         <SplitCommandButton
           label="Reset"
@@ -558,15 +578,6 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
               >
                 <span className="font-semibold">Hard Reset…</span>
                 <span className="text-red-400/70">Reset to a branch, tag, or commit — discards history.</span>
-              </button>
-              <button
-                type="button"
-                disabled={remoteActionDisabled}
-                onClick={() => { runOnThisRepo(() => requestUndoPush()); setResetOptionsOpen(false) }}
-                className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-fg transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <span className="font-semibold">Undo Last Push</span>
-                <span className="text-fg-subtle">Undo the last commit, keeping its changes staged to re-commit after pulling.</span>
               </button>
             </div>
           }
@@ -593,6 +604,23 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
             List Diff
           </button>
         </div>
+        {/* Promoted out of the Reset pill's options panel: undoing a commit
+            keeps your work (soft reset, changes stay staged) and is the
+            first step of the commit → pull → push-again loop, so it does
+            not belong behind a chevron on a pill whose main click discards
+            changes. Deliberately always enabled rather than gated on
+            aheadBehind.ahead > 0 — getAheadBehind() returns null on a
+            branch with no upstream, which would hide the button exactly
+            where it is still useful. ConfirmUndoCommitModal carries the
+            already-pushed warning. */}
+        <button
+          type="button"
+          className={pillButtonClass}
+          disabled={remoteActionDisabled}
+          onClick={() => runOnThisRepo(() => requestUndoCommit())}
+        >
+          Undo Last Commit
+        </button>
       </div>
 
       {menu && createPortal(
@@ -705,7 +733,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
         <ConfirmForcePushModal action={forceAction} cwd={repo} onClose={closeForce} />
       )}
 
-      {resetStep?.kind === 'confirmUndoPush' && (
+      {resetStep?.kind === 'confirmUndoCommit' && (
         <ConfirmUndoCommitModal cwd={repo} onClose={closeReset} />
       )}
       {resetStep?.kind === 'pickRef' && (

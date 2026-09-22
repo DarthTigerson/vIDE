@@ -39,7 +39,7 @@ export function StatusBar() {
   const refreshBranch = useGitStore((s) => s.refresh)
   const [gitMenuOpen, setGitMenuOpen] = useState(false)
   const { forceAction, requestForce, closeForce } = useForcePushConfirm(selectedRepo)
-  const { step: resetStep, requestResetToHead, requestUndoPush, requestHardReset, pickRef, close: closeReset } = useGitResetConfirm()
+  const { step: resetStep, requestResetToHead, requestUndoCommit, requestHardReset, pickRef, close: closeReset } = useGitResetConfirm()
   const syncEnabled = useConfigRepoStore((s) => s.enabled)
   const syncRepoUrl = useConfigRepoStore((s) => s.repoUrl)
   const syncStatus = useConfigRepoStore((s) => s.status)
@@ -113,7 +113,7 @@ export function StatusBar() {
               onClose={() => setGitMenuOpen(false)}
               onRequestForce={requestForce}
               onRequestResetToHead={requestResetToHead}
-              onRequestUndoPush={requestUndoPush}
+              onRequestUndoCommit={requestUndoCommit}
               onRequestHardReset={requestHardReset}
             />
           )}
@@ -124,7 +124,7 @@ export function StatusBar() {
       {forceAction && selectedRepo && (
         <ConfirmForcePushModal action={forceAction} cwd={selectedRepo} onClose={closeForce} />
       )}
-      {resetStep?.kind === 'confirmUndoPush' && selectedRepo && (
+      {resetStep?.kind === 'confirmUndoCommit' && selectedRepo && (
         <ConfirmUndoCommitModal cwd={selectedRepo} onClose={closeReset} />
       )}
       {resetStep?.kind === 'pickRef' && selectedRepo && (

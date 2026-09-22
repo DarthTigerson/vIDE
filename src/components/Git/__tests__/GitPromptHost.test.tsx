@@ -27,7 +27,7 @@ describe('GitPromptHost', () => {
   it('shows the existing undo-commit confirm', () => {
     useGitPromptStore.setState({ prompt: { kind: 'undoCommit', cwd: '/r' } })
     render(<GitPromptHost />)
-    expect(screen.getByText('Undo Last Push')).toBeTruthy()
+    expect(screen.getByText('Undo Last Commit')).toBeTruthy()
   })
 
   it('hard reset: picker first, then the existing confirm after a pick', async () => {

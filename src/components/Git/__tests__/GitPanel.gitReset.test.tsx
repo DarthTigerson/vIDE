@@ -32,11 +32,10 @@ afterEach(() => {
   cleanup()
 })
 
-describe('GitPanel — Reset (discard to HEAD / Hard Reset / Undo Last Push)', () => {
+describe('GitPanel — Reset (discard to HEAD / Hard Reset)', () => {
   it('the options panel is closed by default', () => {
     render(<GitPanel />)
     expect(screen.queryByText('Hard Reset…')).toBeNull()
-    expect(screen.queryByText('Undo Last Push')).toBeNull()
   })
 
   it('clicking the main Reset button opens a confirm modal instead of running immediately', () => {
@@ -68,41 +67,14 @@ describe('GitPanel — Reset (discard to HEAD / Hard Reset / Undo Last Push)', (
     expect(window.api.gitRunCommand).not.toHaveBeenCalled()
   })
 
-  it('clicking the options chevron opens a panel with Hard Reset… and Undo Last Push', () => {
+  it('clicking the options chevron opens a panel with Hard Reset…', () => {
     render(<GitPanel />)
     fireEvent.click(screen.getByLabelText('Reset options'))
     expect(screen.getByText('Hard Reset…')).toBeTruthy()
-    expect(screen.getByText('Undo Last Push')).toBeTruthy()
   })
 
-  it('clicking Undo Last Push opens its own confirm modal', () => {
-    render(<GitPanel />)
-    fireEvent.click(screen.getByLabelText('Reset options'))
-    fireEvent.click(screen.getByText('Undo Last Push'))
-
-    expect(window.api.gitRunCommand).not.toHaveBeenCalled()
-    expect(screen.getByText('Undo Push')).toBeTruthy()
-  })
-
-  it('confirming Undo Last Push soft-resets one commit back, locally only', () => {
-    render(<GitPanel />)
-    fireEvent.click(screen.getByLabelText('Reset options'))
-    fireEvent.click(screen.getByText('Undo Last Push'))
-    fireEvent.click(screen.getByText('Undo Push'))
-
-    expect(window.api.gitRunCommand).toHaveBeenCalledWith(expect.any(String), '/proj', 'undoLastCommit')
-  })
-
-  it('warns on Undo Last Push when the last commit is already pushed (ahead === 0)', () => {
-    useGitStore.setState({
-      repos: { '/proj': { ...emptyRepoGitState, status: emptyStatus, branch: 'main', aheadBehind: { ahead: 0, behind: 0 } } },
-    })
-    render(<GitPanel />)
-    fireEvent.click(screen.getByLabelText('Reset options'))
-    fireEvent.click(screen.getByText('Undo Last Push'))
-
-    expect(screen.getByText(/already been pushed to origin/)).toBeTruthy()
-  })
+  // Undo Last Commit used to live in this panel; it is now its own pill,
+  // covered by GitPanel.undoCommit.test.tsx.
 
   it('clicking Hard Reset… opens the ref picker listing branches', async () => {
     render(<GitPanel />)
