@@ -13,6 +13,7 @@ import {
   defineMonacoThemes, glassMonacoThemeId, highContrastMonacoThemeId, glassHighContrastMonacoThemeId, MARIO_MODE_THEME_ID,
   defineCustomHighContrastTheme, CUSTOM_HIGH_CONTRAST_THEME_ID,
   defineCustomDefaultTheme, CUSTOM_DEFAULT_THEME_ID,
+  defineCustomTokenTheme, CUSTOM_TOKENS_THEME_ID, THEME_PALETTES,
 } from '@/monacoThemes'
 import { useFontSizeStore } from '@/stores/fontSizeStore'
 import { useInstanceFontSizeStore } from '@/stores/instanceFontSizeStore'
@@ -146,6 +147,7 @@ export function Editor() {
   const autoSaveEnabled = useEditorSettingsStore((s) => s.autoSaveEnabled)
   const activeTab = tabs.find((t) => t.path === activeTabPath) ?? null
   const editorColorScheme = useDisplayStore((s) => s.editorColorScheme)
+  const editorTokenColors = useDisplayStore((s) => s.editorTokenColors)
   const panelStyle = useDisplayStore((s) => s.panelStyle)
   const themeId = useThemeStore((s) => s.theme)
   const activeCustomId = useCustomThemeStore((s) => s.activeId)
@@ -159,7 +161,7 @@ export function Editor() {
   // only ever selects a custom theme id in that same condition, so defining
   // the other one here would be invisible until the user actually switched.
   useEffect(() => {
-    if (!activeCustomId || editorColorScheme === 'mario-mode') return
+    if (!activeCustomId || editorColorScheme === 'mario-mode' || editorColorScheme === 'custom') return
     const active = customThemes.find((t) => t.id === activeCustomId)
     if (!active) return
     const variant = themeId.endsWith('-dark') ? 'dark' : 'light'
@@ -179,6 +181,22 @@ export function Editor() {
       }
     })
   }, [editorColorScheme, activeCustomId, customThemes, themeId, panelStyle])
+
+  // Same job for CUSTOM_TOKENS_THEME_ID, but kept separate from the effect
+  // above: that one only runs with a custom *app theme* active, while the
+  // Custom Editor Colors scheme works on any theme, built-in included. The
+  // background still follows whatever theme is active (a custom theme's own
+  // --color-bg when one is selected), so only the syntax colours are the
+  // user's.
+  useEffect(() => {
+    if (editorColorScheme !== 'custom') return
+    const variant = themeId.endsWith('-dark') ? 'dark' : 'light'
+    const activeCustom = activeCustomId ? customThemes.find((t) => t.id === activeCustomId) : undefined
+    const background = activeCustom ? activeCustom[variant]['--color-bg'] : THEME_PALETTES[themeId].background
+    loader.init().then((monaco) => {
+      defineCustomTokenTheme(monaco, editorTokenColors, themeId, background, panelStyle === 'glass')
+    })
+  }, [editorColorScheme, editorTokenColors, activeCustomId, customThemes, themeId, panelStyle])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -316,6 +334,8 @@ function EditorPane({ paneId }: { paneId: string }) {
   // (Theme Colour Match) reflect that theme's own colours.
   const monacoTheme = editorColorScheme === 'mario-mode'
     ? MARIO_MODE_THEME_ID
+    : editorColorScheme === 'custom'
+    ? CUSTOM_TOKENS_THEME_ID
     : editorColorScheme === 'high-contrast'
     ? (activeCustomId ? CUSTOM_HIGH_CONTRAST_THEME_ID : (panelStyle === 'glass' ? glassHighContrastMonacoThemeId(themeId) : highContrastMonacoThemeId(themeId)))
     : activeCustomId

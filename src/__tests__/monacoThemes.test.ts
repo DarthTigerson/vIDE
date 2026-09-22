@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
   deriveHighContrastTokens, defineCustomHighContrastTheme, CUSTOM_HIGH_CONTRAST_THEME_ID,
   defineCustomDefaultTheme, CUSTOM_DEFAULT_THEME_ID, THEME_PALETTES,
+  defineCustomTokenTheme, CUSTOM_TOKENS_THEME_ID, tokenRules,
   highContrastMonacoThemeId, glassHighContrastMonacoThemeId, defineMonacoThemes,
 } from '../monacoThemes'
 import { hexToHsv, hexWithAlpha } from '@/lib/color'
@@ -136,5 +137,76 @@ describe('defineCustomDefaultTheme', () => {
     const theme = monaco.defined[CUSTOM_DEFAULT_THEME_ID]
     expect(theme.base).toBe('vs')
     expect(theme.colors['editor.foreground']).toBe(THEME_PALETTES['link-light'].foreground)
+  })
+})
+
+describe('tokenRules', () => {
+  it('paints plain `type` tokens, which is what a YAML/JSON key tokenizes as', () => {
+    const rules = tokenRules(
+      { keyword: '#111111', string: '#222222', number: '#333333', type: '#444444', comment: '#555555' },
+      '#666666',
+    )
+    const type = rules.find((r) => r.token === 'type')
+    expect(type).toBeDefined()
+    expect(type!.foreground).toBe('444444')
+    // 'type.identifier' would never match a bare 'type' token — Monaco
+    // resolves theme rules by prefix, longest match wins.
+    expect(rules.some((r) => r.token === 'type.identifier')).toBe(false)
+  })
+})
+
+describe('defineCustomTokenTheme', () => {
+  function fakeMonaco() {
+    const defined: Record<string, any> = {}
+    return {
+      editor: { defineTheme: (id: string, data: any) => { defined[id] = data } },
+      defined,
+    }
+  }
+
+  const tokens = { keyword: '#ff0000', string: '#00ff00', number: '#0000ff', type: '#ffff00', comment: '#ff00ff' }
+
+  it('uses the user\'s five colours over the active theme\'s own chrome', () => {
+    const monaco = fakeMonaco()
+    defineCustomTokenTheme(monaco as any, tokens, 'claude-dark', THEME_PALETTES['claude-dark'].background, false)
+    const theme = monaco.defined[CUSTOM_TOKENS_THEME_ID]
+    expect(theme.base).toBe('vs-dark')
+    expect(theme.colors['editor.background']).toBe(THEME_PALETTES['claude-dark'].background)
+    expect(theme.colors['editor.foreground']).toBe(THEME_PALETTES['claude-dark'].foreground)
+    expect(theme.rules.find((r: any) => r.token === 'type').foreground).toBe('ffff00')
+    expect(theme.rules.find((r: any) => r.token === 'keyword').foreground).toBe('ff0000')
+  })
+
+  it('follows the Glass panel style, like Default and Theme Colour Match', () => {
+    const monaco = fakeMonaco()
+    defineCustomTokenTheme(monaco as any, tokens, 'claude-dark', '#1e1e1e', true)
+    expect(monaco.defined[CUSTOM_TOKENS_THEME_ID].colors['editor.background']).toBe(hexWithAlpha('#1e1e1e', 0.25))
+  })
+
+  it('takes its background from the caller, so a custom app theme\'s own bg wins', () => {
+    const monaco = fakeMonaco()
+    defineCustomTokenTheme(monaco as any, tokens, 'claude-dark', '#0a0f2b', false)
+    expect(monaco.defined[CUSTOM_TOKENS_THEME_ID].colors['editor.background']).toBe('#0a0f2b')
+  })
+})
+
+describe('defineMonacoThemes — the dynamically-redefined ids', () => {
+  it('pre-defines all three so a pane can never select an unknown theme', async () => {
+    // defineMonacoThemes() is one-shot per module instance, and other cases
+    // in this file have already spent it — this one needs a fresh copy.
+    vi.resetModules()
+    const m = await import('../monacoThemes')
+    const defined: Record<string, any> = {}
+    m.defineMonacoThemes({
+      editor: { defineTheme: (id: string, data: any) => { defined[id] = data } },
+    } as any)
+    // Monaco's setTheme() silently falls back to the light 'vs' theme for an
+    // unknown id, and a later defineTheme() will NOT re-apply it to the live
+    // editor — so selecting one of these before its defining effect in
+    // Editor.tsx ran would strand the editor on 'vs'.
+    expect(defined[m.CUSTOM_DEFAULT_THEME_ID]).toBeDefined()
+    expect(defined[m.CUSTOM_HIGH_CONTRAST_THEME_ID]).toBeDefined()
+    expect(defined[m.CUSTOM_TOKENS_THEME_ID]).toBeDefined()
+    expect(defined[m.MARIO_MODE_THEME_ID]).toBeDefined()
   })
 })

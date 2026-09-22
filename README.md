@@ -225,6 +225,12 @@ npm run dist:linux  # produces vIDE-x64.tar.gz under release/
 Issues and pull requests are welcome. This is an early-stage project, so
 expect some rough edges.
 
+### Contributors
+
+- [![Thomas Bonnici](https://images.weserv.nl/?url=avatars.githubusercontent.com/DarthTigerson&w=32&h=32)](https://github.com/DarthTigerson) **Thomas Bonnici** — [@DarthTigerson](https://github.com/DarthTigerson)
+- [![Gabriele Grech](https://images.weserv.nl/?url=avatars.githubusercontent.com/GGre4&w=32&h=32)](https://github.com/GGre4) **Gabriele Grech** — [@GGre4](https://github.com/GGre4)
+- [![Keith Fenech](https://images.weserv.nl/?url=avatars.githubusercontent.com/taspanja&w=32&h=32)](https://github.com/taspanja) **Keith Fenech** — [@taspanja](https://github.com/taspanja)
+
 ## License
 
 [MIT](LICENSE)
