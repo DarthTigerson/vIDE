@@ -5,6 +5,7 @@ import { execFile } from 'child_process'
 import { readTodosData, writeTodosData } from './todosStore'
 import type { TodosData, TodoProject, Todo } from './todosStore'
 import { shouldSkipUsageOnlyCommit } from './usageCommitThrottle'
+import { buildAuthUrl, SYNC_GIT_CONFIG_ARGS, SYNC_GIT_ENV } from './configRepoAuth'
 
 export interface ConfigRepoSettings {
   enabled: boolean
@@ -47,10 +48,15 @@ function repoDir(): string {
 // so no shell metacharacter injection is possible regardless of arg content.
 function runGit(args: string[], opts: { timeout?: number; cwd?: string } = {}): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile('git', args, { timeout: opts.timeout, cwd: opts.cwd, encoding: 'utf8' }, (err, stdout) => {
-      if (err) reject(err)
-      else resolve(stdout as string)
-    })
+    execFile(
+      'git',
+      [...SYNC_GIT_CONFIG_ARGS, ...args],
+      { timeout: opts.timeout, cwd: opts.cwd, encoding: 'utf8', env: { ...process.env, ...SYNC_GIT_ENV } },
+      (err, stdout) => {
+        if (err) reject(err)
+        else resolve(stdout as string)
+      },
+    )
   })
 }
 
@@ -79,15 +85,6 @@ async function readSettings(): Promise<ConfigRepoSettings> {
 
 async function saveSettings(s: ConfigRepoSettings): Promise<void> {
   await writeFile(settingsPath(), JSON.stringify(s, null, 2), 'utf8')
-}
-
-function buildAuthUrl(repoUrl: string, token: string): string {
-  // new URL() throws on malformed input — the caller receives a proper error
-  // rather than the raw string being interpolated into a command.
-  const url = new URL(repoUrl)
-  url.username = token
-  url.password = ''
-  return url.toString()
 }
 
 async function isRepoCloned(): Promise<boolean> {
@@ -443,7 +440,18 @@ async function checkRemote(lastSyncAt: number): Promise<void> {
   } catch { /* no remote commits yet */ }
 }
 
+// Clones made before the oauth2:<token> URL fix still carry the old
+// token-as-username remote URL, which fails on GitLab. Rewrite it from the
+// saved settings on launch so existing installs don't have to reconnect.
+async function refreshRemoteUrl(): Promise<void> {
+  const { repoUrl, token } = await readSettings()
+  if (!repoUrl || !token || !await isRepoCloned()) return
+  await runGit(['remote', 'set-url', 'origin', buildAuthUrl(repoUrl, token)], { cwd: repoDir() })
+}
+
 export function registerConfigRepoHandlers(): void {
+  refreshRemoteUrl().catch(() => { /* malformed saved URL — reconnect surfaces it */ })
+
   ipcMain.handle('configRepo:getSettings', () => readSettings())
 
   ipcMain.handle('configRepo:setSettings', async (_e, patch: Partial<ConfigRepoSettings>) => {
