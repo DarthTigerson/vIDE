@@ -8,6 +8,7 @@ import { isBrowserTab, getBrowserId, buildBrowserPath } from '@/components/Setti
 import { clampToViewport } from '@/components/ui/clampToViewport'
 import { diffFilePathForTab, filePathForTab } from './breadcrumbPath'
 import { useFileExists } from './useFileExists'
+import { requestCloseAllTabs } from '@/stores/discardScratchStore'
 import { openFileInTree } from '@/lib/openFileInTree'
 
 const DIRECTIONS: { direction: PaneDirection; label: string }[] = [
@@ -87,17 +88,20 @@ function SubMenuButton({ label, disabled, items }: {
   )
 }
 
-export function TabContextMenu({ x, y, paneId, path, onClose }: {
+export function TabContextMenu({ x, y, paneId, path, onClose, onRequestClose }: {
   x: number
   y: number
   paneId: string
   path: string
   onClose: () => void
+  // Routed through TabBar so an unsaved scratch tab gets the same discard
+  // confirmation here as it does from the tab's own × button.
+  onRequestClose: (path: string) => void
 }) {
   const menuRef = useRef<HTMLDivElement>(null)
 
   const {
-    closeTabInPane, closeAllTabs, closeSavedTabs, togglePin, splitPaneForTab, moveTabToAdjacentPane,
+    closeSavedTabs, togglePin, splitPaneForTab, moveTabToAdjacentPane,
     pinnedPaths, layout, paneTabLists,
   } = useEditorStore()
   const autoSaveEnabled = useEditorSettingsStore((s) => s.autoSaveEnabled)
@@ -183,8 +187,8 @@ export function TabContextMenu({ x, y, paneId, path, onClose }: {
         </>
       )}
 
-      <MenuButton onClick={withClose(() => closeTabInPane(paneId, path))}>Close</MenuButton>
-      <MenuButton onClick={withClose(closeAllTabs)}>Close All</MenuButton>
+      <MenuButton onClick={withClose(() => onRequestClose(path))}>Close</MenuButton>
+      <MenuButton onClick={withClose(requestCloseAllTabs)}>Close All</MenuButton>
       {!autoSaveEnabled && (
         <MenuButton onClick={withClose(closeSavedTabs)}>Close All Saved</MenuButton>
       )}

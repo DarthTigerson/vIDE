@@ -22,6 +22,8 @@ export const EXCLUDED_CHANNELS = new Set<string>([
   'browserView:clearCookies', 'browserView:destroy',  // native Electron BrowserView instances — composite ON THE MAC'S SCREEN, not visible to phone user
   'dialog:openFolder',  // native macOS/Linux folder picker — no phone equivalent
   'dialog:openFile',  // native file picker — no phone equivalent
+  'dialog:saveFile',  // native save-as picker — no phone equivalent
+  'window:setUnsavedState',  // desktop window-close guard — the phone has no window to close
   'clipboard:writeFiles', 'clipboard:readFiles',  // the desktop's OS file clipboard (Finder/Nautilus interop) — meaningless to a phone
   'menu:openProject', 'menu:closeActiveTab', 'menu:zoomIn', 'menu:zoomOut',
   'menu:resetZoom', 'menu:openSettings', 'menu:newFile', 'menu:newFolder',

@@ -110,11 +110,30 @@ import { MarkdownViewer } from '@/components/Viewer/MarkdownViewer'
 import { isMarkdownFile } from '@/lib/fileKinds'
 import type { GitDiffContent } from '@/types/index'
 import { isVirtualTab, isReadOnlyTab } from '@/lib/tabKinds'
+import { isScratchTab } from './paths'
 
-async function saveActiveTab({ allowCreateMissing }: { allowCreateMissing: boolean }) {
-  const { tabs, activeTabPath, markSaved, setTabMissing } = useEditorStore.getState()
+// Exported for tests: the scratch Save As branch below is the only place the
+// save dialog is driven, and reaching it through a full <Editor /> render
+// would mean standing up Monaco in jsdom to exercise a few lines of plain
+// async logic.
+export async function saveActiveTab({ allowCreateMissing }: { allowCreateMissing: boolean }) {
+  const { tabs, activeTabPath, markSaved, setTabMissing, renameTabPath } = useEditorStore.getState()
   const tab = tabs.find((t) => t.path === activeTabPath)
   if (!tab || isReadOnlyTab(tab)) return
+
+  // A scratch tab has no file behind it yet, so Save means Save As. Cancelling
+  // the dialog returns null and must leave the tab exactly as it was — still
+  // scratch, still dirty — rather than quietly marking it saved.
+  if (isScratchTab(tab.path)) {
+    const targetPath = await window.api.saveFileDialog(useFileStore.getState().projectRoot ?? undefined)
+    if (!targetPath) return
+    const savedContent = tab.content
+    await window.api.writeFile(targetPath, savedContent)
+    renameTabPath(tab.path, targetPath)
+    markSaved(targetPath, savedContent)
+    await afterSaveRefresh(targetPath)
+    return
+  }
 
   if (!allowCreateMissing) {
     const exists = await window.api.pathExists(tab.path)
@@ -127,13 +146,20 @@ async function saveActiveTab({ allowCreateMissing }: { allowCreateMissing: boole
   const savedContent = tab.content
   await window.api.writeFile(tab.path, savedContent)
   markSaved(tab.path, savedContent)
+  await afterSaveRefresh(tab.path)
+}
+
+// Shared by the normal save and the scratch Save As above — a newly saved
+// scratch file is a new file in the tree and a new untracked entry in git,
+// so it needs exactly the same refresh the in-place save always did.
+async function afterSaveRefresh(path: string) {
   const root = useFileStore.getState().projectRoot
   if (root) {
     useFileStore.getState().refreshTree()
     useGitStore.getState().refreshStatus(root)
   }
   const notesRoot = useNotesStore.getState().root
-  if (notesRoot && tab.path.startsWith(notesRoot)) {
+  if (notesRoot && path.startsWith(notesRoot)) {
     notifyNoteChanged()
   }
 }
@@ -374,7 +400,11 @@ function EditorPane({ paneId }: { paneId: string }) {
     !isVirtual && !isTerminal && !isBrowser &&
     !isDiff && !isCommitDiff && !isGitLog && !isGitGraph && !isGitBranchDiff &&
     !isGraphifyGraph && !isUsageGraph && !isTodoBoard && !isTodoDetail &&
-    !isLlamaModel && !isDockerLogs && !isImagePreview && !isMarkdownPreview
+    !isLlamaModel && !isDockerLogs && !isImagePreview && !isMarkdownPreview &&
+    // A scratch tab has no file on disk yet, so there is no path to show —
+    // without this the breadcrumb splits 'scratch://<uuid>' on '/' and
+    // renders the scheme and the uuid as if they were folders.
+    !isScratchTab(activeTab.path)
   const breadcrumbFilePath = activeTab ? breadcrumbPathForTab(activeTab.path, isPlainFileTab) : null
 
   function activatePane() {
@@ -436,7 +466,7 @@ function EditorPane({ paneId }: { paneId: string }) {
   }, [activeTab?.path, isDiff, isCommitDiff, diffRefreshTick])
 
   useEffect(() => {
-    if (!activeTab || isReadOnlyTab(activeTab)) return
+    if (!activeTab || isReadOnlyTab(activeTab) || isScratchTab(activeTab.path)) return
 
     let cancelled = false
     window.api.pathExists(activeTab.path).then((exists) => {

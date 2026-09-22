@@ -32,10 +32,13 @@ afterEach(() => {
   cleanup()
 })
 
+const defaultRequestClose = (path: string) =>
+  useEditorStore.getState().closeTabInPane('pane-1', path)
+
 describe('TabContextMenu — file tab', () => {
   it('shows the common actions and Copy File Path, not Reload/Duplicate', () => {
     resetStores()
-    render(<TabContextMenu x={10} y={10} paneId="pane-1" path="/a.ts" onClose={() => {}} />)
+    render(<TabContextMenu x={10} y={10} paneId="pane-1" path="/a.ts" onRequestClose={defaultRequestClose} onClose={() => {}} />)
     expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Close All' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Copy File Path' })).toBeInTheDocument()
@@ -45,22 +48,22 @@ describe('TabContextMenu — file tab', () => {
 
   it('shows Close All Saved when autosave is off, hides it when autosave is on', () => {
     resetStores()
-    const { rerender } = render(<TabContextMenu x={10} y={10} paneId="pane-1" path="/a.ts" onClose={() => {}} />)
+    const { rerender } = render(<TabContextMenu x={10} y={10} paneId="pane-1" path="/a.ts" onRequestClose={defaultRequestClose} onClose={() => {}} />)
     expect(screen.getByRole('button', { name: 'Close All Saved' })).toBeInTheDocument()
 
     useEditorSettingsStore.setState({ autoSaveEnabled: true })
-    rerender(<TabContextMenu x={10} y={10} paneId="pane-1" path="/a.ts" onClose={() => {}} />)
+    rerender(<TabContextMenu x={10} y={10} paneId="pane-1" path="/a.ts" onRequestClose={defaultRequestClose} onClose={() => {}} />)
     expect(screen.queryByRole('button', { name: 'Close All Saved' })).not.toBeInTheDocument()
   })
 
   it('shows "Pin Tab" for an unpinned tab and "Unpin Tab" once pinned', () => {
     resetStores()
-    render(<TabContextMenu x={10} y={10} paneId="pane-1" path="/a.ts" onClose={() => {}} />)
+    render(<TabContextMenu x={10} y={10} paneId="pane-1" path="/a.ts" onRequestClose={defaultRequestClose} onClose={() => {}} />)
     expect(screen.getByRole('button', { name: 'Pin Tab' })).toBeInTheDocument()
 
     useEditorStore.getState().togglePin('/a.ts')
     cleanup()
-    render(<TabContextMenu x={10} y={10} paneId="pane-1" path="/a.ts" onClose={() => {}} />)
+    render(<TabContextMenu x={10} y={10} paneId="pane-1" path="/a.ts" onRequestClose={defaultRequestClose} onClose={() => {}} />)
     expect(screen.getByRole('button', { name: 'Unpin Tab' })).toBeInTheDocument()
   })
 
@@ -76,29 +79,32 @@ describe('TabContextMenu — file tab', () => {
       pinnedPaths: new Set(),
     })
     useEditorSettingsStore.setState({ autoSaveEnabled: false })
-    render(<TabContextMenu x={10} y={10} paneId="pane-1" path="/a.ts" onClose={() => {}} />)
+    render(<TabContextMenu x={10} y={10} paneId="pane-1" path="/a.ts" onRequestClose={defaultRequestClose} onClose={() => {}} />)
     expect(screen.getByRole('button', { name: 'Split' })).toBeDisabled()
   })
 
   it('hides Move entirely when the pane has no neighbors', () => {
     resetStores()
-    render(<TabContextMenu x={10} y={10} paneId="pane-1" path="/a.ts" onClose={() => {}} />)
+    render(<TabContextMenu x={10} y={10} paneId="pane-1" path="/a.ts" onRequestClose={defaultRequestClose} onClose={() => {}} />)
     expect(screen.queryByRole('button', { name: 'Move' })).not.toBeInTheDocument()
   })
 
   it('shows Move once a neighboring pane exists', () => {
     resetStores()
     useEditorStore.getState().splitPaneForTab('pane-1', '/b.ts', 'horizontal', 'after')
-    render(<TabContextMenu x={10} y={10} paneId="pane-1" path="/a.ts" onClose={() => {}} />)
+    render(<TabContextMenu x={10} y={10} paneId="pane-1" path="/a.ts" onRequestClose={defaultRequestClose} onClose={() => {}} />)
     expect(screen.getByRole('button', { name: 'Move' })).toBeInTheDocument()
   })
 
-  it('calls closeTabInPane with the right pane and path when Close is clicked', () => {
+  // Close is delegated to the caller rather than hitting the store directly,
+  // so TabBar can put the unsaved-scratch confirmation in front of it.
+  it('delegates Close to onRequestClose and dismisses the menu', () => {
     resetStores()
     const onClose = vi.fn()
-    render(<TabContextMenu x={10} y={10} paneId="pane-1" path="/a.ts" onClose={onClose} />)
+    const onRequestClose = vi.fn()
+    render(<TabContextMenu x={10} y={10} paneId="pane-1" path="/a.ts" onRequestClose={onRequestClose} onClose={onClose} />)
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
-    expect(useEditorStore.getState().tabs.map((t) => t.path)).toEqual(['/b.ts'])
+    expect(onRequestClose).toHaveBeenCalledWith('/a.ts')
     expect(onClose).toHaveBeenCalled()
   })
 })
@@ -115,7 +121,7 @@ describe('TabContextMenu — browser tab', () => {
     })
     useBrowserStore.getState().ensureTab('browser-1', 'https://example.com')
 
-    render(<TabContextMenu x={10} y={10} paneId="pane-1" path={browserPath} onClose={() => {}} />)
+    render(<TabContextMenu x={10} y={10} paneId="pane-1" path={browserPath} onRequestClose={defaultRequestClose} onClose={() => {}} />)
     expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Duplicate' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Copy File Path' })).not.toBeInTheDocument()
@@ -140,7 +146,7 @@ describe('TabContextMenu — diff tabs', () => {
       paneTabLists: { 'pane-1': [path] },
     })
     usePanelRequestStore.setState({ request: null })
-    render(<TabContextMenu x={10} y={10} paneId="pane-1" path={path} onClose={() => {}} />)
+    render(<TabContextMenu x={10} y={10} paneId="pane-1" path={path} onRequestClose={defaultRequestClose} onClose={() => {}} />)
   }
 
   it('shows Open File for a working-tree diff whose file exists, and opens it in the tree', async () => {
