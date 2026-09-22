@@ -80,6 +80,7 @@ function SplitCommandButton({
   direction,
   children,
   optionsChildren,
+  badge,
 }: {
   label: string
   onClick: () => void
@@ -91,6 +92,7 @@ function SplitCommandButton({
   direction: 'down' | 'up'
   children: ReactNode
   optionsChildren: ReactNode
+  badge?: ReactNode
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null)
 
@@ -111,9 +113,12 @@ function SplitCommandButton({
           type="button"
           disabled={disabled}
           onClick={onClick}
-          className="flex-1 min-w-0 flex items-center justify-center gap-1.5 text-xs font-semibold transition-colors hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="relative flex-1 min-w-0 flex items-center justify-center text-xs font-semibold transition-colors hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {children}
+          {badge && (
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2">{badge}</span>
+          )}
         </button>
         <button
           type="button"
@@ -548,9 +553,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
               </button>
             </div>
           }
-        >
-          Push
-          {unpushedCount > 0 && (
+          badge={unpushedCount > 0 && (
             <span
               aria-label={`${unpushedCount} commit${unpushedCount === 1 ? '' : 's'} to push`}
               className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full border border-black/30 bg-black/15 px-1 text-[0.625rem] font-bold leading-none"
@@ -558,6 +561,8 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
               {unpushedCount}
             </span>
           )}
+        >
+          Push
         </SplitCommandButton>
         <SplitCommandButton
           label="Reset"
