@@ -96,6 +96,22 @@ describe('displayStore — editor token colors', () => {
     expect(localStorageStore[KEY]).toBeUndefined()
   })
 
+  it('reseeds from the new theme base on a theme switch, if never customized', async () => {
+    const { useDisplayStore, defaultEditorTokenColors } = await loadStore(undefined, 'claude-dark')
+    const { useThemeStore } = await import('../themeStore')
+    useThemeStore.getState().setTheme('claude-light')
+    expect(useDisplayStore.getState().editorTokenColors).toEqual(defaultEditorTokenColors())
+    expect(localStorageStore[KEY]).toBeUndefined()
+  })
+
+  it('leaves a customized palette alone across a theme switch', async () => {
+    const { useDisplayStore } = await loadStore(undefined, 'claude-dark')
+    const { useThemeStore } = await import('../themeStore')
+    useDisplayStore.getState().setEditorTokenColor('keyword', '#123456')
+    useThemeStore.getState().setTheme('claude-light')
+    expect(useDisplayStore.getState().editorTokenColors.keyword).toBe('#123456')
+  })
+
   it('hands out a fresh defaults object each call, never the shared module one', async () => {
     const { defaultEditorTokenColors } = await loadStore()
     const a = defaultEditorTokenColors()

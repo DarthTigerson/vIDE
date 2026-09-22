@@ -302,6 +302,21 @@ export const useDisplayStore = create<DisplayStore>((set) => ({
   },
 }))
 
+// Keeps the Custom scheme's seeded (never explicitly customized) colours
+// following the active theme's base after the fact too, not just at load —
+// otherwise switching from a dark theme to a light one (or back) without
+// ever opening Editor Colors > Custom leaves the old base's tokens showing
+// against the new background, the exact unreadable state
+// defaultEditorTokenColors() above exists to avoid at startup. A stored
+// value in EDITOR_TOKEN_COLORS_KEY means the user has actually customized
+// it (via setEditorTokenColor/resetEditorTokenColors, both of which persist
+// immediately), so that case is left alone.
+useThemeStore.subscribe((state, prevState) => {
+  if (state.theme === prevState.theme) return
+  if (localStorage.getItem(EDITOR_TOKEN_COLORS_KEY)) return
+  useDisplayStore.setState({ editorTokenColors: defaultEditorTokenColors() })
+})
+
 // Swaps the background image to match whenever the active theme family
 // changes — whether from a built-in family card or activating a custom
 // theme (which also calls setFamily(baseFamily)). Only fires on an actual
