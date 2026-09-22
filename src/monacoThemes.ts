@@ -130,6 +130,26 @@ function baseEditorColors(p: ThemePalette) {
   }
 }
 
+// The syntax rules every scheme that overrides token colours emits — Theme
+// Colour Match, Mario Mode and the user-editable Custom scheme all differ
+// only in WHICH five colours go in, never in which tokens they paint.
+//
+// 'type' rather than 'type.identifier': Monaco matches theme rules by token
+// prefix, so a rule for 'type.identifier' never applies to a plain 'type'
+// token — which is what YAML/JSON keys and many languages' type names
+// actually tokenize as. Keyed on 'type' it covers both.
+export function tokenRules(tokens: HighContrastTokens, delimiterHex: string) {
+  return [
+    { token: 'comment', foreground: stripHash(tokens.comment), fontStyle: 'italic' },
+    { token: 'keyword', foreground: stripHash(tokens.keyword) },
+    { token: 'string', foreground: stripHash(tokens.string) },
+    { token: 'number', foreground: stripHash(tokens.number) },
+    { token: 'type', foreground: stripHash(tokens.type) },
+    { token: 'regexp', foreground: stripHash(tokens.string) },
+    { token: 'delimiter', foreground: stripHash(delimiterHex) },
+  ]
+}
+
 // Auto-derives High Contrast Editor Colors for a CUSTOM theme. The per-family
 // HIGH_CONTRAST_TOKENS above are hand-picked and know nothing about a custom
 // theme's own colours, so turning on High Contrast while a custom theme was
@@ -205,15 +225,7 @@ export function defineCustomHighContrastTheme(monaco: Monaco, palette: CustomHig
   monaco.editor.defineTheme(CUSTOM_HIGH_CONTRAST_THEME_ID, {
     base,
     inherit: true,
-    rules: [
-      { token: 'comment', foreground: stripHash(tokens.comment), fontStyle: 'italic' },
-      { token: 'keyword', foreground: stripHash(tokens.keyword) },
-      { token: 'string', foreground: stripHash(tokens.string) },
-      { token: 'number', foreground: stripHash(tokens.number) },
-      { token: 'type.identifier', foreground: stripHash(tokens.type) },
-      { token: 'regexp', foreground: stripHash(tokens.string) },
-      { token: 'delimiter', foreground: stripHash(palette.fgMuted) },
-    ],
+    rules: tokenRules(tokens, palette.fgMuted),
     colors: {
       'editor.foreground':                   palette.foreground,
       'editor.background':                   glass ? hexWithAlpha(palette.background, GLASS_ALPHA) : palette.background,
@@ -226,6 +238,33 @@ export function defineCustomHighContrastTheme(monaco: Monaco, palette: CustomHig
       'editorIndentGuide.background':         palette.border,
       'editorIndentGuide.activeBackground':   palette.fgSubtle,
       'editorWhitespace.foreground':          palette.border,
+    },
+  })
+}
+
+// The user-editable Editor Colors scheme. Like the two CUSTOM_* ids above
+// this is one definition redefined in place whenever the stored token
+// colours (or the active theme / panel style, which still supply the
+// background and chrome around them) change — only the five syntax colours
+// come from the user, so a Custom palette keeps looking like the rest of
+// the app rather than becoming a second, competing theme.
+export const CUSTOM_TOKENS_THEME_ID = 'custom-tokens'
+
+export function defineCustomTokenTheme(
+  monaco: Monaco,
+  tokens: HighContrastTokens,
+  baseThemeId: ThemeId,
+  background: string,
+  glass: boolean,
+) {
+  const p = THEME_PALETTES[baseThemeId]
+  monaco.editor.defineTheme(CUSTOM_TOKENS_THEME_ID, {
+    base: p.base,
+    inherit: true,
+    rules: tokenRules(tokens, p.fgMuted),
+    colors: {
+      ...baseEditorColors(p),
+      'editor.background': glass ? hexWithAlpha(background, GLASS_ALPHA) : background,
     },
   })
 }
@@ -281,15 +320,7 @@ export function defineMonacoThemes(monaco: Monaco) {
     // token colors change — but, like Default, still follows the Glass panel
     // style rather than forcing itself opaque (see glassHighContrastMonacoThemeId).
     const hc = HIGH_CONTRAST_TOKENS[id]
-    const hcRules = [
-      { token: 'comment', foreground: stripHash(hc.comment), fontStyle: 'italic' },
-      { token: 'keyword', foreground: stripHash(hc.keyword) },
-      { token: 'string', foreground: stripHash(hc.string) },
-      { token: 'number', foreground: stripHash(hc.number) },
-      { token: 'type.identifier', foreground: stripHash(hc.type) },
-      { token: 'regexp', foreground: stripHash(hc.string) },
-      { token: 'delimiter', foreground: stripHash(p.fgMuted) },
-    ]
+    const hcRules = tokenRules(hc, p.fgMuted)
     monaco.editor.defineTheme(highContrastMonacoThemeId(id), {
       base: p.base,
       inherit: true,
@@ -304,20 +335,36 @@ export function defineMonacoThemes(monaco: Monaco) {
     })
   }
 
+  // Placeholder definitions for the three dynamically-redefined ids above,
+  // so each one EXISTS from the first beforeMount, before any pane can
+  // select it. Monaco falls back to the light 'vs' theme for an unknown id
+  // (standaloneThemeService.setTheme), and a later defineTheme() only
+  // re-applies to the live editor when the *active* theme already carries
+  // that id — so a pane selecting one of these before its defining effect
+  // in Editor.tsx had run would be stuck on 'vs' rather than merely a frame
+  // late. Which happens on every switch TO one of those schemes: the theme
+  // prop is applied in a child effect, the define runs in the parent's,
+  // asynchronously, after it. The real colours land a tick later.
+  const ph = THEME_PALETTES['claude-dark']
+  const phColors = { ...baseEditorColors(ph), 'editor.background': ph.background }
+  monaco.editor.defineTheme(CUSTOM_DEFAULT_THEME_ID, {
+    base: ph.base, inherit: true, rules: [], colors: phColors,
+  })
+  for (const id of [CUSTOM_HIGH_CONTRAST_THEME_ID, CUSTOM_TOKENS_THEME_ID]) {
+    monaco.editor.defineTheme(id, {
+      base: ph.base,
+      inherit: true,
+      rules: tokenRules(DEFAULT_TOKENS['vs-dark'], ph.fgMuted),
+      colors: phColors,
+    })
+  }
+
   // Mario Mode — defined once, not per-theme (see MARIO_MODE_THEME_ID above).
   const m = MARIO_MODE_BASE
   monaco.editor.defineTheme(MARIO_MODE_THEME_ID, {
     base: 'vs-dark',
     inherit: true,
-    rules: [
-      { token: 'comment', foreground: stripHash(MARIO_MODE_TOKENS.comment), fontStyle: 'italic' },
-      { token: 'keyword', foreground: stripHash(MARIO_MODE_TOKENS.keyword) },
-      { token: 'string', foreground: stripHash(MARIO_MODE_TOKENS.string) },
-      { token: 'number', foreground: stripHash(MARIO_MODE_TOKENS.number) },
-      { token: 'type.identifier', foreground: stripHash(MARIO_MODE_TOKENS.type) },
-      { token: 'regexp', foreground: stripHash(MARIO_MODE_TOKENS.string) },
-      { token: 'delimiter', foreground: stripHash(m.fgMuted) },
-    ],
+    rules: tokenRules(MARIO_MODE_TOKENS, m.fgMuted),
     colors: {
       'editor.foreground':                   m.foreground,
       'editorCursor.foreground':              m.accent,

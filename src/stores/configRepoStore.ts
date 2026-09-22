@@ -14,7 +14,8 @@ const CATEGORY_PREFIXES: Record<string, string[]> = {
     'vide:font', 'vide:panelStyle', 'vide:footerContent',
     'vide:memoryUsageVisible', 'vide:backgroundImage',
     'vide:backgroundImageVisible', 'vide:navbarPosition',
-    'vide:editorColorScheme', 'vide:editor:', 'vide:commitMessage:',
+    'vide:editorColorScheme', 'vide:editorTokenColors',
+    'vide:editor:', 'vide:commitMessage:',
     'vide:fontSize', 'vide:customTheme',
   ],
   models: [

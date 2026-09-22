@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { useThemeStore, familyOf } from './themeStore'
 import { notifySettingChanged } from '../lib/notifySettingChanged'
+import { DEFAULT_TOKENS, THEME_PALETTES, type HighContrastTokens } from '../monacoThemes'
+import { isValidHex } from '../lib/color'
 
 const FONT_KEY = 'vide:font'
 const PANEL_STYLE_KEY = 'vide:panelStyle'
@@ -10,6 +12,7 @@ const BACKGROUND_IMAGE_KEY = 'vide:backgroundImage'
 const BACKGROUND_IMAGE_VISIBLE_KEY = 'vide:backgroundImageVisible'
 const NAVBAR_POSITION_KEY = 'vide:navbarPosition'
 const EDITOR_COLOR_SCHEME_KEY = 'vide:editorColorScheme'
+const EDITOR_TOKEN_COLORS_KEY = 'vide:editorTokenColors'
 
 // Presets are limited to monospace fonts that ship preinstalled with a
 // major OS (macOS: Menlo/Monaco, Windows: Consolas, both: Courier New).
@@ -86,12 +89,25 @@ export type NavbarPosition = 'left' | 'right'
 // sticky standalone choice; 'mario-mode' — labeled "High Contrast (Mario
 // Mode)" — ignores the active theme entirely, same fixed black background
 // and palette no matter what.
-export type EditorColorScheme = 'default' | 'high-contrast' | 'mario-mode'
+export type EditorColorScheme = 'default' | 'high-contrast' | 'mario-mode' | 'custom'
 
 export const EDITOR_COLOR_SCHEME_OPTIONS: { value: EditorColorScheme; label: string; description: string }[] = [
   { value: 'default',       label: 'Default',                     description: "Follows the active theme's own syntax colors" },
   { value: 'high-contrast', label: 'Theme Colour Match',           description: "High-visibility syntax colors derived from your theme's own accent" },
   { value: 'mario-mode',    label: 'High Contrast (Mario Mode)',   description: 'Bold primary colors on black — maximum readability' },
+  { value: 'custom',        label: 'Custom',                      description: 'Pick each syntax color yourself' },
+]
+
+// The five syntax colours the Custom scheme exposes, in the order they're
+// listed in Settings. Labels name the thing the user actually sees on
+// screen — "Type" alone reads as a language-nerd term, but it's also what
+// paints a YAML/JSON key, which is the most common reason to come here.
+export const EDITOR_TOKEN_FIELDS: { key: keyof HighContrastTokens; label: string }[] = [
+  { key: 'keyword', label: 'Keyword' },
+  { key: 'string',  label: 'String' },
+  { key: 'number',  label: 'Number' },
+  { key: 'type',    label: 'Type / key' },
+  { key: 'comment', label: 'Comment' },
 ]
 
 const DEFAULT_FONT = 'Menlo, monospace'
@@ -104,6 +120,7 @@ interface DisplayStore {
   backgroundImage: BackgroundImage
   navbarPosition: NavbarPosition
   editorColorScheme: EditorColorScheme
+  editorTokenColors: HighContrastTokens
   setFont: (font: string) => void
   setPanelStyle: (style: PanelStyle) => void
   setFooterContent: (content: FooterContent) => void
@@ -111,6 +128,8 @@ interface DisplayStore {
   setBackgroundImage: (image: BackgroundImage) => void
   setNavbarPosition: (position: NavbarPosition) => void
   setEditorColorScheme: (scheme: EditorColorScheme) => void
+  setEditorTokenColor: (key: keyof HighContrastTokens, hex: string) => void
+  resetEditorTokenColors: () => void
 }
 
 function applyFont(font: string) {
@@ -176,6 +195,46 @@ const storedEditorColorScheme = localStorage.getItem(EDITOR_COLOR_SCHEME_KEY)
 const initialEditorColorScheme: EditorColorScheme = EDITOR_COLOR_SCHEME_OPTIONS.some((o) => o.value === storedEditorColorScheme)
   ? (storedEditorColorScheme as EditorColorScheme)
   : 'default'
+
+// The Custom scheme starts from Monaco's own stock colours, so opening the
+// picker (or hitting Reset) shows something that already looks right rather
+// than five blanks. Keyed off the ACTIVE theme's base, not a fixed 'vs-dark':
+// seeding a light theme with the dark palette puts e.g. #b5cea8 numbers on a
+// white background, which is the unreadable state the picker exists to fix.
+// Returns a fresh object every call — the DEFAULT_TOKENS entries are shared
+// module state that nothing may mutate.
+export function defaultEditorTokenColors(): HighContrastTokens {
+  return { ...DEFAULT_TOKENS[THEME_PALETTES[useThemeStore.getState().theme].base] }
+}
+
+// Per-field validation, not all-or-nothing: this value round-trips through
+// the settings-sync repo as plain text, so a hand-edited or partially
+// corrupt entry must degrade to the stock colour for that one token instead
+// of painting the editor with `undefined`.
+function loadEditorTokenColors(): HighContrastTokens {
+  const result = defaultEditorTokenColors()
+  const raw = localStorage.getItem(EDITOR_TOKEN_COLORS_KEY)
+  if (!raw) return result
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return result
+  }
+  if (!parsed || typeof parsed !== 'object') return result
+  for (const key of Object.keys(result) as (keyof HighContrastTokens)[]) {
+    const value = (parsed as Record<string, unknown>)[key]
+    if (typeof value === 'string' && isValidHex(value)) result[key] = value
+  }
+  return result
+}
+
+const initialEditorTokenColors = loadEditorTokenColors()
+
+function applyEditorTokenColors(tokens: HighContrastTokens) {
+  localStorage.setItem(EDITOR_TOKEN_COLORS_KEY, JSON.stringify(tokens))
+}
+
 applyFont(initialFont)
 applyPanelStyle(initialPanelStyle)
 
@@ -187,6 +246,7 @@ export const useDisplayStore = create<DisplayStore>((set) => ({
   backgroundImage: initialBackgroundImage,
   navbarPosition: initialNavbarPosition,
   editorColorScheme: initialEditorColorScheme,
+  editorTokenColors: initialEditorTokenColors,
   setFont: (font) => {
     applyFont(font)
     set({ font })
@@ -220,6 +280,24 @@ export const useDisplayStore = create<DisplayStore>((set) => ({
   setEditorColorScheme: (scheme) => {
     localStorage.setItem(EDITOR_COLOR_SCHEME_KEY, scheme)
     set({ editorColorScheme: scheme })
+    notifySettingChanged()
+  },
+  setEditorTokenColor: (key, hex) => {
+    // The pickers already gate on isValidHex, but this is the boundary the
+    // value gets persisted and handed to monaco.editor.defineTheme() at —
+    // one bad foreground there rejects the whole theme definition.
+    if (!isValidHex(hex)) return
+    set((state) => {
+      const next = { ...state.editorTokenColors, [key]: hex }
+      applyEditorTokenColors(next)
+      return { editorTokenColors: next }
+    })
+    notifySettingChanged()
+  },
+  resetEditorTokenColors: () => {
+    const next = defaultEditorTokenColors()
+    applyEditorTokenColors(next)
+    set({ editorTokenColors: next })
     notifySettingChanged()
   },
 }))
