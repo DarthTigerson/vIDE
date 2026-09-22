@@ -509,11 +509,12 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
       <div className="border-t border-border shrink-0 px-3 py-2 flex flex-col gap-1.5">
         <button
           type="button"
-          className={`${pillButtonClass} px-2 overflow-hidden`}
+          className={`w-full rounded-2xl flex flex-col items-center justify-center gap-1 py-2 px-3 min-w-0 overflow-hidden font-bold tracking-tight transition-colors active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${accentSolidColor}`}
           disabled={remoteActionDisabled}
           onClick={() => { selectRepo(repo); useSearchStore.getState().openBranchPalette() }}
         >
-          <span className="truncate min-w-0">Branch: {branch ?? '—'}</span>
+          <span className="leading-none text-[0.625rem] uppercase tracking-wide opacity-80">Checkout</span>
+          <span className="truncate max-w-full leading-none text-sm font-mono normal-case tracking-normal">{branch ?? '—'}</span>
         </button>
         <div className="relative flex gap-1.5">
           <SplitCommandButton

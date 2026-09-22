@@ -91,7 +91,9 @@ describe('GitPanel — multi-repo accordion', () => {
     setTwoRepos()
     render(<GitPanel />)
     expect(screen.getByText('repoA')).toBeTruthy()
-    expect(screen.getByText('main')).toBeTruthy()
+    // repoA is selected/expanded, so 'main' shows up in both its header and
+    // its footer's Checkout button.
+    expect(screen.getAllByText('main').length).toBeGreaterThan(0)
     expect(screen.getByText('repoB')).toBeTruthy()
     expect(screen.getByText('dev')).toBeTruthy()
   })
@@ -167,7 +169,9 @@ describe('GitPanel — multi-repo accordion', () => {
     render(<GitPanel />)
 
     await waitFor(() => expect(screen.getByText('dev')).toBeTruthy())
-    expect(screen.getByText('main')).toBeTruthy()
+    // repoA is the selected/expanded one, so 'main' shows up twice: its own
+    // header, and the Checkout button's branch-name line in its footer.
+    expect(screen.getAllByText('main').length).toBeGreaterThan(0)
     expect(screen.getByText('↓2')).toBeTruthy()
     expect(screen.getByText('↑1')).toBeTruthy()
     expect(useGitStore.getState().repos['/proj/repoB'].aheadBehind).toEqual(repoBAheadBehind)
