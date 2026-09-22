@@ -82,6 +82,7 @@ function SplitCommandButton({
   optionsChildren,
   badge,
   anchorRow,
+  hideChevron,
 }: {
   label: string
   onClick: () => void
@@ -100,6 +101,10 @@ function SplitCommandButton({
   // this one's own root skips `relative` and lets the dropdown's
   // `absolute left-0 right-0` resolve against that row instead.
   anchorRow?: boolean
+  // Git Functions has no primary action separate from "open the list" —
+  // there's nothing to split, so the chevron segment (and its divider)
+  // is hidden and `onClick` doubles as the only way to toggle the panel.
+  hideChevron?: boolean
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null)
 
@@ -120,26 +125,37 @@ function SplitCommandButton({
           type="button"
           disabled={disabled}
           onClick={onClick}
+          aria-haspopup={hideChevron ? 'true' : undefined}
+          aria-expanded={hideChevron ? open : undefined}
           className="relative flex-1 min-w-0 flex items-center justify-center text-xs font-semibold transition-colors hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {children}
+          {hideChevron && (
+            <span className="absolute right-0 top-0 bottom-0 w-7 flex items-center justify-center border-l border-black/15">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className={direction === 'up' ? 'rotate-180' : ''}>
+                <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+          )}
           {badge && (
             <span className="absolute left-2.5 top-1/2 -translate-y-1/2">{badge}</span>
           )}
         </button>
-        <button
-          type="button"
-          aria-label={`${label} options`}
-          aria-haspopup="true"
-          aria-expanded={open}
-          disabled={disabled}
-          onClick={onToggleOptions}
-          className="w-7 shrink-0 flex items-center justify-center border-l border-black/15 transition-colors hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className={direction === 'up' ? 'rotate-180' : ''}>
-            <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
+        {!hideChevron && (
+          <button
+            type="button"
+            aria-label={`${label} options`}
+            aria-haspopup="true"
+            aria-expanded={open}
+            disabled={disabled}
+            onClick={onToggleOptions}
+            className="w-7 shrink-0 flex items-center justify-center border-l border-black/15 transition-colors hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className={direction === 'up' ? 'rotate-180' : ''}>
+              <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {open && (
@@ -228,7 +244,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
   const [commitOptionsOpen, setCommitOptionsOpen] = useState(false)
   const [pullOptionsOpen, setPullOptionsOpen] = useState(false)
   const [pushOptionsOpen, setPushOptionsOpen] = useState(false)
-  const [resetOptionsOpen, setResetOptionsOpen] = useState(false)
+  const [gitFunctionsOpen, setGitFunctionsOpen] = useState(false)
 
   // Mount does a full refresh (branch + ahead/behind + status): every section's
   // header shows branch and ahead/behind, not just the selected repo's, and
@@ -583,30 +599,59 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
             Push
           </SplitCommandButton>
         </div>
+        {/* A pure dropdown trigger, not a split primary/secondary action
+            like Pull/Push — Reset, Hard Reset, and Undo Last Commit are
+            each destructive/history-editing enough (or, for Undo, just
+            unusual enough) that none of them belongs as the one-click
+            default. ConfirmUndoCommitModal still carries the
+            already-pushed warning for Undo Last Commit; ahead/behind
+            gating is deliberately not applied to it for the same reason
+            it wasn't when it was its own pill — getAheadBehind() returns
+            null on a branch with no upstream, which would hide it exactly
+            where it's still useful. */}
         <SplitCommandButton
-          label="Reset"
+          label="Git Functions"
           disabled={remoteActionDisabled}
-          onClick={() => runOnThisRepo(() => requestResetToHead())}
+          onClick={() => setGitFunctionsOpen((v) => !v)}
           colorClassName={accentSolidColor}
-          open={resetOptionsOpen}
-          onToggleOptions={() => setResetOptionsOpen((v) => !v)}
-          onCloseOptions={() => setResetOptionsOpen(false)}
+          open={gitFunctionsOpen}
+          onToggleOptions={() => setGitFunctionsOpen((v) => !v)}
+          onCloseOptions={() => setGitFunctionsOpen(false)}
           direction="up"
+          hideChevron
           optionsChildren={
             <div className="flex flex-col gap-0.5">
               <button
                 type="button"
                 disabled={remoteActionDisabled}
-                onClick={() => { runOnThisRepo(() => requestHardReset()); setResetOptionsOpen(false) }}
+                onClick={() => { runOnThisRepo(() => requestResetToHead()); setGitFunctionsOpen(false) }}
+                className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-fg transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <span className="font-semibold">Reset</span>
+                <span className="text-fg-subtle">Reset to HEAD — discards uncommitted changes.</span>
+              </button>
+              <button
+                type="button"
+                disabled={remoteActionDisabled}
+                onClick={() => { runOnThisRepo(() => requestHardReset()); setGitFunctionsOpen(false) }}
                 className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <span className="font-semibold">Hard Reset…</span>
                 <span className="text-red-400/70">Reset to a branch, tag, or commit — discards history.</span>
               </button>
+              <button
+                type="button"
+                disabled={remoteActionDisabled}
+                onClick={() => { runOnThisRepo(() => requestUndoCommit()); setGitFunctionsOpen(false) }}
+                className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-fg transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <span className="font-semibold">Undo Last Commit</span>
+                <span className="text-fg-subtle">Soft reset — keeps your changes staged.</span>
+              </button>
             </div>
           }
         >
-          Reset
+          Git Functions
         </SplitCommandButton>
         <div className="flex gap-1.5">
           <button
@@ -628,23 +673,6 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
             List Diff
           </button>
         </div>
-        {/* Promoted out of the Reset pill's options panel: undoing a commit
-            keeps your work (soft reset, changes stay staged) and is the
-            first step of the commit → pull → push-again loop, so it does
-            not belong behind a chevron on a pill whose main click discards
-            changes. Deliberately always enabled rather than gated on
-            aheadBehind.ahead > 0 — getAheadBehind() returns null on a
-            branch with no upstream, which would hide the button exactly
-            where it is still useful. ConfirmUndoCommitModal carries the
-            already-pushed warning. */}
-        <button
-          type="button"
-          className={pillButtonClass}
-          disabled={remoteActionDisabled}
-          onClick={() => runOnThisRepo(() => requestUndoCommit())}
-        >
-          Undo Last Commit
-        </button>
       </div>
 
       {menu && createPortal(

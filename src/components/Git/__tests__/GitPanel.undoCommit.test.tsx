@@ -31,15 +31,25 @@ beforeEach(() => {
 
 afterEach(cleanup)
 
-describe('GitPanel — Undo Last Commit pill', () => {
-  it('is visible without opening any options panel', () => {
+// Lives behind the "Git Functions" dropdown, alongside Reset/Hard Reset —
+// see GitPanel.gitReset.test.tsx for those. The dropdown item's accessible
+// name includes its subtitle line, so it's targeted by text like the other
+// two-line items rather than by exact role name.
+function openUndoLastCommit() {
+  fireEvent.click(screen.getByRole('button', { name: 'Git Functions' }))
+  fireEvent.click(screen.getByText('Undo Last Commit'))
+}
+
+describe('GitPanel — Undo Last Commit', () => {
+  it('is reachable from the Git Functions dropdown', () => {
     render(<GitPanel />)
-    expect(screen.getByRole('button', { name: 'Undo Last Commit' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Git Functions' }))
+    expect(screen.getByText('Undo Last Commit')).toBeTruthy()
   })
 
   it('opens a confirm modal rather than resetting immediately', () => {
     render(<GitPanel />)
-    fireEvent.click(screen.getByRole('button', { name: 'Undo Last Commit' }))
+    openUndoLastCommit()
 
     expect(window.api.gitRunCommand).not.toHaveBeenCalled()
     expect(screen.getByText(/keeping/)).toBeTruthy()
@@ -47,7 +57,7 @@ describe('GitPanel — Undo Last Commit pill', () => {
 
   it('confirming soft-resets one commit back, locally only', () => {
     render(<GitPanel />)
-    fireEvent.click(screen.getByRole('button', { name: 'Undo Last Commit' }))
+    openUndoLastCommit()
     fireEvent.click(screen.getByRole('button', { name: 'Undo Commit' }))
 
     expect(window.api.gitRunCommand).toHaveBeenCalledWith(expect.any(String), '/proj', 'undoLastCommit')
@@ -55,7 +65,7 @@ describe('GitPanel — Undo Last Commit pill', () => {
 
   it('cancelling runs nothing', () => {
     render(<GitPanel />)
-    fireEvent.click(screen.getByRole('button', { name: 'Undo Last Commit' }))
+    openUndoLastCommit()
     fireEvent.click(screen.getByText('Cancel'))
 
     expect(window.api.gitRunCommand).not.toHaveBeenCalled()
@@ -64,19 +74,20 @@ describe('GitPanel — Undo Last Commit pill', () => {
   it('warns when the commit is already on the remote (ahead === 0)', () => {
     seed({ ahead: 0, behind: 0 })
     render(<GitPanel />)
-    fireEvent.click(screen.getByRole('button', { name: 'Undo Last Commit' }))
+    openUndoLastCommit()
 
     expect(screen.getByText(/already been pushed to origin/)).toBeTruthy()
   })
 
-  // getAheadBehind() returns null on a branch with no upstream. The pill must
+  // getAheadBehind() returns null on a branch with no upstream. The item must
   // still work there — that is where a stray local commit is most likely.
   it('still offers the undo on a branch with no upstream', () => {
     seed(null)
     render(<GitPanel />)
-    const pill = screen.getByRole('button', { name: 'Undo Last Commit' })
-    expect(pill).not.toBeDisabled()
-    fireEvent.click(pill)
+    fireEvent.click(screen.getByRole('button', { name: 'Git Functions' }))
+    const item = screen.getByText('Undo Last Commit').closest('button')!
+    expect(item).not.toBeDisabled()
+    fireEvent.click(item)
     fireEvent.click(screen.getByRole('button', { name: 'Undo Commit' }))
 
     expect(window.api.gitRunCommand).toHaveBeenCalledWith(expect.any(String), '/proj', 'undoLastCommit')
