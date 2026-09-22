@@ -11,6 +11,8 @@ import { orderTabsForDisplay, truncateTabLabel } from './tabDisplay'
 import { TabContextMenu } from './TabContextMenu'
 import { useTabContextMenuStore } from '@/stores/tabContextMenuStore'
 import { useTabDragStore } from '@/stores/tabDragStore'
+import { isScratchTab } from './paths'
+import { requestCloseTab } from '@/stores/discardScratchStore'
 
 export function TabBar({ paneId }: { paneId: string }) {
   const tabs = useEditorStore((s) => s.tabs)
@@ -22,7 +24,7 @@ export function TabBar({ paneId }: { paneId: string }) {
   const paneTabs = useEditorStore((s) => s.paneTabs)
   const paneTabLists = useEditorStore((s) => s.paneTabLists)
   const pinnedPaths = useEditorStore((s) => s.pinnedPaths)
-  const closeTabInPane = useEditorStore((s) => s.closeTabInPane)
+  const openScratchTab = useEditorStore((s) => s.openScratchTab)
   const moveTabWithinPane = useEditorStore((s) => s.moveTabWithinPane)
   const moveTabBetweenPanes = useEditorStore((s) => s.moveTabBetweenPanes)
   const setPaneActive = useEditorStore((s) => s.setPaneActive)
@@ -62,9 +64,18 @@ export function TabBar({ paneId }: { paneId: string }) {
   }
 
   return (
-    <div className="flex bg-tab-bar border-b border-border overflow-x-auto shrink-0 select-none">
+    <div className="flex bg-tab-bar border-b border-border shrink-0 select-none">
+      <div
+        className="flex flex-1 min-w-0 overflow-x-auto"
+        // Empty strip only — e.target is the container itself just for the gap
+        // to the right of the last tab. Double-clicking a tab (or its close
+        // button) bubbles up here too and must not spawn a file.
+        onDoubleClick={(e) => { if (e.target === e.currentTarget) openScratchTab(paneId) }}
+      >
       {paneTabs_.map((tab) => {
-        const name = isTerminalTab(tab.path)
+        const name = isScratchTab(tab.path)
+          ? 'Untitled'
+          : isTerminalTab(tab.path)
           ? 'Terminal'
           : isBrowserTab(tab.path)
             ? (browserTabs[getBrowserId(tab.path)]?.title || 'New Tab')
@@ -184,7 +195,7 @@ export function TabBar({ paneId }: { paneId: string }) {
               className="text-fg-subtle hover:text-fg text-base leading-none ml-1"
               onClick={(e) => {
                 e.stopPropagation()
-                closeTabInPane(paneId, tab.path)
+                requestCloseTab(paneId, tab.path)
               }}
             >
               ×
@@ -192,6 +203,15 @@ export function TabBar({ paneId }: { paneId: string }) {
           </div>
         )
       })}
+      </div>
+      {/* Outside the scrolling list on purpose: padding on the list itself
+          scrolls away once tabs overflow, which is exactly when there is no
+          empty strip left to double-click. */}
+      <div
+        className="w-4 shrink-0"
+        title="Double-click for a new file"
+        onDoubleClick={() => openScratchTab(paneId)}
+      />
       {contextMenu && (
         <TabContextMenu
           x={contextMenu.x}
@@ -199,6 +219,7 @@ export function TabBar({ paneId }: { paneId: string }) {
           paneId={paneId}
           path={contextMenu.path}
           onClose={closeTabContextMenu}
+          onRequestClose={(path) => requestCloseTab(paneId, path)}
         />
       )}
     </div>

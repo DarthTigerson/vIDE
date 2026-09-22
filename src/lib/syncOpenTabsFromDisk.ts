@@ -1,5 +1,6 @@
 import { useEditorStore } from '@/stores/editorStore'
 import { isReadOnlyTab } from '@/lib/tabKinds'
+import { isScratchTab } from '@/components/Editor/paths'
 
 // Re-reads every open, non-dirty file tab from disk. Called whenever the
 // project's FileWatcher reports a change anywhere under the root — the only
@@ -12,7 +13,7 @@ export async function syncOpenTabsFromDisk(): Promise<void> {
 
   await Promise.all(
     tabs
-      .filter((tab) => !tab.dirty && !isReadOnlyTab(tab))
+      .filter((tab) => !tab.dirty && !isReadOnlyTab(tab) && !isScratchTab(tab.path))
       .map(async (tab) => {
         try {
           const content = await window.api.readFile(tab.path)

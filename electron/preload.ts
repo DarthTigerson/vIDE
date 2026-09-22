@@ -9,6 +9,10 @@ contextBridge.exposeInMainWorld('api', {
   getHomeDir: () => ipcRenderer.invoke('fs:homeDir'),
   writeFile: (path: string, content: string) =>
     ipcRenderer.invoke('fs:writeFile', path, content),
+  saveFileDialog: (defaultPath?: string): Promise<string | null> =>
+    ipcRenderer.invoke('dialog:saveFile', { defaultPath }),
+  setUnsavedState: (state: { dirty: number; neverSaved: number }) =>
+    ipcRenderer.send('window:setUnsavedState', state),
   mkdir: (path: string) => ipcRenderer.invoke('fs:mkdir', path),
   renamePath: (from: string, to: string) => ipcRenderer.invoke('fs:rename', from, to),
   trashPath: (path: string) => ipcRenderer.invoke('fs:trash', path),

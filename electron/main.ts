@@ -68,6 +68,17 @@ function registerFsHandlers(): void {
     })
     return result.canceled ? null : result.filePaths[0]
   })
+  // "Save As" for a scratch tab — the renderer has no file path to write to
+  // until the user picks one. Returns null on cancel, same as the two above,
+  // so a cancelled save is indistinguishable from never having asked.
+  ipcMain.on('window:setUnsavedState', (event, state: UnsavedState) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win) unsavedByWindow.set(win.id, state)
+  })
+  ipcMain.handle('dialog:saveFile', async (_e, opts: { defaultPath?: string }) => {
+    const result = await dialog.showSaveDialog({ defaultPath: opts?.defaultPath })
+    return result.canceled || !result.filePath ? null : result.filePath
+  })
 }
 
 function registerSystemHandlers(): void {
@@ -144,6 +155,22 @@ function registerWindowHandlers(): void {
 }
 
 const windows = new Map<number, BrowserWindow>()
+
+// Per-window tally of tabs with unsaved work, pushed up from the renderer
+// whenever it changes (see 'window:setUnsavedState'). Kept here rather than
+// asked for during 'close' because that event is synchronous — there is no
+// chance to await an answer from the renderer before deciding.
+interface UnsavedState { dirty: number; neverSaved: number }
+const unsavedByWindow = new Map<number, UnsavedState>()
+// Windows whose close the user has already confirmed, so the second pass
+// through the handler below lets it through instead of re-prompting.
+const confirmedClose = new Set<number>()
+// e.preventDefault() in a 'close' handler cancels an in-flight app.quit()
+// outright, so a Cmd+Q with unsaved work would close the one window that
+// prompted and leave the app running. Tracked here so a confirmed close can
+// re-issue the quit, and a cancelled one can call it off properly.
+let quitting = false
+app.on('before-quit', () => { quitting = true })
 // Keyed by window id, kept in sync with each window's current project root
 // via the 'window:setTitle' message the renderer already sends on every
 // project switch — reused here rather than adding a second channel just to
@@ -182,8 +209,50 @@ function createWindow(projectRoot?: string): BrowserWindow {
   // the project-name title set above would be silently clobbered back to
   // "vIDE" right after load. Preventing the default keeps our title.
   win.on('page-title-updated', (e) => e.preventDefault())
+  // Nothing in the app prompted before losing unsaved work on window close.
+  // Survivable for a tab backed by a file — the on-disk copy is still there —
+  // but a never-saved scratch tab exists nowhere else, so this warns about
+  // the two cases separately rather than lumping them together.
+  win.on('close', (e) => {
+    if (confirmedClose.has(win.id)) return
+    const unsaved = unsavedByWindow.get(win.id)
+    if (!unsaved || (unsaved.dirty === 0 && unsaved.neverSaved === 0)) return
+
+    e.preventDefault()
+    const lines: string[] = []
+    if (unsaved.neverSaved > 0) {
+      lines.push(`${unsaved.neverSaved} file${unsaved.neverSaved === 1 ? ' has' : 's have'} never been saved and cannot be recovered.`)
+    }
+    if (unsaved.dirty > 0) {
+      lines.push(`${unsaved.dirty} file${unsaved.dirty === 1 ? '' : 's'} with unsaved changes will revert to the last saved version.`)
+    }
+    dialog.showMessageBox(win, {
+      type: 'warning',
+      buttons: ['Cancel', 'Close anyway'],
+      defaultId: 0,
+      cancelId: 0,
+      // Closing the last window now quits (see 'window-all-closed' below), so
+      // promising only a window close would be a lie in the common case.
+      message: windows.size > 1 ? 'Close this window?' : 'Quit vIDE?',
+      detail: lines.join('\n'),
+    }).then(({ response }) => {
+      if (response !== 1) {
+        quitting = false
+        return
+      }
+      confirmedClose.add(win.id)
+      // close(), not destroy(): destroy() skips the normal teardown, and the
+      // guard above already stops this handler running twice. Any remaining
+      // window prompts for itself when the quit resumes.
+      win.close()
+      if (quitting) app.quit()
+    })
+  })
+
   win.on('closed', () => {
     windows.delete(win.id)
+    unsavedByWindow.delete(win.id)
+    confirmedClose.delete(win.id)
     windowProjectRoots.delete(win.id)
     ptyMgr.disposeWindow(win.id)
     claudeMgr.disposeWindow(win.id)
@@ -713,6 +782,10 @@ app.whenReady().then(async () => {
   })
 })
 
+// Quits on every platform, including macOS. The usual macOS convention is to
+// stay resident with no windows and wait for a dock click, but vIDE is a
+// one-window-per-project tool: leaving an invisible app running after the
+// window is closed just means quitting a second time.
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
+  app.quit()
 })

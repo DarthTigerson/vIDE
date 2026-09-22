@@ -152,6 +152,8 @@ declare global {
       pathExists: (path: string) => Promise<boolean>
       getHomeDir: () => Promise<string>
       writeFile: (path: string, content: string) => Promise<void>
+      saveFileDialog: (defaultPath?: string) => Promise<string | null>
+      setUnsavedState: (state: { dirty: number; neverSaved: number }) => void
       mkdir: (path: string) => Promise<void>
       renamePath: (from: string, to: string) => Promise<void>
       trashPath: (path: string) => Promise<void>
