@@ -1,5 +1,17 @@
 # vIDE
 
+## v0.2.18 (2026-09-22)
+- **Custom editor colours**: a new "Custom" option in Settings > Display > Editor Colors lets you pick your own syntax colours for keywords, strings, numbers, types/keys and comments with the same colour picker as Custom Themes, plus a Reset to defaults button. Your colours sync through vIDE Sync, and they start from the current theme's palette until you change one
+- **Unpushed commits on the Push button**: the Push pill now turns amber and shows a count whenever your branch has commits that haven't been pushed yet, then goes back to normal once the push lands, so it's harder to commit and forget to push
+- **Tidier Git panel buttons**: Fetch now lives in Pull's dropdown, the unpushed-commit count sits inside the Push button, and Reset, Hard Reset and Undo Last Commit are grouped under one Git Functions dropdown. The Pull/Push dropdown now spans the full button row, and the branch checkout button shows the branch name with a "Checkout" caption underneath
+- "Undo Last Push" is renamed to "Undo Last Commit" everywhere, since it only undoes your last local commit (keeping its changes staged) and never touches the remote
+- Added a contributors section to the README with Special thanks to Gabriele Grech and Keith Fenech
+
+**Bug fixes**
+- Fixed vIDE Sync failing to authenticate on GitLab (and on GitHub unless the macOS Keychain already had a github.com login): the access token is now actually sent, sync never falls back to a credential helper or password prompt, and existing sync setups are fixed automatically on launch
+- Fixed the Custom editor colour scheme picking the wrong light/dark base when a custom theme's background brightness didn't match its theme family
+
+
 ## v0.2.17 (2026-09-21)
 - **Animated sync screen**: while vIDE pulls your synced settings on launch, the startup screen now shows light pulses running along circuit traces into a spinning refresh icon. It starts in neutral grey, and once the pull lands your theme's colour flows in along the traces — pulses first, then traces, icon, and background — before the app appears. It follows built-in themes, custom themes and "match system", and adapts its label to light themes. If sync is off or you're offline the app opens straight away with no swap, and with reduced motion enabled the colour change is instant
 
