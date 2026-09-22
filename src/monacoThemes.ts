@@ -258,8 +258,9 @@ export function defineCustomTokenTheme(
   glass: boolean,
 ) {
   const p = THEME_PALETTES[baseThemeId]
+  const base: 'vs' | 'vs-dark' = hexToHsv(background).v < 0.5 ? 'vs-dark' : 'vs'
   monaco.editor.defineTheme(CUSTOM_TOKENS_THEME_ID, {
-    base: p.base,
+    base,
     inherit: true,
     rules: tokenRules(tokens, p.fgMuted),
     colors: {

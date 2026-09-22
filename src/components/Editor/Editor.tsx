@@ -161,7 +161,7 @@ export function Editor() {
   // only ever selects a custom theme id in that same condition, so defining
   // the other one here would be invisible until the user actually switched.
   useEffect(() => {
-    if (!activeCustomId || editorColorScheme === 'mario-mode') return
+    if (!activeCustomId || editorColorScheme === 'mario-mode' || editorColorScheme === 'custom') return
     const active = customThemes.find((t) => t.id === activeCustomId)
     if (!active) return
     const variant = themeId.endsWith('-dark') ? 'dark' : 'light'
