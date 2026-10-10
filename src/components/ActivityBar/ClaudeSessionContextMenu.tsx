@@ -17,6 +17,9 @@ interface Props {
   onClear: () => void
   onCloseSession: () => void
   onCloseAllSessions: () => void
+  // Omitted when this is the only session — the row is hidden, since there
+  // would be nothing to close.
+  onCloseOtherSessions?: () => void
   onClose: () => void
 }
 
@@ -32,6 +35,7 @@ export function ClaudeSessionContextMenu({
   onClear,
   onCloseSession,
   onCloseAllSessions,
+  onCloseOtherSessions,
   onClose,
 }: Props) {
   useCoverNativeViews()
@@ -131,6 +135,15 @@ export function ClaudeSessionContextMenu({
       >
         Close Session
       </button>
+      {onCloseOtherSessions && (
+        <button
+          type="button"
+          onClick={() => { onCloseOtherSessions(); onClose() }}
+          className="w-full rounded px-2 py-1.5 text-left text-xs text-red-300 transition-colors hover:bg-red-500/15 hover:text-red-200"
+        >
+          Close Other Sessions
+        </button>
+      )}
       <button
         type="button"
         onClick={() => { onCloseAllSessions(); onClose() }}

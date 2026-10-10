@@ -89,6 +89,7 @@ interface ClaudeState {
   resumeSession: (cwd: string) => void
   closeInstance: (cwd: string, id: string) => void
   closeAllInstances: (cwd: string) => void
+  closeOtherInstances: (cwd: string, keepId: string) => void
   setActiveInstance: (id: string) => void
   compact: () => void
   clearContext: () => void
@@ -113,6 +114,13 @@ export function selectActiveSession(s: Pick<ClaudeState, 'instances' | 'activeIn
 // none). Shared by setActiveInstance and closeInstance.
 function usagePanelsFor(next: AgentSession | undefined): Partial<Pick<ClaudeState, 'usageOpen' | 'costOpen'>> {
   return next?.kind === 'claude' ? {} : { usageOpen: false, costOpen: false }
+}
+
+// Tears down one session's backing process/conversation: Claude owns a PTY,
+// Bridge/llama a conversation that gets cancelled and archived to history.
+function endSession(inst: AgentSession) {
+  if (isBridgeLike(inst.kind)) useBridgeStore.getState().closeConversation(inst.id)
+  else window.api.claudeKill(inst.id)
 }
 
 export const useClaudeStore = create<ClaudeState>((set, get) => ({
@@ -229,9 +237,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
     if (closedIndex === -1) return
 
     const nextInstances = instances.filter((inst) => inst.id !== id)
-    const closing = instances[closedIndex]
-    if (isBridgeLike(closing.kind)) useBridgeStore.getState().closeConversation(id)
-    else window.api.claudeKill(id)
+    endSession(instances[closedIndex])
 
     const nextActiveId =
       activeInstanceId !== id
@@ -251,12 +257,17 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
   },
 
   closeAllInstances: (cwd) => {
-    for (const inst of get().instances) {
-      if (isBridgeLike(inst.kind)) useBridgeStore.getState().closeConversation(inst.id)
-      else window.api.claudeKill(inst.id)
-    }
+    get().instances.forEach(endSession)
     set({ instances: [], activeInstanceId: '', chatVisible: false })
     persist(cwd, [])
+  },
+
+  closeOtherInstances: (cwd, keepId) => {
+    const kept = get().instances.find((inst) => inst.id === keepId)
+    if (!kept) return
+    get().instances.filter((inst) => inst.id !== keepId).forEach(endSession)
+    set({ instances: [kept], activeInstanceId: keepId, ...usagePanelsFor(kept) })
+    persist(cwd, [kept])
   },
 
   compact: () => {

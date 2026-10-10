@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { ClaudeSessionContextMenu } from '../ClaudeSessionContextMenu'
 
 vi.mock('@/lib/nativeViewCover', () => ({ useCoverNativeViews: () => {} }))
@@ -25,5 +25,19 @@ describe('ClaudeSessionContextMenu', () => {
     expect(screen.queryByText('Continue Previous Session')).toBeNull()
     expect(screen.queryByText('Compact')).toBeNull()
     expect(screen.getByText('Clear')).toBeInTheDocument()
+  })
+})
+
+describe('ClaudeSessionContextMenu — Close Other Sessions', () => {
+  it('shows the row when a handler is given and calls it', () => {
+    const onCloseOtherSessions = vi.fn()
+    render(<ClaudeSessionContextMenu {...props} kind="claude" onCloseOtherSessions={onCloseOtherSessions} />)
+    fireEvent.click(screen.getByText('Close Other Sessions'))
+    expect(onCloseOtherSessions).toHaveBeenCalled()
+  })
+
+  it('hides the row when there are no other sessions (no handler)', () => {
+    render(<ClaudeSessionContextMenu {...props} kind="bridge" />)
+    expect(screen.queryByText('Close Other Sessions')).toBeNull()
   })
 })

@@ -1279,6 +1279,9 @@ export default function App() {
           onCloseAllSessions={() => {
             if (projectRoot) useClaudeStore.getState().closeAllInstances(projectRoot)
           }}
+          onCloseOtherSessions={instances.length > 1 ? () => {
+            if (projectRoot) useClaudeStore.getState().closeOtherInstances(projectRoot, sessionMenu.instanceId)
+          } : undefined}
           onClose={() => setSessionMenu(null)}
         />
       )}

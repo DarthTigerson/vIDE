@@ -314,6 +314,49 @@ describe('claudeStore.closeInstance', () => {
   })
 })
 
+describe('claudeStore.closeOtherInstances', () => {
+  beforeEach(() => {
+    useBridgeStore.setState({ conversations: {} })
+    useClaudeStore.getState().loadInstancesFromSession({ agentSessions: [
+      { id: 'a', kind: 'claude', hue: '#111111' },
+      { id: 'b', kind: 'bridge', hue: '#222222' },
+      { id: 'c', kind: 'claude', hue: '#333333' },
+    ] })
+    vi.clearAllMocks()
+  })
+
+  it('closes every other session by its kind and keeps only the given one', () => {
+    useClaudeStore.getState().closeOtherInstances('/project', 'c')
+
+    expect(useClaudeStore.getState().instances.map((i) => i.id)).toEqual(['c'])
+    const killMock = (window.api as any).claudeKill as ReturnType<typeof vi.fn>
+    expect(killMock).toHaveBeenCalledWith('a')
+    expect(killMock).not.toHaveBeenCalledWith('b')
+    expect(killMock).not.toHaveBeenCalledWith('c')
+    expect(useBridgeStore.getState().conversations.b).toBeUndefined()
+  })
+
+  it('makes the kept session active and persists the one-item list', () => {
+    useClaudeStore.getState().closeOtherInstances('/project', 'c')
+    expect(useClaudeStore.getState().activeInstanceId).toBe('c')
+    const saveMock = (window.api as any).sessionSave as ReturnType<typeof vi.fn>
+    expect(saveMock).toHaveBeenCalledWith('/project', { agentSessions: [{ id: 'c', kind: 'claude', hue: '#333333' }] })
+  })
+
+  it('closes Usage/Cost when the kept session is not Claude', () => {
+    useClaudeStore.setState({ activeInstanceId: 'a', usageOpen: true })
+    useClaudeStore.getState().closeOtherInstances('/project', 'b')
+    expect(useClaudeStore.getState().usageOpen).toBe(false)
+    expect(useBridgeStore.getState().conversations.b).toBeDefined()
+  })
+
+  it('is a no-op for an unknown id', () => {
+    useClaudeStore.getState().closeOtherInstances('/project', 'zz')
+    expect(useClaudeStore.getState().instances).toHaveLength(3)
+    expect((window.api as any).sessionSave).not.toHaveBeenCalled()
+  })
+})
+
 describe('claudeStore.closeAllInstances', () => {
   it('kills every instance, clears the list and active id, and collapses the chat panel', () => {
     useClaudeStore.getState().loadInstancesFromSession({ agentSessions: [
