@@ -1,8 +1,11 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { BridgeChat } from '../BridgeChat'
-import { useBridgeStore } from '@/stores/bridgeStore'
+import { useBridgeStore, type BridgeConversation } from '@/stores/bridgeStore'
 import { useClaudeStore } from '@/stores/claudeStore'
+
+const setConv = (patch: Partial<BridgeConversation>) =>
+  useBridgeStore.setState((s) => ({ conversations: { ...s.conversations, s1: { ...s.conversations.s1, ...patch } } }))
 
 beforeEach(() => {
   ;(global as any).window.api = {
@@ -13,7 +16,8 @@ beforeEach(() => {
     bridgeReject: vi.fn(),
     bridgeCancel: vi.fn(),
   }
-  useBridgeStore.setState({ messages: [], previousMessages: [], streaming: false, agentMode: false, draftInput: '' })
+  useBridgeStore.setState({ conversations: {} })
+  useBridgeStore.getState().openConversation('s1', false)
   useClaudeStore.setState({ pendingInjection: null, focusToken: 0 })
 })
 
@@ -21,20 +25,20 @@ afterEach(() => cleanup())
 
 describe('BridgeChat', () => {
   it('renders user and assistant message bubbles', () => {
-    useBridgeStore.setState({
+    setConv({
       messages: [
         { role: 'user', content: 'hello' },
         { role: 'assistant', content: 'hi there' },
       ],
     })
-    render(<BridgeChat cwd="/project" />)
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
     expect(screen.getByText('hello')).toBeTruthy()
     expect(screen.getByText('hi there')).toBeTruthy()
   })
 
   it('renders a pending-approval tool-call block with Approve/Reject buttons', () => {
-    useBridgeStore.setState({
+    setConv({
       messages: [
         {
           role: 'assistant',
@@ -43,7 +47,7 @@ describe('BridgeChat', () => {
         },
       ],
     })
-    render(<BridgeChat cwd="/project" />)
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
     expect(screen.getByText('write_file')).toBeTruthy()
     expect(screen.getByText('Approve')).toBeTruthy()
@@ -51,7 +55,7 @@ describe('BridgeChat', () => {
   })
 
   it('calls approveToolCall when Approve is clicked', () => {
-    useBridgeStore.setState({
+    setConv({
       messages: [
         {
           role: 'assistant',
@@ -60,14 +64,14 @@ describe('BridgeChat', () => {
         },
       ],
     })
-    render(<BridgeChat cwd="/project" />)
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
     fireEvent.click(screen.getByText('Approve'))
-    expect((global as any).window.api.bridgeApprove).toHaveBeenCalledWith('call_1')
+    expect((global as any).window.api.bridgeApprove).toHaveBeenCalledWith('call_1', 's1')
   })
 
   it('sends a message on submit and clears the input', () => {
-    render(<BridgeChat cwd="/project" />)
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
     const input = screen.getByPlaceholderText('Message Bridge…') as HTMLTextAreaElement
     fireEvent.change(input, { target: { value: 'do the thing' } })
@@ -78,47 +82,47 @@ describe('BridgeChat', () => {
   })
 
   it('shows an Agent Mode: On indicator when agentMode is true', () => {
-    useBridgeStore.setState({ agentMode: true })
-    render(<BridgeChat cwd="/project" />)
+    setConv({ agentMode: true })
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
     expect(screen.getByText('Agent Mode: On')).toBeTruthy()
   })
 
   it('shows an Agent Mode: Off indicator when agentMode is false', () => {
-    useBridgeStore.setState({ agentMode: false })
-    render(<BridgeChat cwd="/project" />)
+    setConv({ agentMode: false })
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
     expect(screen.getByText('Agent Mode: Off')).toBeTruthy()
   })
 
   it('toggles agentMode when the indicator is clicked', () => {
-    useBridgeStore.setState({ agentMode: false })
-    render(<BridgeChat cwd="/project" />)
+    setConv({ agentMode: false })
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
     fireEvent.click(screen.getByText('Agent Mode: Off'))
 
-    expect(useBridgeStore.getState().agentMode).toBe(true)
+    expect(useBridgeStore.getState().conversations.s1.agentMode).toBe(true)
   })
 
   it('does not show a Stop button when not streaming', () => {
-    useBridgeStore.setState({ streaming: false })
-    render(<BridgeChat cwd="/project" />)
+    setConv({ streaming: false })
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
     expect(screen.queryByText('Stop')).toBeNull()
   })
 
   it('shows a Stop button while streaming that calls cancel()', () => {
-    useBridgeStore.setState({ streaming: true })
-    render(<BridgeChat cwd="/project" />)
+    setConv({ streaming: true })
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
     fireEvent.click(screen.getByText('Stop'))
 
     expect((global as any).window.api.bridgeCancel).toHaveBeenCalled()
-    expect(useBridgeStore.getState().streaming).toBe(false)
+    expect(useBridgeStore.getState().conversations.s1.streaming).toBe(false)
   })
 
   it('defaults a pending-approval tool call to expanded, showing its args without an extra click', () => {
-    useBridgeStore.setState({
+    setConv({
       messages: [
         {
           role: 'assistant',
@@ -127,13 +131,13 @@ describe('BridgeChat', () => {
         },
       ],
     })
-    render(<BridgeChat cwd="/project" />)
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
     expect(screen.getByText(/hello world/)).toBeTruthy()
   })
 
   it('does not expand a non-pending tool call by default', () => {
-    useBridgeStore.setState({
+    setConv({
       messages: [
         {
           role: 'assistant',
@@ -142,19 +146,19 @@ describe('BridgeChat', () => {
         },
       ],
     })
-    render(<BridgeChat cwd="/project" />)
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
     expect(screen.queryByText(/hello world/)).toBeNull()
   })
 
   it('injects a pendingInjection into the draft input and focuses the textarea', () => {
-    useBridgeStore.setState({ draftInput: 'existing question' })
+    setConv({ draftInput: 'existing question' })
     useClaudeStore.setState({
       pendingInjection: 'In src/foo.ts (line 1):\n```ts\ncode\n```',
       focusToken: 1,
     })
 
-    render(<BridgeChat cwd="/project" />)
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
     const textarea = screen.getByPlaceholderText('Message Bridge…') as HTMLTextAreaElement
     expect(textarea.value).toBe('existing question\nIn src/foo.ts (line 1):\n```ts\ncode\n```')
@@ -163,40 +167,40 @@ describe('BridgeChat', () => {
   })
 
   it('does not inject anything when focusToken is still at its initial value', () => {
-    render(<BridgeChat cwd="/project" />)
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
     const textarea = screen.getByPlaceholderText('Message Bridge…') as HTMLTextAreaElement
     expect(textarea.value).toBe('')
   })
 
   it('shows the thinking indicator while streaming before the first token arrives', () => {
-    useBridgeStore.setState({
+    setConv({
       streaming: true,
       messages: [
         { role: 'user', content: 'hi' },
         { role: 'assistant', content: '' },
       ],
     })
-    render(<BridgeChat cwd="/project" />)
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
     expect(screen.getByRole('status', { name: /thinking/i })).toBeTruthy()
   })
 
   it('hides the thinking indicator once the assistant starts producing text', () => {
-    useBridgeStore.setState({
+    setConv({
       streaming: true,
       messages: [
         { role: 'user', content: 'hi' },
         { role: 'assistant', content: 'hello' },
       ],
     })
-    render(<BridgeChat cwd="/project" />)
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
     expect(screen.queryByRole('status', { name: /thinking/i })).toBeNull()
   })
 
   it('hides the thinking dots once a tool call appears while streaming', () => {
-    useBridgeStore.setState({
+    setConv({
       streaming: true,
       messages: [
         { role: 'user', content: 'hi' },
@@ -207,17 +211,17 @@ describe('BridgeChat', () => {
         },
       ],
     })
-    render(<BridgeChat cwd="/project" />)
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
     expect(screen.queryByRole('status', { name: /thinking/i })).toBeNull()
   })
 
   it('shows no thinking indicator when not streaming', () => {
-    useBridgeStore.setState({
+    setConv({
       streaming: false,
       messages: [{ role: 'assistant', content: 'done' }],
     })
-    render(<BridgeChat cwd="/project" />)
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
     expect(screen.queryByRole('status', { name: /thinking/i })).toBeNull()
   })
@@ -228,10 +232,15 @@ describe('BridgeChat', () => {
     // and back to the Bridge tab, remounting BridgeChat with that already-stale token.
     useClaudeStore.setState({ pendingInjection: null, focusToken: 5 })
 
-    render(<BridgeChat cwd="/project" />)
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
     const textarea = screen.getByPlaceholderText('Message Bridge…') as HTMLTextAreaElement
     expect(textarea.value).toBe('')
     expect(document.activeElement).not.toBe(textarea)
+  })
+
+  it('placeholder names the agent', () => {
+    render(<BridgeChat sessionId="s1" label="Qwen 32B" cwd="/p" />)
+    expect(screen.getByPlaceholderText('Message Qwen 32B…')).toBeInTheDocument()
   })
 })

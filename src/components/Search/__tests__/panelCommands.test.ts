@@ -16,7 +16,8 @@ vi.mock('@/lib/openBrowserTab', () => ({ openNewBrowserTab: vi.fn() }))
 import { panelCommands } from '../panelCommands'
 import { openNewBrowserTab } from '@/lib/openBrowserTab'
 import { useClaudeStore } from '@/stores/claudeStore'
-import { useBridgeStore } from '@/stores/bridgeStore'
+import { useModelSettingsStore } from '@/stores/modelSettingsStore'
+import { useLlamaModelsStore, defaultLlamaModelConfig } from '@/stores/llamaModelsStore'
 import { useFileStore } from '@/stores/fileStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGraphifyStore } from '@/stores/graphifyStore'
@@ -37,31 +38,30 @@ beforeEach(() => {
 })
 
 describe('sessions', () => {
-  it('Claude: New Session switches to Claude, starts a session and shows the chat', () => {
-    const setAssistant = vi.fn()
+  it('New Agent Session lists enabled agents and starts the picked one', async () => {
     const newSession = vi.fn()
     const setChatVisible = vi.fn()
-    useClaudeStore.setState({ assistant: 'bridge', setAssistant, newSession, setChatVisible })
-    find('claude-new-session').action?.()
-    expect(setAssistant).toHaveBeenCalledWith('claude')
-    expect(newSession).toHaveBeenCalledWith('/p')
+    useClaudeStore.setState({ newSession, setChatVisible })
+    useModelSettingsStore.setState({ enabled: { claude: true, bridge: true } })
+    useLlamaModelsStore.setState({ models: [{ ...defaultLlamaModelConfig(), id: 'q1', displayName: 'Qwen', enabled: true }] })
+
+    const step = await find('new-agent-session').pick!()
+    expect(step.items.map((i) => i.label)).toEqual(['Claude Code', 'Bridge', 'Qwen'])
+    step.onPick('llama:q1')
+    expect(newSession).toHaveBeenCalledWith('/p', 'llama:q1')
     expect(setChatVisible).toHaveBeenCalledWith(true)
   })
 
-  it('Bridge: New Session switches to Bridge and starts a session', () => {
-    const setAssistant = vi.fn()
-    const newSession = vi.fn()
-    useClaudeStore.setState({ assistant: 'claude', setAssistant, setChatVisible: vi.fn() })
-    useBridgeStore.setState({ newSession })
-    find('bridge-new-session').action?.()
-    expect(setAssistant).toHaveBeenCalledWith('bridge')
-    expect(newSession).toHaveBeenCalled()
+  it('is greyed with no project open', () => {
+    useFileStore.setState({ projectRoot: null })
+    expect(find('new-agent-session').disabledReason?.()).toBe('Open a project first')
   })
 
-  it('both are greyed with no project open', () => {
-    useFileStore.setState({ projectRoot: null })
-    expect(find('claude-new-session').disabledReason?.()).toBe('Open a project first')
-    expect(find('bridge-new-session').disabledReason?.()).toBe('Open a project first')
+  it('the old switch/new-session commands are gone', () => {
+    const ids = panelCommands().map((c) => c.id)
+    for (const gone of ['switch-to-claude', 'switch-to-bridge', 'claude-new-session', 'bridge-new-session']) {
+      expect(ids).not.toContain(gone)
+    }
   })
 })
 

@@ -12,6 +12,10 @@ export interface SessionData {
   tabs: { path: string }[]
   browserUrls: Record<string, string>
   claudeInstances?: { id: string; hue: string }[]
+  // Mixed agent sessions (Claude / Bridge / llama:<id>) in activity-bar
+  // order. claudeInstances is the pre-mixed-sessions field, read only as a
+  // fallback when this is absent.
+  agentSessions?: { id: string; kind: string; hue: string }[]
 }
 
 function sessionPathFor(projectRoot: string): string {

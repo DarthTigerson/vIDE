@@ -5,13 +5,16 @@ const { store } = vi.hoisted(() => {
   ;(global as any).localStorage = {
     getItem: (k: string) => store[k] ?? null,
     setItem: (k: string, v: string) => { store[k] = v },
+    removeItem: (k: string) => { delete store[k] },
   }
   return { store }
 })
 
 import { useClaudeStore } from '../claudeStore'
+import { useBridgeStore } from '../bridgeStore'
 
 beforeEach(() => {
+  vi.clearAllMocks()
   if (!(global as any).window) {
     (global as any).window = {}
   }
@@ -21,6 +24,7 @@ beforeEach(() => {
     claudeWrite: vi.fn(),
     claudeKill: vi.fn(),
     sessionSave: vi.fn(),
+    bridgeSend: vi.fn(), bridgeCancel: vi.fn(), bridgeApprove: vi.fn(), bridgeReject: vi.fn(), onBridgeEvent: vi.fn(() => () => {}),
   }
 })
 
@@ -83,7 +87,7 @@ describe('claudeStore.setChatVisible', () => {
 
 describe('claudeStore.usage / cost mutual exclusion', () => {
   beforeEach(() => {
-    useClaudeStore.setState({ assistant: 'claude', usageOpen: false, costOpen: false })
+    useClaudeStore.setState({ instances: [{ id: 'c', kind: 'claude', hue: '#D97757' }], activeInstanceId: 'c', usageOpen: false, costOpen: false })
   })
 
   it('opening Usage closes Cost', () => {
@@ -146,16 +150,37 @@ describe('claudeStore.loadInstancesFromSession', () => {
   })
 
   it('restores a saved instance list verbatim and activates the first one', () => {
-    const saved = [{ id: 'a', hue: '#111111' }, { id: 'b', hue: '#222222' }]
-    useClaudeStore.getState().loadInstancesFromSession(saved)
+    const saved = [{ id: 'a', kind: 'claude', hue: '#111111' }, { id: 'b', kind: 'claude', hue: '#222222' }]
+    useClaudeStore.getState().loadInstancesFromSession({ agentSessions: saved })
     const state = useClaudeStore.getState()
     expect(state.instances).toEqual(saved)
     expect(state.activeInstanceId).toBe('a')
   })
 
   it('falls back to a fresh instance for an empty saved list', () => {
-    useClaudeStore.getState().loadInstancesFromSession([])
+    useClaudeStore.getState().loadInstancesFromSession({ agentSessions: [] })
     expect(useClaudeStore.getState().instances).toHaveLength(1)
+  })
+
+  it('loads legacy claudeInstances as Claude sessions', () => {
+    useClaudeStore.getState().loadInstancesFromSession({ claudeInstances: [{ id: 'old', hue: '#5B9BD5' }] })
+    expect(useClaudeStore.getState().instances).toEqual([{ id: 'old', kind: 'claude', hue: '#5B9BD5' }])
+  })
+
+  it('prefers agentSessions over claudeInstances and opens Bridge conversations for bridge-like sessions', () => {
+    useBridgeStore.setState({ conversations: {} })
+    useClaudeStore.getState().loadInstancesFromSession({
+      agentSessions: [{ id: 'c', kind: 'claude', hue: '#D97757' }, { id: 'l', kind: 'llama:q1', hue: '#5B9BD5' }],
+      claudeInstances: [{ id: 'ignored', hue: '#000000' }],
+    })
+    expect(useClaudeStore.getState().instances.map((i) => i.id)).toEqual(['c', 'l'])
+    expect(useBridgeStore.getState().conversations.l).toBeDefined()
+    expect(useBridgeStore.getState().conversations.c).toBeUndefined()
+  })
+
+  it('drops malformed saved entries', () => {
+    useClaudeStore.getState().loadInstancesFromSession({ agentSessions: [{ id: 'ok', kind: 'bridge', hue: '#fff' }, { id: 3 }, null] })
+    expect(useClaudeStore.getState().instances.map((i) => i.id)).toEqual(['ok'])
   })
 })
 
@@ -166,7 +191,7 @@ describe('claudeStore.newSession', () => {
 
   it('appends a new instance, assigns the next hue, and makes it active', () => {
     const firstId = useClaudeStore.getState().instances[0].id
-    useClaudeStore.getState().newSession('/project')
+    useClaudeStore.getState().newSession('/project', 'claude')
 
     const state = useClaudeStore.getState()
     expect(state.instances).toHaveLength(2)
@@ -176,9 +201,9 @@ describe('claudeStore.newSession', () => {
   })
 
   it('persists the new instance list', () => {
-    useClaudeStore.getState().newSession('/project')
+    useClaudeStore.getState().newSession('/project', 'claude')
     const saveMock = (window.api as any).sessionSave as ReturnType<typeof vi.fn>
-    expect(saveMock).toHaveBeenCalledWith('/project', { claudeInstances: useClaudeStore.getState().instances })
+    expect(saveMock).toHaveBeenCalledWith('/project', { agentSessions: useClaudeStore.getState().instances })
   })
 
   // VIDE-85: opening 3 sessions (orange, blue, purple), closing the orange
@@ -187,16 +212,16 @@ describe('claudeStore.newSession', () => {
   // the one instance still open. It should pick a color nothing open is
   // already using instead of just counting how many instances remain.
   it("picks a color no currently-open instance is using, not just the count-based slot", () => {
-    useClaudeStore.getState().loadInstancesFromSession([
-      { id: 'a', hue: '#D97757' }, // orange
-      { id: 'b', hue: '#5B9BD5' }, // blue
-      { id: 'c', hue: '#9B7ED9' }, // purple
-    ])
+    useClaudeStore.getState().loadInstancesFromSession({ agentSessions: [
+      { id: 'a', kind: 'claude', hue: '#D97757' }, // orange
+      { id: 'b', kind: 'claude', hue: '#5B9BD5' }, // blue
+      { id: 'c', kind: 'claude', hue: '#9B7ED9' }, // purple
+    ] })
     useClaudeStore.getState().closeInstance('/project', 'a')
     useClaudeStore.getState().closeInstance('/project', 'c')
     expect(useClaudeStore.getState().instances).toHaveLength(1) // just blue left
 
-    useClaudeStore.getState().newSession('/project')
+    useClaudeStore.getState().newSession('/project', 'claude')
 
     const instances = useClaudeStore.getState().instances
     expect(instances).toHaveLength(2)
@@ -206,11 +231,11 @@ describe('claudeStore.newSession', () => {
 
 describe('claudeStore.closeInstance', () => {
   beforeEach(() => {
-    useClaudeStore.getState().loadInstancesFromSession([
-      { id: 'a', hue: '#111111' },
-      { id: 'b', hue: '#222222' },
-      { id: 'c', hue: '#333333' },
-    ])
+    useClaudeStore.getState().loadInstancesFromSession({ agentSessions: [
+      { id: 'a', kind: 'claude', hue: '#111111' },
+      { id: 'b', kind: 'claude', hue: '#222222' },
+      { id: 'c', kind: 'claude', hue: '#333333' },
+    ] })
     useClaudeStore.setState({ activeInstanceId: 'b' })
   })
 
@@ -234,6 +259,28 @@ describe('claudeStore.closeInstance', () => {
     const state = useClaudeStore.getState()
     expect(state.instances.map((i) => i.id)).toEqual(['a', 'b'])
     expect(state.activeInstanceId).toBe('b')
+  })
+
+  it('closes Usage/Cost when closing hands the active slot to a non-Claude session', () => {
+    useClaudeStore.getState().loadInstancesFromSession({ agentSessions: [
+      { id: 'a', kind: 'claude', hue: '#111111' },
+      { id: 'br', kind: 'bridge', hue: '#222222' },
+    ] })
+    useClaudeStore.setState({ activeInstanceId: 'a', usageOpen: true, costOpen: false })
+    useClaudeStore.getState().closeInstance('/project', 'a')
+    expect(useClaudeStore.getState().activeInstanceId).toBe('br')
+    expect(useClaudeStore.getState().usageOpen).toBe(false)
+
+    useClaudeStore.setState({ costOpen: true })
+    useClaudeStore.getState().closeInstance('/project', 'br')
+    expect(useClaudeStore.getState().activeInstanceId).toBe('')
+    expect(useClaudeStore.getState().costOpen).toBe(false)
+  })
+
+  it('keeps Usage open when closing leaves a Claude session active', () => {
+    useClaudeStore.setState({ usageOpen: true })
+    useClaudeStore.getState().closeInstance('/project', 'b')
+    expect(useClaudeStore.getState().usageOpen).toBe(true)
   })
 
   it('leaves activeInstanceId untouched when closing a non-active instance', () => {
@@ -269,11 +316,11 @@ describe('claudeStore.closeInstance', () => {
 
 describe('claudeStore.closeAllInstances', () => {
   it('kills every instance, clears the list and active id, and collapses the chat panel', () => {
-    useClaudeStore.getState().loadInstancesFromSession([
-      { id: 'a', hue: '#111111' },
-      { id: 'b', hue: '#222222' },
-      { id: 'c', hue: '#333333' },
-    ])
+    useClaudeStore.getState().loadInstancesFromSession({ agentSessions: [
+      { id: 'a', kind: 'claude', hue: '#111111' },
+      { id: 'b', kind: 'claude', hue: '#222222' },
+      { id: 'c', kind: 'claude', hue: '#333333' },
+    ] })
     useClaudeStore.setState({ chatVisible: true })
 
     useClaudeStore.getState().closeAllInstances('/project')
@@ -289,16 +336,16 @@ describe('claudeStore.closeAllInstances', () => {
   })
 
   it('persists the now-empty instance list', () => {
-    useClaudeStore.getState().loadInstancesFromSession([{ id: 'a', hue: '#111111' }])
+    useClaudeStore.getState().loadInstancesFromSession({ agentSessions: [{ id: 'a', kind: 'claude', hue: '#111111' }] })
     useClaudeStore.getState().closeAllInstances('/project')
     const saveMock = (window.api as any).sessionSave as ReturnType<typeof vi.fn>
-    expect(saveMock).toHaveBeenCalledWith('/project', { claudeInstances: [] })
+    expect(saveMock).toHaveBeenCalledWith('/project', { agentSessions: [] })
   })
 })
 
 describe('claudeStore.setActiveInstance', () => {
   it('switches the active instance id', () => {
-    useClaudeStore.getState().loadInstancesFromSession([{ id: 'a', hue: '#111' }, { id: 'b', hue: '#222' }])
+    useClaudeStore.getState().loadInstancesFromSession({ agentSessions: [{ id: 'a', kind: 'claude', hue: '#111' }, { id: 'b', kind: 'claude', hue: '#222' }] })
     useClaudeStore.getState().setActiveInstance('b')
     expect(useClaudeStore.getState().activeInstanceId).toBe('b')
   })
@@ -307,7 +354,7 @@ describe('claudeStore.setActiveInstance', () => {
 describe('claudeStore session names', () => {
   beforeEach(() => {
     useClaudeStore.setState({
-      instances: [{ id: 'a', hue: '#f00' }, { id: 'b', hue: '#0f0' }],
+      instances: [{ id: 'a', kind: 'claude', hue: '#f00' }, { id: 'b', kind: 'claude', hue: '#0f0' }],
       activeInstanceId: 'a',
       titleByInstance: {},
     })
@@ -321,18 +368,18 @@ describe('claudeStore session names', () => {
   it('renameInstance sets the name and persists it', () => {
     useClaudeStore.getState().renameInstance('/proj', 'b', '  Tests  ')
     const { instances } = useClaudeStore.getState()
-    expect(instances[1]).toEqual({ id: 'b', hue: '#0f0', name: 'Tests' })
-    expect(window.api.sessionSave).toHaveBeenCalledWith('/proj', { claudeInstances: instances })
+    expect(instances[1]).toEqual({ id: 'b', kind: 'claude', hue: '#0f0', name: 'Tests' })
+    expect(window.api.sessionSave).toHaveBeenCalledWith('/proj', { agentSessions: instances })
   })
 
   it('renaming to blank clears the custom name', () => {
     useClaudeStore.getState().renameInstance('/proj', 'a', 'Mine')
     useClaudeStore.getState().renameInstance('/proj', 'a', '   ')
-    expect(useClaudeStore.getState().instances[0]).toEqual({ id: 'a', hue: '#f00' })
+    expect(useClaudeStore.getState().instances[0]).toEqual({ id: 'a', kind: 'claude', hue: '#f00' })
   })
 
   it('restores saved names from session data', () => {
-    useClaudeStore.getState().loadInstancesFromSession([{ id: 'x', hue: '#00f', name: 'Kept' }])
+    useClaudeStore.getState().loadInstancesFromSession({ agentSessions: [{ id: 'x', kind: 'claude', hue: '#00f', name: 'Kept' }] })
     expect(useClaudeStore.getState().instances[0].name).toBe('Kept')
   })
 })
@@ -347,5 +394,108 @@ describe('claudeStore agent bar collapse', () => {
     useClaudeStore.getState().toggleAgentBarCollapsed()
     expect(useClaudeStore.getState().agentBarCollapsed).toBe(false)
     expect(store['vide-agent-bar-collapsed']).toBe('0')
+  })
+})
+
+describe('claudeStore mixed sessions', () => {
+  beforeEach(() => {
+    useClaudeStore.setState({ instances: [], activeInstanceId: '', usageOpen: false, costOpen: false })
+    useBridgeStore.setState({ conversations: {} })
+  })
+
+  it('newSession with a bridge-like kind opens a conversation and spawns no PTY', () => {
+    useClaudeStore.getState().newSession('/p', 'bridge')
+    const [inst] = useClaudeStore.getState().instances
+    expect(inst.kind).toBe('bridge')
+    expect(useBridgeStore.getState().conversations[inst.id]).toBeDefined()
+    expect(window.api.claudeSpawn).not.toHaveBeenCalled()
+  })
+
+  it('every session gets the next free hue regardless of kind', () => {
+    useClaudeStore.getState().newSession('/p', 'claude')
+    useClaudeStore.getState().newSession('/p', 'llama:q1')
+    const [a, b] = useClaudeStore.getState().instances
+    expect(a.hue).not.toBe(b.hue)
+  })
+
+  it('closeInstance on a Bridge session closes its conversation instead of killing a PTY', () => {
+    useClaudeStore.getState().newSession('/p', 'bridge')
+    const id = useClaudeStore.getState().instances[0].id
+    useClaudeStore.getState().closeInstance('/p', id)
+    expect(useBridgeStore.getState().conversations[id]).toBeUndefined()
+    expect(window.api.claudeKill).not.toHaveBeenCalled()
+  })
+
+  it('clearContext on a Bridge session clears that conversation; compact is a no-op', () => {
+    useClaudeStore.getState().newSession('/p', 'bridge')
+    const id = useClaudeStore.getState().instances[0].id
+    useBridgeStore.getState().sendMessage(id, '/p', 'hi')
+    useBridgeStore.getState().cancel(id)
+    useClaudeStore.getState().compact()
+    expect(window.api.claudeWrite).not.toHaveBeenCalled()
+    useClaudeStore.getState().clearContext()
+    expect(useBridgeStore.getState().conversations[id].messages).toEqual([])
+  })
+
+  it('usage/cost do nothing while the active session is not Claude', () => {
+    useClaudeStore.getState().newSession('/p', 'bridge')
+    useClaudeStore.getState().usage()
+    useClaudeStore.getState().cost()
+    expect(useClaudeStore.getState().usageOpen).toBe(false)
+    expect(useClaudeStore.getState().costOpen).toBe(false)
+  })
+
+  it('setActiveInstance closes usage/cost when switching to a non-Claude session', () => {
+    useClaudeStore.getState().newSession('/p', 'claude')
+    const claudeId = useClaudeStore.getState().instances[0].id
+    useClaudeStore.getState().usage()
+    useClaudeStore.getState().newSession('/p', 'bridge')
+    const bridgeId = useClaudeStore.getState().instances[1].id
+    useClaudeStore.getState().setActiveInstance(claudeId)
+    useClaudeStore.getState().usage()
+    expect(useClaudeStore.getState().usageOpen).toBe(true)
+    useClaudeStore.getState().setActiveInstance(bridgeId)
+    expect(useClaudeStore.getState().usageOpen).toBe(false)
+  })
+
+  it('previousSession/resumeSession only act on Claude sessions', () => {
+    useClaudeStore.getState().newSession('/p', 'bridge')
+    useClaudeStore.getState().previousSession('/p')
+    useClaudeStore.getState().resumeSession('/p')
+    expect(window.api.claudeSpawn).not.toHaveBeenCalled()
+  })
+})
+
+describe('claudeStore.moveInstance', () => {
+  const ids = () => useClaudeStore.getState().instances.map((i) => i.id)
+  beforeEach(() => {
+    useClaudeStore.setState({
+      instances: ['a', 'b', 'c', 'd'].map((id) => ({ id, kind: 'claude', hue: '#D97757' })),
+      activeInstanceId: 'a',
+    })
+  })
+
+  it('moves before a later target', () => {
+    useClaudeStore.getState().moveInstance('/p', 'a', 'c', 'before')
+    expect(ids()).toEqual(['b', 'a', 'c', 'd'])
+  })
+
+  it('moves after an earlier target', () => {
+    useClaudeStore.getState().moveInstance('/p', 'd', 'a', 'after')
+    expect(ids()).toEqual(['a', 'd', 'b', 'c'])
+  })
+
+  it('moves to the very end', () => {
+    useClaudeStore.getState().moveInstance('/p', 'a', 'd', 'after')
+    expect(ids()).toEqual(['b', 'c', 'd', 'a'])
+  })
+
+  it('is a no-op onto itself or an unknown id, and persists real moves', () => {
+    useClaudeStore.getState().moveInstance('/p', 'b', 'b', 'before')
+    useClaudeStore.getState().moveInstance('/p', 'zz', 'a', 'before')
+    expect(ids()).toEqual(['a', 'b', 'c', 'd'])
+    expect(window.api.sessionSave).not.toHaveBeenCalled()
+    useClaudeStore.getState().moveInstance('/p', 'c', 'a', 'before')
+    expect(window.api.sessionSave).toHaveBeenCalledWith('/p', { agentSessions: useClaudeStore.getState().instances })
   })
 })

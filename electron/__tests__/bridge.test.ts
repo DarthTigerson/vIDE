@@ -18,6 +18,19 @@ vi.mock('electron', () => ({
   },
 }))
 
+// list_dir's buildTree is the one tool hook tests can hold open
+// deterministically (a deferred promise) to simulate a slow tool in flight.
+const { toolGate } = vi.hoisted(() => ({
+  toolGate: { buildTree: null as null | ((path: string) => Promise<unknown>) },
+}))
+vi.mock('../fsOps', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../fsOps')>()
+  return {
+    ...actual,
+    buildTree: (path: string) => (toolGate.buildTree ? toolGate.buildTree(path) : actual.buildTree(path)),
+  }
+})
+
 import { BridgeManager } from '../bridge'
 
 function sseStream(chunks: string[]): Response {
@@ -218,12 +231,14 @@ describe('BridgeManager tool calls', () => {
       expect(events).toContainEqual({ type: 'need-approval', id: 'call_1', name: 'write_file', args: { path: target, content: 'hi' } })
     })
 
+    const beforeCancel = win.webContents.send.mock.calls.length
     handlers['bridge:cancel']({ sender: win })
     await runPromise
 
     await expect(readFileFs(target, 'utf-8')).rejects.toThrow()
-    const events = win.webContents.send.mock.calls.filter((c: any[]) => c[0] === 'bridge:event').map((c: any[]) => c[1])
-    expect(events).toContainEqual(expect.objectContaining({ type: 'tool-result', id: 'call_1', isError: true }))
+    // A cancelled run emits nothing further (the renderer settles its own
+    // pending tool calls on Stop) and makes no further requests.
+    expect(win.webContents.send.mock.calls.length).toBe(beforeCancel)
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
@@ -602,7 +617,7 @@ describe('BridgeManager tool calls', () => {
     await runA
 
     const eventsA = winA.webContents.send.mock.calls.filter((c: any[]) => c[0] === 'bridge:event').map((c: any[]) => c[1])
-    expect(eventsA).toContainEqual(expect.objectContaining({ type: 'tool-result', id: 'call_1', isError: true }))
+    expect(eventsA.some((e: any) => e.type === 'tool-result')).toBe(false)
     await expect(readFileFs(targetA, 'utf-8')).rejects.toThrow()
 
     const eventsBAfterDispose = winB.webContents.send.mock.calls.filter((c: any[]) => c[0] === 'bridge:event').map((c: any[]) => c[1])
@@ -611,6 +626,197 @@ describe('BridgeManager tool calls', () => {
     approveHandler({ sender: winB }, 'call_1')
     await runB
     expect(await readFileFs(targetB, 'utf-8')).toBe('B')
+  })
+  it('two sessions in one window stream independently and every event carries its sessionId', async () => {
+    const manager = new BridgeManager()
+    manager.registerHandlers()
+    const win = { id: 501, isDestroyed: () => false, webContents: { send: vi.fn() } }
+    const fetchMock = vi.fn().mockImplementation(async (_url: string, opts: any) => {
+      const body = JSON.parse(opts.body)
+      const userMsg = body.messages.find((m: any) => m.role === 'user')?.content
+      return finalTextStream(userMsg === 'to A' ? 'reply A' : 'reply B')
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await Promise.all([
+      handlers['bridge:send']({ sender: win }, { cwd: root, messages: [{ role: 'user', content: 'to A' }], agentMode: false, settings: SETTINGS, sessionId: 'A' }),
+      handlers['bridge:send']({ sender: win }, { cwd: root, messages: [{ role: 'user', content: 'to B' }], agentMode: false, settings: SETTINGS, sessionId: 'B' }),
+    ])
+
+    const events = win.webContents.send.mock.calls.filter((c: any[]) => c[0] === 'bridge:event').map((c: any[]) => c[1])
+    expect(events).toContainEqual({ type: 'text-delta', delta: 'reply A', sessionId: 'A' })
+    expect(events).toContainEqual({ type: 'text-delta', delta: 'reply B', sessionId: 'B' })
+    expect(events.filter((e: any) => e.type === 'done').map((e: any) => e.sessionId).sort()).toEqual(['A', 'B'])
+  })
+
+  it('cancelling one session leaves another session in the same window awaiting approval', async () => {
+    const manager = new BridgeManager()
+    manager.registerHandlers()
+    const win = { id: 502, isDestroyed: () => false, webContents: { send: vi.fn() } }
+    const targetA = join(root, 'sessA.txt')
+    const targetB = join(root, 'sessB.txt')
+    const fetchMock = vi.fn().mockImplementation(async (_url: string, opts: any) => {
+      const body = JSON.parse(opts.body)
+      const userMsg = body.messages.find((m: any) => m.role === 'user')?.content
+      const isFirstRound = !body.messages.some((m: any) => m.role === 'tool')
+      if (userMsg === 'write A') return isFirstRound ? toolCallStream('write_file', { path: targetA, content: 'A' }) : finalTextStream('doneA')
+      return isFirstRound ? toolCallStream('write_file', { path: targetB, content: 'B' }) : finalTextStream('doneB')
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const runA = handlers['bridge:send']({ sender: win }, { cwd: root, messages: [{ role: 'user', content: 'write A' }], agentMode: false, settings: SETTINGS, sessionId: 'A' })
+    const runB = handlers['bridge:send']({ sender: win }, { cwd: root, messages: [{ role: 'user', content: 'write B' }], agentMode: false, settings: SETTINGS, sessionId: 'B' })
+
+    await vi.waitFor(() => {
+      const events = win.webContents.send.mock.calls.filter((c: any[]) => c[0] === 'bridge:event').map((c: any[]) => c[1])
+      expect(events.filter((e: any) => e.type === 'need-approval').map((e: any) => e.sessionId).sort()).toEqual(['A', 'B'])
+    })
+
+    handlers['bridge:cancel']({ sender: win }, 'A')
+    await runA
+    await expect(readFileFs(targetA, 'utf-8')).rejects.toThrow()
+
+    // Same tool-call id ('call_1') in both sessions: approving B must resolve B only.
+    handlers['bridge:approve']({ sender: win }, 'call_1', 'B')
+    await runB
+    expect(await readFileFs(targetB, 'utf-8')).toBe('B')
+  })
+
+  it('disposeWindow cancels every session of that window', async () => {
+    const manager = new BridgeManager()
+    manager.registerHandlers()
+    const win = { id: 503, isDestroyed: () => false, webContents: { send: vi.fn() } }
+    const target = join(root, 'disp.txt')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(toolCallStream('write_file', { path: target, content: 'X' })))
+
+    const run = handlers['bridge:send']({ sender: win }, { cwd: root, messages: [{ role: 'user', content: 'w' }], agentMode: false, settings: SETTINGS, sessionId: 'S' })
+    await vi.waitFor(() => {
+      const events = win.webContents.send.mock.calls.filter((c: any[]) => c[0] === 'bridge:event').map((c: any[]) => c[1])
+      expect(events.some((e: any) => e.type === 'need-approval')).toBe(true)
+    })
+    manager.disposeWindow(win.id)
+    await run
+    await expect(readFileFs(target, 'utf-8')).rejects.toThrow()
+  })
+})
+
+describe('BridgeManager stale-run supersession', () => {
+  let root: string
+
+  beforeEach(async () => {
+    vi.restoreAllMocks()
+    root = await mkdtemp(join(tmpdir(), 'bridge-stale-'))
+  })
+
+  afterEach(async () => {
+    toolGate.buildTree = null
+    await rm(root, { recursive: true, force: true })
+  })
+
+  function deferred<T>() {
+    let resolve!: (v: T) => void
+    const promise = new Promise<T>((r) => { resolve = r })
+    return { promise, resolve }
+  }
+
+  function events(win: any) {
+    return win.webContents.send.mock.calls.filter((c: any[]) => c[0] === 'bridge:event').map((c: any[]) => c[1])
+  }
+
+  const SYS = { role: 'system', content: 'sys' }
+
+  function toolCallStream(name: string, args: Record<string, unknown>): Response {
+    const argsJson = JSON.stringify(args)
+    return sseStream([
+      `data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"${name}","arguments":""}}]},"finish_reason":null}]}\n\n`,
+      `data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":${JSON.stringify(argsJson)}}}]},"finish_reason":null}]}\n\n`,
+      'data: [DONE]\n\n',
+    ])
+  }
+
+  function finalTextStream(text: string): Response {
+    return sseStream([`data: {"choices":[{"delta":{"content":${JSON.stringify(text)}},"finish_reason":null}]}\n\n`, 'data: [DONE]\n\n'])
+  }
+
+  it('cancel then immediate re-send on the same session: the old run (slow tool in flight) emits nothing more and makes no further fetches', async () => {
+    const manager = new BridgeManager()
+    manager.registerHandlers()
+    const win = { id: 601, isDestroyed: () => false, webContents: { send: vi.fn() } }
+
+    const toolStarted = deferred<void>()
+    const toolRelease = deferred<unknown>()
+    toolGate.buildTree = () => { toolStarted.resolve(); return toolRelease.promise }
+
+    const newFetch = deferred<Response>()
+    const fetchMock = vi.fn().mockImplementation(async (_url: string, opts: any) => {
+      const body = JSON.parse(opts.body)
+      const userMsg = body.messages.find((m: any) => m.role === 'user')?.content
+      if (userMsg === 'old') {
+        const isFirstRound = !body.messages.some((m: any) => m.role === 'tool')
+        return isFirstRound ? toolCallStream('list_dir', { path: root }) : finalTextStream('stale')
+      }
+      return newFetch.promise
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const runOld = handlers['bridge:send']({ sender: win }, { cwd: root, messages: [SYS, { role: 'user', content: 'old' }], agentMode: true, settings: SETTINGS, sessionId: 'S' })
+    await toolStarted.promise
+
+    handlers['bridge:cancel']({ sender: win }, 'S')
+    const cancelIdx = events(win).length
+    const runNew = handlers['bridge:send']({ sender: win }, { cwd: root, messages: [SYS, { role: 'user', content: 'new' }], agentMode: true, settings: SETTINGS, sessionId: 'S' })
+
+    // Let the stale tool finish while the new run's request is in flight.
+    toolRelease.resolve([])
+    await runOld
+    newFetch.resolve(finalTextStream('fresh'))
+    await runNew
+
+    expect(events(win).slice(cancelIdx)).toEqual([
+      { type: 'text-delta', delta: 'fresh', sessionId: 'S' },
+      { type: 'done', sessionId: 'S' },
+    ])
+    const oldFetches = fetchMock.mock.calls.filter((c: any[]) => JSON.parse(c[1].body).messages.some((m: any) => m.content === 'old'))
+    expect(oldFetches).toHaveLength(1)
+  })
+
+  it('cancel while the system prompt is still being built sends no request for that run', async () => {
+    const manager = new BridgeManager()
+    manager.registerHandlers()
+    const win = { id: 602, isDestroyed: () => false, webContents: { send: vi.fn() } }
+    const fetchMock = vi.fn().mockResolvedValue(finalTextStream('x'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    // No system message → runConversation awaits buildSystemPrompt (git
+    // subprocesses) before its first fetch; cancel lands synchronously inside it.
+    const run = handlers['bridge:send']({ sender: win }, { cwd: root, messages: [{ role: 'user', content: 'hi' }], agentMode: false, settings: SETTINGS, sessionId: 'S' })
+    handlers['bridge:cancel']({ sender: win }, 'S')
+    await run
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(events(win)).toEqual([])
+  })
+
+  it('cancel while the request is awaiting response headers emits no "request failed" error', async () => {
+    const manager = new BridgeManager()
+    manager.registerHandlers()
+    const win = { id: 603, isDestroyed: () => false, webContents: { send: vi.fn() } }
+    const fetchStarted = deferred<void>()
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((_url: string, opts: any) => new Promise((_resolve, reject) => {
+      opts.signal.addEventListener('abort', () => {
+        const err = new Error('This operation was aborted')
+        err.name = 'AbortError'
+        reject(err)
+      })
+      fetchStarted.resolve()
+    })))
+
+    const run = handlers['bridge:send']({ sender: win }, { cwd: root, messages: [SYS, { role: 'user', content: 'hi' }], agentMode: false, settings: SETTINGS, sessionId: 'S' })
+    await fetchStarted.promise
+    handlers['bridge:cancel']({ sender: win }, 'S')
+    await run
+
+    expect(events(win)).toEqual([])
   })
 })
 

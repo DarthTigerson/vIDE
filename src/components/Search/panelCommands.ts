@@ -1,7 +1,9 @@
 import type { Command } from './commands'
 import { openTab } from './commands'
 import { useClaudeStore } from '@/stores/claudeStore'
-import { useBridgeStore } from '@/stores/bridgeStore'
+import { useModelSettingsStore } from '@/stores/modelSettingsStore'
+import { useLlamaModelsStore } from '@/stores/llamaModelsStore'
+import { availableAgents } from '@/lib/agentKinds'
 import { useFileStore } from '@/stores/fileStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGraphifyStore } from '@/stores/graphifyStore'
@@ -38,22 +40,6 @@ export function panelCommands(): Command[] {
       },
     },
     {
-      id: 'switch-to-claude',
-      label: 'Switch to Claude',
-      description: 'Use Claude Code as the AI assistant',
-      keywords: ['assistant', 'model'],
-      condition: () => useClaudeStore.getState().assistant !== 'claude',
-      action: () => useClaudeStore.getState().setAssistant('claude'),
-    },
-    {
-      id: 'switch-to-bridge',
-      label: 'Switch to Bridge',
-      description: 'Use Bridge as the AI assistant',
-      keywords: ['assistant', 'model'],
-      condition: () => useClaudeStore.getState().assistant !== 'bridge',
-      action: () => useClaudeStore.getState().setAssistant('bridge'),
-    },
-    {
       id: 'inline-diff-show',
       label: 'Show Inline Diff Highlight',
       description: 'Tint changed lines and highlight changed words in the editor',
@@ -70,33 +56,23 @@ export function panelCommands(): Command[] {
       action: () => useEditorSettingsStore.getState().setInlineDiffEnabled(false),
     },
     {
-      id: 'claude-new-session',
-      label: 'Claude: New Session',
-      description: 'Start another Claude Code session',
-      keywords: ['new', 'panel', 'chat', 'assistant'],
+      id: 'new-agent-session',
+      label: 'New Agent Session…',
+      description: 'Start a Claude, Bridge or local model session',
+      keywords: ['new', 'session', 'chat', 'assistant', 'agent', 'claude', 'bridge', 'llama', 'model'],
       disabledReason: () => (projectRoot() ? null : NO_PROJECT),
-      action: () => {
-        const root = projectRoot()
-        if (!root) return
-        const claude = useClaudeStore.getState()
-        if (claude.assistant !== 'claude') claude.setAssistant('claude')
-        claude.newSession(root)
-        claude.setChatVisible(true)
-      },
-    },
-    {
-      id: 'bridge-new-session',
-      label: 'Bridge: New Session',
-      description: 'Start a fresh Bridge conversation',
-      keywords: ['new', 'panel', 'chat', 'assistant', 'local'],
-      disabledReason: () => (projectRoot() ? null : NO_PROJECT),
-      action: () => {
-        if (!projectRoot()) return
-        const claude = useClaudeStore.getState()
-        if (claude.assistant !== 'bridge') claude.setAssistant('bridge')
-        useBridgeStore.getState().newSession()
-        claude.setChatVisible(true)
-      },
+      pick: () => ({
+        placeholder: 'Start which agent?',
+        emptyText: 'No agents enabled — turn one on in Settings',
+        items: availableAgents(useModelSettingsStore.getState().enabled, useLlamaModelsStore.getState().models)
+          .map((o) => ({ id: o.kind, label: o.label })),
+        onPick: (kind) => {
+          const root = projectRoot()
+          if (!root) return
+          useClaudeStore.getState().newSession(root, kind)
+          useClaudeStore.getState().setChatVisible(true)
+        },
+      }),
     },
     {
       id: 'browser-new-tab',

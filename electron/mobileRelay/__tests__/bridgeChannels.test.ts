@@ -35,23 +35,23 @@ describe('bridgeChannels', () => {
   it('maps bridge:send (send-type) to manager.send with the paired window and a bundled payload', async () => {
     const messages = [{ role: 'user' as const, content: 'hello' }]
     const settings = { endpoint: 'http://x', apiKey: 'k', modelId: 'm' }
-    await dispatch({ type: 'send', method: 'bridge:send', args: ['/repo', messages, true, settings] })
-    expect(bridgeManager.send).toHaveBeenCalledWith(fakeWin, { cwd: '/repo', messages, agentMode: true, settings })
+    await dispatch({ type: 'send', method: 'bridge:send', args: ['/repo', messages, true, settings, 'sess-1'] })
+    expect(bridgeManager.send).toHaveBeenCalledWith(fakeWin, { cwd: '/repo', messages, agentMode: true, settings, sessionId: 'sess-1' })
   })
 
   it('maps bridge:approve (send-type) to manager.approve with the paired window', async () => {
-    await dispatch({ type: 'send', method: 'bridge:approve', args: ['toolcall-1'] })
-    expect(bridgeManager.approve).toHaveBeenCalledWith(fakeWin, 'toolcall-1')
+    await dispatch({ type: 'send', method: 'bridge:approve', args: ['toolcall-1', 'sess-1'] })
+    expect(bridgeManager.approve).toHaveBeenCalledWith(fakeWin, 'toolcall-1', 'sess-1')
   })
 
   it('maps bridge:reject (send-type) to manager.reject with the paired window', async () => {
-    await dispatch({ type: 'send', method: 'bridge:reject', args: ['toolcall-1'] })
-    expect(bridgeManager.reject).toHaveBeenCalledWith(fakeWin, 'toolcall-1')
+    await dispatch({ type: 'send', method: 'bridge:reject', args: ['toolcall-1', 'sess-1'] })
+    expect(bridgeManager.reject).toHaveBeenCalledWith(fakeWin, 'toolcall-1', 'sess-1')
   })
 
   it('maps bridge:cancel (send-type) to manager.cancel with the paired window', async () => {
-    await dispatch({ type: 'send', method: 'bridge:cancel', args: [] })
-    expect(bridgeManager.cancel).toHaveBeenCalledWith(fakeWin)
+    await dispatch({ type: 'send', method: 'bridge:cancel', args: ['sess-1'] })
+    expect(bridgeManager.cancel).toHaveBeenCalledWith(fakeWin, 'sess-1')
   })
 
   it('maps bridge:testConnection to manager.testConnection with the settings object as-is', async () => {

@@ -7,13 +7,19 @@ export interface ActivityBarItem {
   active: boolean
   badge?: string | number
   disabled?: boolean
-  onClick: () => void
+  onClick: (event: React.MouseEvent<HTMLButtonElement>) => void
   onContextMenu?: (event: React.MouseEvent) => void
   // Shown beside the icon in a `wide` bar (e.g. a Claude session's name).
   label?: string
   // When set, the row renders an inline rename input instead of the button.
   rename?: { initial: string; onCommit: (value: string) => void; onCancel: () => void }
+  // Set on items the user may drag to reorder (agent sessions); the bar's
+  // onReorder receives these ids.
+  dragId?: string
 }
+
+type DropPlacement = 'before' | 'after'
+type ReorderHandler = (dragId: string, targetId: string, placement: DropPlacement) => void
 
 interface ActivityBarProps {
   side: 'left' | 'right'
@@ -27,6 +33,14 @@ interface ActivityBarProps {
   expandOnHover?: boolean
   // A grip on the bar's inner border, near the bottom, that toggles it.
   edgeToggle?: { label: string; onClick: () => void }
+  onReorder?: ReorderHandler
+}
+
+const DRAG_MIME = 'application/x-vide-session'
+
+function placementFor(e: React.DragEvent<HTMLElement>): DropPlacement {
+  const rect = e.currentTarget.getBoundingClientRect()
+  return e.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
 }
 
 // Three-dot grip straddling the bar's inner border. The button is wider than
@@ -84,7 +98,15 @@ function RenameRow({ item, dense }: { item: ActivityBarItem; dense: boolean }) {
   )
 }
 
-function ActivityBarButton({ item, showAccent, side, dense, wide }: { item: ActivityBarItem; showAccent: boolean; side: 'left' | 'right'; dense: boolean; wide: boolean }) {
+function ActivityBarButton({ item, showAccent, side, dense, wide, dropMarker, dragProps }: {
+  item: ActivityBarItem
+  showAccent: boolean
+  side: 'left' | 'right'
+  dense: boolean
+  wide: boolean
+  dropMarker?: DropPlacement
+  dragProps?: React.HTMLAttributes<HTMLButtonElement> & { draggable?: boolean }
+}) {
   if (wide && item.rename) return <RenameRow item={item} dense={dense} />
   // Wide rows show the label, or the title for items without one (Compact,
   // Clear, Usage…), so no row is a bare icon.
@@ -92,7 +114,8 @@ function ActivityBarButton({ item, showAccent, side, dense, wide }: { item: Acti
   return (
     <button
       key={item.id}
-      onClick={item.disabled ? undefined : item.onClick}
+      {...dragProps}
+      onClick={item.disabled ? undefined : (e) => item.onClick(e)}
       onContextMenu={item.disabled ? undefined : item.onContextMenu}
       aria-label={item.label ?? item.title}
       disabled={item.disabled}
@@ -147,6 +170,9 @@ function ActivityBarButton({ item, showAccent, side, dense, wide }: { item: Acti
       >
         {item.label ?? item.title}
       </span>}
+      {dropMarker && (
+        <span className={['pointer-events-none absolute left-2 right-2 h-0.5 bg-accent rounded', dropMarker === 'before' ? 'top-0' : 'bottom-0'].join(' ')} />
+      )}
     </button>
   )
 }
@@ -155,14 +181,54 @@ function Divider({ dense }: { dense: boolean }) {
   return <div className={['w-full h-px bg-border shrink-0', dense ? 'my-0.5' : 'my-1'].join(' ')} />
 }
 
-function ItemGroups({ groups, side, showAccent, dense, wide }: { groups: ActivityBarItem[][]; side: 'left' | 'right'; showAccent: boolean; dense: boolean; wide: boolean }) {
+function ItemGroups({ groups, side, showAccent, dense, wide, onReorder }: { groups: ActivityBarItem[][]; side: 'left' | 'right'; showAccent: boolean; dense: boolean; wide: boolean; onReorder?: ReorderHandler }) {
+  const [dragging, setDragging] = React.useState<string | null>(null)
+  const [drop, setDrop] = React.useState<{ id: string; placement: DropPlacement } | null>(null)
+  const clear = () => { setDragging(null); setDrop(null) }
+
+  const dragPropsFor = (item: ActivityBarItem) => {
+    const id = item.dragId
+    if (!id || !onReorder || item.disabled) return undefined
+    return {
+      draggable: true,
+      onDragStart: (e: React.DragEvent<HTMLButtonElement>) => {
+        e.dataTransfer.setData(DRAG_MIME, id)
+        e.dataTransfer.effectAllowed = 'move'
+        setDragging(id)
+      },
+      onDragOver: (e: React.DragEvent<HTMLButtonElement>) => {
+        if (!dragging || dragging === id) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'move'
+        setDrop({ id, placement: placementFor(e) })
+      },
+      onDragLeave: () => setDrop((d) => (d?.id === id ? null : d)),
+      onDrop: (e: React.DragEvent<HTMLButtonElement>) => {
+        e.preventDefault()
+        const from = e.dataTransfer.getData(DRAG_MIME) || dragging
+        if (from && from !== id) onReorder(from, id, placementFor(e))
+        clear()
+      },
+      onDragEnd: clear,
+    }
+  }
+
   return (
     <>
       {groups.map((group, i) => (
         <React.Fragment key={i}>
           {i > 0 && <Divider dense={dense} />}
           {group.map((item) => (
-            <ActivityBarButton key={item.id} item={item} showAccent={showAccent} side={side} dense={dense} wide={wide} />
+            <ActivityBarButton
+              key={item.id}
+              item={item}
+              showAccent={showAccent}
+              side={side}
+              dense={dense}
+              wide={wide}
+              dragProps={dragPropsFor(item)}
+              dropMarker={drop && item.dragId && drop.id === item.dragId ? drop.placement : undefined}
+            />
           ))}
         </React.Fragment>
       ))}
@@ -170,7 +236,7 @@ function ItemGroups({ groups, side, showAccent, dense, wide }: { groups: Activit
   )
 }
 
-export function ActivityBar({ side, groups, bottomGroups, showAccent = true, dense = false, wide = false, expandOnHover = false, edgeToggle }: ActivityBarProps) {
+export function ActivityBar({ side, groups, bottomGroups, showAccent = true, dense = false, wide = false, expandOnHover = false, edgeToggle, onReorder }: ActivityBarProps) {
   const [hovered, setHovered] = React.useState(false)
   // An inline rename only renders in the wide bar, so keep it open while one
   // is in progress even if the pointer leaves.
@@ -187,7 +253,7 @@ export function ActivityBar({ side, groups, bottomGroups, showAccent = true, den
       ].join(' ')}
     >
       {edgeToggle && <EdgeGrip side={side} toggle={edgeToggle} />}
-      <ItemGroups groups={groups} side={side} showAccent={showAccent} dense={dense} wide={showWide} />
+      <ItemGroups groups={groups} side={side} showAccent={showAccent} dense={dense} wide={showWide} onReorder={onReorder} />
       {bottomGroups && (
         <div className={['flex flex-col mt-auto', showWide ? 'items-stretch' : 'items-center'].join(' ')}>
           <ItemGroups groups={bottomGroups} side={side} showAccent={showAccent} dense={dense} wide={showWide} />
@@ -242,10 +308,10 @@ export function ClaudeIcon({ color = '#D97757' }: { color?: string } = {}) {
   )
 }
 
-export function BridgeIcon() {
+export function BridgeIcon({ color = '#D97757' }: { color?: string } = {}) {
   return (
     <svg width="1.125rem" height="1.125rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="12" y="2" width="14.14" height="14.14" rx="2" transform="rotate(45 12 2)" fill="#D97757" />
+      <rect x="12" y="2" width="14.14" height="14.14" rx="2" transform="rotate(45 12 2)" fill={color} />
     </svg>
   )
 }

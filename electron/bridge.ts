@@ -35,6 +35,9 @@ export interface BridgeSendPayload {
   messages: BridgeMessage[]
   agentMode: boolean
   settings: BridgeSettings
+  // The renderer's agent-session id. Omitted = '' (one default conversation
+  // per window) — what the pre-multi-session callers and tests send.
+  sessionId?: string
 }
 
 export interface BridgeStoredSettings {
@@ -76,6 +79,14 @@ export type BridgeEvent =
   | { type: 'new-turn' }
   | { type: 'done' }
   | { type: 'error'; message: string }
+
+export type BridgeSessionEvent = BridgeEvent & { sessionId?: string }
+
+// One in-flight conversation per (window, agent session) — several Bridge /
+// llama sessions in the same window stream concurrently.
+function convKey(winId: number, sessionId: string | undefined): string {
+  return `${winId}:${sessionId ?? ''}`
+}
 
 interface StreamChunkDelta {
   content?: string
@@ -371,9 +382,13 @@ interface ToolExecutionResult {
 }
 
 export class BridgeManager {
-  private controllerByWindow = new Map<number, AbortController>()
-  private pendingApprovalsByWindow = new Map<number, Map<string, (approved: boolean) => void>>()
-  private cancelledByWindow = new Map<number, boolean>()
+  private controllerByConv = new Map<string, AbortController>()
+  private pendingApprovalsByConv = new Map<string, Map<string, (approved: boolean) => void>>()
+  // The live run per conversation key. A run is live only while its token is
+  // the one stored here; cancelConv deletes it and a new send replaces it, so a
+  // stale run suspended at an await (slow tool, fetch, approval) can't resurrect
+  // into the next run's transcript just because the key was reused.
+  private runByConv = new Map<string, symbol>()
 
   registerHandlers(): void {
     ipcMain.on('bridge:send', (event, payload: BridgeSendPayload) => {
@@ -385,22 +400,22 @@ export class BridgeManager {
       return this.send(win, payload)
     })
 
-    ipcMain.on('bridge:cancel', (event) => {
+    ipcMain.on('bridge:cancel', (event, sessionId?: string) => {
       const win = BrowserWindow.fromWebContents(event.sender)
       if (!win) return
-      this.cancel(win)
+      this.cancel(win, sessionId)
     })
 
-    ipcMain.on('bridge:approve', (event, toolCallId: string) => {
+    ipcMain.on('bridge:approve', (event, toolCallId: string, sessionId?: string) => {
       const win = BrowserWindow.fromWebContents(event.sender)
       if (!win) return
-      this.approve(win, toolCallId)
+      this.approve(win, toolCallId, sessionId)
     })
 
-    ipcMain.on('bridge:reject', (event, toolCallId: string) => {
+    ipcMain.on('bridge:reject', (event, toolCallId: string, sessionId?: string) => {
       const win = BrowserWindow.fromWebContents(event.sender)
       if (!win) return
-      this.reject(win, toolCallId)
+      this.reject(win, toolCallId, sessionId)
     })
 
     ipcMain.handle('bridge:testConnection', (_event, settings: BridgeSettings) => this.testConnection(settings))
@@ -416,26 +431,31 @@ export class BridgeManager {
     return this.runConversation(win, payload)
   }
 
-  cancel(win: BrowserWindow): void {
-    this.controllerByWindow.get(win.id)?.abort()
-    this.cancelledByWindow.set(win.id, true)
-    const approvals = this.approvalsFor(win.id)
-    for (const resolve of approvals.values()) {
-      resolve(false)
-    }
-    approvals.clear()
+  cancel(win: BrowserWindow, sessionId?: string): void {
+    this.cancelConv(convKey(win.id, sessionId))
   }
 
-  approve(win: BrowserWindow, toolCallId: string): void {
-    const approvals = this.approvalsFor(win.id)
+  approve(win: BrowserWindow, toolCallId: string, sessionId?: string): void {
+    const approvals = this.approvalsFor(convKey(win.id, sessionId))
     approvals.get(toolCallId)?.(true)
     approvals.delete(toolCallId)
   }
 
-  reject(win: BrowserWindow, toolCallId: string): void {
-    const approvals = this.approvalsFor(win.id)
+  reject(win: BrowserWindow, toolCallId: string, sessionId?: string): void {
+    const approvals = this.approvalsFor(convKey(win.id, sessionId))
     approvals.get(toolCallId)?.(false)
     approvals.delete(toolCallId)
+  }
+
+  private cancelConv(key: string): void {
+    // Drop the run token before abort()/resolving approvals so the code those
+    // wake up already sees itself as not live.
+    this.runByConv.delete(key)
+    this.controllerByConv.get(key)?.abort()
+    this.controllerByConv.delete(key)
+    const approvals = this.approvalsFor(key)
+    for (const resolve of approvals.values()) resolve(false)
+    approvals.clear()
   }
 
   async testConnection(settings: BridgeSettings): Promise<{ ok: boolean; error?: string }> {
@@ -450,17 +470,19 @@ export class BridgeManager {
     }
   }
 
-  private approvalsFor(winId: number): Map<string, (approved: boolean) => void> {
-    let approvals = this.pendingApprovalsByWindow.get(winId)
+  private approvalsFor(key: string): Map<string, (approved: boolean) => void> {
+    let approvals = this.pendingApprovalsByConv.get(key)
     if (!approvals) {
       approvals = new Map()
-      this.pendingApprovalsByWindow.set(winId, approvals)
+      this.pendingApprovalsByConv.set(key, approvals)
     }
     return approvals
   }
 
-  private emit(win: BrowserWindow, event: BridgeEvent): void {
-    if (!win.isDestroyed()) win.webContents.send('bridge:event', event)
+  private emit(win: BrowserWindow, sessionId: string | undefined, event: BridgeEvent): void {
+    // sessionId is spread in as-is: undefined for pre-multi-session callers,
+    // which toEqual/the renderer treat the same as absent.
+    if (!win.isDestroyed()) win.webContents.send('bridge:event', { ...event, sessionId } satisfies BridgeSessionEvent)
   }
 
   private async runConversation(win: BrowserWindow, payload: BridgeSendPayload): Promise<void> {
@@ -468,21 +490,50 @@ export class BridgeManager {
     // conversation (including inside streamOneCompletion/awaitApproval) keys off
     // the window identity as it was when the conversation started — not a
     // possibly-stale `win.id` read after the window has been disposed.
-    const winId = win.id
-    this.cancelledByWindow.set(winId, false)
-    const { cwd, settings, agentMode } = payload
+    const { cwd, settings, agentMode, sessionId } = payload
+    const key = convKey(win.id, sessionId)
+    // A new send supersedes any stale run still suspended on this key.
+    this.cancelConv(key)
+    const run = Symbol('bridge-run')
+    this.runByConv.set(key, run)
+    const live = () => this.runByConv.get(key) === run
+    const emit = (event: BridgeEvent) => {
+      if (live()) this.emit(win, sessionId, event)
+    }
+
     const messages = [...payload.messages]
     if (messages[0]?.role !== 'system') {
       messages.unshift({ role: 'system', content: await buildSystemPrompt(cwd) })
     }
+    if (!live()) return
 
+    try {
+      await this.runRounds(key, live, emit, messages, settings, agentMode, cwd)
+    } finally {
+      if (live()) {
+        this.runByConv.delete(key)
+        this.controllerByConv.delete(key)
+      }
+    }
+  }
+
+  private async runRounds(
+    key: string,
+    live: () => boolean,
+    emit: (event: BridgeEvent) => void,
+    messages: BridgeMessage[],
+    settings: BridgeSettings,
+    agentMode: boolean,
+    cwd: string
+  ): Promise<void> {
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      if (round > 0) this.emit(win, { type: 'new-turn' })
-      const streamResult = await this.streamOneCompletion(win, winId, messages, settings)
-      if (streamResult === null) return // error or abort already emitted
+      if (!live()) return
+      if (round > 0) emit({ type: 'new-turn' })
+      const streamResult = await this.streamOneCompletion(key, live, emit, messages, settings)
+      if (streamResult === null || !live()) return // error/abort already emitted (or run superseded)
 
       if (streamResult.toolCalls.length === 0) {
-        this.emit(win, { type: 'done' })
+        emit({ type: 'done' })
         return
       }
 
@@ -497,28 +548,36 @@ export class BridgeManager {
       })
 
       for (const call of streamResult.toolCalls) {
-        this.emit(win, { type: 'tool-call', id: call.id, name: call.name, args: call.args })
-        const approved = agentMode ? true : await this.awaitApproval(win, winId, call)
+        if (!live()) return
+        emit({ type: 'tool-call', id: call.id, name: call.name, args: call.args })
+        const approved = agentMode ? true : await this.awaitApproval(key, live, emit, call)
+        // Cancelled (or superseded) while awaiting approval: run no tool and
+        // report nothing — the renderer settles its own pending tool calls on Stop.
+        if (!live()) return
         const execResult = approved
           ? await this.executeTool(call.name, call.args, cwd)
           : { result: 'Rejected by user.', isError: true }
 
-        this.emit(win, { type: 'tool-result', id: call.id, result: execResult.result, isError: execResult.isError })
+        emit({ type: 'tool-result', id: call.id, result: execResult.result, isError: execResult.isError })
         messages.push({ role: 'tool', tool_call_id: call.id, content: execResult.result })
 
-        if (this.cancelledByWindow.get(winId)) return
+        if (!live()) return
       }
-
-      if (this.cancelledByWindow.get(winId)) return
     }
 
-    this.emit(win, { type: 'error', message: `Bridge hit the ${MAX_TOOL_ROUNDS} tool-call round limit for this turn` })
+    emit({ type: 'error', message: `Bridge hit the ${MAX_TOOL_ROUNDS} tool-call round limit for this turn` })
   }
 
-  private awaitApproval(win: BrowserWindow, winId: number, call: PendingToolCall): Promise<boolean> {
-    this.emit(win, { type: 'need-approval', id: call.id, name: call.name, args: call.args })
+  private awaitApproval(
+    key: string,
+    live: () => boolean,
+    emit: (event: BridgeEvent) => void,
+    call: PendingToolCall
+  ): Promise<boolean> {
+    if (!live()) return Promise.resolve(false)
+    emit({ type: 'need-approval', id: call.id, name: call.name, args: call.args })
     return new Promise((resolve) => {
-      this.approvalsFor(winId).set(call.id, resolve)
+      this.approvalsFor(key).set(call.id, resolve)
     })
   }
 
@@ -650,13 +709,15 @@ export class BridgeManager {
   }
 
   private async streamOneCompletion(
-    win: BrowserWindow,
-    winId: number,
+    key: string,
+    live: () => boolean,
+    emit: (event: BridgeEvent) => void,
     messages: BridgeMessage[],
     settings: BridgeSettings
   ): Promise<{ content: string; toolCalls: PendingToolCall[] } | null> {
+    if (!live()) return null
     const controller = new AbortController()
-    this.controllerByWindow.set(winId, controller)
+    this.controllerByConv.set(key, controller)
 
     let response: Response
     try {
@@ -672,17 +733,21 @@ export class BridgeManager {
         signal: controller.signal,
       })
     } catch (err) {
-      this.emit(win, { type: 'error', message: `Bridge request failed: ${(err as Error).message}` })
+      // An abort (Stop/Clear/supersede) is not a failure worth reporting —
+      // and `emit` already drops anything once the run is no longer live.
+      if ((err as Error).name !== 'AbortError') {
+        emit({ type: 'error', message: `Bridge request failed: ${(err as Error).message}` })
+      }
       return null
     }
 
     if (!response.ok) {
-      this.emit(win, { type: 'error', message: `Bridge request failed: ${response.status}` })
+      emit({ type: 'error', message: `Bridge request failed: ${response.status}` })
       return null
     }
 
     if (!response.body) {
-      this.emit(win, { type: 'error', message: 'Bridge response had no body' })
+      emit({ type: 'error', message: 'Bridge response had no body' })
       return null
     }
 
@@ -707,7 +772,7 @@ export class BridgeManager {
           const delta = chunk.choices[0]?.delta
           if (delta?.content) {
             content += delta.content
-            this.emit(win, { type: 'text-delta', delta: delta.content })
+            emit({ type: 'text-delta', delta: delta.content })
           }
           if (delta?.tool_calls) {
             for (const tc of delta.tool_calls) {
@@ -722,7 +787,7 @@ export class BridgeManager {
       }
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
-        this.emit(win, { type: 'error', message: `Bridge stream error: ${(err as Error).message}` })
+        emit({ type: 'error', message: `Bridge stream error: ${(err as Error).message}` })
       }
       return null
     }
@@ -741,14 +806,14 @@ export class BridgeManager {
     const stripped = content.split('\n').filter(l => !l.trimStart().startsWith('[Calling')).join('\n').trim()
     if (stripped !== content) {
       content = stripped
-      this.emit(win, { type: 'content-replace', content })
+      emit({ type: 'content-replace', content })
     }
 
     // Fallback: model emitted tool call as plain-text JSON instead of via tool_calls delta
     if (toolCalls.length === 0 && content) {
       const { toolCalls: textCalls, cleanedContent } = extractTextToolCalls(content)
       if (textCalls.length > 0) {
-        this.emit(win, { type: 'content-replace', content: cleanedContent })
+        emit({ type: 'content-replace', content: cleanedContent })
         return { content: cleanedContent, toolCalls: textCalls }
       }
     }
@@ -757,21 +822,19 @@ export class BridgeManager {
   }
 
   disposeWindow(winId: number): void {
-    this.controllerByWindow.get(winId)?.abort()
-    this.controllerByWindow.delete(winId)
-    const approvals = this.pendingApprovalsByWindow.get(winId)
-    if (approvals) {
-      for (const resolve of approvals.values()) {
-        resolve(false)
-      }
-      approvals.clear()
+    const prefix = `${winId}:`
+    const keys = new Set([
+      ...this.controllerByConv.keys(),
+      ...this.pendingApprovalsByConv.keys(),
+      ...this.runByConv.keys(),
+    ])
+    for (const key of keys) {
+      if (!key.startsWith(prefix)) continue
+      // cancelConv deletes the run token, so any runConversation loop still
+      // suspended at an await for this window wakes up not-live and stops.
+      this.cancelConv(key)
+      this.controllerByConv.delete(key)
+      this.pendingApprovalsByConv.delete(key)
     }
-    this.pendingApprovalsByWindow.delete(winId)
-    // Set (not delete) so any `runConversation` loop still suspended at an
-    // `await` for this window sees cancellation as true rather than
-    // `undefined` (falsy) — a `delete` here would let it keep executing tool
-    // calls (and would let `streamOneCompletion` silently repopulate
-    // controllerByWindow) on behalf of a window that no longer exists.
-    this.cancelledByWindow.set(winId, true)
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 import * as monaco from 'monaco-editor'
 import { ImperativePanelHandle, Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
@@ -26,11 +26,7 @@ import {
   SettingsIcon,
   TerminalIcon,
   BrowserIcon,
-  ClaudeIcon,
-  BridgeIcon,
-  NewSessionIcon,
   NewSessionPlusIcon,
-  PreviousSessionIcon,
   CompactIcon,
   ClearIcon,
   UsageIcon,
@@ -39,7 +35,8 @@ import {
   NotesIcon,
   LlamaIcon,
 } from './components/ActivityBar/ActivityBar'
-import { ClaudeStatusIcon } from './components/ActivityBar/ClaudeStatusIcon'
+import { SessionIcon } from './components/ActivityBar/SessionIcon'
+import { NewSessionMenu } from './components/ActivityBar/NewSessionMenu'
 import { ClaudeSessionContextMenu } from './components/ActivityBar/ClaudeSessionContextMenu'
 import { sessionDisplayName } from './lib/claudeSessionName'
 import { SettingsPanel } from './components/Settings/SettingsPanel'
@@ -56,7 +53,7 @@ import { RecentProjectsPalette } from './components/Search/RecentProjectsPalette
 import { SearchPanel } from './components/Search/SearchPanel'
 import { useFileStore } from './stores/fileStore'
 import { useGeneralSettingsStore } from './stores/generalSettingsStore'
-import { useClaudeStore } from './stores/claudeStore'
+import { useClaudeStore, selectActiveSession } from './stores/claudeStore'
 import { useBridgeStore } from './stores/bridgeStore'
 import { useBridgeSettingsStore } from './stores/bridgeSettingsStore'
 import { useModelSettingsStore } from './stores/modelSettingsStore'
@@ -94,6 +91,8 @@ import { useTodoSettingsStore } from './stores/todoSettingsStore'
 import { useNotesSettingsStore } from './stores/notesSettingsStore'
 import { useLlamaSettingsStore } from './stores/llamaSettingsStore'
 import { useLlamaModelsStore } from './stores/llamaModelsStore'
+import { useLlamaStore } from './stores/llamaStore'
+import { availableAgents, agentLabel, isLlamaKind, llamaModelId } from './lib/agentKinds'
 import { useRunningLlamaCount } from './hooks/useRunningLlamaCount'
 import { useLlamaAvailability } from './hooks/useLlamaAvailability'
 import { usePanelRequests } from './hooks/usePanelRequests'
@@ -135,17 +134,6 @@ function DiscardScratchPromptHost() {
   )
 }
 
-const ASSISTANT_OPTIONS: Array<{ id: AssistantKind; label: string }> = [
-  { id: 'claude', label: 'Claude Code' },
-  { id: 'bridge', label: 'Bridge' },
-]
-
-function assistantIcon(kind: AssistantKind) {
-  if (kind === 'claude') return <ClaudeIcon />
-  if (kind.startsWith('llama:')) return <LlamaIcon />
-  return <BridgeIcon />
-}
-
 const JIRA_BROWSER_ID = 'jira-external'
 const GIT_REMOTE_BROWSER_ID = 'git-remote-external'
 // Must match CLAUDE_TAB_ID in electron/browserViews.ts — same reserved id,
@@ -169,21 +157,25 @@ export default function App() {
   const projectRoot = useFileStore((s) => s.projectRoot)
   const selectedRepo = useGitReposStore((s) => s.selectedRepo)
   const refreshGitStatus = useGitStore((s) => s.refreshStatus)
-  const assistant = useClaudeStore((s) => s.assistant)
   const instances = useClaudeStore((s) => s.instances)
   const activeInstanceId = useClaudeStore((s) => s.activeInstanceId)
   const usageOpen = useClaudeStore((s) => s.usageOpen)
   const costOpen = useClaudeStore((s) => s.costOpen)
-  const setAssistant = useClaudeStore((s) => s.setAssistant)
   const chatVisible = useClaudeStore((s) => s.chatVisible)
   const enabledModels = useModelSettingsStore((s) => s.enabled)
   const llamaModels = useLlamaModelsStore((s) => s.models)
-  const visibleAssistantOptions = [
-    ...ASSISTANT_OPTIONS.filter((option) => enabledModels[option.id]),
-    ...llamaModels
-      .filter((m) => m.enabled)
-      .map((m) => ({ id: `llama:${m.id}`, label: m.displayName || m.alias || 'Llama Model' })),
-  ]
+  const llamaRuns = useLlamaStore((s) => s.runs)
+  const activeSession = useClaudeStore(selectActiveSession)
+  const hasClaudeSession = instances.some((inst) => inst.kind === 'claude')
+  const activeIsClaude = activeSession?.kind === 'claude'
+  const [newSessionMenu, setNewSessionMenu] = useState<DOMRect | null>(null)
+  // Stable identity: NewSessionMenu's window listeners depend on onClose, so an
+  // inline arrow would tear down and re-add them on every App render.
+  const closeNewSessionMenu = useCallback(() => setNewSessionMenu(null), [])
+  const agentOptions = availableAgents(enabledModels, llamaModels).map((o) => ({
+    ...o,
+    running: isLlamaKind(o.kind) ? Boolean(llamaRuns[llamaModelId(o.kind)]?.running) : undefined,
+  }))
   const repoName = projectRoot ? projectRoot.split('/').pop() : null
   const [leftPanel, setLeftPanel] = useState<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'llama' | 'settings' | null>('files')
   const lastLeftPanelRef = useRef<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'llama' | 'settings'>('files')
@@ -197,8 +189,7 @@ export default function App() {
   // size changes and expand/collapse just re-apply the saved rem width, so a
   // temporarily small window can't permanently shrink the panels.
   const draggingRef = useRef(false)
-  const [assistantMenuOpen, setAssistantMenuOpen] = useState(false)
-  const [sessionMenu, setSessionMenu] = useState<{ x: number; y: number; instanceId: string } | null>(null)
+  const [sessionMenu, setSessionMenu] = useState<{ x: number; y: number; instanceId: string; kind: AssistantKind } | null>(null)
   const [renamingInstanceId, setRenamingInstanceId] = useState<string | null>(null)
   const titleByInstance = useClaudeStore((s) => s.titleByInstance)
   const agentBarCollapsed = useClaudeStore((s) => s.agentBarCollapsed)
@@ -212,9 +203,6 @@ export default function App() {
   const branchPaletteOpen = useSearchStore((s) => s.branchPaletteOpen)
   const chatPanelRef = useRef<ImperativePanelHandle>(null)
   const sidebarPanelRef = useRef<ImperativePanelHandle>(null)
-  const assistantLabel = visibleAssistantOptions.find((o) => o.id === assistant)?.label ?? 'Claude Code'
-  const newSessionTitle = assistant === 'claude' ? 'New Claude Session' : 'New Session'
-  const previousSessionTitle = assistant === 'claude' ? 'Continue Claude Session' : 'Restore Previous Session'
   // useActiveRepo() matches what the Git panel itself actually shows: a
   // single discovered repo has no open/close chrome, so it always counts
   // (VIDE-18/open-close); in a multi-repo project it's the one repo whose
@@ -406,21 +394,6 @@ export default function App() {
   }, [mobileDefaultMode])
 
   useEffect(() => {
-    if (!assistantMenuOpen) return
-
-    const close = () => setAssistantMenuOpen(false)
-    const closeOnEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setAssistantMenuOpen(false)
-    }
-    window.addEventListener('click', close)
-    window.addEventListener('keydown', closeOnEscape)
-    return () => {
-      window.removeEventListener('click', close)
-      window.removeEventListener('keydown', closeOnEscape)
-    }
-  }, [assistantMenuOpen])
-
-  useEffect(() => {
     if (chatVisible) {
       chatPanelRef.current?.expand()
       chatPanelRef.current?.resize(chatPercent)
@@ -453,7 +426,7 @@ export default function App() {
     let cancelled = false
     window.api.sessionLoad(projectRoot).then((data) => {
       if (cancelled) return
-      useClaudeStore.getState().loadInstancesFromSession(data?.claudeInstances)
+      useClaudeStore.getState().loadInstancesFromSession(data)
     })
     return () => { cancelled = true }
   }, [projectRoot])
@@ -500,13 +473,6 @@ export default function App() {
   useEffect(() => {
     if (searchFocusTick > 0 && useFileStore.getState().projectRoot) setLeftPanel('search')
   }, [searchFocusTick])
-
-  useEffect(() => {
-    const isValid = visibleAssistantOptions.some((o) => o.id === assistant)
-    if (isValid) return
-    const fallback = visibleAssistantOptions[0]
-    if (fallback) setAssistant(fallback.id)
-  }, [visibleAssistantOptions, assistant, setAssistant])
 
   useEffect(() => {
     // Pull (not push): ask main whether this window was opened with a
@@ -917,50 +883,6 @@ export default function App() {
           onClick={(e) => e.stopPropagation()}
         >
           {memoryUsageVisible && memoryUsage && <MemoryPill usage={memoryUsage} />}
-          <button
-            type="button"
-            onClick={() => setAssistantMenuOpen((open) => !open)}
-            aria-label="Assistant"
-            aria-expanded={assistantMenuOpen}
-            className="flex h-6 min-w-[126px] items-center justify-between gap-2 rounded border border-border bg-panel px-2 text-xs font-medium text-fg outline-none transition-colors hover:border-fg-subtle focus:border-accent"
-          >
-            <span className="flex items-center gap-1.5">
-              <span className="text-fg-muted">
-                {assistantIcon(assistant)}
-              </span>
-              {assistantLabel}
-            </span>
-            <ChevronDownIcon open={assistantMenuOpen} />
-          </button>
-          {assistantMenuOpen && (
-            <div className="fixed right-3 top-9 z-[100] w-40 rounded border border-border bg-sidebar p-1 shadow-2xl shadow-black/50">
-              {visibleAssistantOptions.map((option) => {
-                const selected = option.id === assistant
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => {
-                      setAssistant(option.id)
-                      setAssistantMenuOpen(false)
-                    }}
-                    className={[
-                      'flex h-8 w-full items-center gap-2 rounded px-2 text-left text-xs transition-colors',
-                      selected
-                        ? 'bg-accent/20 text-fg'
-                        : 'text-fg-muted hover:bg-white/5 hover:text-fg',
-                    ].join(' ')}
-                  >
-                    <span className={selected ? 'text-fg' : 'text-fg-subtle'}>
-                      {assistantIcon(option.id)}
-                    </span>
-                    <span className="flex-1">{option.label}</span>
-                    {selected && <CheckIcon />}
-                  </button>
-                )
-              })}
-            </div>
-          )}
         </div>
       </div>
       <div className="flex flex-1 min-h-0">
@@ -1132,164 +1054,128 @@ export default function App() {
           side={mirrored ? 'left' : 'right'}
           showAccent={false}
           dense
-          wide={assistant === 'claude' && !agentBarHover && !agentBarCollapsed}
-          expandOnHover={assistant === 'claude' && agentBarHover}
-          edgeToggle={assistant === 'claude' && !agentBarHover ? {
+          wide={!agentBarHover && !agentBarCollapsed}
+          expandOnHover={agentBarHover}
+          edgeToggle={!agentBarHover ? {
             label: agentBarCollapsed ? 'Expand session names' : 'Collapse session names',
             onClick: () => useClaudeStore.getState().toggleAgentBarCollapsed(),
           } : undefined}
           groups={[
             [
-              ...(assistant === 'claude'
-                ? instances.map((inst, index) => ({
-                    id: inst.id,
-                    icon: <ClaudeStatusIcon instanceId={inst.id} color={inst.hue} />,
-                    title: assistantLabel,
-                    label: sessionDisplayName(inst, titleByInstance[inst.id], index),
-                    rename: renamingInstanceId === inst.id ? {
-                      initial: sessionDisplayName(inst, titleByInstance[inst.id], index),
-                      onCommit: (value: string) => {
-                        // Committing the unchanged auto title/fallback shouldn't pin it as
-                        // a custom name — it would stop following Claude's live title.
-                        const auto = sessionDisplayName({}, titleByInstance[inst.id], index)
-                        if (projectRoot && value.trim() !== auto) {
-                          useClaudeStore.getState().renameInstance(projectRoot, inst.id, value)
-                        }
-                        setRenamingInstanceId(null)
-                      },
-                      onCancel: () => setRenamingInstanceId(null),
-                    } : undefined,
-                    active: chatVisible && inst.id === activeInstanceId,
-                    disabled: !projectRoot,
-                    onClick: () => {
-                      if (inst.id !== activeInstanceId) {
-                        useClaudeStore.getState().setActiveInstance(inst.id)
-                        useClaudeStore.getState().setChatVisible(true)
-                      } else {
-                        useClaudeStore.getState().toggleChatVisible()
-                      }
-                    },
-                    onContextMenu: (e: MouseEvent) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      setSessionMenu({ x: e.clientX, y: e.clientY, instanceId: inst.id })
-                    },
-                  }))
-                : [{
-                    id: assistant,
-                    icon: assistantIcon(assistant),
-                    title: assistantLabel,
-                    active: chatVisible,
-                    disabled: !projectRoot,
-                    onClick: () => useClaudeStore.getState().toggleChatVisible(),
-                  }]),
-              ...(assistant === 'claude' ? [{
+              ...instances.map((inst, index) => ({
+                id: inst.id,
+                dragId: inst.id,
+                icon: <SessionIcon session={inst} />,
+                title: agentLabel(inst.kind, llamaModels),
+                label: sessionDisplayName(inst, titleByInstance[inst.id], index),
+                rename: renamingInstanceId === inst.id ? {
+                  initial: sessionDisplayName(inst, titleByInstance[inst.id], index),
+                  onCommit: (value: string) => {
+                    // Committing the unchanged auto title/fallback shouldn't pin it as
+                    // a custom name — it would stop following Claude's live title.
+                    const auto = sessionDisplayName({}, titleByInstance[inst.id], index)
+                    if (projectRoot && value.trim() !== auto) {
+                      useClaudeStore.getState().renameInstance(projectRoot, inst.id, value)
+                    }
+                    setRenamingInstanceId(null)
+                  },
+                  onCancel: () => setRenamingInstanceId(null),
+                } : undefined,
+                active: chatVisible && inst.id === activeInstanceId,
+                disabled: !projectRoot,
+                onClick: () => {
+                  if (inst.id !== activeInstanceId) {
+                    useClaudeStore.getState().setActiveInstance(inst.id)
+                    useClaudeStore.getState().setChatVisible(true)
+                  } else {
+                    useClaudeStore.getState().toggleChatVisible()
+                  }
+                },
+                onContextMenu: (e: MouseEvent) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setSessionMenu({ x: e.clientX, y: e.clientY, instanceId: inst.id, kind: inst.kind })
+                },
+              })),
+              {
                 id: 'new-session',
                 icon: <NewSessionPlusIcon />,
-                title: newSessionTitle,
+                title: 'New Session',
                 label: 'New session',
-                active: false,
+                active: newSessionMenu !== null,
                 disabled: !projectRoot,
-                onClick: () => {
-                  if (!projectRoot) return
-                  useClaudeStore.getState().newSession(projectRoot)
-                  useClaudeStore.getState().setChatVisible(true)
+                onClick: (e: MouseEvent<HTMLButtonElement>) => {
+                  e.stopPropagation()
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  setNewSessionMenu((open) => (open ? null : rect))
                 },
-              }] : []),
+              },
             ],
-            ...(assistant !== 'claude' ? [[
-              {
-                id: 'new-session',
-                icon: <NewSessionIcon />,
-                title: newSessionTitle,
-                active: false,
-                disabled: !projectRoot,
-                onClick: () => {
-                  if (!projectRoot) return
-                  if (assistant === 'bridge') useBridgeStore.getState().newSession()
-                  else useClaudeStore.getState().newSession(projectRoot)
-                },
-              },
-              {
-                id: 'previous-session',
-                icon: <PreviousSessionIcon />,
-                title: previousSessionTitle,
-                active: false,
-                disabled: !projectRoot,
-                onClick: () => {
-                  if (!projectRoot) return
-                  if (assistant === 'bridge') useBridgeStore.getState().openSessionPicker()
-                  else useClaudeStore.getState().previousSession(projectRoot)
-                },
-              },
-            ]] : []),
           ]}
-          bottomGroups={assistant === 'claude'
-            ? [
-              [], // empty leading group so ItemGroups renders a divider above Compact
-              // Previous/Resume Session moved to the right-click menu on each
-              // session icon (see ClaudeSessionContextMenu) now that there can
-              // be more than one session — a toolbar button can only ever act
-              // on "the" active one, which stopped being an unambiguous concept.
-              [
-                {
-                  id: 'compact',
-                  icon: <CompactIcon />,
-                  title: 'Compact',
-                  active: false,
-                  // Nothing to compact/clear/report on with every session
-                  // closed — same reasoning as the ClaudeStore functions
-                  // below all needing at least one instance to act on.
-                  disabled: !projectRoot || instances.length === 0,
-                  onClick: () => useClaudeStore.getState().compact(),
-                },
-                {
-                  id: 'clear',
-                  icon: <ClearIcon />,
-                  title: 'Clear',
-                  active: false,
-                  disabled: !projectRoot || instances.length === 0,
-                  onClick: () => useClaudeStore.getState().clearContext(),
-                },
-              ],
-              [
-                ...(notificationSoundEnabled ? [{
-                  id: 'mute-notification-sound',
-                  icon: notificationSoundMuted
-                    ? <span className="text-accent"><MutedSpeakerIcon /></span>
-                    : <SpeakerIcon />,
-                  title: notificationSoundMuted ? 'Unmute completion sound' : 'Mute completion sound',
-                  active: false,
-                  disabled: !projectRoot || instances.length === 0,
-                  onClick: () => setNotificationSoundMuted(!notificationSoundMuted),
-                }] : []),
-                {
-                  id: 'usage',
-                  icon: <UsageIcon />,
-                  title: 'Usage',
-                  active: usageOpen,
-                  disabled: !projectRoot || instances.length === 0,
-                  onClick: () => useClaudeStore.getState().usage(),
-                },
-                {
-                  id: 'cost',
-                  icon: <CostIcon />,
-                  title: 'Cost',
-                  active: costOpen,
-                  disabled: !projectRoot || instances.length === 0,
-                  onClick: () => useClaudeStore.getState().cost(),
-                },
-                {
-                  id: 'usage-graph',
-                  icon: <UsageGraphIcon />,
-                  title: 'Usage Graph',
-                  active: activeTabPath === USAGE_GRAPH_TAB_PATH,
-                  disabled: !projectRoot || instances.length === 0,
-                  onClick: () => useEditorStore.getState().openTab({ path: USAGE_GRAPH_TAB_PATH, content: '', dirty: false }),
-                },
-              ],
-            ]
-            : []}
+          onReorder={(dragId, targetId, placement) => {
+            if (projectRoot) useClaudeStore.getState().moveInstance(projectRoot, dragId, targetId, placement)
+          }}
+          bottomGroups={[
+            [], // empty leading group so ItemGroups renders a divider above Compact
+            // Previous/Resume Session live in the right-click menu on each
+            // session icon (see ClaudeSessionContextMenu) — a toolbar button
+            // can only act on "the" active session. Compact/Usage/Cost are
+            // Claude CLI commands, so they only enable on a Claude session.
+            [
+              {
+                id: 'compact',
+                icon: <CompactIcon />,
+                title: activeSession && !activeIsClaude ? 'Compact (Claude only)' : 'Compact',
+                active: false,
+                disabled: !projectRoot || !activeIsClaude,
+                onClick: () => useClaudeStore.getState().compact(),
+              },
+              {
+                id: 'clear',
+                icon: <ClearIcon />,
+                title: 'Clear',
+                active: false,
+                disabled: !projectRoot || !activeSession,
+                onClick: () => useClaudeStore.getState().clearContext(),
+              },
+            ],
+            [
+              ...(notificationSoundEnabled ? [{
+                id: 'mute-notification-sound',
+                icon: notificationSoundMuted
+                  ? <span className="text-accent"><MutedSpeakerIcon /></span>
+                  : <SpeakerIcon />,
+                title: notificationSoundMuted ? 'Unmute completion sound' : 'Mute completion sound',
+                active: false,
+                disabled: !projectRoot || !hasClaudeSession,
+                onClick: () => setNotificationSoundMuted(!notificationSoundMuted),
+              }] : []),
+              {
+                id: 'usage',
+                icon: <UsageIcon />,
+                title: activeSession && !activeIsClaude ? 'Usage (Claude only)' : 'Usage',
+                active: usageOpen,
+                disabled: !projectRoot || !activeIsClaude,
+                onClick: () => useClaudeStore.getState().usage(),
+              },
+              {
+                id: 'cost',
+                icon: <CostIcon />,
+                title: activeSession && !activeIsClaude ? 'Cost (Claude only)' : 'Cost',
+                active: costOpen,
+                disabled: !projectRoot || !activeIsClaude,
+                onClick: () => useClaudeStore.getState().cost(),
+              },
+              {
+                id: 'usage-graph',
+                icon: <UsageGraphIcon />,
+                title: 'Usage Graph',
+                active: activeTabPath === USAGE_GRAPH_TAB_PATH,
+                disabled: !projectRoot || !hasClaudeSession,
+                onClick: () => useEditorStore.getState().openTab({ path: USAGE_GRAPH_TAB_PATH, content: '', dirty: false }),
+              },
+            ],
+          ]}
         />
           )
 
@@ -1336,6 +1222,19 @@ export default function App() {
       )}
       <GitPromptHost />
       <DiscardScratchPromptHost />
+      {newSessionMenu && (
+        <NewSessionMenu
+          anchor={newSessionMenu}
+          side={mirrored ? 'left' : 'right'}
+          options={agentOptions}
+          onPick={(kind) => {
+            if (!projectRoot) return
+            useClaudeStore.getState().newSession(projectRoot, kind)
+            useClaudeStore.getState().setChatVisible(true)
+          }}
+          onClose={closeNewSessionMenu}
+        />
+      )}
       {sessionMenu && (
         <ClaudeSessionContextMenu
           x={sessionMenu.x}
@@ -1346,6 +1245,7 @@ export default function App() {
             if (!agentBarHover && useClaudeStore.getState().agentBarCollapsed) useClaudeStore.getState().toggleAgentBarCollapsed()
             setRenamingInstanceId(sessionMenu.instanceId)
           }}
+          kind={sessionMenu.kind}
           onContinuePreviousSession={() => {
             if (!projectRoot) return
             useClaudeStore.getState().setActiveInstance(sessionMenu.instanceId)
@@ -1357,6 +1257,11 @@ export default function App() {
             useClaudeStore.getState().setActiveInstance(sessionMenu.instanceId)
             useClaudeStore.getState().setChatVisible(true)
             useClaudeStore.getState().resumeSession(projectRoot)
+          }}
+          onRestorePrevious={() => {
+            useClaudeStore.getState().setActiveInstance(sessionMenu.instanceId)
+            useClaudeStore.getState().setChatVisible(true)
+            useBridgeStore.getState().restorePrevious(sessionMenu.instanceId)
           }}
           onCompact={() => {
             useClaudeStore.getState().setActiveInstance(sessionMenu.instanceId)
@@ -1488,36 +1393,6 @@ function MutedSpeakerIcon() {
     >
       <path d="M4 9.5V14.5H8L13 18.5V5.5L8 9.5H4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       <path d="M16.5 9.5L21 14M21 9.5L16.5 14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function ChevronDownIcon({ open }: { open: boolean }) {
-  return (
-    <svg
-      className={['shrink-0 transition-transform', open ? 'rotate-180' : ''].join(' ')}
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function CheckIcon() {
-  return (
-    <svg
-      className="shrink-0 text-accent"
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path d="M5 12.5L10 17.5L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
