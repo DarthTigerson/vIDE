@@ -65,7 +65,7 @@ function ActivityBarButton({ item, showAccent, side, dense, wide }: { item: Acti
       key={item.id}
       onClick={item.disabled ? undefined : item.onClick}
       onContextMenu={item.disabled ? undefined : item.onContextMenu}
-      aria-label={showLabel ? item.label : item.title}
+      aria-label={item.label ?? item.title}
       disabled={item.disabled}
       className={[
         'relative flex items-center transition-colors group disabled:cursor-not-allowed',
@@ -116,7 +116,7 @@ function ActivityBarButton({ item, showAccent, side, dense, wide }: { item: Acti
           side === 'left' ? 'left-full ml-2' : 'right-full mr-2',
         ].join(' ')}
       >
-        {showLabel ? item.label : item.title}
+        {item.label ?? item.title}
       </span>
     </button>
   )
@@ -216,6 +216,22 @@ export function NewSessionPlusIcon() {
   return (
     <svg width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+// Double chevron for the agent bar's collapse toggle; points the way the
+// bar will move (toward its outer edge to collapse, inward to expand).
+export function ChevronsIcon({ direction }: { direction: 'left' | 'right' }) {
+  return (
+    <svg width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d={direction === 'left' ? 'M11 17L6 12L11 7M18 17L13 12L18 7' : 'M13 17L18 12L13 7M6 17L11 12L6 7'}
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   )
 }

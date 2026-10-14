@@ -15,6 +15,15 @@ function readStoredAssistant(): AssistantKind {
   }
 }
 
+const AGENT_BAR_COLLAPSED_KEY = 'vide-agent-bar-collapsed'
+function readStoredAgentBarCollapsed(): boolean {
+  try {
+    return localStorage.getItem(AGENT_BAR_COLLAPSED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
 export interface ClaudeInstance {
   id: string
   hue: string
@@ -49,6 +58,11 @@ interface ClaudeState {
   // Claude Code's live terminal title per instance (see cleanSessionTitle).
   // Not persisted — the CLI re-emits it once the session is active again.
   titleByInstance: Record<string, string>
+  // Agent activity bar shrunk back to icons only (names move to tooltips).
+  // Plain localStorage, no notifySettingChanged — a UI toggle shouldn't
+  // produce a vIDE Sync commit.
+  agentBarCollapsed: boolean
+  toggleAgentBarCollapsed: () => void
   setAssistant: (assistant: AssistantKind) => void
   loadInstancesFromSession: (saved: ClaudeInstance[] | undefined) => void
   newSession: (cwd: string) => void
@@ -87,6 +101,13 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
   focusToken: 0,
   busyByInstance: {},
   titleByInstance: {},
+  agentBarCollapsed: readStoredAgentBarCollapsed(),
+
+  toggleAgentBarCollapsed: () => {
+    const agentBarCollapsed = !get().agentBarCollapsed
+    try { localStorage.setItem(AGENT_BAR_COLLAPSED_KEY, agentBarCollapsed ? '1' : '0') } catch {}
+    set({ agentBarCollapsed })
+  },
 
   setBusy: (instanceId, busy) =>
     set((s) => ({ busyByInstance: { ...s.busyByInstance, [instanceId]: busy } })),

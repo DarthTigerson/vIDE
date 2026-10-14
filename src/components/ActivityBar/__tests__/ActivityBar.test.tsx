@@ -74,3 +74,12 @@ describe('ActivityBar inline rename', () => {
     expect(onCommit).toHaveBeenCalledWith('Blurred')
   })
 })
+
+describe('ActivityBar collapsed (narrow) with labels', () => {
+  it('uses the label as the tooltip and accessible name so session names stay reachable', () => {
+    const { container } = render(<ActivityBar side="right" groups={[[item({ label: 'Fix redis' })]]} />)
+    const button = screen.getByRole('button', { name: 'Fix redis' })
+    expect(button.textContent).toContain('Fix redis') // tooltip span
+    expect(container.firstElementChild!.className).toContain('w-12')
+  })
+})

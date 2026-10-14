@@ -38,6 +38,7 @@ import {
   UsageGraphIcon,
   NotesIcon,
   LlamaIcon,
+  ChevronsIcon,
 } from './components/ActivityBar/ActivityBar'
 import { ClaudeStatusIcon } from './components/ActivityBar/ClaudeStatusIcon'
 import { ClaudeSessionContextMenu } from './components/ActivityBar/ClaudeSessionContextMenu'
@@ -200,6 +201,7 @@ export default function App() {
   const [sessionMenu, setSessionMenu] = useState<{ x: number; y: number; instanceId: string } | null>(null)
   const [renamingInstanceId, setRenamingInstanceId] = useState<string | null>(null)
   const titleByInstance = useClaudeStore((s) => s.titleByInstance)
+  const agentBarCollapsed = useClaudeStore((s) => s.agentBarCollapsed)
   const [memoryUsage, setMemoryUsage] = useState<{ usedBytes: number; totalBytes: number; appBytes: number } | null>(null)
   const commandPaletteOpen = useSearchStore((s) => s.commandPaletteOpen)
   const actionPaletteOpen = useSearchStore((s) => s.actionPaletteOpen)
@@ -1128,7 +1130,7 @@ export default function App() {
           side={mirrored ? 'left' : 'right'}
           showAccent={false}
           dense
-          wide={assistant === 'claude'}
+          wide={assistant === 'claude' && !agentBarCollapsed}
           groups={[
             [
               ...(assistant === 'claude'
@@ -1217,7 +1219,17 @@ export default function App() {
           ]}
           bottomGroups={assistant === 'claude'
             ? [
-              [], // empty leading group so ItemGroups renders a divider above Compact
+              // Collapse toggle; also the leading group, so ItemGroups renders
+              // a divider between it and Compact. Chevrons point toward the
+              // bar's outer edge to collapse, inward to expand.
+              [{
+                id: 'toggle-agent-bar',
+                icon: <ChevronsIcon direction={agentBarCollapsed === mirrored ? 'right' : 'left'} />,
+                title: agentBarCollapsed ? 'Expand session names' : 'Collapse session names',
+                label: agentBarCollapsed ? undefined : 'Collapse',
+                active: false,
+                onClick: () => useClaudeStore.getState().toggleAgentBarCollapsed(),
+              }],
               // Previous/Resume Session moved to the right-click menu on each
               // session icon (see ClaudeSessionContextMenu) now that there can
               // be more than one session — a toolbar button can only ever act
@@ -1331,7 +1343,11 @@ export default function App() {
         <ClaudeSessionContextMenu
           x={sessionMenu.x}
           y={sessionMenu.y}
-          onRename={() => setRenamingInstanceId(sessionMenu.instanceId)}
+          onRename={() => {
+            // Inline rename only renders in the wide bar — expand it first.
+            if (useClaudeStore.getState().agentBarCollapsed) useClaudeStore.getState().toggleAgentBarCollapsed()
+            setRenamingInstanceId(sessionMenu.instanceId)
+          }}
           onContinuePreviousSession={() => {
             if (!projectRoot) return
             useClaudeStore.getState().setActiveInstance(sessionMenu.instanceId)

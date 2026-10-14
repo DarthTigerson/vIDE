@@ -336,3 +336,16 @@ describe('claudeStore session names', () => {
     expect(useClaudeStore.getState().instances[0].name).toBe('Kept')
   })
 })
+
+describe('claudeStore agent bar collapse', () => {
+  it('toggles and persists the collapsed state to localStorage', () => {
+    useClaudeStore.setState({ agentBarCollapsed: false })
+    useClaudeStore.getState().toggleAgentBarCollapsed()
+    expect(useClaudeStore.getState().agentBarCollapsed).toBe(true)
+    expect(store['vide-agent-bar-collapsed']).toBe('1')
+
+    useClaudeStore.getState().toggleAgentBarCollapsed()
+    expect(useClaudeStore.getState().agentBarCollapsed).toBe(false)
+    expect(store['vide-agent-bar-collapsed']).toBe('0')
+  })
+})
