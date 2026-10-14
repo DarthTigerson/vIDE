@@ -3,7 +3,7 @@ import {
   deriveHighContrastTokens, defineCustomHighContrastTheme, CUSTOM_HIGH_CONTRAST_THEME_ID,
   defineCustomDefaultTheme, CUSTOM_DEFAULT_THEME_ID, THEME_PALETTES,
   defineCustomTokenTheme, CUSTOM_TOKENS_THEME_ID, tokenRules,
-  highContrastMonacoThemeId, glassHighContrastMonacoThemeId, defineMonacoThemes,
+  highContrastMonacoThemeId, glassHighContrastMonacoThemeId,
 } from '../monacoThemes'
 import { hexToHsv, hexWithAlpha } from '@/lib/color'
 
@@ -97,7 +97,11 @@ describe('glassHighContrastMonacoThemeId / defineMonacoThemes (built-in themes)'
     return { editor: { defineTheme: (id: string, data: any) => { defined[id] = data } }, defined }
   }
 
-  it('registers a distinct glass-alpha\'d id alongside the opaque Theme Colour Match id', () => {
+  it('registers a distinct glass-alpha\'d id alongside the opaque Theme Colour Match id', async () => {
+    // One-shot per module instance, and the defineCustom*Theme cases above
+    // already spend it — needs a fresh copy.
+    vi.resetModules()
+    const { defineMonacoThemes } = await import('../monacoThemes')
     const monaco = fakeMonaco()
     defineMonacoThemes(monaco as any)
     const opaque = monaco.defined[highContrastMonacoThemeId('claude-dark')]
@@ -208,5 +212,26 @@ describe('defineMonacoThemes — the dynamically-redefined ids', () => {
     expect(defined[m.CUSTOM_HIGH_CONTRAST_THEME_ID]).toBeDefined()
     expect(defined[m.CUSTOM_TOKENS_THEME_ID]).toBeDefined()
     expect(defined[m.MARIO_MODE_THEME_ID]).toBeDefined()
+  })
+
+  it("never lets the first pane's placeholders overwrite a custom definition that ran before it", async () => {
+    // Launching on a Settings tab: Editor.tsx's effects define the real
+    // colours before any pane has mounted, then the first pane's beforeMount
+    // runs defineMonacoThemes() for the first time.
+    vi.resetModules()
+    const m = await import('../monacoThemes')
+    const defined: Record<string, any> = {}
+    const monaco = { editor: { defineTheme: (id: string, data: any) => { defined[id] = data } } } as any
+    const keyword = (id: string) => defined[id].rules.find((r: any) => r.token === 'keyword')?.foreground
+    m.defineCustomTokenTheme(monaco, { ...m.DEFAULT_TOKENS['vs-dark'], keyword: '#ff0000' }, 'claude-dark', '#1a1a1a', false)
+    m.defineCustomHighContrastTheme(monaco, {
+      background: '#12151f', foreground: '#ffffff', accent: '#5468c4', border: '#333333', fgMuted: '#999999', fgSubtle: '#666666',
+    }, false)
+    m.defineCustomDefaultTheme(monaco, 'claude-dark', '#123456', false)
+    const hcKeyword = keyword(m.CUSTOM_HIGH_CONTRAST_THEME_ID)
+    m.defineMonacoThemes(monaco)
+    expect(keyword(m.CUSTOM_TOKENS_THEME_ID)).toBe('ff0000')
+    expect(keyword(m.CUSTOM_HIGH_CONTRAST_THEME_ID)).toBe(hcKeyword)
+    expect(defined[m.CUSTOM_DEFAULT_THEME_ID].colors['editor.background']).toBe('#123456')
   })
 })
