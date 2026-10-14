@@ -23,6 +23,8 @@ interface ActivityBarProps {
   dense?: boolean
   // Widen the bar and show each item's label next to its icon.
   wide?: boolean
+  // Icons only at rest; widen (as an overlay) while hovered.
+  expandOnHover?: boolean
 }
 
 function RenameRow({ item, dense }: { item: ActivityBarItem; dense: boolean }) {
@@ -141,21 +143,42 @@ function ItemGroups({ groups, side, showAccent, dense, wide }: { groups: Activit
   )
 }
 
-export function ActivityBar({ side, groups, bottomGroups, showAccent = true, dense = false, wide = false }: ActivityBarProps) {
-  return (
+export function ActivityBar({ side, groups, bottomGroups, showAccent = true, dense = false, wide = false, expandOnHover = false }: ActivityBarProps) {
+  const [hovered, setHovered] = React.useState(false)
+  // An inline rename only renders in the wide bar, so keep it open while one
+  // is in progress even if the pointer leaves.
+  const renaming = [...groups, ...(bottomGroups ?? [])].some((group) => group.some((item) => item.rename))
+  const showWide = wide || (expandOnHover && (hovered || renaming))
+  const bar = (
     <div
       className={[
         'flex flex-col shrink-0 bg-sidebar py-1',
-        wide ? 'w-40 items-stretch' : 'w-12 items-center',
+        showWide ? 'w-40 items-stretch' : 'w-12 items-center',
         side === 'left' ? 'border-r border-border' : 'border-l border-border',
+        expandOnHover ? 'h-full' : '',
+        expandOnHover && showWide ? 'shadow-lg shadow-black/40' : '',
       ].join(' ')}
     >
-      <ItemGroups groups={groups} side={side} showAccent={showAccent} dense={dense} wide={wide} />
+      <ItemGroups groups={groups} side={side} showAccent={showAccent} dense={dense} wide={showWide} />
       {bottomGroups && (
-        <div className={['flex flex-col mt-auto', wide ? 'items-stretch' : 'items-center'].join(' ')}>
-          <ItemGroups groups={bottomGroups} side={side} showAccent={showAccent} dense={dense} wide={wide} />
+        <div className={['flex flex-col mt-auto', showWide ? 'items-stretch' : 'items-center'].join(' ')}>
+          <ItemGroups groups={bottomGroups} side={side} showAccent={showAccent} dense={dense} wide={showWide} />
         </div>
       )}
+    </div>
+  )
+  if (!expandOnHover) return bar
+  // Hover mode reserves only the icon column; the widened bar floats over the
+  // neighbouring panel instead of resizing it (which would reflow the terminal).
+  return (
+    <div
+      className="relative w-12 shrink-0"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div className={['absolute inset-y-0 z-40 flex', side === 'left' ? 'left-0' : 'right-0'].join(' ')}>
+        {bar}
+      </div>
     </div>
   )
 }

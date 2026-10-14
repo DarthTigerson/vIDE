@@ -83,3 +83,26 @@ describe('ActivityBar collapsed (narrow) with labels', () => {
     expect(container.firstElementChild!.className).toContain('w-12')
   })
 })
+
+describe('ActivityBar expandOnHover', () => {
+  function bar(container: HTMLElement) {
+    return container.firstElementChild!.firstElementChild!.firstElementChild as HTMLElement
+  }
+
+  it('reserves only the icon column and widens while hovered', () => {
+    const { container } = render(<ActivityBar side="right" expandOnHover groups={[[item({ label: 'Fix redis' })]]} />)
+    expect(container.firstElementChild!.className).toContain('w-12')
+    expect(bar(container).className).toContain('w-12')
+    fireEvent.mouseEnter(container.firstElementChild!)
+    expect(bar(container).className).toContain('w-40')
+    expect(container.firstElementChild!.className).toContain('w-12') // overlay, no reflow
+    fireEvent.mouseLeave(container.firstElementChild!)
+    expect(bar(container).className).toContain('w-12')
+  })
+
+  it('stays wide while a session is being renamed', () => {
+    const rename = { initial: 'Fix redis', onCommit: vi.fn(), onCancel: vi.fn() }
+    render(<ActivityBar side="right" expandOnHover groups={[[item({ label: 'Fix redis', rename })]]} />)
+    expect(screen.getByRole('textbox', { name: 'Rename session' })).toBeInTheDocument()
+  })
+})

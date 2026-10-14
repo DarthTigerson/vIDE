@@ -56,6 +56,7 @@ import { CommandPalette } from './components/Search/CommandPalette'
 import { RecentProjectsPalette } from './components/Search/RecentProjectsPalette'
 import { SearchPanel } from './components/Search/SearchPanel'
 import { useFileStore } from './stores/fileStore'
+import { useGeneralSettingsStore } from './stores/generalSettingsStore'
 import { useClaudeStore } from './stores/claudeStore'
 import { useBridgeStore } from './stores/bridgeStore'
 import { useBridgeSettingsStore } from './stores/bridgeSettingsStore'
@@ -202,6 +203,8 @@ export default function App() {
   const [renamingInstanceId, setRenamingInstanceId] = useState<string | null>(null)
   const titleByInstance = useClaudeStore((s) => s.titleByInstance)
   const agentBarCollapsed = useClaudeStore((s) => s.agentBarCollapsed)
+  // 'hover' replaces the collapse toggle with icons that widen on hover.
+  const agentBarHover = useGeneralSettingsStore((s) => s.agentBarMode) === 'hover'
   const [memoryUsage, setMemoryUsage] = useState<{ usedBytes: number; totalBytes: number; appBytes: number } | null>(null)
   const commandPaletteOpen = useSearchStore((s) => s.commandPaletteOpen)
   const actionPaletteOpen = useSearchStore((s) => s.actionPaletteOpen)
@@ -1130,7 +1133,8 @@ export default function App() {
           side={mirrored ? 'left' : 'right'}
           showAccent={false}
           dense
-          wide={assistant === 'claude' && !agentBarCollapsed}
+          wide={assistant === 'claude' && !agentBarHover && !agentBarCollapsed}
+          expandOnHover={assistant === 'claude' && agentBarHover}
           groups={[
             [
               ...(assistant === 'claude'
@@ -1219,10 +1223,10 @@ export default function App() {
           ]}
           bottomGroups={assistant === 'claude'
             ? [
-              // Collapse toggle; also the leading group, so ItemGroups renders
-              // a divider between it and Compact. Chevrons point toward the
+              // Collapse toggle (empty in hover mode); also the leading group,
+              // so ItemGroups renders a divider between it and Compact. Chevrons point toward the
               // bar's outer edge to collapse, inward to expand.
-              [{
+              agentBarHover ? [] : [{
                 id: 'toggle-agent-bar',
                 icon: <ChevronsIcon direction={agentBarCollapsed === mirrored ? 'right' : 'left'} />,
                 title: agentBarCollapsed ? 'Expand session names' : 'Collapse session names',
@@ -1345,7 +1349,8 @@ export default function App() {
           y={sessionMenu.y}
           onRename={() => {
             // Inline rename only renders in the wide bar — expand it first.
-            if (useClaudeStore.getState().agentBarCollapsed) useClaudeStore.getState().toggleAgentBarCollapsed()
+            // (Hover mode keeps the bar wide on its own while renaming.)
+            if (!agentBarHover && useClaudeStore.getState().agentBarCollapsed) useClaudeStore.getState().toggleAgentBarCollapsed()
             setRenamingInstanceId(sessionMenu.instanceId)
           }}
           onContinuePreviousSession={() => {
