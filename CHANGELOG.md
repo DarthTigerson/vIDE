@@ -1,4 +1,12 @@
 # vIDE
+## v0.2.23 (2026-10-14)
+- **Claude session names**: the Claude session bar now widens to show each session's name beside its icon, so stacked sessions are no longer told apart by colour alone. The name follows the title Claude Code gives the conversation (or "Session N" until it sets one), and Rename… in a session's right-click menu sets your own — leave it blank to go back to the automatic title. Bridge and Llama keep the narrow icon bar
+- **Collapsible session bar**: a grip on the bar's inner edge, near the bottom, collapses it back to icons only or expands it to show names; collapsed, hovering a session's icon shows its name. Prefer it out of the way? Pick "Expand on hover" under Settings > General > Agent panel and the bar stays as icons, widening over the panel while you hover it
+- **Claude sessions come back after a relaunch**: each Claude session now resumes its own conversation when you reopen vIDE or switch back to a project, instead of starting empty. It follows the conversation through /resume, /clear and compact, and starts fresh if the old conversation is gone. This stays on the machine and doesn't go through vIDE Sync
+
+**Bug fixes**
+- Fixed Custom editor colours reverting to the default placeholders when vIDE opened on a non-editor tab (like Settings), until you changed a colour, theme or panel style
+
 ## v0.2.22 (2026-10-09)
 - **Inline diff highlight**: lines you've changed since the last commit now get a faint tint in the editor — green for added, amber for modified — and the exact words that changed are highlighted on top. Switch it on or off from a new highlighter button in the footer, "Show/Hide Inline Diff Highlight" in the Action Palette, or Show/Hide Inline Diff in a tab's right-click menu. Very long lines and very large edited blocks skip the word highlight so typing stays smooth
 - **Change colours and strength**: in Settings > Git, pick Default colours (green, amber and red, with darker shades on light themes) or your own for added, modified and deleted lines — the gutter line numbers use them too — and choose Subtle, Medium or Strong. The footer button can be hidden from the same place
