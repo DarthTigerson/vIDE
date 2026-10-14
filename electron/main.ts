@@ -695,7 +695,9 @@ app.whenReady().then(async () => {
   browserViewMgr.registerHandlers()
   const browserBridge = new BrowserBridge(app.getPath('userData'), browserViewMgr)
   browserBridge.start()
-  claudeMgr = new ClaudeManager(browserBridge)
+  // claude-sessions/ is machine-local (transcripts live in this machine's
+  // ~/.claude) — deliberately not part of vIDE Sync.
+  claudeMgr = new ClaudeManager(browserBridge, join(app.getPath('userData'), 'claude-sessions'))
   claudeMgr.registerHandlers()
   const gitRunner = new GitRunner()
   gitRunner.registerHandlers()
