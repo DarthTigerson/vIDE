@@ -61,7 +61,9 @@ function RenameRow({ item, dense }: { item: ActivityBarItem; dense: boolean }) {
 
 function ActivityBarButton({ item, showAccent, side, dense, wide }: { item: ActivityBarItem; showAccent: boolean; side: 'left' | 'right'; dense: boolean; wide: boolean }) {
   if (wide && item.rename) return <RenameRow item={item} dense={dense} />
-  const showLabel = wide && !!item.label
+  // Wide rows show the label, or the title for items without one (Compact,
+  // Clear, Usage…), so no row is a bare icon.
+  const showLabel = wide
   return (
     <button
       key={item.id}
@@ -104,7 +106,7 @@ function ActivityBarButton({ item, showAccent, side, dense, wide }: { item: Acti
             item.active ? 'text-fg' : 'text-fg-muted group-hover:text-fg',
           ].join(' ')}
         >
-          {item.label}
+          {item.label ?? item.title}
         </span>
       )}
       {item.badge !== undefined && item.badge !== null && item.badge !== '' && (
@@ -112,14 +114,14 @@ function ActivityBarButton({ item, showAccent, side, dense, wide }: { item: Acti
           {item.badge}
         </span>
       )}
-      <span
+      {!showLabel && <span
         className={[
           'pointer-events-none absolute z-50 top-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-black/90 px-2 py-1 text-xs text-gray-200 opacity-0 transition-opacity duration-100 delay-150 group-hover:opacity-100',
           side === 'left' ? 'left-full ml-2' : 'right-full mr-2',
         ].join(' ')}
       >
         {item.label ?? item.title}
-      </span>
+      </span>}
     </button>
   )
 }
