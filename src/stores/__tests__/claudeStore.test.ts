@@ -303,3 +303,36 @@ describe('claudeStore.setActiveInstance', () => {
     expect(useClaudeStore.getState().activeInstanceId).toBe('b')
   })
 })
+
+describe('claudeStore session names', () => {
+  beforeEach(() => {
+    useClaudeStore.setState({
+      instances: [{ id: 'a', hue: '#f00' }, { id: 'b', hue: '#0f0' }],
+      activeInstanceId: 'a',
+      titleByInstance: {},
+    })
+  })
+
+  it('setTitle stores a cleaned live title per instance', () => {
+    useClaudeStore.getState().setTitle('a', '✳ Fix redis')
+    expect(useClaudeStore.getState().titleByInstance).toEqual({ a: 'Fix redis' })
+  })
+
+  it('renameInstance sets the name and persists it', () => {
+    useClaudeStore.getState().renameInstance('/proj', 'b', '  Tests  ')
+    const { instances } = useClaudeStore.getState()
+    expect(instances[1]).toEqual({ id: 'b', hue: '#0f0', name: 'Tests' })
+    expect(window.api.sessionSave).toHaveBeenCalledWith('/proj', { claudeInstances: instances })
+  })
+
+  it('renaming to blank clears the custom name', () => {
+    useClaudeStore.getState().renameInstance('/proj', 'a', 'Mine')
+    useClaudeStore.getState().renameInstance('/proj', 'a', '   ')
+    expect(useClaudeStore.getState().instances[0]).toEqual({ id: 'a', hue: '#f00' })
+  })
+
+  it('restores saved names from session data', () => {
+    useClaudeStore.getState().loadInstancesFromSession([{ id: 'x', hue: '#00f', name: 'Kept' }])
+    expect(useClaudeStore.getState().instances[0].name).toBe('Kept')
+  })
+})

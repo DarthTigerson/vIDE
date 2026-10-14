@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { AssistantKind } from '@/types/api'
 import { hueForInstanceIndex, nextHueForInstances } from '@/lib/claudeInstanceHues'
+import { cleanSessionTitle } from '@/lib/claudeSessionName'
 
 const ASSISTANT_KEY = 'vide-last-assistant'
 function readStoredAssistant(): AssistantKind {
@@ -17,6 +18,9 @@ function readStoredAssistant(): AssistantKind {
 export interface ClaudeInstance {
   id: string
   hue: string
+  // User-chosen label (right-click → Rename…). Persisted; overrides the
+  // live terminal title in titleByInstance.
+  name?: string
 }
 
 function createInstance(hue: string): ClaudeInstance {
@@ -42,6 +46,9 @@ interface ClaudeState {
   // instance id — Bridge never appears here, it never went through the
   // busy-tracking IPC channel.
   busyByInstance: Record<string, boolean>
+  // Claude Code's live terminal title per instance (see cleanSessionTitle).
+  // Not persisted — the CLI re-emits it once the session is active again.
+  titleByInstance: Record<string, string>
   setAssistant: (assistant: AssistantKind) => void
   loadInstancesFromSession: (saved: ClaudeInstance[] | undefined) => void
   newSession: (cwd: string) => void
@@ -60,6 +67,8 @@ interface ClaudeState {
   focusChat: () => void
   consumeInjection: () => void
   setBusy: (instanceId: string, busy: boolean) => void
+  setTitle: (instanceId: string, rawTitle: string) => void
+  renameInstance: (cwd: string, id: string, name: string) => void
 }
 
 export const useClaudeStore = create<ClaudeState>((set, get) => ({
@@ -77,9 +86,30 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
   pendingInjection: null,
   focusToken: 0,
   busyByInstance: {},
+  titleByInstance: {},
 
   setBusy: (instanceId, busy) =>
     set((s) => ({ busyByInstance: { ...s.busyByInstance, [instanceId]: busy } })),
+
+  setTitle: (instanceId, rawTitle) => {
+    const title = cleanSessionTitle(rawTitle)
+    // The spinner glyph changes every frame but the cleaned text doesn't —
+    // skip no-op updates so the activity bar isn't re-rendered per frame.
+    if (get().titleByInstance[instanceId] === title) return
+    set((s) => ({ titleByInstance: { ...s.titleByInstance, [instanceId]: title } }))
+  },
+
+  renameInstance: (cwd, id, name) => {
+    const trimmed = name.trim()
+    const nextInstances = get().instances.map((inst) => {
+      if (inst.id !== id) return inst
+      const { name: _old, ...rest } = inst
+      return trimmed ? { ...rest, name: trimmed } : rest
+    })
+    set({ instances: nextInstances })
+    // Whole-file overwrite — see the comment in newSession() below.
+    window.api.sessionSave(cwd, { claudeInstances: nextInstances } as any)
+  },
 
   setAssistant: (assistant: AssistantKind) => {
     try { localStorage.setItem(ASSISTANT_KEY, assistant) } catch {}

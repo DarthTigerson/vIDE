@@ -9,6 +9,10 @@ export interface ActivityBarItem {
   disabled?: boolean
   onClick: () => void
   onContextMenu?: (event: React.MouseEvent) => void
+  // Shown beside the icon in a `wide` bar (e.g. a Claude session's name).
+  label?: string
+  // When set, the row renders an inline rename input instead of the button.
+  rename?: { initial: string; onCommit: (value: string) => void; onCancel: () => void }
 }
 
 interface ActivityBarProps {
@@ -17,18 +21,56 @@ interface ActivityBarProps {
   bottomGroups?: ActivityBarItem[][]
   showAccent?: boolean
   dense?: boolean
+  // Widen the bar and show each item's label next to its icon.
+  wide?: boolean
 }
 
-function ActivityBarButton({ item, showAccent, side, dense }: { item: ActivityBarItem; showAccent: boolean; side: 'left' | 'right'; dense: boolean }) {
+function RenameRow({ item, dense }: { item: ActivityBarItem; dense: boolean }) {
+  const rename = item.rename!
+  const [value, setValue] = React.useState(rename.initial)
+  // Enter/Escape unmount the input, which can fire a trailing blur — make
+  // sure only the first of commit/cancel wins.
+  const done = React.useRef(false)
+  const finish = (commit: boolean) => {
+    if (done.current) return
+    done.current = true
+    if (commit) rename.onCommit(value)
+    else rename.onCancel()
+  }
+  return (
+    <div className={['flex items-center gap-2 w-full px-3', dense ? 'h-8' : 'h-12'].join(' ')}>
+      <span className="flex w-6 shrink-0 justify-center">{item.icon}</span>
+      <input
+        autoFocus
+        aria-label="Rename session"
+        value={value}
+        onFocus={(e) => e.currentTarget.select()}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') finish(true)
+          else if (e.key === 'Escape') finish(false)
+        }}
+        onBlur={() => finish(true)}
+        className="min-w-0 flex-1 rounded border border-accent bg-transparent px-1 text-xs text-fg outline-none"
+      />
+    </div>
+  )
+}
+
+function ActivityBarButton({ item, showAccent, side, dense, wide }: { item: ActivityBarItem; showAccent: boolean; side: 'left' | 'right'; dense: boolean; wide: boolean }) {
+  if (wide && item.rename) return <RenameRow item={item} dense={dense} />
+  const showLabel = wide && !!item.label
   return (
     <button
       key={item.id}
       onClick={item.disabled ? undefined : item.onClick}
       onContextMenu={item.disabled ? undefined : item.onContextMenu}
-      aria-label={item.title}
+      aria-label={showLabel ? item.label : item.title}
       disabled={item.disabled}
       className={[
-        'relative flex items-center justify-center w-12 transition-colors group disabled:cursor-not-allowed',
+        'relative flex items-center transition-colors group disabled:cursor-not-allowed',
+        wide ? 'w-full justify-start gap-2 px-3' : 'w-12 justify-center',
+        wide && item.active ? 'bg-white/5' : '',
         dense ? 'h-8' : 'h-12',
       ].join(' ')}
     >
@@ -43,6 +85,7 @@ function ActivityBarButton({ item, showAccent, side, dense }: { item: ActivityBa
       <span
         className={[
           'transition-opacity',
+          wide ? 'flex w-6 shrink-0 justify-center' : '',
           item.disabled
             ? 'text-fg-subtle opacity-30'
             : item.active
@@ -52,6 +95,16 @@ function ActivityBarButton({ item, showAccent, side, dense }: { item: ActivityBa
       >
         {item.icon}
       </span>
+      {showLabel && (
+        <span
+          className={[
+            'min-w-0 truncate text-left text-xs',
+            item.active ? 'text-fg' : 'text-fg-muted group-hover:text-fg',
+          ].join(' ')}
+        >
+          {item.label}
+        </span>
+      )}
       {item.badge !== undefined && item.badge !== null && item.badge !== '' && (
         <span className="absolute right-1 bottom-1 min-w-4 h-4 rounded-full bg-accent px-1 text-[0.5625rem] font-bold leading-4 text-on-accent shadow shadow-black/40">
           {item.badge}
@@ -63,7 +116,7 @@ function ActivityBarButton({ item, showAccent, side, dense }: { item: ActivityBa
           side === 'left' ? 'left-full ml-2' : 'right-full mr-2',
         ].join(' ')}
       >
-        {item.title}
+        {showLabel ? item.label : item.title}
       </span>
     </button>
   )
@@ -73,14 +126,14 @@ function Divider({ dense }: { dense: boolean }) {
   return <div className={['w-full h-px bg-border shrink-0', dense ? 'my-0.5' : 'my-1'].join(' ')} />
 }
 
-function ItemGroups({ groups, side, showAccent, dense }: { groups: ActivityBarItem[][]; side: 'left' | 'right'; showAccent: boolean; dense: boolean }) {
+function ItemGroups({ groups, side, showAccent, dense, wide }: { groups: ActivityBarItem[][]; side: 'left' | 'right'; showAccent: boolean; dense: boolean; wide: boolean }) {
   return (
     <>
       {groups.map((group, i) => (
         <React.Fragment key={i}>
           {i > 0 && <Divider dense={dense} />}
           {group.map((item) => (
-            <ActivityBarButton key={item.id} item={item} showAccent={showAccent} side={side} dense={dense} />
+            <ActivityBarButton key={item.id} item={item} showAccent={showAccent} side={side} dense={dense} wide={wide} />
           ))}
         </React.Fragment>
       ))}
@@ -88,18 +141,19 @@ function ItemGroups({ groups, side, showAccent, dense }: { groups: ActivityBarIt
   )
 }
 
-export function ActivityBar({ side, groups, bottomGroups, showAccent = true, dense = false }: ActivityBarProps) {
+export function ActivityBar({ side, groups, bottomGroups, showAccent = true, dense = false, wide = false }: ActivityBarProps) {
   return (
     <div
       className={[
-        'flex flex-col items-center w-12 shrink-0 bg-sidebar py-1',
+        'flex flex-col shrink-0 bg-sidebar py-1',
+        wide ? 'w-40 items-stretch' : 'w-12 items-center',
         side === 'left' ? 'border-r border-border' : 'border-l border-border',
       ].join(' ')}
     >
-      <ItemGroups groups={groups} side={side} showAccent={showAccent} dense={dense} />
+      <ItemGroups groups={groups} side={side} showAccent={showAccent} dense={dense} wide={wide} />
       {bottomGroups && (
-        <div className="flex flex-col items-center mt-auto">
-          <ItemGroups groups={bottomGroups} side={side} showAccent={showAccent} dense={dense} />
+        <div className={['flex flex-col mt-auto', wide ? 'items-stretch' : 'items-center'].join(' ')}>
+          <ItemGroups groups={bottomGroups} side={side} showAccent={showAccent} dense={dense} wide={wide} />
         </div>
       )}
     </div>
@@ -162,6 +216,16 @@ export function NewSessionPlusIcon() {
   return (
     <svg width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+// A pencil — the conventional "rename" glyph.
+export function RenameIcon() {
+  return (
+    <svg width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 20H8L18.5 9.5C19.3 8.7 19.3 7.3 18.5 6.5L17.5 5.5C16.7 4.7 15.3 4.7 14.5 5.5L4 16V20Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M13 7L17 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
     </svg>
   )
 }

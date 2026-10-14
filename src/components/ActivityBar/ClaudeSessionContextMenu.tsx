@@ -1,12 +1,13 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { clampToViewport } from '@/components/ui/clampToViewport'
-import { PreviousSessionIcon, ResumeSessionIcon, CompactIcon, ClearIcon } from './ActivityBar'
+import { PreviousSessionIcon, ResumeSessionIcon, CompactIcon, ClearIcon, RenameIcon } from './ActivityBar'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
 
 interface Props {
   x: number
   y: number
+  onRename: () => void
   onContinuePreviousSession: () => void
   onResumeSession: () => void
   onCompact: () => void
@@ -19,6 +20,7 @@ interface Props {
 export function ClaudeSessionContextMenu({
   x,
   y,
+  onRename,
   onContinuePreviousSession,
   onResumeSession,
   onCompact,
@@ -58,6 +60,15 @@ export function ClaudeSessionContextMenu({
       style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
     >
+      <button
+        type="button"
+        onClick={() => { onRename(); onClose() }}
+        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+      >
+        <RenameIcon />
+        Rename…
+      </button>
+      <div className="my-1 h-px bg-border" />
       <button
         type="button"
         onClick={() => { onContinuePreviousSession(); onClose() }}

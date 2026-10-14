@@ -233,6 +233,9 @@ export function Chat() {
         if (source === id) xterm.write(data)
       })
       const onDataDisposable = xterm.onData((data) => window.api.claudeWrite(id, data))
+      // Claude Code's OSC title is its task summary — shown as this
+      // session's label in the activity bar. Disposed with xterm itself.
+      xterm.onTitleChange((title) => useClaudeStore.getState().setTitle(id, title))
 
       const terminal = { host, xterm, fit, cleanupData, onDataDisposable }
       terminalsRef.current[id] = terminal

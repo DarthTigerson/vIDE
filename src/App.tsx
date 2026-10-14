@@ -41,6 +41,7 @@ import {
 } from './components/ActivityBar/ActivityBar'
 import { ClaudeStatusIcon } from './components/ActivityBar/ClaudeStatusIcon'
 import { ClaudeSessionContextMenu } from './components/ActivityBar/ClaudeSessionContextMenu'
+import { sessionDisplayName } from './lib/claudeSessionName'
 import { SettingsPanel } from './components/Settings/SettingsPanel'
 import { GitPanel } from './components/Git/GitPanel'
 import { BranchPalette } from './components/Git/BranchPalette'
@@ -197,6 +198,8 @@ export default function App() {
   const draggingRef = useRef(false)
   const [assistantMenuOpen, setAssistantMenuOpen] = useState(false)
   const [sessionMenu, setSessionMenu] = useState<{ x: number; y: number; instanceId: string } | null>(null)
+  const [renamingInstanceId, setRenamingInstanceId] = useState<string | null>(null)
+  const titleByInstance = useClaudeStore((s) => s.titleByInstance)
   const [memoryUsage, setMemoryUsage] = useState<{ usedBytes: number; totalBytes: number; appBytes: number } | null>(null)
   const commandPaletteOpen = useSearchStore((s) => s.commandPaletteOpen)
   const actionPaletteOpen = useSearchStore((s) => s.actionPaletteOpen)
@@ -1125,13 +1128,28 @@ export default function App() {
           side={mirrored ? 'left' : 'right'}
           showAccent={false}
           dense
+          wide={assistant === 'claude'}
           groups={[
             [
               ...(assistant === 'claude'
-                ? instances.map((inst) => ({
+                ? instances.map((inst, index) => ({
                     id: inst.id,
                     icon: <ClaudeStatusIcon instanceId={inst.id} color={inst.hue} />,
                     title: assistantLabel,
+                    label: sessionDisplayName(inst, titleByInstance[inst.id], index),
+                    rename: renamingInstanceId === inst.id ? {
+                      initial: sessionDisplayName(inst, titleByInstance[inst.id], index),
+                      onCommit: (value: string) => {
+                        // Committing the unchanged auto title/fallback shouldn't pin it as
+                        // a custom name — it would stop following Claude's live title.
+                        const auto = sessionDisplayName({}, titleByInstance[inst.id], index)
+                        if (projectRoot && value.trim() !== auto) {
+                          useClaudeStore.getState().renameInstance(projectRoot, inst.id, value)
+                        }
+                        setRenamingInstanceId(null)
+                      },
+                      onCancel: () => setRenamingInstanceId(null),
+                    } : undefined,
                     active: chatVisible && inst.id === activeInstanceId,
                     disabled: !projectRoot,
                     onClick: () => {
@@ -1160,6 +1178,7 @@ export default function App() {
                 id: 'new-session',
                 icon: <NewSessionPlusIcon />,
                 title: newSessionTitle,
+                label: 'New session',
                 active: false,
                 disabled: !projectRoot,
                 onClick: () => {
@@ -1312,6 +1331,7 @@ export default function App() {
         <ClaudeSessionContextMenu
           x={sessionMenu.x}
           y={sessionMenu.y}
+          onRename={() => setRenamingInstanceId(sessionMenu.instanceId)}
           onContinuePreviousSession={() => {
             if (!projectRoot) return
             useClaudeStore.getState().setActiveInstance(sessionMenu.instanceId)
