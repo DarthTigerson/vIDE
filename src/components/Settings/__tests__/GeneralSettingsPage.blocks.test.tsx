@@ -18,9 +18,9 @@ afterEach(cleanup)
 const block = (name: string) => screen.getByRole('region', { name })
 
 describe('GeneralSettingsPage — feature blocks', () => {
-  it('lays the page out as Tabs, vIDE Sync and Setup wizard', () => {
+  it('lays the page out as Tabs, Agent panel, vIDE Sync and Setup wizard', () => {
     render(<GeneralSettingsPage />)
-    expect(screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'))).toEqual(['Tabs', 'vIDE Sync', 'Setup wizard'])
+    expect(screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'))).toEqual(['Tabs', 'Agent panel', 'vIDE Sync', 'Setup wizard'])
   })
 
   it('draws the new tab in the biggest or the active window', () => {

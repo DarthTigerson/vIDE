@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useOnboardingStore } from '@/stores/onboardingStore'
-import { useGeneralSettingsStore, type NewTabPane } from '@/stores/generalSettingsStore'
+import { useGeneralSettingsStore, type NewTabPane, type AgentBarMode } from '@/stores/generalSettingsStore'
 import { useConfigRepoStore } from '@/stores/configRepoStore'
 import { RadioGroup } from '@/components/ui/RadioGroup'
 import { TextField } from './SettingsLayout'
 import { FeatureBlock, SettingRow } from './FeatureBlock'
-import { NewTabPreview, SyncPreview } from './previews/generalPreviews'
+import { AgentBarPreview, NewTabPreview, SyncPreview } from './previews/generalPreviews'
 import { SyncStatusPill } from './SyncStatusPill'
 
 const SYNC_ITEMS = [
@@ -24,6 +24,8 @@ export function GeneralSettingsPage() {
 
   const newTabPane = useGeneralSettingsStore((s) => s.newTabPane)
   const setNewTabPane = useGeneralSettingsStore((s) => s.setNewTabPane)
+  const agentBarMode = useGeneralSettingsStore((s) => s.agentBarMode)
+  const setAgentBarMode = useGeneralSettingsStore((s) => s.setAgentBarMode)
 
   const {
     loaded,
@@ -64,6 +66,29 @@ export function GeneralSettingsPage() {
             {newTabPane === 'biggest'
               ? 'Tabs open in the largest editor window, so a small split never gets crowded.'
               : 'Tabs open in the window you last clicked in.'}
+          </p>
+        </FeatureBlock>
+
+        <FeatureBlock
+          title="Agent panel"
+          description="How the Claude session bar beside the agent panel shows each session's name."
+          preview={<AgentBarPreview />}
+        >
+          <SettingRow label="Session names">
+            <RadioGroup<AgentBarMode>
+              ariaLabel="Session names"
+              value={agentBarMode}
+              onChange={setAgentBarMode}
+              options={[
+                { value: 'collapse', label: 'Click to collapse' },
+                { value: 'hover', label: 'Expand on hover' },
+              ]}
+            />
+          </SettingRow>
+          <p className="max-w-[460px] text-xs text-fg-muted">
+            {agentBarMode === 'hover'
+              ? 'The bar shows icons only and widens over the panel while you hover it.'
+              : 'A grip on the bar\'s inner edge, near the bottom, collapses it to icons or expands it to show names.'}
           </p>
         </FeatureBlock>
 

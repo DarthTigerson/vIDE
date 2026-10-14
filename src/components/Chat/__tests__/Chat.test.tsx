@@ -278,3 +278,19 @@ describe('Chat (claude terminal)', () => {
     expect(killMock).toHaveBeenCalledWith(TEST_INSTANCE_ID)
   })
 })
+
+describe('Chat session title capture', () => {
+  it('records Claude Code\'s OSC terminal title as the instance title', async () => {
+    let feed: (source: string, data: string) => void = () => {}
+    ;(window.api as any).onClaudeData = vi.fn((cb: typeof feed) => { feed = cb; return () => {} })
+    useClaudeStore.setState({ titleByInstance: {} })
+    render(<Chat />)
+
+    await waitFor(() => expect((window.api as any).onClaudeData).toHaveBeenCalled())
+    act(() => feed(TEST_INSTANCE_ID, '\x1b]0;✳ Fix redis cache key\x07'))
+
+    await waitFor(() =>
+      expect(useClaudeStore.getState().titleByInstance[TEST_INSTANCE_ID]).toBe('Fix redis cache key'),
+    )
+  })
+})

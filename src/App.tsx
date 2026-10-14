@@ -41,6 +41,7 @@ import {
 } from './components/ActivityBar/ActivityBar'
 import { ClaudeStatusIcon } from './components/ActivityBar/ClaudeStatusIcon'
 import { ClaudeSessionContextMenu } from './components/ActivityBar/ClaudeSessionContextMenu'
+import { sessionDisplayName } from './lib/claudeSessionName'
 import { SettingsPanel } from './components/Settings/SettingsPanel'
 import { GitPanel } from './components/Git/GitPanel'
 import { BranchPalette } from './components/Git/BranchPalette'
@@ -54,6 +55,7 @@ import { CommandPalette } from './components/Search/CommandPalette'
 import { RecentProjectsPalette } from './components/Search/RecentProjectsPalette'
 import { SearchPanel } from './components/Search/SearchPanel'
 import { useFileStore } from './stores/fileStore'
+import { useGeneralSettingsStore } from './stores/generalSettingsStore'
 import { useClaudeStore } from './stores/claudeStore'
 import { useBridgeStore } from './stores/bridgeStore'
 import { useBridgeSettingsStore } from './stores/bridgeSettingsStore'
@@ -197,6 +199,11 @@ export default function App() {
   const draggingRef = useRef(false)
   const [assistantMenuOpen, setAssistantMenuOpen] = useState(false)
   const [sessionMenu, setSessionMenu] = useState<{ x: number; y: number; instanceId: string } | null>(null)
+  const [renamingInstanceId, setRenamingInstanceId] = useState<string | null>(null)
+  const titleByInstance = useClaudeStore((s) => s.titleByInstance)
+  const agentBarCollapsed = useClaudeStore((s) => s.agentBarCollapsed)
+  // 'hover' replaces the collapse toggle with icons that widen on hover.
+  const agentBarHover = useGeneralSettingsStore((s) => s.agentBarMode) === 'hover'
   const [memoryUsage, setMemoryUsage] = useState<{ usedBytes: number; totalBytes: number; appBytes: number } | null>(null)
   const commandPaletteOpen = useSearchStore((s) => s.commandPaletteOpen)
   const actionPaletteOpen = useSearchStore((s) => s.actionPaletteOpen)
@@ -1125,13 +1132,33 @@ export default function App() {
           side={mirrored ? 'left' : 'right'}
           showAccent={false}
           dense
+          wide={assistant === 'claude' && !agentBarHover && !agentBarCollapsed}
+          expandOnHover={assistant === 'claude' && agentBarHover}
+          edgeToggle={assistant === 'claude' && !agentBarHover ? {
+            label: agentBarCollapsed ? 'Expand session names' : 'Collapse session names',
+            onClick: () => useClaudeStore.getState().toggleAgentBarCollapsed(),
+          } : undefined}
           groups={[
             [
               ...(assistant === 'claude'
-                ? instances.map((inst) => ({
+                ? instances.map((inst, index) => ({
                     id: inst.id,
                     icon: <ClaudeStatusIcon instanceId={inst.id} color={inst.hue} />,
                     title: assistantLabel,
+                    label: sessionDisplayName(inst, titleByInstance[inst.id], index),
+                    rename: renamingInstanceId === inst.id ? {
+                      initial: sessionDisplayName(inst, titleByInstance[inst.id], index),
+                      onCommit: (value: string) => {
+                        // Committing the unchanged auto title/fallback shouldn't pin it as
+                        // a custom name — it would stop following Claude's live title.
+                        const auto = sessionDisplayName({}, titleByInstance[inst.id], index)
+                        if (projectRoot && value.trim() !== auto) {
+                          useClaudeStore.getState().renameInstance(projectRoot, inst.id, value)
+                        }
+                        setRenamingInstanceId(null)
+                      },
+                      onCancel: () => setRenamingInstanceId(null),
+                    } : undefined,
                     active: chatVisible && inst.id === activeInstanceId,
                     disabled: !projectRoot,
                     onClick: () => {
@@ -1160,6 +1187,7 @@ export default function App() {
                 id: 'new-session',
                 icon: <NewSessionPlusIcon />,
                 title: newSessionTitle,
+                label: 'New session',
                 active: false,
                 disabled: !projectRoot,
                 onClick: () => {
@@ -1312,6 +1340,12 @@ export default function App() {
         <ClaudeSessionContextMenu
           x={sessionMenu.x}
           y={sessionMenu.y}
+          onRename={() => {
+            // Inline rename only renders in the wide bar — expand it first.
+            // (Hover mode keeps the bar wide on its own while renaming.)
+            if (!agentBarHover && useClaudeStore.getState().agentBarCollapsed) useClaudeStore.getState().toggleAgentBarCollapsed()
+            setRenamingInstanceId(sessionMenu.instanceId)
+          }}
           onContinuePreviousSession={() => {
             if (!projectRoot) return
             useClaudeStore.getState().setActiveInstance(sessionMenu.instanceId)

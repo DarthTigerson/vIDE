@@ -405,3 +405,121 @@ describe('ClaudeManager browser-open shim env', () => {
     expect(command).toBe('export PATH="/shim/bin:$PATH"; claude')
   })
 })
+
+describe('ClaudeManager session restore', () => {
+  const fs = require('fs') as typeof import('fs')
+  const os = require('os') as typeof import('os')
+  const path = require('path') as typeof import('path')
+  let dir: string
+
+  beforeEach(() => {
+    spawnMock.mockReset()
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vide-claude-sessions-'))
+  })
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+
+  function setup() {
+    const manager = new ClaudeManager(undefined, path.join(dir, 'sessions'))
+    manager.registerHandlers()
+    return { spawnHandler: handlers['claude:spawn'] }
+  }
+  function record(instanceId: string, payload: Record<string, unknown>) {
+    fs.writeFileSync(path.join(dir, 'sessions', `${instanceId}.json`), JSON.stringify(payload))
+  }
+  function spawnedCommand(call = 0): string {
+    return spawnMock.mock.calls[call][1][1]
+  }
+  function spawnedEnv(call = 0): Record<string, string> {
+    return spawnMock.mock.calls[call][2].env
+  }
+
+  it('creates the session directory', () => {
+    setup()
+    expect(fs.existsSync(path.join(dir, 'sessions'))).toBe(true)
+  })
+
+  it('passes a SessionStart hook and the per-instance session file to every spawn', () => {
+    const { spawnHandler } = setup()
+    spawnMock.mockReturnValue(fakePty())
+
+    spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined)
+
+    const cmd = spawnedCommand()
+    expect(cmd).toContain(`--settings '`)
+    expect(cmd).toContain('SessionStart')
+    expect(cmd).toContain('cat > \\"$VIDE_CLAUDE_SESSION_FILE\\"')
+    expect(spawnedEnv().VIDE_CLAUDE_SESSION_FILE).toBe(path.join(dir, 'sessions', 'inst-1.json'))
+  })
+
+  it('resumes the recorded conversation when restoring an instance whose transcript exists', () => {
+    const { spawnHandler } = setup()
+    spawnMock.mockReturnValue(fakePty())
+    const transcript = path.join(dir, 'abc-123.jsonl')
+    fs.writeFileSync(transcript, '{}\n')
+    record('inst-1', { session_id: 'abc-123', transcript_path: transcript })
+
+    spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined)
+
+    expect(spawnedCommand()).toMatch(/^claude --resume abc-123 --settings /)
+  })
+
+  it('starts fresh when the recorded transcript no longer exists (e.g. /clear with no new message)', () => {
+    const { spawnHandler } = setup()
+    spawnMock.mockReturnValue(fakePty())
+    record('inst-1', { session_id: 'abc-123', transcript_path: path.join(dir, 'missing.jsonl') })
+
+    spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined)
+
+    expect(spawnedCommand()).toMatch(/^claude --settings /)
+  })
+
+  it('starts fresh when nothing was recorded or the record is corrupt', () => {
+    const { spawnHandler } = setup()
+    spawnMock.mockReturnValue(fakePty())
+    record('inst-2', { nope: true })
+    fs.writeFileSync(path.join(dir, 'sessions', 'inst-3.json'), '{not json')
+
+    spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined)
+    spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-2', undefined)
+    spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-3', undefined)
+
+    for (const call of [0, 1, 2]) expect(spawnedCommand(call)).toMatch(/^claude --settings /)
+  })
+
+  it('never puts an unsafe recorded session id into the shell command', () => {
+    const { spawnHandler } = setup()
+    spawnMock.mockReturnValue(fakePty())
+    const transcript = path.join(dir, 't.jsonl')
+    fs.writeFileSync(transcript, '{}\n')
+    record('inst-1', { session_id: 'x; rm -rf ~', transcript_path: transcript })
+
+    spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined)
+
+    expect(spawnedCommand()).not.toContain('rm -rf')
+    expect(spawnedCommand()).toMatch(/^claude --settings /)
+  })
+
+  it('does not record sessions for an instance id that is not a safe filename', () => {
+    const { spawnHandler } = setup()
+    spawnMock.mockReturnValue(fakePty())
+
+    spawnHandler({ sender: fakeWin(1) }, '/p', '../escape', undefined)
+
+    expect(spawnedCommand()).toBe('claude')
+    expect(spawnedEnv().VIDE_CLAUDE_SESSION_FILE).toBeUndefined()
+  })
+
+  it('keeps explicit continue/resume modes but still records the session they land on', () => {
+    const { spawnHandler } = setup()
+    spawnMock.mockReturnValue(fakePty())
+    const transcript = path.join(dir, 't.jsonl')
+    fs.writeFileSync(transcript, '{}\n')
+    record('inst-1', { session_id: 'abc-123', transcript_path: transcript })
+
+    spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', 'resume')
+
+    expect(spawnedCommand()).toMatch(/^claude --resume --settings /)
+  })
+})

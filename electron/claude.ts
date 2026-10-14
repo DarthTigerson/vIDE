@@ -1,5 +1,7 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import * as pty from 'node-pty'
+import { existsSync, mkdirSync, readFileSync } from 'fs'
+import { join } from 'path'
 import { getMobileBroadcaster } from './mobile'
 
 type SessionMode = 'attach' | 'new' | 'continue' | 'resume'
@@ -11,6 +13,40 @@ const COMMANDS: Record<Exclude<SessionMode, 'attach'>, string> = {
 }
 
 const INSTALL_MESSAGE = "Install it with: npm install -g @anthropic-ai/claude-code"
+
+// Session restore: Claude Code runs SessionStart hooks on startup, /resume,
+// /clear and compact, with a JSON payload carrying the current session_id
+// and transcript_path. This hook (merged with the user's own hooks, not
+// replacing them) saves that payload to a per-instance file named by the
+// VIDE_CLAUDE_SESSION_FILE env var, so a restored instance can be respawned
+// with `claude --resume <id>` instead of starting a new conversation. The
+// path travels via env rather than being baked into this JSON so it never
+// needs shell quoting (userData lives under "Application Support").
+const SESSION_HOOK_SETTINGS = JSON.stringify({
+  hooks: { SessionStart: [{ hooks: [{ type: 'command', command: 'cat > "$VIDE_CLAUDE_SESSION_FILE"' }] }] },
+})
+
+// Instance ids become filenames and session ids go into the shell command,
+// so both must be plain ids (UUIDs in practice).
+const SAFE_ID = /^[A-Za-z0-9-]+$/
+
+// `claude --resume <id>` for the conversation this instance last had, or
+// plain `claude` if none was recorded or its transcript is gone (e.g. a
+// /clear that never got a message, or transcript saving turned off).
+function restoreCommand(sessionFile: string): string {
+  try {
+    const { session_id, transcript_path } = JSON.parse(readFileSync(sessionFile, 'utf8'))
+    if (
+      typeof session_id === 'string' && SAFE_ID.test(session_id) &&
+      typeof transcript_path === 'string' && existsSync(transcript_path)
+    ) {
+      return `claude --resume ${session_id}`
+    }
+  } catch {
+    // missing or unreadable record — fall through to a fresh session
+  }
+  return COMMANDS.new
+}
 
 function hasValidSize(cols: number, rows: number): boolean {
   return Number.isFinite(cols) && Number.isFinite(rows) && cols > 0 && rows > 0
@@ -59,7 +95,11 @@ function newInstanceState(): InstanceState {
 export class ClaudeManager {
   private byWindow = new Map<number, WindowState>()
 
-  constructor(private browserBridge?: BrowserBridgeLike) {}
+  // sessionDir enables session restore (see SESSION_HOOK_SETTINGS); without
+  // it every spawn behaves exactly as before.
+  constructor(private browserBridge?: BrowserBridgeLike, private sessionDir?: string) {
+    if (sessionDir) mkdirSync(sessionDir, { recursive: true })
+  }
 
   registerHandlers(): void {
     ipcMain.handle('claude:spawn', (event, cwd: string, instanceId: string, mode: SessionMode = 'attach') => {
@@ -108,14 +148,24 @@ export class ClaudeManager {
       // before the shell body runs, so /usr/bin/open would always win over
       // our shim dir if we relied on the env var alone. Re-exporting PATH
       // here, inside the command string, runs after that clobbering.
-      const baseCommand = COMMANDS[selectedMode === 'attach' ? 'new' : selectedMode]
+      const sessionFile =
+        this.sessionDir && SAFE_ID.test(instanceId) ? join(this.sessionDir, `${instanceId}.json`) : undefined
+      // A plain attach with no live process is a restore (app relaunch or
+      // switching back to this project) — pick up where the instance left off.
+      let baseCommand =
+        selectedMode === 'attach' && sessionFile ? restoreCommand(sessionFile) : COMMANDS[selectedMode === 'attach' ? 'new' : selectedMode]
+      if (sessionFile) baseCommand += ` --settings '${SESSION_HOOK_SETTINGS}'`
       const command = shimEnv ? `export PATH="${shimEnv.VIDE_BROWSER_SHIM_BIN}:$PATH"; ${baseCommand}` : baseCommand
       const proc = pty.spawn(shell, ['-lic', command], {
         name: 'xterm-color',
         cols: 80,
         rows: 24,
         cwd,
-        env: { ...(process.env as Record<string, string>), ...shimEnv },
+        env: {
+          ...(process.env as Record<string, string>),
+          ...shimEnv,
+          ...(sessionFile ? { VIDE_CLAUDE_SESSION_FILE: sessionFile } : {}),
+        },
       })
       inst.proc = proc
       inst.cwd = cwd
