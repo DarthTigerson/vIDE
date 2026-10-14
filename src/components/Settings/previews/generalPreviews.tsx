@@ -31,11 +31,11 @@ function SessionGlyph({ hue }: { hue: string }) {
 // One state of the agent panel: a few terminal lines with the session bar on
 // its right edge, either icons only or widened with names (floating over the
 // terminal when `overlay`).
-function MiniAgentPanel({ label, wide, overlay, chevron, pointer }: { label: string; wide: boolean; overlay?: boolean; chevron?: 'collapse' | 'expand'; pointer?: boolean }) {
+function MiniAgentPanel({ label, wide, overlay, grip, pointer }: { label: string; wide: boolean; overlay?: boolean; grip?: boolean; pointer?: boolean }) {
   const bar = (
     <div
       className={[
-        'flex h-full flex-col border-l border-border bg-sidebar py-1',
+        'relative flex h-full flex-col border-l border-border bg-sidebar py-1',
         wide ? 'w-[76px]' : 'w-5 items-center',
         overlay ? 'shadow-lg shadow-black/40' : '',
       ].join(' ')}
@@ -46,12 +46,7 @@ function MiniAgentPanel({ label, wide, overlay, chevron, pointer }: { label: str
           {wide && <span className={['truncate text-[10px]', s.active ? 'text-fg' : 'text-fg-muted'].join(' ')}>{s.name}</span>}
         </span>
       ))}
-      {chevron && (
-        <span className={['mt-auto flex h-5 items-center gap-1.5 border-t border-border text-[10px] text-fg-muted', wide ? 'px-1.5' : 'justify-center'].join(' ')}>
-          <span>{chevron === 'collapse' ? '»' : '«'}</span>
-          {wide && <span>Collapse</span>}
-        </span>
-      )}
+      {grip && <span className="absolute -left-[3px] bottom-3 h-3.5 w-[5px] rounded-full border border-accent bg-accent" />}
     </div>
   )
   return (
@@ -88,8 +83,8 @@ export function AgentBarPreview() {
           </>
         ) : (
           <>
-            <MiniAgentPanel label="Expanded" wide chevron="collapse" />
-            <MiniAgentPanel label="Collapsed" wide={false} chevron="expand" />
+            <MiniAgentPanel label="Expanded" wide grip />
+            <MiniAgentPanel label="Collapsed" wide={false} grip />
           </>
         )}
       </div>

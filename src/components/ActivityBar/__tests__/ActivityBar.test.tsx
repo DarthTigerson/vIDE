@@ -106,3 +106,14 @@ describe('ActivityBar expandOnHover', () => {
     expect(screen.getByRole('textbox', { name: 'Rename session' })).toBeInTheDocument()
   })
 })
+
+describe('ActivityBar edgeToggle', () => {
+  it('renders a grip on the inner border that toggles the bar', () => {
+    const onClick = vi.fn()
+    render(<ActivityBar side="right" wide edgeToggle={{ label: 'Collapse session names', onClick }} groups={[[item({ label: 'Fix redis' })]]} />)
+    const grip = screen.getByRole('button', { name: 'Collapse session names' })
+    expect(grip.className).toContain('-left-1.5')
+    fireEvent.click(grip)
+    expect(onClick).toHaveBeenCalled()
+  })
+})

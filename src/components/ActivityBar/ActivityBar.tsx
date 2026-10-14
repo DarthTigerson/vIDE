@@ -25,6 +25,31 @@ interface ActivityBarProps {
   wide?: boolean
   // Icons only at rest; widen (as an overlay) while hovered.
   expandOnHover?: boolean
+  // A grip on the bar's inner border, near the bottom, that toggles it.
+  edgeToggle?: { label: string; onClick: () => void }
+}
+
+// Three-dot grip straddling the bar's inner border. The button is wider than
+// the pill so the thin target is still easy to hit.
+function EdgeGrip({ side, toggle }: { side: 'left' | 'right'; toggle: NonNullable<ActivityBarProps['edgeToggle']> }) {
+  return (
+    <button
+      type="button"
+      aria-label={toggle.label}
+      title={toggle.label}
+      onClick={toggle.onClick}
+      className={[
+        'group absolute bottom-6 z-10 flex h-8 w-3 items-center justify-center',
+        side === 'left' ? '-right-1.5' : '-left-1.5',
+      ].join(' ')}
+    >
+      <span className="flex h-[22px] w-[5px] flex-col items-center justify-center gap-[2px] rounded-full border border-border bg-black transition-colors group-hover:border-accent group-hover:bg-accent">
+        <span className="h-[2px] w-[2px] rounded-full bg-fg-subtle group-hover:bg-black" />
+        <span className="h-[2px] w-[2px] rounded-full bg-fg-subtle group-hover:bg-black" />
+        <span className="h-[2px] w-[2px] rounded-full bg-fg-subtle group-hover:bg-black" />
+      </span>
+    </button>
+  )
 }
 
 function RenameRow({ item, dense }: { item: ActivityBarItem; dense: boolean }) {
@@ -145,7 +170,7 @@ function ItemGroups({ groups, side, showAccent, dense, wide }: { groups: Activit
   )
 }
 
-export function ActivityBar({ side, groups, bottomGroups, showAccent = true, dense = false, wide = false, expandOnHover = false }: ActivityBarProps) {
+export function ActivityBar({ side, groups, bottomGroups, showAccent = true, dense = false, wide = false, expandOnHover = false, edgeToggle }: ActivityBarProps) {
   const [hovered, setHovered] = React.useState(false)
   // An inline rename only renders in the wide bar, so keep it open while one
   // is in progress even if the pointer leaves.
@@ -154,13 +179,14 @@ export function ActivityBar({ side, groups, bottomGroups, showAccent = true, den
   const bar = (
     <div
       className={[
-        'flex flex-col shrink-0 bg-sidebar py-1',
+        'relative flex flex-col shrink-0 bg-sidebar py-1',
         showWide ? 'w-40 items-stretch' : 'w-12 items-center',
         side === 'left' ? 'border-r border-border' : 'border-l border-border',
         expandOnHover ? 'h-full' : '',
         expandOnHover && showWide ? 'shadow-lg shadow-black/40' : '',
       ].join(' ')}
     >
+      {edgeToggle && <EdgeGrip side={side} toggle={edgeToggle} />}
       <ItemGroups groups={groups} side={side} showAccent={showAccent} dense={dense} wide={showWide} />
       {bottomGroups && (
         <div className={['flex flex-col mt-auto', showWide ? 'items-stretch' : 'items-center'].join(' ')}>
@@ -241,22 +267,6 @@ export function NewSessionPlusIcon() {
   return (
     <svg width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-    </svg>
-  )
-}
-
-// Double chevron for the agent bar's collapse toggle; points the way the
-// bar will move (toward its outer edge to collapse, inward to expand).
-export function ChevronsIcon({ direction }: { direction: 'left' | 'right' }) {
-  return (
-    <svg width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d={direction === 'left' ? 'M11 17L6 12L11 7M18 17L13 12L18 7' : 'M13 17L18 12L13 7M6 17L11 12L6 7'}
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
     </svg>
   )
 }

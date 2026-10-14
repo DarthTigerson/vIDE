@@ -38,7 +38,6 @@ import {
   UsageGraphIcon,
   NotesIcon,
   LlamaIcon,
-  ChevronsIcon,
 } from './components/ActivityBar/ActivityBar'
 import { ClaudeStatusIcon } from './components/ActivityBar/ClaudeStatusIcon'
 import { ClaudeSessionContextMenu } from './components/ActivityBar/ClaudeSessionContextMenu'
@@ -1135,6 +1134,10 @@ export default function App() {
           dense
           wide={assistant === 'claude' && !agentBarHover && !agentBarCollapsed}
           expandOnHover={assistant === 'claude' && agentBarHover}
+          edgeToggle={assistant === 'claude' && !agentBarHover ? {
+            label: agentBarCollapsed ? 'Expand session names' : 'Collapse session names',
+            onClick: () => useClaudeStore.getState().toggleAgentBarCollapsed(),
+          } : undefined}
           groups={[
             [
               ...(assistant === 'claude'
@@ -1223,17 +1226,7 @@ export default function App() {
           ]}
           bottomGroups={assistant === 'claude'
             ? [
-              // Collapse toggle (empty in hover mode); also the leading group,
-              // so ItemGroups renders a divider between it and Compact. Chevrons point toward the
-              // bar's outer edge to collapse, inward to expand.
-              agentBarHover ? [] : [{
-                id: 'toggle-agent-bar',
-                icon: <ChevronsIcon direction={agentBarCollapsed === mirrored ? 'right' : 'left'} />,
-                title: agentBarCollapsed ? 'Expand session names' : 'Collapse session names',
-                label: agentBarCollapsed ? undefined : 'Collapse',
-                active: false,
-                onClick: () => useClaudeStore.getState().toggleAgentBarCollapsed(),
-              }],
+              [], // empty leading group so ItemGroups renders a divider above Compact
               // Previous/Resume Session moved to the right-click menu on each
               // session icon (see ClaudeSessionContextMenu) now that there can
               // be more than one session — a toolbar button can only ever act

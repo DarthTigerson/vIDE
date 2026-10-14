@@ -80,7 +80,7 @@ export function GeneralSettingsPage() {
               value={agentBarMode}
               onChange={setAgentBarMode}
               options={[
-                { value: 'collapse', label: 'Collapse toggle' },
+                { value: 'collapse', label: 'Click to collapse' },
                 { value: 'hover', label: 'Expand on hover' },
               ]}
             />
@@ -88,7 +88,7 @@ export function GeneralSettingsPage() {
           <p className="max-w-[460px] text-xs text-fg-muted">
             {agentBarMode === 'hover'
               ? 'The bar shows icons only and widens over the panel while you hover it.'
-              : 'A chevron at the bottom of the bar collapses it to icons or expands it to show names.'}
+              : 'A grip on the bar\'s inner edge, near the bottom, collapses it to icons or expands it to show names.'}
           </p>
         </FeatureBlock>
 

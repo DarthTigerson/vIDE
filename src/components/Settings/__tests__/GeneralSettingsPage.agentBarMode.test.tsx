@@ -12,10 +12,10 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('GeneralSettingsPage — Agent panel session names', () => {
-  it('defaults to the collapse toggle', () => {
+  it('defaults to click to collapse', () => {
     render(<GeneralSettingsPage />)
-    expect(screen.getByRole('radio', { name: 'Collapse toggle' })).toHaveAttribute('aria-checked', 'true')
-    expect(screen.getByText(/chevron at the bottom of the bar/)).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Click to collapse' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByText(/grip on the bar's inner edge/)).toBeInTheDocument()
     expect(screen.getByTestId('agent-bar-preview').querySelector('[data-mode]')).toHaveAttribute('data-mode', 'collapse')
   })
 
