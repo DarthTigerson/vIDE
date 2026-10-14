@@ -207,6 +207,7 @@ export interface CustomHighContrastPalette {
 export const CUSTOM_DEFAULT_THEME_ID = 'custom-theme-default'
 
 export function defineCustomDefaultTheme(monaco: Monaco, baseThemeId: ThemeId, customBackground: string, glass: boolean) {
+  defineMonacoThemes(monaco)
   const p = THEME_PALETTES[baseThemeId]
   monaco.editor.defineTheme(CUSTOM_DEFAULT_THEME_ID, {
     base: p.base,
@@ -220,6 +221,7 @@ export function defineCustomDefaultTheme(monaco: Monaco, baseThemeId: ThemeId, c
 }
 
 export function defineCustomHighContrastTheme(monaco: Monaco, palette: CustomHighContrastPalette, glass: boolean) {
+  defineMonacoThemes(monaco)
   const base: 'vs' | 'vs-dark' = hexToHsv(palette.background).v < 0.5 ? 'vs-dark' : 'vs'
   const tokens = deriveHighContrastTokens(palette.accent, palette.background)
   monaco.editor.defineTheme(CUSTOM_HIGH_CONTRAST_THEME_ID, {
@@ -257,6 +259,7 @@ export function defineCustomTokenTheme(
   background: string,
   glass: boolean,
 ) {
+  defineMonacoThemes(monaco)
   const p = THEME_PALETTES[baseThemeId]
   const base: 'vs' | 'vs-dark' = hexToHsv(background).v < 0.5 ? 'vs-dark' : 'vs'
   monaco.editor.defineTheme(CUSTOM_TOKENS_THEME_ID, {
@@ -346,6 +349,9 @@ export function defineMonacoThemes(monaco: Monaco) {
   // late. Which happens on every switch TO one of those schemes: the theme
   // prop is applied in a child effect, the define runs in the parent's,
   // asynchronously, after it. The real colours land a tick later.
+  // The reverse order (app opened on a Settings tab, so the define effect
+  // runs before any pane mounts) is covered by each defineCustom*Theme
+  // calling this first, so these placeholders can never land on top.
   const ph = THEME_PALETTES['claude-dark']
   const phColors = { ...baseEditorColors(ph), 'editor.background': ph.background }
   monaco.editor.defineTheme(CUSTOM_DEFAULT_THEME_ID, {
