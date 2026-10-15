@@ -8,7 +8,8 @@ import { useThemeStore } from '@/stores/themeStore'
 afterEach(() => {
   cleanup()
   useDisplayStore.setState({ editorColorScheme: 'default' })
-  useDisplayStore.getState().resetEditorTokenColors()
+  useDisplayStore.getState().resetEditorTokenColors('vs')
+  useDisplayStore.getState().resetEditorTokenColors('vs-dark')
   useThemeStore.setState({ theme: 'claude-dark' })
 })
 
@@ -70,10 +71,10 @@ describe('EditorColorsSection', () => {
   })
   it('only shows the syntax colour pickers while Custom is the active scheme', () => {
     render(<EditorColorsSection />)
-    expect(screen.queryByText('Syntax colors')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Syntax colors/)).not.toBeInTheDocument()
     fireEvent.click(screen.getByText('Custom'))
     expect(useDisplayStore.getState().editorColorScheme).toBe('custom')
-    expect(screen.getByText('Syntax colors')).toBeInTheDocument()
+    expect(screen.getByText(/Syntax colors/)).toBeInTheDocument()
     // "Type / key" is the one that paints a YAML key — the whole reason
     // this scheme exists.
     expect(screen.getByText('Type / key')).toBeInTheDocument()
@@ -85,7 +86,7 @@ describe('EditorColorsSection', () => {
     const field = screen.getByTitle('Pick Type / key colour').parentElement!.querySelector('input')!
     fireEvent.change(field, { target: { value: '#ff8800' } })
     fireEvent.blur(field)
-    expect(useDisplayStore.getState().editorTokenColors.type).toBe('#ff8800')
+    expect(useDisplayStore.getState().editorTokenColors['vs-dark'].type).toBe('#ff8800')
 
     const preview = screen.getByText('Custom').closest('button')!.querySelector('pre')!
     const typeSpan = [...preview.querySelectorAll('span')].find((el) => el.textContent === 'number[]')!
@@ -95,10 +96,29 @@ describe('EditorColorsSection', () => {
   it('rejects an invalid hex instead of storing it', () => {
     useDisplayStore.setState({ editorColorScheme: 'custom' })
     render(<EditorColorsSection />)
-    const before = useDisplayStore.getState().editorTokenColors.type
+    const before = useDisplayStore.getState().editorTokenColors['vs-dark'].type
     const field = screen.getByTitle('Pick Type / key colour').parentElement!.querySelector('input')!
     fireEvent.change(field, { target: { value: 'chartreuse' } })
     fireEvent.blur(field)
-    expect(useDisplayStore.getState().editorTokenColors.type).toBe(before)
+    expect(useDisplayStore.getState().editorTokenColors['vs-dark'].type).toBe(before)
+  })
+
+  it('on a light theme, edits and previews the light set and leaves the dark set alone', () => {
+    useThemeStore.setState({ theme: 'claude-light' })
+    useDisplayStore.setState({ editorColorScheme: 'custom' })
+    const darkBefore = useDisplayStore.getState().editorTokenColors['vs-dark']
+    render(<EditorColorsSection />)
+    expect(screen.getByText(/light themes/)).toBeInTheDocument()
+    const field = screen.getByTitle('Pick Type / key colour').parentElement!.querySelector('input')!
+    // Shows Monaco's light default, not the dark set's colour.
+    expect(field.value).toBe('#267f99')
+    fireEvent.change(field, { target: { value: '#ff8800' } })
+    fireEvent.blur(field)
+    expect(useDisplayStore.getState().editorTokenColors['vs'].type).toBe('#ff8800')
+    expect(useDisplayStore.getState().editorTokenColors['vs-dark']).toEqual(darkBefore)
+
+    const preview = screen.getByText('Custom').closest('button')!.querySelector('pre')!
+    const typeSpan = [...preview.querySelectorAll('span')].find((el) => el.textContent === 'number[]')!
+    expect(typeSpan.style.color).toBe('rgb(255, 136, 0)')
   })
 })

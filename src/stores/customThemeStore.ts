@@ -3,6 +3,7 @@ import type { ITheme } from '@xterm/xterm'
 import { useThemeStore, familyOf, THEME_OPTIONS, XTERM_THEMES, glassXtermTheme, XTERM_GLASS_ALPHA, type ThemeId } from './themeStore'
 import { useDisplayStore } from './displayStore'
 import { hexWithAlpha } from '@/lib/color'
+import { THEME_PALETTES } from '@/monacoThemes'
 
 const STORAGE_KEY = 'vide:customThemes'
 
@@ -367,4 +368,16 @@ export function effectiveXtermTheme(themeId: ThemeId, glass: boolean): ITheme {
   if (!active) return base
   const bg = active[currentVariant()]['--color-bg']
   return { ...base, background: glass ? hexWithAlpha(bg, XTERM_GLASS_ALPHA) : bg }
+}
+
+// The editor's own background under the active theme: a custom theme's
+// --color-bg when one is active, otherwise the built-in family's. Shared by
+// Editor.tsx (which paints it into CUSTOM_TOKENS_THEME_ID) and Settings >
+// Editor Colors, so both agree on whether the Custom light or dark token set
+// applies — a light custom theme on a dark base family still reads as light.
+export function useEditorBackground(): string {
+  const themeId = useThemeStore((s) => s.theme)
+  const active = useCustomThemeStore((s) => (s.activeId ? s.themes.find((t) => t.id === s.activeId) : undefined))
+  const variant = themeId.endsWith('-dark') ? 'dark' : 'light'
+  return active ? active[variant]['--color-bg'] : THEME_PALETTES[themeId].background
 }

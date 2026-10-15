@@ -41,6 +41,15 @@ export interface HighContrastTokens {
   comment: string
 }
 
+export type EditorBase = 'vs' | 'vs-dark'
+
+// Which Monaco base an editor background reads as. Custom themes only carry
+// a background, not a base, so every caller that needs light-vs-dark for one
+// asks the background itself rather than the base family.
+export function editorBaseFor(backgroundHex: string): EditorBase {
+  return hexToHsv(backgroundHex).v < 0.5 ? 'vs-dark' : 'vs'
+}
+
 // One bright palette per theme family, tied to that theme's own accent hue
 // rather than a single generic scheme — picking Claude with High Contrast
 // on should still look like Claude, just far more legible. Background and
@@ -97,7 +106,7 @@ export const MARIO_MODE_TOKENS: HighContrastTokens = {
 // below), so the Editor Colors picker's Default card preview needs the real
 // values rather than inventing its own. Keyed by base, not by theme, since
 // the default palette doesn't vary with the app's accent.
-export const DEFAULT_TOKENS: Record<'vs' | 'vs-dark', HighContrastTokens> = {
+export const DEFAULT_TOKENS: Record<EditorBase, HighContrastTokens> = {
   'vs-dark': { keyword: '#569cd6', string: '#ce9178', number: '#b5cea8', type: '#4ec9b0', comment: '#6a9955' },
   'vs':      { keyword: '#0000ff', string: '#a31515', number: '#098658', type: '#267f99', comment: '#008000' },
 }
@@ -222,7 +231,7 @@ export function defineCustomDefaultTheme(monaco: Monaco, baseThemeId: ThemeId, c
 
 export function defineCustomHighContrastTheme(monaco: Monaco, palette: CustomHighContrastPalette, glass: boolean) {
   defineMonacoThemes(monaco)
-  const base: 'vs' | 'vs-dark' = hexToHsv(palette.background).v < 0.5 ? 'vs-dark' : 'vs'
+  const base = editorBaseFor(palette.background)
   const tokens = deriveHighContrastTokens(palette.accent, palette.background)
   monaco.editor.defineTheme(CUSTOM_HIGH_CONTRAST_THEME_ID, {
     base,
@@ -249,7 +258,9 @@ export function defineCustomHighContrastTheme(monaco: Monaco, palette: CustomHig
 // colours (or the active theme / panel style, which still supply the
 // background and chrome around them) change — only the five syntax colours
 // come from the user, so a Custom palette keeps looking like the rest of
-// the app rather than becoming a second, competing theme.
+// the app rather than becoming a second, competing theme. Callers pass the
+// user's set for this background's base (displayStore keeps one per base),
+// since colours picked against a dark background vanish on a light one.
 export const CUSTOM_TOKENS_THEME_ID = 'custom-tokens'
 
 export function defineCustomTokenTheme(
@@ -261,7 +272,7 @@ export function defineCustomTokenTheme(
 ) {
   defineMonacoThemes(monaco)
   const p = THEME_PALETTES[baseThemeId]
-  const base: 'vs' | 'vs-dark' = hexToHsv(background).v < 0.5 ? 'vs-dark' : 'vs'
+  const base = editorBaseFor(background)
   monaco.editor.defineTheme(CUSTOM_TOKENS_THEME_ID, {
     base,
     inherit: true,
