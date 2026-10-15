@@ -118,12 +118,32 @@ describe('ActivityBar expandOnHover', () => {
 })
 
 describe('ActivityBar edgeToggle', () => {
-  it('renders a grip on the inner border that toggles the bar', () => {
+  const toggle = (expanded: boolean, onClick = vi.fn()) => ({
+    label: expanded ? 'Collapse session names' : 'Expand session names',
+    onClick,
+  })
+  const flipped = (name: string) =>
+    screen.getByRole('button', { name }).querySelector('svg')!.classList.contains('rotate-180')
+
+  it('renders a half-moon tab on the inner border that toggles the bar', () => {
     const onClick = vi.fn()
-    render(<ActivityBar side="right" wide edgeToggle={{ label: 'Collapse session names', onClick }} groups={[[item({ label: 'Fix redis' })]]} />)
-    const grip = screen.getByRole('button', { name: 'Collapse session names' })
-    expect(grip.className).toContain('-left-1.5')
-    fireEvent.click(grip)
+    render(<ActivityBar side="right" wide edgeToggle={toggle(true, onClick)} groups={[]} />)
+    const btn = screen.getByRole('button', { name: 'Collapse session names' })
+    // Right-side bar: its inner border is on the left, so the tab grows out
+    // leftward, rounded on that side and open toward the bar.
+    expect(btn.className).toContain('rounded-l-full')
+    expect(btn.className).toContain('border-r-0')
+    fireEvent.click(btn)
     expect(onClick).toHaveBeenCalled()
+  })
+
+  it('points toward the outer edge to collapse and inward to expand', () => {
+    const { rerender } = render(<ActivityBar side="right" wide edgeToggle={toggle(true)} groups={[]} />)
+    expect(flipped('Collapse session names')).toBe(false)
+    rerender(<ActivityBar side="right" edgeToggle={toggle(false)} groups={[]} />)
+    expect(flipped('Expand session names')).toBe(true)
+    // Mirrored navbar: the bar sits on the left, so everything flips.
+    rerender(<ActivityBar side="left" wide edgeToggle={toggle(true)} groups={[]} />)
+    expect(flipped('Collapse session names')).toBe(true)
   })
 })
