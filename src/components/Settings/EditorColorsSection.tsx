@@ -1,6 +1,7 @@
 import { useDisplayStore, EDITOR_COLOR_SCHEME_OPTIONS, EDITOR_TOKEN_FIELDS, type EditorColorScheme } from '@/stores/displayStore'
 import { useThemeStore, type ThemeId } from '@/stores/themeStore'
-import { THEME_PALETTES, HIGH_CONTRAST_TOKENS, DEFAULT_TOKENS, MARIO_MODE_BASE, MARIO_MODE_TOKENS, type HighContrastTokens } from '@/monacoThemes'
+import { THEME_PALETTES, HIGH_CONTRAST_TOKENS, DEFAULT_TOKENS, MARIO_MODE_BASE, MARIO_MODE_TOKENS, editorBaseFor, type HighContrastTokens } from '@/monacoThemes'
+import { useEditorBackground } from '@/stores/customThemeStore'
 import { ColorPickerRow } from '@/components/ui/ColorPickerRow'
 import { FeatureBlock } from './FeatureBlock'
 
@@ -36,6 +37,10 @@ export function EditorColorsSection() {
   const setEditorTokenColor = useDisplayStore((s) => s.setEditorTokenColor)
   const resetEditorTokenColors = useDisplayStore((s) => s.resetEditorTokenColors)
   const themeId = useThemeStore((s) => s.theme)
+  // Custom keeps one set per editor base; edit (and preview) the one the
+  // editor is actually showing right now.
+  const base = editorBaseFor(useEditorBackground())
+  const customTokens = editorTokenColors[base]
 
   return (
     <FeatureBlock title="Editor Colors" description="Syntax colours in the editor.">
@@ -53,7 +58,7 @@ export function EditorColorsSection() {
                   isActive ? 'border-accent' : 'border-border hover:border-fg-muted',
                 ].join(' ')}
               >
-                <CodePreview scheme={opt.value} themeId={themeId} customTokens={editorTokenColors} />
+                <CodePreview scheme={opt.value} themeId={themeId} customTokens={customTokens} />
                 <div className={['px-3 py-2', isActive ? 'bg-accent/10' : 'bg-sidebar'].join(' ')}>
                   <div className="flex items-center justify-between gap-2">
                     <span className={['text-sm font-medium truncate', isActive ? 'text-fg' : 'text-fg-muted'].join(' ')}>
@@ -73,10 +78,12 @@ export function EditorColorsSection() {
         {editorColorScheme === 'custom' && (
           <div className="mt-4 p-4 rounded-lg border border-border bg-bg/40">
             <div className="flex items-center justify-between gap-3 mb-2">
-              <span className="text-sm font-medium text-fg">Syntax colors</span>
+              <span className="text-sm font-medium text-fg">
+                Syntax colors <span className="font-normal text-fg-muted">· {base === 'vs' ? 'light' : 'dark'} themes</span>
+              </span>
               <button
                 type="button"
-                onClick={resetEditorTokenColors}
+                onClick={() => resetEditorTokenColors(base)}
                 className="text-xs font-medium text-accent hover:underline"
               >
                 Reset to defaults
@@ -87,8 +94,8 @@ export function EditorColorsSection() {
                 <ColorPickerRow
                   key={field.key}
                   label={field.label}
-                  value={editorTokenColors[field.key]}
-                  onChange={(hex) => setEditorTokenColor(field.key, hex)}
+                  value={customTokens[field.key]}
+                  onChange={(hex) => setEditorTokenColor(base, field.key, hex)}
                 />
               ))}
             </div>

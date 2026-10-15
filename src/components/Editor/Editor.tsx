@@ -8,12 +8,12 @@ import { useGlobalSearchStore } from '@/stores/globalSearchStore'
 import { useEditorFindStore } from '@/stores/editorFindStore'
 import { EditorFindBox } from './EditorFindBox'
 import { useThemeStore, MONACO_THEMES } from '@/stores/themeStore'
-import { useCustomThemeStore } from '@/stores/customThemeStore'
+import { useCustomThemeStore, useEditorBackground } from '@/stores/customThemeStore'
 import {
   defineMonacoThemes, glassMonacoThemeId, highContrastMonacoThemeId, glassHighContrastMonacoThemeId, MARIO_MODE_THEME_ID,
   defineCustomHighContrastTheme, CUSTOM_HIGH_CONTRAST_THEME_ID,
   defineCustomDefaultTheme, CUSTOM_DEFAULT_THEME_ID,
-  defineCustomTokenTheme, CUSTOM_TOKENS_THEME_ID, THEME_PALETTES,
+  defineCustomTokenTheme, CUSTOM_TOKENS_THEME_ID, editorBaseFor,
 } from '@/monacoThemes'
 import { useFontSizeStore } from '@/stores/fontSizeStore'
 import { useInstanceFontSizeStore } from '@/stores/instanceFontSizeStore'
@@ -194,6 +194,7 @@ export function Editor() {
   const themeId = useThemeStore((s) => s.theme)
   const activeCustomId = useCustomThemeStore((s) => s.activeId)
   const customThemes = useCustomThemeStore((s) => s.themes)
+  const editorBackground = useEditorBackground()
 
   // Keeps CUSTOM_DEFAULT_THEME_ID/CUSTOM_HIGH_CONTRAST_THEME_ID's definitions
   // in sync with the active custom theme's own colours (background for
@@ -229,16 +230,14 @@ export function Editor() {
   // Custom Editor Colors scheme works on any theme, built-in included. The
   // background still follows whatever theme is active (a custom theme's own
   // --color-bg when one is selected), so only the syntax colours are the
-  // user's.
+  // user's — from their light or dark set, whichever that background reads as.
   useEffect(() => {
     if (editorColorScheme !== 'custom') return
-    const variant = themeId.endsWith('-dark') ? 'dark' : 'light'
-    const activeCustom = activeCustomId ? customThemes.find((t) => t.id === activeCustomId) : undefined
-    const background = activeCustom ? activeCustom[variant]['--color-bg'] : THEME_PALETTES[themeId].background
+    const tokens = editorTokenColors[editorBaseFor(editorBackground)]
     loader.init().then((monaco) => {
-      defineCustomTokenTheme(monaco, editorTokenColors, themeId, background, panelStyle === 'glass')
+      defineCustomTokenTheme(monaco, tokens, themeId, editorBackground, panelStyle === 'glass')
     })
-  }, [editorColorScheme, editorTokenColors, activeCustomId, customThemes, themeId, panelStyle])
+  }, [editorColorScheme, editorTokenColors, editorBackground, themeId, panelStyle])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

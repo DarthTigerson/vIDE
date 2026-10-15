@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { useThemeStore, familyOf } from './themeStore'
 import { notifySettingChanged } from '../lib/notifySettingChanged'
-import { DEFAULT_TOKENS, THEME_PALETTES, type HighContrastTokens } from '../monacoThemes'
+import { DEFAULT_TOKENS, type EditorBase, type HighContrastTokens } from '../monacoThemes'
 import { isValidHex } from '../lib/color'
 
 const FONT_KEY = 'vide:font'
@@ -113,15 +113,15 @@ interface DisplayStore {
   backgroundImage: BackgroundImage
   navbarPosition: NavbarPosition
   editorColorScheme: EditorColorScheme
-  editorTokenColors: HighContrastTokens
+  editorTokenColors: EditorTokenColorSets
   setFont: (font: string) => void
   setPanelStyle: (style: PanelStyle) => void
   setMemoryUsageVisible: (visible: boolean) => void
   setBackgroundImage: (image: BackgroundImage) => void
   setNavbarPosition: (position: NavbarPosition) => void
   setEditorColorScheme: (scheme: EditorColorScheme) => void
-  setEditorTokenColor: (key: keyof HighContrastTokens, hex: string) => void
-  resetEditorTokenColors: () => void
+  setEditorTokenColor: (base: EditorBase, key: keyof HighContrastTokens, hex: string) => void
+  resetEditorTokenColors: (base: EditorBase) => void
 }
 
 function applyFont(font: string) {
@@ -186,22 +186,37 @@ const initialEditorColorScheme: EditorColorScheme = EDITOR_COLOR_SCHEME_OPTIONS.
   ? (storedEditorColorScheme as EditorColorScheme)
   : 'default'
 
-// The Custom scheme starts from Monaco's own stock colours, so opening the
-// picker (or hitting Reset) shows something that already looks right rather
-// than five blanks. Keyed off the ACTIVE theme's base, not a fixed 'vs-dark':
-// seeding a light theme with the dark palette puts e.g. #b5cea8 numbers on a
-// white background, which is the unreadable state the picker exists to fix.
-// Returns a fresh object every call — the DEFAULT_TOKENS entries are shared
+// One Custom palette per editor base. A single shared set can't work:
+// colours picked against a dark background (e.g. #ffffff strings) vanish on
+// a light one, and vice versa — so light and dark themes each keep their
+// own five colours, and switching theme just switches which set is shown.
+export type EditorTokenColorSets = Record<EditorBase, HighContrastTokens>
+
+// Each set starts from Monaco's own stock colours for its base, so opening
+// the picker (or hitting Reset) shows something that already looks right.
+// Returns fresh objects every call — the DEFAULT_TOKENS entries are shared
 // module state that nothing may mutate.
-export function defaultEditorTokenColors(): HighContrastTokens {
-  return { ...DEFAULT_TOKENS[THEME_PALETTES[useThemeStore.getState().theme].base] }
+export function defaultEditorTokenColors(): EditorTokenColorSets {
+  return { 'vs': { ...DEFAULT_TOKENS['vs'] }, 'vs-dark': { ...DEFAULT_TOKENS['vs-dark'] } }
+}
+
+function readTokenFields(into: HighContrastTokens, parsed: unknown) {
+  if (!parsed || typeof parsed !== 'object') return
+  for (const key of Object.keys(into) as (keyof HighContrastTokens)[]) {
+    const value = (parsed as Record<string, unknown>)[key]
+    if (typeof value === 'string' && isValidHex(value)) into[key] = value
+  }
 }
 
 // Per-field validation, not all-or-nothing: this value round-trips through
 // the settings-sync repo as plain text, so a hand-edited or partially
 // corrupt entry must degrade to the stock colour for that one token instead
 // of painting the editor with `undefined`.
-function loadEditorTokenColors(): HighContrastTokens {
+//
+// Values saved before the per-base split are one flat set; those were picked
+// (and only ever looked right) against a dark editor, so they become the
+// dark set and the light set starts from Monaco's light defaults.
+function loadEditorTokenColors(): EditorTokenColorSets {
   const result = defaultEditorTokenColors()
   const raw = localStorage.getItem(EDITOR_TOKEN_COLORS_KEY)
   if (!raw) return result
@@ -212,16 +227,19 @@ function loadEditorTokenColors(): HighContrastTokens {
     return result
   }
   if (!parsed || typeof parsed !== 'object') return result
-  for (const key of Object.keys(result) as (keyof HighContrastTokens)[]) {
-    const value = (parsed as Record<string, unknown>)[key]
-    if (typeof value === 'string' && isValidHex(value)) result[key] = value
+  const sets = parsed as Record<string, unknown>
+  if ('vs' in sets || 'vs-dark' in sets) {
+    readTokenFields(result['vs'], sets['vs'])
+    readTokenFields(result['vs-dark'], sets['vs-dark'])
+  } else {
+    readTokenFields(result['vs-dark'], parsed)
   }
   return result
 }
 
 const initialEditorTokenColors = loadEditorTokenColors()
 
-function applyEditorTokenColors(tokens: HighContrastTokens) {
+function applyEditorTokenColors(tokens: EditorTokenColorSets) {
   localStorage.setItem(EDITOR_TOKEN_COLORS_KEY, JSON.stringify(tokens))
 }
 
@@ -266,40 +284,26 @@ export const useDisplayStore = create<DisplayStore>((set) => ({
     set({ editorColorScheme: scheme })
     notifySettingChanged()
   },
-  setEditorTokenColor: (key, hex) => {
+  setEditorTokenColor: (base, key, hex) => {
     // The pickers already gate on isValidHex, but this is the boundary the
     // value gets persisted and handed to monaco.editor.defineTheme() at —
     // one bad foreground there rejects the whole theme definition.
     if (!isValidHex(hex)) return
     set((state) => {
-      const next = { ...state.editorTokenColors, [key]: hex }
+      const next = { ...state.editorTokenColors, [base]: { ...state.editorTokenColors[base], [key]: hex } }
       applyEditorTokenColors(next)
       return { editorTokenColors: next }
     })
     notifySettingChanged()
   },
-  resetEditorTokenColors: () => {
-    const next = defaultEditorTokenColors()
+  resetEditorTokenColors: (base) => {
+    const next = { ...useDisplayStore.getState().editorTokenColors, [base]: defaultEditorTokenColors()[base] }
     applyEditorTokenColors(next)
     set({ editorTokenColors: next })
     notifySettingChanged()
   },
 }))
 
-// Keeps the Custom scheme's seeded (never explicitly customized) colours
-// following the active theme's base after the fact too, not just at load —
-// otherwise switching from a dark theme to a light one (or back) without
-// ever opening Editor Colors > Custom leaves the old base's tokens showing
-// against the new background, the exact unreadable state
-// defaultEditorTokenColors() above exists to avoid at startup. A stored
-// value in EDITOR_TOKEN_COLORS_KEY means the user has actually customized
-// it (via setEditorTokenColor/resetEditorTokenColors, both of which persist
-// immediately), so that case is left alone.
-useThemeStore.subscribe((state, prevState) => {
-  if (state.theme === prevState.theme) return
-  if (localStorage.getItem(EDITOR_TOKEN_COLORS_KEY)) return
-  useDisplayStore.setState({ editorTokenColors: defaultEditorTokenColors() })
-})
 
 // Swaps the background image to match whenever the active theme family
 // changes — whether from a built-in family card or activating a custom
