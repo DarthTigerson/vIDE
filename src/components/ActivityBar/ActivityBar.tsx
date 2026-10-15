@@ -25,13 +25,14 @@ interface ActivityBarProps {
   wide?: boolean
   // Icons only at rest; widen (as an overlay) while hovered.
   expandOnHover?: boolean
-  // A grip on the bar's inner border, near the bottom, that toggles it.
+  // A half-moon tab on the bar's inner border, by the last row, that toggles it.
   edgeToggle?: { label: string; onClick: () => void }
 }
 
-// Three-dot grip straddling the bar's inner border. The button is wider than
-// the pill so the thin target is still easy to hit.
-function EdgeGrip({ side, toggle }: { side: 'left' | 'right'; toggle: NonNullable<ActivityBarProps['edgeToggle']> }) {
+// Half-moon tab on the inner border; its open side covers the bar's border
+// with the bar's fill. Chevron points outward to collapse, inward to expand.
+function EdgeTab({ side, expanded, toggle }: { side: 'left' | 'right'; expanded: boolean; toggle: NonNullable<ActivityBarProps['edgeToggle']> }) {
+  const pointsRight = (side === 'right') === expanded
   return (
     <button
       type="button"
@@ -39,15 +40,22 @@ function EdgeGrip({ side, toggle }: { side: 'left' | 'right'; toggle: NonNullabl
       title={toggle.label}
       onClick={toggle.onClick}
       className={[
-        'group absolute bottom-6 z-10 flex h-8 w-3 items-center justify-center',
-        side === 'left' ? '-right-1.5' : '-left-1.5',
+        'group absolute bottom-[5px] z-10 flex h-[30px] w-[14px] items-center justify-center border border-border bg-sidebar text-fg-muted transition-colors hover:border-accent hover:text-accent',
+        side === 'right'
+          ? '-left-[14px] rounded-l-full border-r-0'
+          : '-right-[14px] rounded-r-full border-l-0',
       ].join(' ')}
     >
-      <span className="flex h-[22px] w-[5px] flex-col items-center justify-center gap-[2px] rounded-full border border-border bg-black transition-colors group-hover:border-accent group-hover:bg-accent">
-        <span className="h-[2px] w-[2px] rounded-full bg-fg-subtle group-hover:bg-black" />
-        <span className="h-[2px] w-[2px] rounded-full bg-fg-subtle group-hover:bg-black" />
-        <span className="h-[2px] w-[2px] rounded-full bg-fg-subtle group-hover:bg-black" />
-      </span>
+      <svg
+        width="0.625rem"
+        height="0.625rem"
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+        className={['transition-transform duration-200', pointsRight ? '' : 'rotate-180'].join(' ')}
+      >
+        <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
     </button>
   )
 }
@@ -186,13 +194,13 @@ export function ActivityBar({ side, groups, bottomGroups, showAccent = true, den
         expandOnHover && showWide ? 'shadow-lg shadow-black/40' : '',
       ].join(' ')}
     >
-      {edgeToggle && <EdgeGrip side={side} toggle={edgeToggle} />}
       <ItemGroups groups={groups} side={side} showAccent={showAccent} dense={dense} wide={showWide} />
       {bottomGroups && (
         <div className={['flex flex-col mt-auto', showWide ? 'items-stretch' : 'items-center'].join(' ')}>
           <ItemGroups groups={bottomGroups} side={side} showAccent={showAccent} dense={dense} wide={showWide} />
         </div>
       )}
+      {edgeToggle && <EdgeTab side={side} expanded={showWide} toggle={edgeToggle} />}
     </div>
   )
   if (!expandOnHover) return bar

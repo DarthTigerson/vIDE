@@ -31,7 +31,7 @@ function SessionGlyph({ hue }: { hue: string }) {
 // One state of the agent panel: a few terminal lines with the session bar on
 // its right edge, either icons only or widened with names (floating over the
 // terminal when `overlay`).
-function MiniAgentPanel({ label, wide, overlay, grip, pointer }: { label: string; wide: boolean; overlay?: boolean; grip?: boolean; pointer?: boolean }) {
+function MiniAgentPanel({ label, wide, overlay, toggle, pointer }: { label: string; wide: boolean; overlay?: boolean; toggle?: boolean; pointer?: boolean }) {
   const bar = (
     <div
       className={[
@@ -46,7 +46,11 @@ function MiniAgentPanel({ label, wide, overlay, grip, pointer }: { label: string
           {wide && <span className={['truncate text-[10px]', s.active ? 'text-fg' : 'text-fg-muted'].join(' ')}>{s.name}</span>}
         </span>
       ))}
-      {grip && <span className="absolute -left-[3px] bottom-3 h-3.5 w-[5px] rounded-full border border-accent bg-accent" />}
+      {toggle && (
+        <span className="absolute -left-[8px] bottom-1.5 flex h-4 w-[8px] items-center justify-center rounded-l-full border border-r-0 border-border bg-sidebar text-[7px] leading-none text-accent">
+          {wide ? '›' : '‹'}
+        </span>
+      )}
     </div>
   )
   return (
@@ -83,8 +87,8 @@ export function AgentBarPreview() {
           </>
         ) : (
           <>
-            <MiniAgentPanel label="Expanded" wide grip />
-            <MiniAgentPanel label="Collapsed" wide={false} grip />
+            <MiniAgentPanel label="Expanded" wide toggle />
+            <MiniAgentPanel label="Collapsed" wide={false} toggle />
           </>
         )}
       </div>
