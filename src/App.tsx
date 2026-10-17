@@ -1056,8 +1056,9 @@ export default function App() {
               },
             ]] : []),
           ]
-          // Every enabled app, favorites included (the star shows which).
-          const allAppsEntries = MOVABLE_APP_IDS.filter((id) => appItems[id]).map((id) => ({
+          // Every enabled app, favorites included (the star shows which), with
+          // favorites in their bar order and the rest in the default order.
+          const allAppsEntries = [...favoriteIds, ...MOVABLE_APP_IDS.filter((id) => !favoriteIds.includes(id))].filter((id) => appItems[id]).map((id) => ({
             id,
             title: appItems[id]!.title,
             icon: appItems[id]!.icon,

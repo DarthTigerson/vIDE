@@ -31,7 +31,10 @@ export function AllAppsPanel({ apps, open, onFavorite, onUnfavorite }: {
   }, [open])
 
   const q = query.trim().toLowerCase()
-  const visible = q ? apps.filter((app) => app.title.toLowerCase().includes(q)) : apps
+  const matching = q ? apps.filter((app) => app.title.toLowerCase().includes(q)) : apps
+  // Favorites float to the top; unstarring one drops it back to its place
+  // among the rest, since both groups keep the order `apps` came in.
+  const visible = [...matching.filter((app) => app.favorite), ...matching.filter((app) => !app.favorite)]
   const favoriteIds = new Set(apps.filter((app) => app.favorite).map((app) => app.id))
 
   return (
