@@ -207,8 +207,8 @@ describe('Chat (claude terminal)', () => {
     render(<Chat />)
     const spawnMock = (window.api as any).claudeSpawn as ReturnType<typeof vi.fn>
     await waitFor(() => {
-      expect(spawnMock).toHaveBeenCalledWith('/project', TEST_INSTANCE_ID)
-      expect(spawnMock).toHaveBeenCalledWith('/project', secondId)
+      expect(spawnMock).toHaveBeenCalledWith('/project', TEST_INSTANCE_ID, undefined, 'claude')
+      expect(spawnMock).toHaveBeenCalledWith('/project', secondId, undefined, 'claude')
     })
   })
 

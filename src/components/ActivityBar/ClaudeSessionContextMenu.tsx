@@ -4,7 +4,7 @@ import { clampToViewport } from '@/components/ui/clampToViewport'
 import { PreviousSessionIcon, ResumeSessionIcon, CompactIcon, ClearIcon, RenameIcon } from './ActivityBar'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
 import type { AssistantKind } from '@/types/api'
-import { isTerminalKind } from '@/lib/agentKinds'
+import { isClaudeLike, isTerminalKind } from '@/lib/agentKinds'
 
 interface Props {
   x: number
@@ -40,7 +40,7 @@ export function ClaudeSessionContextMenu({
   onClose,
 }: Props) {
   useCoverNativeViews()
-  const isClaude = kind === 'claude'
+  const isClaude = isClaudeLike(kind)
   const isTerminal = isTerminalKind(kind)
   const menuRef = useRef<HTMLDivElement>(null)
 

@@ -523,3 +523,65 @@ describe('ClaudeManager session restore', () => {
     expect(spawnedCommand()).toMatch(/^claude --resume --settings /)
   })
 })
+
+describe('ClaudeManager Rocky Code launch', () => {
+  const fs = require('fs') as typeof import('fs')
+  const os = require('os') as typeof import('os')
+  const path = require('path') as typeof import('path')
+  let dir: string
+
+  beforeEach(() => {
+    spawnMock.mockReset()
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vide-rocky-sessions-'))
+  })
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+
+  function setup() {
+    const manager = new ClaudeManager(undefined, path.join(dir, 'sessions'))
+    manager.registerHandlers()
+    return { spawnHandler: handlers['claude:spawn'] }
+  }
+  function spawnedCommand(call = 0): string {
+    return spawnMock.mock.calls[call][1][1]
+  }
+  function spawnedEnv(call = 0): Record<string, string> {
+    return spawnMock.mock.calls[call][2].env
+  }
+
+  it.each([undefined, 'new', 'continue', 'resume'])('adds the Rocky flags and env for a rocky spawn in %s mode', (mode) => {
+    const { spawnHandler } = setup()
+    spawnMock.mockReturnValue(fakePty())
+
+    spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', mode, 'rocky')
+
+    expect(spawnedCommand()).toContain(' --model opus --append-system-prompt "$VIDE_ROCKY_PROMPT" --agents "$VIDE_ROCKY_AGENTS"')
+    expect(spawnedEnv().VIDE_ROCKY_PROMPT).toContain('Rocky')
+    expect(Object.keys(JSON.parse(spawnedEnv().VIDE_ROCKY_AGENTS))).toEqual(['scout', 'worker'])
+  })
+
+  it('keeps the Rocky flags when restoring a recorded rocky conversation', () => {
+    const { spawnHandler } = setup()
+    spawnMock.mockReturnValue(fakePty())
+    const transcript = path.join(dir, 'abc-123.jsonl')
+    fs.writeFileSync(transcript, '{}\n')
+    fs.writeFileSync(path.join(dir, 'sessions', 'inst-1.json'), JSON.stringify({ session_id: 'abc-123', transcript_path: transcript }))
+
+    spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined, 'rocky')
+
+    expect(spawnedCommand()).toMatch(/^claude --resume abc-123 --settings .* --model opus --append-system-prompt /)
+  })
+
+  it('leaves plain Claude spawns without Rocky flags or env', () => {
+    const { spawnHandler } = setup()
+    spawnMock.mockReturnValue(fakePty())
+
+    spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined, 'claude')
+
+    expect(spawnedCommand()).not.toContain('--model opus')
+    // Compared to the inherited env so this holds when run from a Rocky session.
+    expect(spawnedEnv().VIDE_ROCKY_PROMPT).toBe(process.env.VIDE_ROCKY_PROMPT)
+    expect(spawnedEnv().VIDE_ROCKY_AGENTS).toBe(process.env.VIDE_ROCKY_AGENTS)
+  })
+})

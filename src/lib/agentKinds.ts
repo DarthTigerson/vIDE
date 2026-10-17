@@ -17,8 +17,13 @@ export interface AgentOption {
 
 const BUILT_INS: AgentOption[] = [
   { kind: 'claude', label: 'Claude Code' },
+  { kind: 'rocky', label: 'Rocky Code' },
   { kind: 'bridge', label: 'Bridge' },
 ]
+
+// Rocky Code (VIDE-108) is the Claude CLI with extra launch flags, so it has
+// no enable switch of its own — it is offered whenever Claude Code is.
+const ENABLED_BY: Partial<Record<AssistantKind, AssistantKind>> = { rocky: 'claude' }
 
 export function isLlamaKind(kind: AssistantKind): boolean {
   return kind.startsWith(LLAMA_PREFIX)
@@ -30,6 +35,12 @@ export function llamaModelId(kind: AssistantKind): string {
 
 export function isTerminalKind(kind: AssistantKind): boolean {
   return kind === TERMINAL_KIND
+}
+
+// A Claude CLI PTY session — plain Claude Code or Rocky Code. Everything
+// built on the CLI (Compact, Usage, Cost, sound, restore) keys off this.
+export function isClaudeLike(kind: AssistantKind | undefined): boolean {
+  return kind === 'claude' || kind === 'rocky'
 }
 
 // Bridge and llama sessions share BridgeChat/bridgeStore; Claude and
@@ -53,7 +64,7 @@ export function agentLabel(kind: AssistantKind, llamaModels: LlamaModelConfig[])
 // not a llama server is running yet — Chat starts it on first send.
 export function availableAgents(enabled: Record<string, boolean>, llamaModels: LlamaModelConfig[]): AgentOption[] {
   return [
-    ...BUILT_INS.filter((o) => enabled[o.kind]),
+    ...BUILT_INS.filter((o) => enabled[ENABLED_BY[o.kind] ?? o.kind]),
     ...llamaModels.filter((m) => m.enabled).map((m) => ({ kind: `${LLAMA_PREFIX}${m.id}`, label: llamaLabel(m) })),
   ]
 }

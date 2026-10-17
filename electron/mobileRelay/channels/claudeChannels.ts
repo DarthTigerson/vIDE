@@ -14,8 +14,8 @@ import type { ClaudeManager } from '../../claude'
 // SessionMode isn't exported from claude.ts; ClaudeManager.spawn still
 // validates/narrows it the same way it does for the real window.
 export function registerClaudeRelayChannels(claudeManager: ClaudeManager, win: BrowserWindow): void {
-  registerChannel('claude:spawn', (cwd: string, instanceId: string, mode?: string) =>
-    claudeManager.spawn(win, cwd, instanceId, mode as never))
+  registerChannel('claude:spawn', (cwd: string, instanceId: string, mode?: string, kind?: string) =>
+    claudeManager.spawn(win, cwd, instanceId, mode as never, kind))
   registerChannel('claude:write', (instanceId: string, data: string) => claudeManager.write(win, instanceId, data))
   registerChannel('claude:resize', (instanceId: string, cols: number, rows: number) =>
     claudeManager.resize(win, instanceId, cols, rows))

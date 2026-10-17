@@ -157,8 +157,8 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('term:exit', handler)
   },
 
-  claudeSpawn: (cwd: string, instanceId: string, mode?: 'new' | 'continue' | 'resume') =>
-    ipcRenderer.invoke('claude:spawn', cwd, instanceId, mode),
+  claudeSpawn: (cwd: string, instanceId: string, mode?: 'new' | 'continue' | 'resume', kind?: string) =>
+    ipcRenderer.invoke('claude:spawn', cwd, instanceId, mode, kind),
   claudeWrite: (instanceId: string, data: string) =>
     ipcRenderer.send('claude:write', instanceId, data),
   claudeResize: (instanceId: string, cols: number, rows: number) =>

@@ -7,12 +7,13 @@ import { clampToViewport } from '@/components/ui/clampToViewport'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
 import type { Script } from '@/types/api'
 import { ScriptsSubmenu } from '@/components/Scripts/ScriptsSubmenu'
-import { ClaudeIcon, BridgeIcon, LlamaIcon, TerminalIcon, ScriptsIcon } from './ActivityBar'
+import { ClaudeIcon, BridgeIcon, LlamaIcon, RockyIcon, TerminalIcon, ScriptsIcon } from './ActivityBar'
 
 const GAP_PX = 4
 
 function kindIcon(kind: AssistantKind) {
   if (kind === 'claude') return <ClaudeIcon />
+  if (kind === 'rocky') return <RockyIcon />
   if (isLlamaKind(kind)) return <LlamaIcon />
   return <BridgeIcon />
 }

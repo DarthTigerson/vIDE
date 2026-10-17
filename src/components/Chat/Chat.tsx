@@ -13,7 +13,8 @@ import { useDisplayStore, type PanelStyle } from '@/stores/displayStore'
 import { BridgeChat } from './BridgeChat'
 import { useLlamaModelsStore } from '@/stores/llamaModelsStore'
 import { useLlamaStore } from '@/stores/llamaStore'
-import { agentLabel, isBridgeLike, isLlamaKind, isTerminalKind, llamaModelId } from '@/lib/agentKinds'
+import { agentLabel, isBridgeLike, isClaudeLike, isLlamaKind, isTerminalKind, llamaModelId } from '@/lib/agentKinds'
+import type { AssistantKind } from '@/types/api'
 import { TerminalTab } from '@/components/Terminal/TerminalTab'
 import { liveTerminals } from '@/lib/liveTerminals'
 import { UsagePanel } from '@/components/UsagePanel/UsagePanel'
@@ -69,7 +70,7 @@ export function Chat() {
     : undefined
   // Claude sessions own an xterm/PTY here; Bridge/llama render BridgeChat;
   // terminal sessions render a plain TerminalTab each.
-  const claudeInstances = instances.filter((inst) => inst.kind === 'claude')
+  const claudeInstances = instances.filter((inst) => isClaudeLike(inst.kind))
   const terminalSessions = instances.filter((inst) => isTerminalKind(inst.kind))
   const isTerminalActive = isTerminalKind(activeKind)
 
@@ -150,7 +151,7 @@ export function Chat() {
 
     const container = containerRef.current
 
-    const ensureTerminal = (id: string): AssistantTerminal => {
+    const ensureTerminal = (id: string, kind: AssistantKind): AssistantTerminal => {
       const existing = terminalsRef.current[id]
       if (existing) return existing
 
@@ -222,7 +223,7 @@ export function Chat() {
       xterm.loadAddon(new WebLinksAddon(createUrlActivateHandler()))
       xterm.registerLinkProvider(createFilePathLinkProvider(xterm, createFilePathActivateHandler()))
 
-      window.api.claudeSpawn(projectRoot, id)
+      window.api.claudeSpawn(projectRoot, id, undefined, kind)
       const cleanupData = window.api.onClaudeData((source, data) => {
         if (source === id) xterm.write(data)
       })
@@ -241,8 +242,8 @@ export function Chat() {
     // first clicked. This is also what brings restored (persisted)
     // instances back running on next launch, with no separate bootstrap
     // path: "spawn if this id has no terminal yet" already covers them.
-    claudeInstances.forEach(({ id }) => {
-      const terminal = ensureTerminal(id)
+    claudeInstances.forEach(({ id, kind }) => {
+      const terminal = ensureTerminal(id, kind)
       terminal.host.style.display = id === activeInstanceId ? 'block' : 'none'
     })
 
@@ -444,8 +445,8 @@ export function Chat() {
           </p>
         </div>
       )}
-      {activeKind === 'claude' && usageOpen && <UsagePanel />}
-      {activeKind === 'claude' && costOpen && <CostPanel />}
+      {isClaudeLike(activeKind) && usageOpen && <UsagePanel />}
+      {isClaudeLike(activeKind) && costOpen && <CostPanel />}
     </div>
   )
 }

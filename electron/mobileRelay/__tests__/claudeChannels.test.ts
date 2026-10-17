@@ -13,8 +13,8 @@ describe('claudeChannels', () => {
   })
 
   it('maps claude:spawn to claudeManager.spawn with the paired window', async () => {
-    await dispatch({ type: 'invoke', id: '1', method: 'claude:spawn', args: ['/repo', 'claude', 'resume'] })
-    expect(claudeManager.spawn).toHaveBeenCalledWith(fakeWin, '/repo', 'claude', 'resume')
+    await dispatch({ type: 'invoke', id: '1', method: 'claude:spawn', args: ['/repo', 'claude', 'resume', 'rocky'] })
+    expect(claudeManager.spawn).toHaveBeenCalledWith(fakeWin, '/repo', 'claude', 'resume', 'rocky')
   })
 
   it('maps claude:write (send-type) to claudeManager.write', async () => {

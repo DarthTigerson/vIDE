@@ -1,4 +1,6 @@
 import React from 'react'
+import rockyIcon from '@/assets/rockyIcon.png'
+import { gifHueRotationDeg } from '@/lib/claudeInstanceHues'
 
 export interface ActivityBarItem {
   id: string
@@ -346,6 +348,20 @@ export function ClaudeIcon({ color = '#D97757' }: { color?: string } = {}) {
         fill={color}
       />
     </svg>
+  )
+}
+
+// Rocky Code (VIDE-108). The art is Rocky's own brown, close enough to the
+// Claude orange the busy gifs are drawn in that the same hue-rotate tints it
+// toward a session's color; with no color (the "+" menu) it is untinted.
+export function RockyIcon({ color }: { color?: string } = {}) {
+  return (
+    <img
+      src={rockyIcon}
+      alt=""
+      className="w-[1.375rem] h-[1.375rem] object-contain"
+      style={color ? { filter: `hue-rotate(${gifHueRotationDeg(color)}deg)` } : undefined}
+    />
   )
 }
 
