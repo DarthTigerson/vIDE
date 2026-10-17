@@ -3,7 +3,7 @@ import { openTab } from './commands'
 import { useClaudeStore } from '@/stores/claudeStore'
 import { useModelSettingsStore } from '@/stores/modelSettingsStore'
 import { useLlamaModelsStore } from '@/stores/llamaModelsStore'
-import { availableAgents } from '@/lib/agentKinds'
+import { availableAgents, TERMINAL_KIND } from '@/lib/agentKinds'
 import { useFileStore } from '@/stores/fileStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGraphifyStore } from '@/stores/graphifyStore'
@@ -58,14 +58,18 @@ export function panelCommands(): Command[] {
     {
       id: 'new-agent-session',
       label: 'New Agent Session…',
-      description: 'Start a Claude, Bridge or local model session',
-      keywords: ['new', 'session', 'chat', 'assistant', 'agent', 'claude', 'bridge', 'llama', 'model'],
+      description: 'Start a Claude, Bridge, local model or terminal session',
+      keywords: ['new', 'session', 'chat', 'assistant', 'agent', 'claude', 'bridge', 'llama', 'model', 'terminal', 'shell'],
       disabledReason: () => (projectRoot() ? null : NO_PROJECT),
       pick: () => ({
         placeholder: 'Start which agent?',
         emptyText: 'No agents enabled — turn one on in Settings',
-        items: availableAgents(useModelSettingsStore.getState().enabled, useLlamaModelsStore.getState().models)
-          .map((o) => ({ id: o.kind, label: o.label })),
+        items: [
+          ...availableAgents(useModelSettingsStore.getState().enabled, useLlamaModelsStore.getState().models)
+            .map((o) => ({ id: o.kind, label: o.label })),
+          // Same as the "+" menu: a plain shell is always on offer.
+          { id: TERMINAL_KIND, label: 'Terminal' },
+        ],
         onPick: (kind) => {
           const root = projectRoot()
           if (!root) return

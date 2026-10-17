@@ -46,7 +46,7 @@ describe('sessions', () => {
     useLlamaModelsStore.setState({ models: [{ ...defaultLlamaModelConfig(), id: 'q1', displayName: 'Qwen', enabled: true }] })
 
     const step = await find('new-agent-session').pick!()
-    expect(step.items.map((i) => i.label)).toEqual(['Claude Code', 'Bridge', 'Qwen'])
+    expect(step.items.map((i) => i.label)).toEqual(['Claude Code', 'Bridge', 'Qwen', 'Terminal'])
     step.onPick('llama:q1')
     expect(newSession).toHaveBeenCalledWith('/p', 'llama:q1')
     expect(setChatVisible).toHaveBeenCalledWith(true)

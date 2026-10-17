@@ -26,6 +26,16 @@ describe('ClaudeSessionContextMenu', () => {
     expect(screen.queryByText('Compact')).toBeNull()
     expect(screen.getByText('Clear')).toBeInTheDocument()
   })
+
+  it('terminal sessions get only Rename, Clear and the Close options', () => {
+    render(<ClaudeSessionContextMenu {...props} kind="terminal" />)
+    for (const gone of ['Continue Previous Session', 'Resume Session…', 'Restore Previous Conversation', 'Compact']) {
+      expect(screen.queryByText(gone)).toBeNull()
+    }
+    expect(screen.getByText('Rename…')).toBeInTheDocument()
+    expect(screen.getByText('Clear')).toBeInTheDocument()
+    expect(screen.getByText('Close Session')).toBeInTheDocument()
+  })
 })
 
 describe('ClaudeSessionContextMenu — Close Other Sessions', () => {

@@ -16,6 +16,8 @@ export interface ActivityBarItem {
   // Set on items the user may drag to reorder (agent sessions); the bar's
   // onReorder receives these ids.
   dragId?: string
+  // Stays a centred icon (with its hover tooltip) even in a `wide` bar.
+  iconOnly?: boolean
 }
 
 type DropPlacement = 'before' | 'after'
@@ -109,8 +111,8 @@ function ActivityBarButton({ item, showAccent, side, dense, wide, dropMarker, dr
 }) {
   if (wide && item.rename) return <RenameRow item={item} dense={dense} />
   // Wide rows show the label, or the title for items without one (Compact,
-  // Clear, Usage…), so no row is a bare icon.
-  const showLabel = wide
+  // Clear, Usage…), so no row is a bare icon — except iconOnly items.
+  const showLabel = wide && !item.iconOnly
   return (
     <button
       key={item.id}
@@ -121,7 +123,7 @@ function ActivityBarButton({ item, showAccent, side, dense, wide, dropMarker, dr
       disabled={item.disabled}
       className={[
         'relative flex items-center transition-colors group disabled:cursor-not-allowed',
-        wide ? 'w-full justify-start gap-2 px-3' : 'w-12 justify-center',
+        showLabel ? 'w-full justify-start gap-2 px-3' : wide ? 'w-full justify-center' : 'w-12 justify-center',
         wide && item.active ? 'bg-white/5' : '',
         dense ? 'h-8' : 'h-12',
       ].join(' ')}

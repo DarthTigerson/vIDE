@@ -2,10 +2,10 @@ import { useEffect, useLayoutEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import type { AssistantKind } from '@/types/api'
 import type { AgentOption } from '@/lib/agentKinds'
-import { isLlamaKind } from '@/lib/agentKinds'
+import { isLlamaKind, TERMINAL_KIND } from '@/lib/agentKinds'
 import { clampToViewport } from '@/components/ui/clampToViewport'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
-import { ClaudeIcon, BridgeIcon, LlamaIcon } from './ActivityBar'
+import { ClaudeIcon, BridgeIcon, LlamaIcon, TerminalIcon } from './ActivityBar'
 
 const GAP_PX = 4
 
@@ -15,7 +15,10 @@ function kindIcon(kind: AssistantKind) {
   return <BridgeIcon />
 }
 
-// The "+" launcher: every agent available right now. Opens beside the
+const ROW_CLASS = 'flex h-8 w-full items-center gap-2 rounded px-2 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg'
+
+// The "+" launcher: every agent available right now, then a plain Terminal
+// that is always offered (it needs no agent enabled). Opens beside the
 // activity bar (left of it when the bar is on the right) and is clamped into
 // the viewport after measuring, like the session context menu.
 export function NewSessionMenu({ anchor, side, options, onPick, onClose }: {
@@ -66,7 +69,7 @@ export function NewSessionMenu({ anchor, side, options, onPick, onClose }: {
             type="button"
             role="menuitem"
             onClick={() => { onPick(option.kind); onClose() }}
-            className="flex h-8 w-full items-center gap-2 rounded px-2 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+            className={ROW_CLASS}
           >
             <span className="text-fg-subtle">{kindIcon(option.kind)}</span>
             <span className="flex-1 truncate">{option.label}</span>
@@ -74,6 +77,16 @@ export function NewSessionMenu({ anchor, side, options, onPick, onClose }: {
           </button>
         ))
       )}
+      <div className="my-1 h-px bg-border" />
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => { onPick(TERMINAL_KIND); onClose() }}
+        className={ROW_CLASS}
+      >
+        <span className="text-fg-subtle"><TerminalIcon /></span>
+        <span className="flex-1 truncate">Terminal</span>
+      </button>
     </div>,
     document.body
   )

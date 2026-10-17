@@ -6,6 +6,10 @@ import { useBridgeSettingsStore } from '@/stores/bridgeSettingsStore'
 
 const LLAMA_PREFIX = 'llama:'
 
+// A plain shell session in the agent bar — not an agent, never persisted, so
+// it is never offered by availableAgents() (the "+" menu adds it separately).
+export const TERMINAL_KIND: AssistantKind = 'terminal'
+
 export interface AgentOption {
   kind: AssistantKind
   label: string
@@ -24,7 +28,12 @@ export function llamaModelId(kind: AssistantKind): string {
   return isLlamaKind(kind) ? kind.slice(LLAMA_PREFIX.length) : ''
 }
 
-// Bridge and llama sessions share BridgeChat/bridgeStore; only Claude runs a PTY.
+export function isTerminalKind(kind: AssistantKind): boolean {
+  return kind === TERMINAL_KIND
+}
+
+// Bridge and llama sessions share BridgeChat/bridgeStore; Claude and
+// terminal sessions each run a PTY.
 export function isBridgeLike(kind: AssistantKind): boolean {
   return kind === 'bridge' || isLlamaKind(kind)
 }
@@ -36,6 +45,7 @@ function llamaLabel(model: LlamaModelConfig | undefined): string {
 export function agentLabel(kind: AssistantKind, llamaModels: LlamaModelConfig[]): string {
   const builtIn = BUILT_INS.find((o) => o.kind === kind)
   if (builtIn) return builtIn.label
+  if (isTerminalKind(kind)) return 'Terminal'
   return llamaLabel(llamaModels.find((m) => m.id === llamaModelId(kind)))
 }
 

@@ -40,4 +40,17 @@ describe('NewSessionMenu', () => {
     render(<NewSessionMenu anchor={anchor} side="right" options={[]} onPick={() => {}} onClose={() => {}} />)
     expect(screen.getByText('No agents enabled — turn one on in Settings')).toBeInTheDocument()
   })
+
+  it('always offers Terminal last, even with no agents enabled', () => {
+    const onPick = vi.fn()
+    render(<NewSessionMenu anchor={anchor} side="right" options={[]} onPick={onPick} onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Terminal' }))
+    expect(onPick).toHaveBeenCalledWith('terminal')
+  })
+
+  it('puts Terminal after the agents', () => {
+    render(<NewSessionMenu anchor={anchor} side="right" options={options} onPick={() => {}} onClose={() => {}} />)
+    const names = screen.getAllByRole('menuitem').map((el) => el.textContent)
+    expect(names.at(-1)).toBe('Terminal')
+  })
 })

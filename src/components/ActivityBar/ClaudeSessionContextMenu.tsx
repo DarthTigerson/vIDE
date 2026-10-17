@@ -4,6 +4,7 @@ import { clampToViewport } from '@/components/ui/clampToViewport'
 import { PreviousSessionIcon, ResumeSessionIcon, CompactIcon, ClearIcon, RenameIcon } from './ActivityBar'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
 import type { AssistantKind } from '@/types/api'
+import { isTerminalKind } from '@/lib/agentKinds'
 
 interface Props {
   x: number
@@ -40,6 +41,7 @@ export function ClaudeSessionContextMenu({
 }: Props) {
   useCoverNativeViews()
   const isClaude = kind === 'claude'
+  const isTerminal = isTerminalKind(kind)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -98,7 +100,7 @@ export function ClaudeSessionContextMenu({
             Resume Session…
           </button>
         </>
-      ) : (
+      ) : !isTerminal && (
         <button
           type="button"
           onClick={() => { onRestorePrevious(); onClose() }}
@@ -108,7 +110,7 @@ export function ClaudeSessionContextMenu({
           Restore Previous Conversation
         </button>
       )}
-      <div className="my-1 h-px bg-border" />
+      {!isTerminal && <div className="my-1 h-px bg-border" />}
       {isClaude && (
         <button
           type="button"

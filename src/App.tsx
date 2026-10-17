@@ -38,7 +38,7 @@ import {
 import { SessionIcon } from './components/ActivityBar/SessionIcon'
 import { NewSessionMenu } from './components/ActivityBar/NewSessionMenu'
 import { ClaudeSessionContextMenu } from './components/ActivityBar/ClaudeSessionContextMenu'
-import { sessionDisplayName } from './lib/claudeSessionName'
+import { sessionDisplayName, terminalSessionTitle } from './lib/claudeSessionName'
 import { SettingsPanel } from './components/Settings/SettingsPanel'
 import { GitPanel } from './components/Git/GitPanel'
 import { BranchPalette } from './components/Git/BranchPalette'
@@ -92,7 +92,7 @@ import { useNotesSettingsStore } from './stores/notesSettingsStore'
 import { useLlamaSettingsStore } from './stores/llamaSettingsStore'
 import { useLlamaModelsStore } from './stores/llamaModelsStore'
 import { useLlamaStore } from './stores/llamaStore'
-import { availableAgents, agentLabel, isLlamaKind, llamaModelId } from './lib/agentKinds'
+import { availableAgents, agentLabel, isLlamaKind, isTerminalKind, llamaModelId } from './lib/agentKinds'
 import { useRunningLlamaCount } from './hooks/useRunningLlamaCount'
 import { useLlamaAvailability } from './hooks/useLlamaAvailability'
 import { usePanelRequests } from './hooks/usePanelRequests'
@@ -192,6 +192,9 @@ export default function App() {
   const [sessionMenu, setSessionMenu] = useState<{ x: number; y: number; instanceId: string; kind: AssistantKind } | null>(null)
   const [renamingInstanceId, setRenamingInstanceId] = useState<string | null>(null)
   const titleByInstance = useClaudeStore((s) => s.titleByInstance)
+  const terminalIds = instances.filter((inst) => isTerminalKind(inst.kind)).map((inst) => inst.id)
+  const autoTitleFor = (inst: { id: string; kind: AssistantKind }) =>
+    isTerminalKind(inst.kind) ? terminalSessionTitle(terminalIds.indexOf(inst.id)) : titleByInstance[inst.id]
   const agentBarCollapsed = useClaudeStore((s) => s.agentBarCollapsed)
   // 'hover' replaces the collapse toggle with icons that widen on hover.
   const agentBarHover = useGeneralSettingsStore((s) => s.agentBarMode) === 'hover'
@@ -1067,13 +1070,13 @@ export default function App() {
                 dragId: inst.id,
                 icon: <SessionIcon session={inst} />,
                 title: agentLabel(inst.kind, llamaModels),
-                label: sessionDisplayName(inst, titleByInstance[inst.id], index),
+                label: sessionDisplayName(inst, autoTitleFor(inst), index),
                 rename: renamingInstanceId === inst.id ? {
-                  initial: sessionDisplayName(inst, titleByInstance[inst.id], index),
+                  initial: sessionDisplayName(inst, autoTitleFor(inst), index),
                   onCommit: (value: string) => {
                     // Committing the unchanged auto title/fallback shouldn't pin it as
                     // a custom name — it would stop following Claude's live title.
-                    const auto = sessionDisplayName({}, titleByInstance[inst.id], index)
+                    const auto = sessionDisplayName({}, autoTitleFor(inst), index)
                     if (projectRoot && value.trim() !== auto) {
                       useClaudeStore.getState().renameInstance(projectRoot, inst.id, value)
                     }
@@ -1101,7 +1104,7 @@ export default function App() {
                 id: 'new-session',
                 icon: <NewSessionPlusIcon />,
                 title: 'New Session',
-                label: 'New session',
+                iconOnly: true,
                 active: newSessionMenu !== null,
                 disabled: !projectRoot,
                 onClick: (e: MouseEvent<HTMLButtonElement>) => {

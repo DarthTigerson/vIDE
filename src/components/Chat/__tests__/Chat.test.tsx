@@ -337,3 +337,44 @@ describe('Chat session title capture', () => {
     )
   })
 })
+
+describe('Chat terminal sessions', () => {
+  beforeEach(() => {
+    ;(global as any).window.api = {
+      ...(global as any).window.api,
+      termSpawn: vi.fn(() => Promise.resolve()),
+      termWrite: vi.fn(),
+      termResize: vi.fn(),
+      termKill: vi.fn(),
+      onTermData: vi.fn(() => () => {}),
+      onTermExit: vi.fn(() => () => {}),
+    }
+    useClaudeStore.setState({ instances: [{ id: 't1', kind: 'terminal', hue: '#5B9BD5' }], activeInstanceId: 't1' })
+  })
+
+  it('spawns a plain shell in the project folder and no Claude CLI', async () => {
+    render(<Chat />)
+    await waitFor(() => expect((window.api as any).termSpawn).toHaveBeenCalledWith('t1', '/project'))
+    expect(window.api.claudeSpawn).not.toHaveBeenCalled()
+  })
+
+  it('pastes a sent selection at the prompt without running it', async () => {
+    render(<Chat />)
+    act(() => useClaudeStore.getState().sendSelection('ls -la'))
+    await waitFor(() =>
+      expect((window.api as any).termWrite).toHaveBeenCalledWith('t1', `${BRACKETED_PASTE_START}ls -la${BRACKETED_PASTE_END}`),
+    )
+    expect(useClaudeStore.getState().pendingInjection).toBeNull()
+  })
+
+  it('kills the shell once the session is closed', async () => {
+    // A fresh id: TerminalTab keeps live xterms in a module-level map, so 't1'
+    // would just be reattached from the tests above.
+    useClaudeStore.setState({ instances: [{ id: 't-close', kind: 'terminal', hue: '#5B9BD5' }], activeInstanceId: 't-close' })
+    const { unmount } = render(<Chat />)
+    await waitFor(() => expect((window.api as any).termSpawn).toHaveBeenCalledWith('t-close', '/project'))
+    useClaudeStore.setState({ instances: [] })
+    unmount()
+    expect((window.api as any).termKill).toHaveBeenCalledWith('t-close')
+  })
+})

@@ -24,6 +24,16 @@ describe('ActivityBar wide mode', () => {
     expect(screen.getByRole('button', { name: 'Fix redis' })).toBeTruthy()
   })
 
+  it('keeps iconOnly items as a centred icon with only the hover tooltip', () => {
+    render(<ActivityBar side="left" wide groups={[[item({ id: 'new', title: 'New Session', iconOnly: true })]]} />)
+    const button = screen.getByRole('button', { name: 'New Session' })
+    expect(button.className).toContain('justify-center')
+    expect(button.className).not.toContain('justify-start')
+    // Only the tooltip carries the title, not a visible label beside the icon.
+    expect(screen.getAllByText('New Session')).toHaveLength(1)
+    expect(screen.getByText('New Session').className).toContain('group-hover:opacity-100')
+  })
+
   it('stays a narrow icon bar without wide, even if labels are set', () => {
     const { container } = render(<ActivityBar side="left" groups={[[item({ label: 'Fix redis' })]]} />)
     expect(container.firstElementChild!.className).toContain('w-12')

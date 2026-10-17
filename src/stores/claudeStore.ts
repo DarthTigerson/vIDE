@@ -2,7 +2,8 @@ import { create } from 'zustand'
 import type { AssistantKind } from '@/types/api'
 import { hueForInstanceIndex, nextHueForInstances } from '@/lib/claudeInstanceHues'
 import { cleanSessionTitle } from '@/lib/claudeSessionName'
-import { agentModeOnLaunchFor, isBridgeLike } from '@/lib/agentKinds'
+import { agentModeOnLaunchFor, isBridgeLike, isTerminalKind } from '@/lib/agentKinds'
+import { clearLiveTerminal } from '@/lib/liveTerminals'
 import { useBridgeStore } from './bridgeStore'
 
 const AGENT_BAR_COLLAPSED_KEY = 'vide-agent-bar-collapsed'
@@ -48,8 +49,11 @@ function parseSaved(raw: unknown, defaultKind?: AssistantKind): AgentSession[] {
 // anything writes to session data, but a future feature that starts
 // persisting layout/tabs here would need a read-merge-write instead, or its
 // data will be silently erased on every "+"/close/reorder.
+// Terminal sessions are left out: a shell can't be resumed, so they don't
+// come back after a relaunch.
 function persist(cwd: string, instances: AgentSession[]) {
-  window.api.sessionSave(cwd, { agentSessions: instances } as any)
+  const agentSessions = instances.filter((inst) => !isTerminalKind(inst.kind))
+  window.api.sessionSave(cwd, { agentSessions } as any)
 }
 
 function openIfBridgeLike(inst: AgentSession) {
@@ -116,10 +120,12 @@ function usagePanelsFor(next: AgentSession | undefined): Partial<Pick<ClaudeStat
   return next?.kind === 'claude' ? {} : { usageOpen: false, costOpen: false }
 }
 
-// Tears down one session's backing process/conversation: Claude owns a PTY,
-// Bridge/llama a conversation that gets cancelled and archived to history.
+// Tears down one session's backing process/conversation: Claude and terminal
+// sessions own a PTY, Bridge/llama a conversation that gets cancelled and
+// archived to history.
 function endSession(inst: AgentSession) {
   if (isBridgeLike(inst.kind)) useBridgeStore.getState().closeConversation(inst.id)
+  else if (isTerminalKind(inst.kind)) window.api.termKill(inst.id)
   else window.api.claudeKill(inst.id)
 }
 
@@ -277,6 +283,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
     const active = selectActiveSession(get())
     if (!active) return
     if (active.kind === 'claude') window.api.claudeWrite(active.id, '/clear\r')
+    else if (isTerminalKind(active.kind)) clearLiveTerminal(active.id)
     else useBridgeStore.getState().clearConversation(active.id)
   },
   usage: () => {

@@ -13,7 +13,9 @@ import { useDisplayStore, type PanelStyle } from '@/stores/displayStore'
 import { BridgeChat } from './BridgeChat'
 import { useLlamaModelsStore } from '@/stores/llamaModelsStore'
 import { useLlamaStore } from '@/stores/llamaStore'
-import { agentLabel, isBridgeLike, isLlamaKind, llamaModelId } from '@/lib/agentKinds'
+import { agentLabel, isBridgeLike, isLlamaKind, isTerminalKind, llamaModelId } from '@/lib/agentKinds'
+import { TerminalTab } from '@/components/Terminal/TerminalTab'
+import { liveTerminals } from '@/lib/liveTerminals'
 import { UsagePanel } from '@/components/UsagePanel/UsagePanel'
 import { CostPanel } from '@/components/UsagePanel/CostPanel'
 import { isShiftEnterKeydown, SHIFT_ENTER_SEQUENCE } from './shiftEnterSequence'
@@ -65,8 +67,11 @@ export function Chat() {
   const llamaConnection = llamaModel
     ? { endpoint: `http://${llamaModel.host}:${llamaModel.port}/v1`, apiKey: llamaModel.apiKey, modelId: llamaModel.alias || llamaModel.displayName || llamaModel.id }
     : undefined
-  // Only Claude sessions own an xterm/PTY; Bridge/llama render BridgeChat.
+  // Claude sessions own an xterm/PTY here; Bridge/llama render BridgeChat;
+  // terminal sessions render a plain TerminalTab each.
   const claudeInstances = instances.filter((inst) => inst.kind === 'claude')
+  const terminalSessions = instances.filter((inst) => isTerminalKind(inst.kind))
+  const isTerminalActive = isTerminalKind(activeKind)
 
   // Auto-launch the llama server when sending a message if it isn't running.
   // Health-checks first so a server started externally (or in a prior session)
@@ -275,6 +280,17 @@ export function Chat() {
 
   useEffect(() => {
     if (isBridgeLikeActive) return
+    if (isTerminalActive) {
+      // Pasted at the prompt, not run — the user decides whether to hit Enter.
+      const injection = useClaudeStore.getState().pendingInjection
+      if (injection) {
+        window.api.termWrite(activeInstanceId, wrapBracketedPaste(injection))
+        useClaudeStore.getState().consumeInjection()
+      }
+      seenFocusTokenRef.current = focusToken
+      liveTerminals.get(activeInstanceId)?.xterm.focus()
+      return
+    }
     const terminal = terminalsRef.current[activeInstanceId]
     if (!terminal) return
 
@@ -384,8 +400,22 @@ export function Chat() {
           <div
             ref={containerRef}
             className="flex-1 overflow-hidden p-1"
-            style={{ display: isBridgeLikeActive ? 'none' : 'block' }}
+            style={{ display: isBridgeLikeActive || isTerminalActive ? 'none' : 'block' }}
           />
+          {/* Every terminal session stays mounted (hidden when inactive) so
+              its output keeps streaming in while another session is shown. */}
+          {terminalSessions.map((inst) => (
+            <div
+              key={inst.id}
+              className="flex-1 overflow-hidden"
+              style={{ display: inst.id === activeInstanceId ? 'block' : 'none' }}
+            >
+              <TerminalTab
+                terminalId={inst.id}
+                isStillOpen={() => useClaudeStore.getState().instances.some((i) => i.id === inst.id)}
+              />
+            </div>
+          ))}
           {activeSession && isBridgeLikeActive && (
             <div className="flex-1 overflow-hidden">
               {isLlama && !llamaModel ? (

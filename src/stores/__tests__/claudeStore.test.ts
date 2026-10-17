@@ -542,3 +542,35 @@ describe('claudeStore.moveInstance', () => {
     expect(window.api.sessionSave).toHaveBeenCalledWith('/p', { agentSessions: useClaudeStore.getState().instances })
   })
 })
+
+describe('claudeStore terminal sessions', () => {
+  beforeEach(() => {
+    useClaudeStore.setState({ instances: [], activeInstanceId: '', usageOpen: false, costOpen: false })
+    ;(window.api as any).termKill = vi.fn()
+  })
+
+  it('are never persisted, but agent sessions around them are', () => {
+    useClaudeStore.getState().newSession('/p', 'claude')
+    useClaudeStore.getState().newSession('/p', 'terminal')
+    const [claude, term] = useClaudeStore.getState().instances
+    expect(term.kind).toBe('terminal')
+    expect(window.api.sessionSave).toHaveBeenLastCalledWith('/p', { agentSessions: [claude] })
+    expect(window.api.claudeSpawn).not.toHaveBeenCalled()
+  })
+
+  it('closing one kills its shell, not a Claude PTY', () => {
+    useClaudeStore.getState().newSession('/p', 'terminal')
+    const id = useClaudeStore.getState().instances[0].id
+    useClaudeStore.getState().closeInstance('/p', id)
+    expect((window.api as any).termKill).toHaveBeenCalledWith(id)
+    expect(window.api.claudeKill).not.toHaveBeenCalled()
+  })
+
+  it('Usage/Cost stay closed and Compact sends nothing', () => {
+    useClaudeStore.getState().newSession('/p', 'terminal')
+    useClaudeStore.getState().usage()
+    useClaudeStore.getState().compact()
+    expect(useClaudeStore.getState().usageOpen).toBe(false)
+    expect(window.api.claudeWrite).not.toHaveBeenCalled()
+  })
+})
