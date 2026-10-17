@@ -91,7 +91,7 @@ export function ScriptsPanel() {
   const row = (script: Script) => (
     <div
       key={script.id}
-      className="group pr-2 flex items-start hover:bg-white/5 transition-colors"
+      className="group pr-2 flex items-center hover:bg-white/5 transition-colors"
       onContextMenu={(e) => {
         e.preventDefault()
         setMenu({ x: e.clientX, y: e.clientY, script })
@@ -128,9 +128,9 @@ export function ScriptsPanel() {
         aria-label={`Run ${scriptDisplayTitle(script)}`}
         title="Run in a new terminal"
         onClick={() => runScriptInNewTerminal(script)}
-        className="mt-1.5 w-5 h-5 shrink-0 flex items-center justify-center rounded text-fg-subtle opacity-0 group-hover:opacity-100 hover:text-fg hover:bg-white/10"
+        className="w-6 h-6 shrink-0 flex items-center justify-center rounded text-fg-subtle group-hover:text-fg-muted hover:!text-fg hover:bg-white/10"
       >
-        ▶
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z" /></svg>
       </button>
     </div>
   )
