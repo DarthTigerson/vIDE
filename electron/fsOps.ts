@@ -104,7 +104,8 @@ export async function buildTree(dirPath: string): Promise<FileNode[]> {
     .sort((a, b) => {
       if (a.isDirectory() !== b.isDirectory())
         return a.isDirectory() ? -1 : 1
-      return a.name.localeCompare(b.name)
+      // numeric: digit runs compare by value, so 0.1.3 sorts before 0.1.21.
+      return a.name.localeCompare(b.name, undefined, { numeric: true })
     })
     .map((e) => ({
       name: e.name,

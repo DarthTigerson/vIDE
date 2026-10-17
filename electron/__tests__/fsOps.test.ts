@@ -54,6 +54,17 @@ describe('fsOps', () => {
     expect(tree[1].isDirectory).toBe(false)
   })
 
+  it('buildTree sorts numbers in names by value, so version notes run 0.1.2, 0.1.3, 0.1.21', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'fsops-numeric-'))
+    try {
+      for (const name of ['0.1.21.md', '0.1.3.md', '0.1.2.md', '0.1.10.md']) await writeFile(join(dir, name), '')
+      const tree = await buildTree(dir)
+      expect(tree.map((n) => n.name)).toEqual(['0.1.2.md', '0.1.3.md', '0.1.10.md', '0.1.21.md'])
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
   it('readImageDataUrl encodes file contents as a base64 data url with the right mime type', async () => {
     const pngPath = join(root, 'pixel.png')
     await writeFile(pngPath, Buffer.from([0x89, 0x50, 0x4e, 0x47]))
