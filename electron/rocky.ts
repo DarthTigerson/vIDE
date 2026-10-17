@@ -67,6 +67,35 @@ export const ROCKY_AGENTS = {
   },
 }
 
+// Rocky's own spinner words and tips, merged into the --settings JSON that
+// claude.ts single-quotes into the shell command — so no apostrophes here.
+export const ROCKY_SETTINGS = {
+  spinnerVerbs: {
+    mode: 'replace',
+    verbs: [
+      'Echolocating', 'Observing', 'Tapping', 'Calculating', 'Engineering', 'Machining',
+      'Sculpting xenonite', 'Measuring tolerance', 'Chording', 'Humming', 'Clicking',
+      'Computing relativity', 'Inspecting mechanism', 'Hunting astrophage', 'Fist-bumping',
+      'Thinking thinking thinking', 'Testing structure', 'Building',
+    ],
+  },
+  spinnerTipsOverride: {
+    label: 'Rocky',
+    excludeDefault: true,
+    tips: [
+      'Fist my bump.',
+      'Amaze amaze amaze!',
+      'Rocky observe. Rocky fix.',
+      'Grace Rocky save stars.',
+      'Problem. Rocky not understand. Explain, question?',
+      'Rocky watch friend work. Eridian rule.',
+      'Good. Bad. Not enough.',
+      'Science solve problem. Statement.',
+      'We fix together. Settled.',
+    ],
+  },
+}
+
 // Flags appended to every Rocky launch — new, continue, resume and restore.
 // The CLI snapshots the system prompt per conversation but re-renders it from
 // the current flags after compaction, and --agents is never snapshotted, so a

@@ -3,7 +3,7 @@ import * as pty from 'node-pty'
 import { existsSync, mkdirSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { getMobileBroadcaster } from './mobile'
-import { ROCKY_FLAGS, rockySpawnEnv } from './rocky'
+import { ROCKY_FLAGS, ROCKY_SETTINGS, rockySpawnEnv } from './rocky'
 
 type SessionMode = 'attach' | 'new' | 'continue' | 'resume'
 
@@ -23,9 +23,9 @@ const INSTALL_MESSAGE = "Install it with: npm install -g @anthropic-ai/claude-co
 // with `claude --resume <id>` instead of starting a new conversation. The
 // path travels via env rather than being baked into this JSON so it never
 // needs shell quoting (userData lives under "Application Support").
-const SESSION_HOOK_SETTINGS = JSON.stringify({
+const SESSION_HOOK_SETTINGS = {
   hooks: { SessionStart: [{ hooks: [{ type: 'command', command: 'cat > "$VIDE_CLAUDE_SESSION_FILE"' }] }] },
-})
+}
 
 // Instance ids become filenames and session ids go into the shell command,
 // so both must be plain ids (UUIDs in practice).
@@ -158,7 +158,10 @@ export class ClaudeManager {
       // switching back to this project) — pick up where the instance left off.
       let baseCommand =
         selectedMode === 'attach' && sessionFile ? restoreCommand(sessionFile) : COMMANDS[selectedMode === 'attach' ? 'new' : selectedMode]
-      if (sessionFile) baseCommand += ` --settings '${SESSION_HOOK_SETTINGS}'`
+      // One --settings for everything; it is single-quoted in the shell
+      // command, so nothing in it may contain an apostrophe.
+      const settings = { ...(sessionFile ? SESSION_HOOK_SETTINGS : {}), ...(rocky ? ROCKY_SETTINGS : {}) }
+      if (Object.keys(settings).length > 0) baseCommand += ` --settings '${JSON.stringify(settings)}'`
       if (rocky) baseCommand += ` ${ROCKY_FLAGS}`
       const command = shimEnv ? `export PATH="${shimEnv.VIDE_BROWSER_SHIM_BIN}:$PATH"; ${baseCommand}` : baseCommand
       const proc = pty.spawn(shell, ['-lic', command], {

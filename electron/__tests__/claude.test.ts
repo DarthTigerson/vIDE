@@ -558,6 +558,8 @@ describe('ClaudeManager Rocky Code launch', () => {
 
     expect(spawnedCommand()).toContain(' --model opus --append-system-prompt "$VIDE_ROCKY_PROMPT" --agents "$VIDE_ROCKY_AGENTS"')
     expect(spawnedEnv().VIDE_ROCKY_PROMPT).toContain('Rocky')
+    // Rocky spinner settings ride in the same --settings as the session hook.
+    expect(spawnedCommand()).toMatch(/--settings '\{"hooks":.*"spinnerVerbs":/)
     expect(Object.keys(JSON.parse(spawnedEnv().VIDE_ROCKY_AGENTS))).toEqual(['scout', 'worker'])
   })
 
@@ -580,6 +582,7 @@ describe('ClaudeManager Rocky Code launch', () => {
     spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined, 'claude')
 
     expect(spawnedCommand()).not.toContain('--model opus')
+    expect(spawnedCommand()).not.toContain('spinnerVerbs')
     // Compared to the inherited env so this holds when run from a Rocky session.
     expect(spawnedEnv().VIDE_ROCKY_PROMPT).toBe(process.env.VIDE_ROCKY_PROMPT)
     expect(spawnedEnv().VIDE_ROCKY_AGENTS).toBe(process.env.VIDE_ROCKY_AGENTS)
