@@ -6,6 +6,7 @@ import {
   removeFavorite,
   sanitizeFavorites,
   splitApps,
+  pickTemporaryApp,
 } from '../appFavorites'
 
 describe('sanitizeFavorites', () => {
@@ -64,5 +65,22 @@ describe('splitApps', () => {
 
   it('leaves disabled apps out of both lists', () => {
     expect(splitApps(['notes'], ['docker', 'notes'])).toEqual({ favorites: ['notes'], others: [] })
+  })
+})
+
+describe('pickTemporaryApp', () => {
+  const others = ['mobile', 'notes', 'jira'] as const
+
+  it('takes the active unfavorited app', () => {
+    expect(pickTemporaryApp(others, 'notes', 'mobile')).toBe('notes')
+  })
+
+  it('keeps the last one when you switch to something else', () => {
+    expect(pickTemporaryApp(others, undefined, 'mobile')).toBe('mobile')
+  })
+
+  it('drops the last one once it is no longer unfavorited (or disabled)', () => {
+    expect(pickTemporaryApp(others, undefined, 'docker')).toBeNull()
+    expect(pickTemporaryApp(others, undefined, null)).toBeNull()
   })
 })
