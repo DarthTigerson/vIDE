@@ -185,6 +185,8 @@ declare global {
       onSearchDone: (cb: (done: SearchDone) => void) => () => void
       openFolder: () => Promise<string | null>
       getSystemMemoryUsage: () => Promise<{ usedBytes: number; totalBytes: number; appBytes: number }>
+      // null on a machine without a battery (iMac, desktop PC).
+      getBatteryStatus: () => Promise<{ percent: number; charging: boolean; pluggedIn: boolean; minutesLeft: number | null } | null>
       fsWatchRoot: (cwd: string | null) => void
       onFsChanged: (cb: (cwd: string) => void) => () => void
 

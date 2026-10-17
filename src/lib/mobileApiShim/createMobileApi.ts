@@ -202,6 +202,7 @@ export function createMobileApi(wsUrl: string) {
 
     // system — mirrors electron/mobileRelay/channels/systemChannels.ts
     getSystemMemoryUsage: invoke('system:getMemoryUsage'),
+    getBatteryStatus: invoke('system:getBattery'),
 
     // docker — mirrors electron/mobileRelay/channels/dockerChannels.ts
     dockerStatus: invoke('docker:status'),

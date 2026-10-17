@@ -36,6 +36,7 @@ import { UpdateChecker } from './updateChecker'
 import { UpdateRunner } from './updateRunner'
 import { getChangelogForVersion, getChangelogReleases } from './changelog'
 import { getSystemMemoryUsage } from './systemMemory'
+import { getBatteryStatus } from './systemBattery'
 import { registerOnboardingHandlers } from './onboarding'
 import { registerConfigRepoHandlers } from './configRepo'
 
@@ -93,6 +94,7 @@ function registerSystemHandlers(): void {
     const appBytes = app.getAppMetrics().reduce((sum, p) => sum + p.memory.workingSetSize * 1024, 0)
     return { ...system, appBytes }
   })
+  ipcMain.handle('system:getBattery', () => getBatteryStatus())
 }
 
 function registerDevtoolsHandlers(): void {

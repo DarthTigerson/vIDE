@@ -39,6 +39,7 @@ import {
   hasBadge,
 } from './components/ActivityBar/ActivityBar'
 import type { ActivityBarItem } from './components/ActivityBar/ActivityBar'
+import { BatteryPill } from './components/TitleBar/BatteryPill'
 import { AllAppsPanel } from './components/AllApps/AllAppsPanel'
 import { useAppFavoritesStore } from './stores/appFavoritesStore'
 import { APPEND_TARGET, MOVABLE_APP_IDS, splitApps, type MovableAppId } from './lib/appFavorites'
@@ -905,6 +906,7 @@ export default function App() {
           onClick={(e) => e.stopPropagation()}
         >
           {memoryUsageVisible && memoryUsage && <MemoryPill usage={memoryUsage} />}
+          <BatteryPill withDivider={!!(memoryUsageVisible && memoryUsage)} />
         </div>
       </div>
       <div className="flex flex-1 min-h-0">
