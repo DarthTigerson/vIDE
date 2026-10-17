@@ -217,6 +217,7 @@ contextBridge.exposeInMainWorld('api', {
   updateGetStatus: () => ipcRenderer.invoke('update:getStatus'),
   updateCheck: () => ipcRenderer.invoke('update:check'),
   updateRestart: () => ipcRenderer.send('update:restart'),
+  restartApp: () => ipcRenderer.send('app:restart'),
   updateRun: () => ipcRenderer.invoke('update:run'),
   updateGetRemoteChangelog: (version: string) => ipcRenderer.invoke('update:getRemoteChangelog', version),
   onUpdateOutput: (cb: (out: import('./updateRunner').UpdateOutputLine) => void) => {
@@ -301,6 +302,11 @@ contextBridge.exposeInMainWorld('api', {
     const handler = () => cb()
     ipcRenderer.on('menu:newTerminal', handler)
     return () => ipcRenderer.removeListener('menu:newTerminal', handler)
+  },
+  onMenuReloadActive: (cb: () => void) => {
+    const handler = () => cb()
+    ipcRenderer.on('menu:reloadActive', handler)
+    return () => ipcRenderer.removeListener('menu:reloadActive', handler)
   },
   onMenuReopenClosedTab: (cb: () => void) => {
     const handler = () => cb()

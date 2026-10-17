@@ -265,6 +265,7 @@ declare global {
       onMenuNewFile: (cb: () => void) => () => void
       onMenuNewFolder: (cb: () => void) => () => void
       onMenuNewTerminal: (cb: () => void) => () => void
+      onMenuReloadActive: (cb: () => void) => () => void
       onMenuReopenClosedTab: (cb: () => void) => () => void
       onMenuSave: (cb: () => void) => () => void
       onMenuFind: (cb: () => void) => () => void
@@ -301,6 +302,8 @@ declare global {
       updateGetStatus: () => Promise<UpdateCheckStatus>
       updateCheck: () => Promise<UpdateCheckStatus>
       updateRestart: () => void
+      // Relaunches every window (palette "App: Restart vIDE", Cmd+Alt+R).
+      restartApp: () => void
       // Runs install.sh in the background (VIDE-142); output/exit stream back.
       updateRun: () => Promise<void>
       updateGetRemoteChangelog: (version: string) => Promise<string | null>

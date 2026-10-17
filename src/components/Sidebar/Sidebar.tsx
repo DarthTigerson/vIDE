@@ -546,7 +546,7 @@ function recentProjectName(path: string): string {
 
 // Inline replacement for what used to be a "Recent Projects" button that
 // opened the searchable RecentProjectsPalette (still available anywhere via
-// Ctrl+R) — when there's nothing open yet, showing the list itself right in
+// Cmd+Shift+R) — when there's nothing open yet, showing the list itself right in
 // the empty state saves the extra click.
 function RecentProjectsList() {
   const [recents, setRecents] = useState<RecentProject[]>([])

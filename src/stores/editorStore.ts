@@ -262,6 +262,9 @@ interface EditorState {
   revealRequest: { path: string; line: number; col: number; searchTerm: string } | null
   setRevealRequest: (req: { path: string; line: number; col: number; searchTerm: string }) => void
   clearRevealRequest: () => void
+  // Bumped by Cmd+R; the active EditorPane reloads its tab in response.
+  reloadActiveRequest: number
+  requestReloadActive: () => void
 }
 
 export const useEditorStore = create<EditorState>((set, get) => ({
@@ -283,6 +286,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   revealRequest: null,
   setRevealRequest: (req) => set({ revealRequest: req }),
   clearRevealRequest: () => set({ revealRequest: null }),
+  reloadActiveRequest: 0,
+  requestReloadActive: () => set((state) => ({ reloadActiveRequest: state.reloadActiveRequest + 1 })),
 
   openTab: (tab: Tab) => {
     get().openTabInPane(tab, paneForNewTab(get()))

@@ -784,6 +784,15 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    return window.api.onMenuReloadActive(() => {
+      // Focus in a terminal or agent panel (both xterm): leave the live
+      // session alone rather than reloading whatever editor tab is active.
+      if (document.activeElement?.closest('.xterm')) return
+      useEditorStore.getState().requestReloadActive()
+    })
+  }, [])
+
+  useEffect(() => {
     return window.api.onMenuReopenClosedTab(() => {
       useEditorStore.getState().reopenLastClosed()
     })

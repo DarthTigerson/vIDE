@@ -28,7 +28,7 @@ export const EXCLUDED_CHANNELS = new Set<string>([
   'fs:revealInFinder',  // opens a Finder/file-manager window ON THE MAC'S SCREEN — nothing the phone user would see
   'menu:openProject', 'menu:closeActiveTab', 'menu:zoomIn', 'menu:zoomOut',
   'menu:resetZoom', 'menu:openSettings', 'menu:newFile', 'menu:newFolder',
-  'menu:newTerminal', 'menu:reopenClosedTab', 'menu:save',  // native Electron Menu events
+  'menu:newTerminal', 'menu:reopenClosedTab', 'menu:save', 'menu:reloadActive',  // native Electron Menu events
   'window:getInitialProject', 'window:openInNewWindow', 'window:focusProjectIfOpen',  // desktop window management
 
   'mobile:start', 'mobile:stop', 'mobile:getState', 'mobile:addDevice', 'mobile:selectInterface',
@@ -49,6 +49,7 @@ export const EXCLUDED_CHANNELS = new Set<string>([
 
   // App-level operations
   'update:restart',  // quits the desktop app
+  'app:restart',  // relaunches the desktop app
   'update:run',  // replaces the desktop app in /Applications (VIDE-142)
   'update:getRemoteChangelog',  // only feeds the desktop Update page
 

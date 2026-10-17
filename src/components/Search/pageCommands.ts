@@ -141,5 +141,19 @@ export function pageCommands(): Command[] {
       keywords: ['markdown'],
       action: () => usePanelRequestStore.getState().requestPanel('notes'),
     },
+    {
+      id: 'app-reload-window',
+      label: 'App: Reload Window',
+      description: 'Reload this vIDE window',
+      keywords: ['refresh', 'reload'],
+      action: () => window.location.reload(),
+    },
+    {
+      id: 'app-restart',
+      label: 'App: Restart vIDE',
+      description: 'Restart every vIDE window',
+      keywords: ['relaunch', 'restart', 'frozen', 'recover'],
+      action: () => window.api.restartApp(),
+    },
   ]
 }
