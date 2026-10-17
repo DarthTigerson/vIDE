@@ -4,6 +4,7 @@ import { FolderIcon } from '@/components/Sidebar/FileIcon'
 import { DiaryPageIcon } from './DiaryPageIcon'
 import { BookIcon } from './BookIcon'
 import { ChapterIcon } from './ChapterIcon'
+import { treeRowDropTargetClass } from '@/components/ui/panelDrop'
 
 export type NotesPromptKind = 'note' | 'folder' | 'rename'
 
@@ -137,7 +138,7 @@ export function NotesTree({
               draggable
               className={`flex items-center gap-1 w-full text-left py-0.5 text-sm hover:bg-white/5 rounded truncate ${
                 activeNotePath === node.path ? 'bg-accent/20 text-fg' : 'text-fg'
-              } ${dragOverPath === node.path ? 'ring-1 ring-inset ring-accent bg-accent/10' : ''}`}
+              } ${dragOverPath === node.path ? treeRowDropTargetClass : ''}`}
               style={{ paddingLeft: `${8 + depth * 12}px`, paddingRight: '8px' }}
               onClick={() => handleClick(node)}
               onContextMenu={(event) => onContextMenu(event, node)}

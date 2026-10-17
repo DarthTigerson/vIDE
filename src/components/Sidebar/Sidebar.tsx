@@ -18,6 +18,7 @@ import { UndoToast } from '@/components/ui/UndoToast'
 import { copyToClipboard, pasteInto, dropExternalFiles } from '@/lib/fileClipboardActions'
 import { findNodeByPath, isExternalFileDrag } from './treeUtils'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
+import { panelDropTargetClass } from '@/components/ui/panelDrop'
 
 const UNDO_TIMEOUT_MS = 10000
 
@@ -398,7 +399,7 @@ export function Sidebar() {
           </div>
 
           <div
-            className={`flex-1 overflow-y-auto py-1 ${dragOverPath === projectRoot ? 'bg-accent/5' : ''}`}
+            className={`flex-1 overflow-y-auto py-1 ${dragOverPath === projectRoot ? panelDropTargetClass : ''}`}
             onKeyDown={handleTreeKeyDown}
             onDragOver={(event) => {
               event.preventDefault()

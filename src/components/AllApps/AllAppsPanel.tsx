@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { APP_DRAG_MIME, hasBadge } from '@/components/ActivityBar/ActivityBar'
+import { panelDropTargetClass } from '@/components/ui/panelDrop'
 
 export interface AllAppsEntry {
   id: string
@@ -35,7 +36,7 @@ export function AllAppsPanel({ apps, open, onFavorite, onUnfavorite }: {
 
   return (
     <div
-      className={['h-full flex flex-col bg-sidebar', dropActive ? 'ring-1 ring-inset ring-accent' : ''].join(' ')}
+      className="h-full flex flex-col bg-sidebar border-r border-border overflow-hidden"
       onDragOver={(e) => {
         if (!e.dataTransfer.types.includes(APP_DRAG_MIME)) return
         e.preventDefault()
@@ -77,7 +78,7 @@ export function AllAppsPanel({ apps, open, onFavorite, onUnfavorite }: {
           )}
         </div>
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto py-1">
+      <div className={`flex-1 min-h-0 overflow-y-auto py-1 ${dropActive ? panelDropTargetClass : ''}`}>
         {visible.map((app) => (
           <div key={app.id} className="group h-8 pr-2 flex items-center hover:bg-white/5 transition-colors">
             <button

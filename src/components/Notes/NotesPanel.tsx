@@ -13,6 +13,7 @@ import { UndoToast } from '@/components/ui/UndoToast'
 import { DiaryPageIcon } from './DiaryPageIcon'
 import { NotesTree, type NotesPromptState } from './NotesTree'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
+import { panelDropTargetClass } from '@/components/ui/panelDrop'
 
 const SEARCH_DEBOUNCE_MS = 250
 
@@ -482,7 +483,7 @@ export function NotesPanel() {
       )}
 
       <div
-        className={`flex-1 overflow-y-auto py-1 ${root && dragOverPath === root ? 'bg-accent/5' : ''}`}
+        className={`flex-1 overflow-y-auto py-1 ${root && dragOverPath === root ? panelDropTargetClass : ''}`}
         onDragOver={(event) => {
           if (!root) return
           event.preventDefault()

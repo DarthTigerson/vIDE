@@ -21,6 +21,7 @@ import { FileIcon, FolderIcon } from './FileIcon'
 import { isExternalFileDrag } from './treeUtils'
 import { useGitTreeDecorations } from './useGitTreeDecorations'
 import { useGeneralSettingsStore } from '@/stores/generalSettingsStore'
+import { treeRowDropTargetClass } from '@/components/ui/panelDrop'
 
 export type TreePromptKind = 'file' | 'directory' | 'rename'
 
@@ -202,7 +203,7 @@ export function FileTree({
                   activeFilePath === node.path ? 'bg-accent/20 text-fg' : 'text-fg'
                 } ${ignored ? 'opacity-45' : ''} ${
                   revealedPath === node.path ? 'ring-1 ring-inset ring-accent/70' : ''
-                } ${dragOverPath === node.path ? 'ring-1 ring-inset ring-accent bg-accent/10' : ''}`}
+                } ${dragOverPath === node.path ? treeRowDropTargetClass : ''}`}
                 style={{ paddingLeft: `${8 + depth * 12}px`, paddingRight: '8px' }}
                 onClick={() => handleClick(node)}
                 onContextMenu={(event) => onContextMenu(event, node)}
