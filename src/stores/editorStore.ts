@@ -47,7 +47,7 @@ function removePane(node: EditorLayoutNode, paneId: string): EditorLayoutNode | 
   return { ...node, children: [left, right] }
 }
 
-function collectPaneIds(node: EditorLayoutNode): string[] {
+export function collectPaneIds(node: EditorLayoutNode): string[] {
   if (node.type === 'pane') return [node.id]
   return [...collectPaneIds(node.children[0]), ...collectPaneIds(node.children[1])]
 }
@@ -262,6 +262,9 @@ interface EditorState {
   revealRequest: { path: string; line: number; col: number; searchTerm: string } | null
   setRevealRequest: (req: { path: string; line: number; col: number; searchTerm: string }) => void
   clearRevealRequest: () => void
+  // Bumped by Cmd+R; the active EditorPane reloads its tab in response.
+  reloadActiveRequest: number
+  requestReloadActive: () => void
 }
 
 export const useEditorStore = create<EditorState>((set, get) => ({
@@ -283,6 +286,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   revealRequest: null,
   setRevealRequest: (req) => set({ revealRequest: req }),
   clearRevealRequest: () => set({ revealRequest: null }),
+  reloadActiveRequest: 0,
+  requestReloadActive: () => set((state) => ({ reloadActiveRequest: state.reloadActiveRequest + 1 })),
 
   openTab: (tab: Tab) => {
     get().openTabInPane(tab, paneForNewTab(get()))

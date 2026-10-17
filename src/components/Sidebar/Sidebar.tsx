@@ -18,6 +18,7 @@ import { UndoToast } from '@/components/ui/UndoToast'
 import { copyToClipboard, pasteInto, dropExternalFiles } from '@/lib/fileClipboardActions'
 import { findNodeByPath, isExternalFileDrag } from './treeUtils'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
+import { panelDropTargetClass } from '@/components/ui/panelDrop'
 
 const UNDO_TIMEOUT_MS = 10000
 
@@ -393,12 +394,12 @@ export function Sidebar() {
         <>
           <div className="h-9 px-3 flex items-center justify-between border-b border-border shrink-0">
             <span className="text-xs font-semibold text-fg-muted uppercase tracking-wider truncate">
-              {projectRoot.split('/').pop()}
+              Site Tree
             </span>
           </div>
 
           <div
-            className={`flex-1 overflow-y-auto py-1 ${dragOverPath === projectRoot ? 'bg-accent/5' : ''}`}
+            className={`flex-1 overflow-y-auto py-1 ${dragOverPath === projectRoot ? panelDropTargetClass : ''}`}
             onKeyDown={handleTreeKeyDown}
             onDragOver={(event) => {
               event.preventDefault()
@@ -546,7 +547,7 @@ function recentProjectName(path: string): string {
 
 // Inline replacement for what used to be a "Recent Projects" button that
 // opened the searchable RecentProjectsPalette (still available anywhere via
-// Ctrl+R) — when there's nothing open yet, showing the list itself right in
+// Cmd+Shift+R) — when there's nothing open yet, showing the list itself right in
 // the empty state saves the extra click.
 function RecentProjectsList() {
   const [recents, setRecents] = useState<RecentProject[]>([])

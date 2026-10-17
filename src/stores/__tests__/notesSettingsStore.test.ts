@@ -15,7 +15,7 @@ import { useNotesSettingsStore } from '../notesSettingsStore'
 describe('notesSettingsStore', () => {
   beforeEach(() => {
     Object.keys(localStorageStore).forEach((k) => delete localStorageStore[k])
-    useNotesSettingsStore.setState({ enabled: true })
+    useNotesSettingsStore.setState({ enabled: true, sort: 'alphabetical', order: {} })
   })
 
   it('defaults enabled to true', () => {
@@ -26,5 +26,19 @@ describe('notesSettingsStore', () => {
     useNotesSettingsStore.getState().setEnabled(false)
     expect(useNotesSettingsStore.getState().enabled).toBe(false)
     expect(localStorageStore['vide:notes:enabled']).toBe('false')
+  })
+
+  it('defaults to Alphabetical and persists the chosen sort', () => {
+    expect(useNotesSettingsStore.getState().sort).toBe('alphabetical')
+    useNotesSettingsStore.getState().setSort('updated')
+    expect(useNotesSettingsStore.getState().sort).toBe('updated')
+    expect(localStorageStore['vide:notes:sort']).toBe('updated')
+  })
+
+  it('persists a folder\'s manual order and keeps it through a rename', () => {
+    useNotesSettingsStore.getState().setFolderOrder('Work', ['b.md', 'a.md'])
+    useNotesSettingsStore.getState().renameInOrder('Work', 'Jobs')
+    expect(useNotesSettingsStore.getState().order).toEqual({ Jobs: ['b.md', 'a.md'] })
+    expect(JSON.parse(localStorageStore['vide:notes:order'])).toEqual({ Jobs: ['b.md', 'a.md'] })
   })
 })

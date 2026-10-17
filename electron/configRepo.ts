@@ -3,7 +3,8 @@ import { readFile, writeFile, mkdir, access, readdir } from 'fs/promises'
 import { join, dirname, relative } from 'path'
 import { execFile } from 'child_process'
 import { readTodosData, writeTodosData } from './todosStore'
-import type { TodosData, TodoProject, Todo } from './todosStore'
+import type { TodosData } from './todosStore'
+import { mergeTodosData } from './todosMerge'
 import { shouldSkipUsageOnlyCommit } from './usageCommitThrottle'
 import { buildAuthUrl, SYNC_GIT_CONFIG_ARGS, SYNC_GIT_ENV } from './configRepoAuth'
 
@@ -166,22 +167,6 @@ function mergeUsageHistory(a: string[], b: string[]): string[] {
   return [...byTs.entries()].sort(([x], [y]) => x - y).map(([, line]) => line)
 }
 
-// Additive merge: b wins for shared IDs, a-only items are preserved.
-// Call as mergeTodos(remote, local) to get local-wins; (local, remote) for remote-wins.
-function mergeTodosData(a: TodosData, b: TodosData): TodosData {
-  const bById = new Map<string, Todo>(b.todos.map((t) => [t.id, t]))
-  const mergedTodos = [
-    ...b.todos,
-    ...a.todos.filter((t) => !bById.has(t.id)),
-  ]
-  const bProjectById = new Map<string, TodoProject>(b.projects.map((p) => [p.id, p]))
-  const mergedProjects = [
-    ...b.projects,
-    ...a.projects.filter((p) => !bProjectById.has(p.id)),
-  ]
-  return { projects: mergedProjects, todos: mergedTodos }
-}
-
 // Fetch remote and return its current localStorage settings. Never writes locally
 // (except for file-based categories — todos and notes — handled here directly).
 async function pullSettings(
@@ -206,7 +191,7 @@ async function pullSettings(
       const raw = await runGit(['show', 'origin/HEAD:todos-data.json'], { cwd: repoDir(), timeout: 10000 })
       const remote: TodosData = JSON.parse(raw)
       const local = await readTodosData(app.getPath('userData'))
-      // remote wins for shared IDs; local-only items preserved
+      // newer copy wins for shared IDs; local-only items preserved
       await writeTodosData(app.getPath('userData'), mergeTodosData(local, remote))
     } catch { /* no todos in remote yet */ }
   }

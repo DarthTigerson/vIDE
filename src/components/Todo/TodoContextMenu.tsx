@@ -8,75 +8,7 @@ import type { TodoProjectSortMode } from '@/lib/todoProjectSort'
 import { TODO_LABELS, TODO_LABEL_META } from './labels'
 import type { Todo, TodoLabel, TodoStatus } from '@/types/api'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
-
-function MenuButton({
-  children,
-  danger = false,
-  onClick,
-}: {
-  children: React.ReactNode
-  danger?: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        'w-full rounded px-2 py-1.5 text-left text-xs transition-colors',
-        danger
-          ? 'text-red-300 hover:bg-red-500/15 hover:text-red-200'
-          : 'text-fg-muted hover:bg-white/5 hover:text-fg',
-      ].join(' ')}
-    >
-      {children}
-    </button>
-  )
-}
-
-function CheckableMenuButton({
-  checked,
-  onClick,
-  children,
-}: {
-  checked: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <MenuButton onClick={onClick}>
-      <span className="flex items-center justify-between">
-        {children}
-        {checked && <span className="text-accent">✓</span>}
-      </span>
-    </MenuButton>
-  )
-}
-
-function MenuDivider() {
-  return <div className="my-1 h-px bg-border" />
-}
-
-function SubMenuButton({ label, children }: { label: string; children: React.ReactNode }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
-      <button
-        type="button"
-        aria-label={label}
-        className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
-      >
-        {label}
-        <span className="text-fg-subtle">▸</span>
-      </button>
-      {open && (
-        <div className="absolute left-full top-0 z-10 w-40 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50">
-          {children}
-        </div>
-      )}
-    </div>
-  )
-}
+import { CheckableMenuButton, MenuButton, MenuDivider, SubMenuButton } from '@/components/ui/MenuItems'
 
 function useMenuDismiss(onClose: () => void) {
   useEffect(() => {

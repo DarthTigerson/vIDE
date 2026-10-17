@@ -10,7 +10,7 @@ export function FileTreeSettingsPage() {
   return (
     <div className="h-full overflow-auto bg-panel p-6">
       <div className="max-w-[1000px]">
-        <h1 className="mb-1 text-base font-semibold text-fg">File Tree</h1>
+        <h1 className="mb-1 text-base font-semibold text-fg">Site Tree</h1>
         <p className="mb-4 text-sm text-fg-muted">How the file tree shows your project's files.</p>
 
         <FeatureBlock

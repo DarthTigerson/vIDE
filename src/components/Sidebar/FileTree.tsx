@@ -2,6 +2,7 @@ import type { MouseEvent } from 'react'
 import type { FileNode } from '@/types/index'
 import { useFileStore } from '@/stores/fileStore'
 import { useEditorStore } from '@/stores/editorStore'
+import { useTabDragStore } from '@/stores/tabDragStore'
 import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
 import { useRepoGitState } from '@/stores/gitStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
@@ -20,6 +21,7 @@ import { FileIcon, FolderIcon } from './FileIcon'
 import { isExternalFileDrag } from './treeUtils'
 import { useGitTreeDecorations } from './useGitTreeDecorations'
 import { useGeneralSettingsStore } from '@/stores/generalSettingsStore'
+import { treeRowDropTargetClass } from '@/components/ui/panelDrop'
 
 export type TreePromptKind = 'file' | 'directory' | 'rename'
 
@@ -201,14 +203,20 @@ export function FileTree({
                   activeFilePath === node.path ? 'bg-accent/20 text-fg' : 'text-fg'
                 } ${ignored ? 'opacity-45' : ''} ${
                   revealedPath === node.path ? 'ring-1 ring-inset ring-accent/70' : ''
-                } ${dragOverPath === node.path ? 'ring-1 ring-inset ring-accent bg-accent/10' : ''}`}
+                } ${dragOverPath === node.path ? treeRowDropTargetClass : ''}`}
                 style={{ paddingLeft: `${8 + depth * 12}px`, paddingRight: '8px' }}
                 onClick={() => handleClick(node)}
                 onContextMenu={(event) => onContextMenu(event, node)}
                 onDragStart={(event) => {
                   event.dataTransfer.effectAllowed = 'move'
                   event.dataTransfer.setData('text/plain', node.path)
+                  // Files can also be dropped on an editor pane to open or split.
+                  if (!node.isDirectory) {
+                    event.dataTransfer.setData('application/x-vide-file', node.path)
+                    useTabDragStore.getState().startFileDrag(node.path)
+                  }
                 }}
+                onDragEnd={() => useTabDragStore.getState().endDrag()}
                 onDragOver={(event) => {
                   if (!node.isDirectory) return
                   event.preventDefault()
@@ -220,6 +228,8 @@ export function FileTree({
                   event.preventDefault()
                   event.stopPropagation()
                   setDragOverPath(null)
+                  // The move below can unmount the dragged row before its dragend fires.
+                  useTabDragStore.getState().endDrag()
                   if (!node.isDirectory) return
                   if (isExternalFileDrag(event.dataTransfer)) {
                     const files = Array.from(event.dataTransfer.files)

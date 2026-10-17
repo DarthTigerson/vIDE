@@ -224,7 +224,7 @@ export function RepoPalette({ onClose }: Props) {
           onClick={(e) => e.stopPropagation()}
         >
           <ContextMenuButton onClick={() => { goToFileTree(menu.repo); setMenu(null) }}>
-            Go to File Tree
+            Go to Site Tree
           </ContextMenuButton>
         </div>,
         document.body

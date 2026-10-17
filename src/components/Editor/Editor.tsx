@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import MonacoEditor, { DiffEditor, loader } from '@monaco-editor/react'
 import type * as Monaco from 'monaco-editor'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
-import { useEditorStore, type EditorLayoutNode } from '@/stores/editorStore'
+import { collectPaneIds, useEditorStore, type EditorLayoutNode } from '@/stores/editorStore'
 import { useSearchStore } from '@/stores/searchStore'
 import { useGlobalSearchStore } from '@/stores/globalSearchStore'
 import { useEditorFindStore } from '@/stores/editorFindStore'
@@ -38,7 +38,7 @@ import { useFooterBlameStore } from '@/stores/footerBlameStore'
 import { TabBar } from './TabBar'
 import { EditorBreadcrumb } from './EditorBreadcrumb'
 import { EditorContextMenu } from './EditorContextMenu'
-import { PaneDropZoneOverlay } from './PaneDropZoneOverlay'
+import { PaneDropZoneOverlay, useCoverNativeViewsWhileDragging } from './PaneDropZoneOverlay'
 import { EmptyEditorBackground } from './EmptyEditorBackground'
 import { detectLang } from './utils'
 import { breadcrumbPathForTab, diffFilePathForTab } from './breadcrumbPath'
@@ -195,6 +195,7 @@ export function Editor() {
   const activeCustomId = useCustomThemeStore((s) => s.activeId)
   const customThemes = useCustomThemeStore((s) => s.themes)
   const editorBackground = useEditorBackground()
+  useCoverNativeViewsWhileDragging()
 
   // Keeps CUSTOM_DEFAULT_THEME_ID/CUSTOM_HIGH_CONTRAST_THEME_ID's definitions
   // in sync with the active custom theme's own colours (background for
@@ -285,6 +286,8 @@ export function Editor() {
       ) : (
         <div className="flex-1 relative overflow-hidden">
           <EmptyEditorBackground />
+          {/* With no tabs there's no EditorPane, so files dragged from the tree land here. */}
+          <PaneDropZoneOverlay paneId={collectPaneIds(layout)[0]} centerOnly />
         </div>
       )}
     </div>
@@ -483,6 +486,31 @@ function EditorPane({ paneId }: { paneId: string }) {
     !isScratchTab(activeTab.path)
   const breadcrumbFilePath = activeTab ? breadcrumbPathForTab(activeTab.path, isPlainFileTab) : null
 
+  // Cmd+R reloads just this pane's tab, never the whole window (a window
+  // reload reruns the boot sync and looks like a restart). A focused browser
+  // page catches Cmd+R itself (browserViews.ts); this covers the rest.
+  // Terminals are left alone so a live shell/agent session is never killed.
+  const reloadActiveRequest = useEditorStore((s) => s.reloadActiveRequest)
+  const [remountKey, setRemountKey] = useState(0)
+  useEffect(() => {
+    if (reloadActiveRequest === 0 || !isActivePane || !activeTab || isTerminal) return
+    if (isBrowser) {
+      window.api.browserViewReload(getBrowserId(activeTab.path))
+      return
+    }
+    if (isPlainFileTab) {
+      // syncFromDisk itself skips tabs with unsaved edits.
+      const path = activeTab.path
+      window.api.readFile(path).then((content) => {
+        useEditorStore.getState().syncFromDisk(path, content)
+        setRemountKey((k) => k + 1)
+      }).catch(() => {})
+      return
+    }
+    setRemountKey((k) => k + 1)
+    // Only a new request should trigger a reload, not a tab/pane change.
+  }, [reloadActiveRequest])
+
   function activatePane() {
     setActivePane(paneId)
   }
@@ -622,6 +650,7 @@ function EditorPane({ paneId }: { paneId: string }) {
           onClose={() => setEditorContextMenu(null)}
         />
       )}
+      <Fragment key={remountKey}>
       {activeTab ? (
         isTerminal ? (
           <TerminalTab key={activeTab.path} terminalId={getTerminalId(activeTab.path)} />
@@ -1019,6 +1048,7 @@ function EditorPane({ paneId }: { paneId: string }) {
           <p className="text-fg-subtle text-sm">Select a tab for this pane</p>
         </div>
       )}
+      </Fragment>
       </div>
     </div>
   )

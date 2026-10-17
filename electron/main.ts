@@ -36,6 +36,7 @@ import { UpdateChecker } from './updateChecker'
 import { UpdateRunner } from './updateRunner'
 import { getChangelogForVersion, getChangelogReleases } from './changelog'
 import { getSystemMemoryUsage } from './systemMemory'
+import { getBatteryStatus } from './systemBattery'
 import { registerOnboardingHandlers } from './onboarding'
 import { registerConfigRepoHandlers } from './configRepo'
 
@@ -93,6 +94,7 @@ function registerSystemHandlers(): void {
     const appBytes = app.getAppMetrics().reduce((sum, p) => sum + p.memory.workingSetSize * 1024, 0)
     return { ...system, appBytes }
   })
+  ipcMain.handle('system:getBattery', () => getBatteryStatus())
 }
 
 function registerDevtoolsHandlers(): void {
@@ -139,7 +141,7 @@ function registerWindowHandlers(): void {
 
   ipcMain.handle('window:openInNewWindow', (_e, path: string) => openProjectInNewWindow(path))
 
-  // Lets the "Switch Project…" (Ctrl+R) palette jump to an already-open
+  // Lets the "Switch Project…" (Cmd+Shift+R) palette jump to an already-open
   // window instead of reloading the project into the current window or
   // spawning a duplicate one.
   ipcMain.handle('window:focusProjectIfOpen', (_e, path: string) => {
@@ -176,6 +178,24 @@ const promptingClose = new Set<number>()
 // re-issue the quit, and a cancelled one can call it off properly.
 let quitting = false
 app.on('before-quit', () => { quitting = true })
+// Windows whose renderer has stopped responding, so reloadAllWindows() knows
+// to crash them first — a reload request alone never gets through to a hung
+// renderer.
+const unresponsiveWindows = new Set<number>()
+
+// "Restart vIDE" (Cmd+Alt+R; Ctrl+Alt+R on Linux): the same renderer reload
+// the old Cmd+R did, but for every window. Deliberately not app.relaunch():
+// that kills every PTY/agent session (a reload re-attaches to them), and
+// under `npm run dev` quitting also stops the dev server, so the relaunched
+// app loads a dead URL. No confirm — it's the last-resort recovery for a
+// frozen window.
+function reloadAllWindows(): void {
+  for (const win of windows.values()) {
+    if (win.isDestroyed()) continue
+    if (unresponsiveWindows.has(win.id)) win.webContents.forcefullyCrashRenderer()
+    win.webContents.reload()
+  }
+}
 // Keyed by window id, kept in sync with each window's current project root
 // via the 'window:setTitle' message the renderer already sends on every
 // project switch — reused here rather than adding a second channel just to
@@ -207,6 +227,8 @@ function createWindow(projectRoot?: string): BrowserWindow {
 
   windows.set(win.id, win)
   win.once('ready-to-show', () => win.show())
+  win.on('unresponsive', () => unresponsiveWindows.add(win.id))
+  win.on('responsive', () => unresponsiveWindows.delete(win.id))
   win.on('focus', () => buildMenu())
   // index.html declares <title>vIDE</title>, and Electron lets the loaded
   // page's title win over the constructor's `title:` option (and over any
@@ -261,6 +283,7 @@ function createWindow(projectRoot?: string): BrowserWindow {
 
   win.on('closed', () => {
     windows.delete(win.id)
+    unresponsiveWindows.delete(win.id)
     unsavedByWindow.delete(win.id)
     confirmedClose.delete(win.id)
     promptingClose.delete(win.id)
@@ -401,6 +424,14 @@ async function buildMenu(): Promise<void> {
         { role: 'hideOthers' },
         { role: 'unhide' },
         { type: 'separator' },
+        {
+          // The frozen-window escape hatch — a native accelerator fires from
+          // the main process even when the renderer is hung. Control on Linux,
+          // where Cmd doesn't exist (and plain Control+R is the terminal's).
+          label: 'Restart vIDE',
+          accelerator: process.platform === 'darwin' ? 'Command+Alt+R' : 'Control+Alt+R',
+          click: () => reloadAllWindows(),
+        },
         { role: 'quit' },
       ],
     },
@@ -469,8 +500,10 @@ async function buildMenu(): Promise<void> {
               ],
         },
         {
+          // Not Control+R: that's the shell's (and Claude Code's) history
+          // search, and the accelerator kept stealing it from the terminal.
           label: 'Switch Project…',
-          accelerator: 'Control+R',
+          accelerator: 'CmdOrCtrl+Shift+R',
           click: () => {
             const win = BrowserWindow.getFocusedWindow()
             if (win) win.webContents.send('menu:recentProjectsPalette')
@@ -540,15 +573,31 @@ async function buildMenu(): Promise<void> {
     {
       label: 'View',
       submenu: [
-        // Control+R is claimed by "Switch Project…" above, so Reload/Force
-        // Reload need non-colliding accelerators on Linux (mac keeps its
-        // Cmd+R/Cmd+Shift+R defaults, which never overlapped Control+R).
-        process.platform === 'darwin'
-          ? { role: 'reload' }
-          : { role: 'reload', accelerator: 'Control+Shift+R' },
-        process.platform === 'darwin'
-          ? { role: 'forceReload' }
-          : { role: 'forceReload', accelerator: 'Control+Alt+Shift+R' },
+        // Cmd+R reloads only the focused pane's tab (EditorPane), never the
+        // window — a window reload reruns the boot sync and feels like a
+        // restart. macOS only: on Linux CmdOrCtrl would land back on
+        // Control+R, the terminal's history search. A focused browser page
+        // handles Cmd+R itself (browserViews.ts), which also stops this
+        // accelerator firing.
+        {
+          label: 'Reload Tab',
+          accelerator: process.platform === 'darwin' ? 'Command+R' : undefined,
+          click: () => {
+            const win = BrowserWindow.getFocusedWindow()
+            if (win) win.webContents.send('menu:reloadActive')
+          },
+        },
+        // Plain click handlers, not role: 'reload'/'forceReload' — the roles
+        // bring their own default accelerators (Cmd+R/Cmd+Shift+R), and
+        // Cmd+Shift+R now belongs to "Switch Project…".
+        {
+          label: 'Reload Window',
+          click: () => BrowserWindow.getFocusedWindow()?.webContents.reload(),
+        },
+        {
+          label: 'Force Reload Window',
+          click: () => BrowserWindow.getFocusedWindow()?.webContents.reloadIgnoringCache(),
+        },
         { role: 'toggleDevTools' },
         { type: 'separator' },
         {
@@ -788,6 +837,7 @@ app.whenReady().then(async () => {
     app.relaunch()
     app.quit()
   })
+  ipcMain.on('app:restart', () => reloadAllWindows())
 
   ipcMain.handle('changelog:getForVersion', (_e, version: string) => getChangelogForVersion(version))
   ipcMain.handle('changelog:getReleases', () => getChangelogReleases())

@@ -23,6 +23,8 @@ export interface FileNode {
   name: string
   path: string
   isDirectory: boolean
+  createdMs?: number
+  updatedMs?: number
 }
 
 export interface SearchMatch {
@@ -104,13 +106,32 @@ export async function buildTree(dirPath: string): Promise<FileNode[]> {
     .sort((a, b) => {
       if (a.isDirectory() !== b.isDirectory())
         return a.isDirectory() ? -1 : 1
-      return a.name.localeCompare(b.name)
+      // numeric: digit runs compare by value, so 0.1.3 sorts before 0.1.21.
+      return a.name.localeCompare(b.name, undefined, { numeric: true })
     })
     .map((e) => ({
       name: e.name,
       path: join(dirPath, e.name),
       isDirectory: e.isDirectory(),
     }))
+}
+
+// buildTree plus each entry's file dates, for the Notes panel's Created/
+// Updated sorts (kept out of buildTree so the file tree doesn't pay for a
+// stat per entry). birthtime is 0 where the filesystem doesn't record it;
+// the modified time stands in then.
+export async function buildTreeWithDates(dirPath: string): Promise<FileNode[]> {
+  const nodes = await buildTree(dirPath)
+  return Promise.all(
+    nodes.map(async (node) => {
+      try {
+        const info = await stat(node.path)
+        return { ...node, createdMs: info.birthtimeMs || info.mtimeMs, updatedMs: info.mtimeMs }
+      } catch {
+        return node
+      }
+    })
+  )
 }
 
 export async function readImageDataUrl(filePath: string): Promise<string> {

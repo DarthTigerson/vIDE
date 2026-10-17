@@ -9,7 +9,7 @@ vi.mock('electron', () => ({
 }))
 
 import {
-  listAllFiles, searchText, buildTree, readImageDataUrl,
+  listAllFiles, searchText, buildTree, buildTreeWithDates, readImageDataUrl,
   readTextFile, pathExists, getHomeDir,
   writeFile as writeFileOp, mkdir as mkdirOp, renamePath, trashPath,
   copyInto, moveInto, uniqueDestPath,
@@ -52,6 +52,26 @@ describe('fsOps', () => {
     expect(tree.map((n) => n.name)).toEqual(['sub', 'a.txt'])
     expect(tree[0].isDirectory).toBe(true)
     expect(tree[1].isDirectory).toBe(false)
+  })
+
+  it('buildTree sorts numbers in names by value, so version notes run 0.1.2, 0.1.3, 0.1.21', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'fsops-numeric-'))
+    try {
+      for (const name of ['0.1.21.md', '0.1.3.md', '0.1.2.md', '0.1.10.md']) await writeFile(join(dir, name), '')
+      const tree = await buildTree(dir)
+      expect(tree.map((n) => n.name)).toEqual(['0.1.2.md', '0.1.3.md', '0.1.10.md', '0.1.21.md'])
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('buildTreeWithDates adds each entry\'s created and modified times', async () => {
+    const tree = await buildTreeWithDates(root)
+    const file = tree.find((n) => n.name === 'a.txt')!
+    const info = await stat(join(root, 'a.txt'))
+    expect(file.updatedMs).toBe(info.mtimeMs)
+    expect(file.createdMs).toBe(info.birthtimeMs || info.mtimeMs)
+    expect(tree.map((n) => n.name)).toEqual(['sub', 'a.txt'])
   })
 
   it('readImageDataUrl encodes file contents as a base64 data url with the right mime type', async () => {

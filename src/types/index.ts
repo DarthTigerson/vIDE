@@ -3,6 +3,9 @@ export interface FileNode {
   path: string
   isDirectory: boolean
   children?: FileNode[]
+  // File dates, only filled in by notesReadDir (the Notes panel's sorts).
+  createdMs?: number
+  updatedMs?: number
 }
 
 export interface Tab {

@@ -69,7 +69,7 @@ export function CommitFileContextMenu({ x, y, onCopyPath, onOpenFile, onOpenDiff
         onClick={() => run(onRevealInFileTree)}
         className="w-full rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
       >
-        Reveal in File Tree
+        Reveal in Site Tree
       </button>
       <button
         type="button"

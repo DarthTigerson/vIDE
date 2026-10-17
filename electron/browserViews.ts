@@ -328,6 +328,11 @@ export class BrowserViewManager {
       } else if (input.key === '0') {
         event.preventDefault()
         this.setZoom(win.id, id, 0)
+      } else if (input.key.toLowerCase() === 'r' && (process.platform === 'darwin' ? input.meta : input.control)) {
+        // Reload just this page. preventDefault also stops the app menu's
+        // Cmd+R "Reload Window" accelerator from reloading the whole window.
+        event.preventDefault()
+        wc.reload()
       }
     })
   }

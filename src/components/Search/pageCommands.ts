@@ -42,7 +42,7 @@ export interface SettingsPage {
 // pageCommands.test.ts fails if a page is added there and not here.
 export const SETTINGS_PAGES: SettingsPage[] = [
   { id: 'settings-display', label: 'Settings: Display', path: DISPLAY_TAB_PATH, description: 'Theme, panel style', keywords: ['theme', 'appearance', 'colour', 'color'] },
-  { id: 'settings-file-tree', label: 'Settings: File Tree', path: FILE_TREE_SETTINGS_TAB_PATH, description: 'Git status letters and colours', keywords: ['explorer', 'git', 'status', 'badge', 'decorations'] },
+  { id: 'settings-file-tree', label: 'Settings: Site Tree', path: FILE_TREE_SETTINGS_TAB_PATH, description: 'Git status letters and colours', keywords: ['file tree', 'explorer', 'git', 'status', 'badge', 'decorations'] },
   { id: 'settings-about', label: 'Settings: About', path: ABOUT_SETTINGS_TAB_PATH, description: 'Version, updates, release notes', keywords: ['version', 'update', 'check', 'changelog', 'release', 'notes'] },
   { id: 'settings-editor', label: 'Settings: Editor', path: EDITOR_SETTINGS_TAB_PATH, description: 'Font size, auto-save', keywords: ['font', 'autosave', 'editor'] },
   { id: 'settings-git', label: 'Settings: Git', path: GIT_SETTINGS_TAB_PATH, description: 'Remote, identity', keywords: ['remote', 'origin', 'identity'] },
@@ -140,6 +140,20 @@ export function pageCommands(): Command[] {
       description: 'Open the Notes panel',
       keywords: ['markdown'],
       action: () => usePanelRequestStore.getState().requestPanel('notes'),
+    },
+    {
+      id: 'app-reload-window',
+      label: 'App: Reload Window',
+      description: 'Reload this vIDE window',
+      keywords: ['refresh', 'reload'],
+      action: () => window.location.reload(),
+    },
+    {
+      id: 'app-restart',
+      label: 'App: Restart vIDE',
+      description: 'Restart every vIDE window',
+      keywords: ['relaunch', 'restart', 'frozen', 'recover'],
+      action: () => window.api.restartApp(),
     },
   ]
 }

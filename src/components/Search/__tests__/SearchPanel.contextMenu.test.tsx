@@ -65,7 +65,7 @@ describe('SearchPanel — file row right-click menu', () => {
     rightClickFileRow('a.ts')
     expect(screen.getAllByRole('menuitem').map((b) => b.textContent)).toEqual([
       'Open / Edit',
-      'Reveal in File Tree',
+      'Reveal in Site Tree',
       'Copy',
       'Copy Path',
       'Reveal in Finder',
@@ -83,7 +83,7 @@ describe('SearchPanel — file row right-click menu', () => {
   it('reveals the file in the file tree', () => {
     render(<SearchPanel />)
     rightClickFileRow('a.ts')
-    fireEvent.click(menuItem('Reveal in File Tree'))
+    fireEvent.click(menuItem('Reveal in Site Tree'))
     expect(useSidebarUiStore.getState().revealRequest?.path).toBe('/proj/src/a.ts')
   })
 

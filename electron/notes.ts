@@ -2,6 +2,7 @@ import { app, ipcMain, BrowserWindow } from 'electron'
 import { basename, join, dirname } from 'path'
 import { access, mkdir, readFile, readdir, rename, writeFile } from 'fs/promises'
 import { watch, type FSWatcher } from 'chokidar'
+import { buildTreeWithDates } from './fsOps'
 
 export function notesRoot(): string {
   return join(app.getPath('userData'), 'notes')
@@ -148,4 +149,5 @@ export function registerNotesHandlers(): void {
     renameEntry(oldPath, newName, isNote)
   )
   ipcMain.handle('notes:search', (_e, query: string) => searchNotes(notesRoot(), query))
+  ipcMain.handle('notes:readDir', (_e, dirPath: string) => buildTreeWithDates(dirPath))
 }

@@ -244,7 +244,7 @@ export function TabContextMenu({ x, y, paneId, path, onClose, onRequestClose }: 
           {realFileExists && (
             <>
               <MenuButton onClick={withClose(() => useSidebarUiStore.getState().requestReveal(realFilePath))}>
-                Reveal in File Tree
+                Reveal in Site Tree
               </MenuButton>
               {/* Mac-only here: on Linux the file manager varies, and "Finder" would be the wrong name. */}
               {isMac && (

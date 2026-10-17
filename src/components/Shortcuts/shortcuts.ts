@@ -38,7 +38,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     items: [
       { keys: ['⌘', 'N'], label: 'New File' },
       { keys: ['⌘', 'O'], label: 'Open Project' },
-      { keys: ['⌃', 'R'], label: 'Switch Project' },
+      { keys: ['⌘', '⇧', 'R'], label: 'Switch Project' },
       { keys: ['⌘', '⇧', 'N'], label: 'New Window' },
       { keys: ['⌘', 'W'], label: 'Close Tab' },
       { keys: ['⌘', '⇧', 'W'], label: 'Close Window' },
@@ -47,7 +47,11 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   },
   {
     category: 'App',
-    items: [{ keys: ['⌘', ','], label: 'Preferences' }],
+    items: [
+      { keys: ['⌘', ','], label: 'Preferences' },
+      { keys: ['⌘', 'R'], label: 'Reload Focused Tab / Browser Page' },
+      { keys: ['⌘', '⌥', 'R'], label: 'Restart vIDE' },
+    ],
   },
   {
     category: 'Display',

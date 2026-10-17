@@ -11,8 +11,12 @@ import { Modal } from '@/components/ui/Modal'
 import { clampToViewport } from '@/components/ui/clampToViewport'
 import { UndoToast } from '@/components/ui/UndoToast'
 import { DiaryPageIcon } from './DiaryPageIcon'
-import { NotesTree, type NotesPromptState } from './NotesTree'
+import { NotesTree, type NotesPromptState, type NotesReorder } from './NotesTree'
+import { useNotesSettingsStore } from '@/stores/notesSettingsStore'
+import { NOTES_SORT_MODES, placeName, sortNotes, type DropPlacement } from '@/lib/notesSort'
+import { CheckableMenuButton, SubMenuButton } from '@/components/ui/MenuItems'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
+import { panelDropTargetClass } from '@/components/ui/panelDrop'
 
 const SEARCH_DEBOUNCE_MS = 250
 
@@ -160,9 +164,27 @@ export function NotesPanel() {
   const [undoMove, setUndoMove] = useState<{ from: string; to: string } | null>(null)
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const expandedPathsRef = useRef(expandedPaths)
+  const sort = useNotesSettingsStore((s) => s.sort)
+  const setSort = useNotesSettingsStore((s) => s.setSort)
+  const manualOrder = useNotesSettingsStore((s) => s.order)
+  const [draggingNode, setDraggingNode] = useState<FileNode | null>(null)
+  const [dropMarker, setDropMarker] = useState<NotesReorder['dropMarker']>(null)
+
+  // Manual order is keyed by paths relative to the notes root (it syncs, and
+  // the root's absolute path differs per machine).
+  const relPath = useCallback((path: string) => (!root || path === root ? '' : path.slice(root.length + 1)), [root])
+
+  const sortNodes = useCallback(
+    (dirPath: string, nodes: FileNode[]) => sortNotes(nodes, sort, manualOrder[relPath(dirPath)]),
+    [sort, manualOrder, relPath],
+  )
 
   useEffect(() => {
-    const clear = () => setDragOverPath(null)
+    const clear = () => {
+      setDragOverPath(null)
+      setDraggingNode(null)
+      setDropMarker(null)
+    }
     window.addEventListener('dragend', clear)
     window.addEventListener('drop', clear)
     return () => {
@@ -204,7 +226,7 @@ export function NotesPanel() {
   }, [searchQuery])
 
   const refreshDir = useCallback(async (dirPath: string) => {
-    const nodes = await window.api.readDir(dirPath)
+    const nodes = await window.api.notesReadDir(dirPath)
     setChildrenByDir((current) => ({ ...current, [dirPath]: nodes }))
   }, [])
 
@@ -353,7 +375,8 @@ export function NotesPanel() {
         await refreshDir(prompt.directory)
       } else if (prompt.node) {
         const isNote = !prompt.node.isDirectory
-        await window.api.notesRenameEntry(prompt.node.path, name, isNote)
+        const result = await window.api.notesRenameEntry(prompt.node.path, name, isNote)
+        useNotesSettingsStore.getState().renameInOrder(relPath(prompt.node.path), relPath(result.path))
         await refreshDir(dirname(prompt.node.path))
       }
       setPrompt(null)
@@ -387,19 +410,34 @@ export function NotesPanel() {
     notifySettingChanged()
   }
 
-  async function moveNode(sourcePath: string, targetDir: string) {
-    if (!root) return
-    if (sourcePath === targetDir || targetDir.startsWith(sourcePath + '/')) return
+  // Resolves to whether the move happened.
+  async function moveNode(sourcePath: string, targetDir: string): Promise<boolean> {
+    if (!root) return false
+    if (sourcePath === targetDir || targetDir.startsWith(sourcePath + '/')) return false
     const sourceParent = dirname(sourcePath)
-    if (sourceParent === targetDir) return
+    if (sourceParent === targetDir) return false
     const destPath = `${targetDir}/${sourcePath.split('/').pop()}`
-    if (await window.api.pathExists(destPath)) return
+    if (await window.api.pathExists(destPath)) return false
     await window.api.renamePath(sourcePath, destPath)
+    useNotesSettingsStore.getState().renameInOrder(relPath(sourcePath), relPath(destPath))
     await refreshDir(sourceParent)
     await refreshDir(targetDir)
     armUndo(sourcePath, destPath)
     notifySettingChanged()
+    return true
   }
+
+  // Manual sort: drops `source` before/after `target`, moving it into
+  // target's folder first if it came from another one.
+  async function placeNode(source: FileNode, target: FileNode, placement: DropPlacement) {
+    const targetDir = dirname(target.path)
+    const shown = sortNotes(childrenByDir[targetDir] ?? [], 'manual', manualOrder[relPath(targetDir)]).map((n) => n.name)
+    if (dirname(source.path) !== targetDir && !(await moveNode(source.path, targetDir))) return
+    useNotesSettingsStore.getState().setFolderOrder(relPath(targetDir), placeName(shown, source.name, target.name, placement))
+  }
+
+  const reorder: NotesReorder | null =
+    sort === 'manual' ? { draggingNode, setDraggingNode, dropMarker, setDropMarker, onPlaceNode: placeNode } : null
 
   function armUndo(from: string, to: string) {
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
@@ -413,6 +451,7 @@ export function NotesPanel() {
     const { from, to } = undoMove
     setUndoMove(null)
     await window.api.renamePath(to, from)
+    useNotesSettingsStore.getState().renameInOrder(relPath(to), relPath(from))
     await refreshDir(dirname(from))
     await refreshDir(dirname(to))
     notifySettingChanged()
@@ -482,7 +521,7 @@ export function NotesPanel() {
       )}
 
       <div
-        className={`flex-1 overflow-y-auto py-1 ${root && dragOverPath === root ? 'bg-accent/5' : ''}`}
+        className={`flex-1 overflow-y-auto py-1 ${root && dragOverPath === root ? panelDropTargetClass : ''}`}
         onDragOver={(event) => {
           if (!root) return
           event.preventDefault()
@@ -525,6 +564,8 @@ export function NotesPanel() {
               dragOverPath={dragOverPath}
               setDragOverPath={setDragOverPath}
               onMoveNode={moveNode}
+              sortNodes={sortNodes}
+              reorder={reorder}
             />
           )
         )}
@@ -560,6 +601,21 @@ export function NotesPanel() {
               </ContextMenuButton>
             </>
           )}
+          <ContextMenuDivider />
+          <SubMenuButton label="Sort by">
+            {NOTES_SORT_MODES.map(({ mode, title }) => (
+              <CheckableMenuButton
+                key={mode}
+                checked={sort === mode}
+                onClick={() => {
+                  setSort(mode)
+                  setMenu(null)
+                }}
+              >
+                {title}
+              </CheckableMenuButton>
+            ))}
+          </SubMenuButton>
         </div>,
         document.body
       )}

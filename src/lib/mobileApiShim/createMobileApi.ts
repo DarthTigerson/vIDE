@@ -202,6 +202,7 @@ export function createMobileApi(wsUrl: string) {
 
     // system — mirrors electron/mobileRelay/channels/systemChannels.ts
     getSystemMemoryUsage: invoke('system:getMemoryUsage'),
+    getBatteryStatus: invoke('system:getBattery'),
 
     // docker — mirrors electron/mobileRelay/channels/dockerChannels.ts
     dockerStatus: invoke('docker:status'),
@@ -287,6 +288,7 @@ export function createMobileApi(wsUrl: string) {
     notesCreateFolder: invoke('notes:createFolder'),
     notesRenameEntry: invoke('notes:renameEntry'),
     notesSearch: invoke('notes:search'),
+    notesReadDir: invoke('notes:readDir'),
 
     // autocomplete — mirrors electron/mobileRelay/channels/autocompleteChannels.ts
     autocompleteComplete: invoke('autocomplete:complete'),
@@ -325,6 +327,7 @@ export function createMobileApi(wsUrl: string) {
     onMenuNewFile: stubOn(),
     onMenuNewFolder: stubOn(),
     onMenuNewTerminal: stubOn(),
+    onMenuReloadActive: stubOn(),
     onMenuReopenClosedTab: stubOn(),
     onMenuSave: stubOn(),
     onMenuFind: stubOn(),
@@ -402,6 +405,7 @@ export function createMobileApi(wsUrl: string) {
     updateGetStatus: stubInvoke({ latest: null, lastCheckedAt: null, failed: false }),
     updateCheck: stubInvoke({ latest: null, lastCheckedAt: null, failed: false }),
     updateRestart: stubSend(),
+    restartApp: stubSend(),
     updateRun: stubInvoke(undefined),
     updateGetRemoteChangelog: stubInvoke(null),
     onUpdateOutput: stubOn(),

@@ -34,7 +34,15 @@ import {
   UsageGraphIcon,
   NotesIcon,
   LlamaIcon,
+  AllAppsIcon,
+  APP_DRAG_MIME,
+  hasBadge,
 } from './components/ActivityBar/ActivityBar'
+import type { ActivityBarItem } from './components/ActivityBar/ActivityBar'
+import { BatteryPill } from './components/TitleBar/BatteryPill'
+import { AllAppsPanel } from './components/AllApps/AllAppsPanel'
+import { useAppFavoritesStore } from './stores/appFavoritesStore'
+import { APPEND_TARGET, MOVABLE_APP_IDS, splitApps, type MovableAppId } from './lib/appFavorites'
 import { SessionIcon } from './components/ActivityBar/SessionIcon'
 import { NewSessionMenu } from './components/ActivityBar/NewSessionMenu'
 import { ClaudeSessionContextMenu } from './components/ActivityBar/ClaudeSessionContextMenu'
@@ -177,8 +185,11 @@ export default function App() {
     running: isLlamaKind(o.kind) ? Boolean(llamaRuns[llamaModelId(o.kind)]?.running) : undefined,
   }))
   const repoName = projectRoot ? projectRoot.split('/').pop() : null
-  const [leftPanel, setLeftPanel] = useState<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'llama' | 'settings' | null>('files')
-  const lastLeftPanelRef = useRef<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'llama' | 'settings'>('files')
+  const [leftPanel, setLeftPanel] = useState<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'llama' | 'settings' | 'apps' | null>('files')
+  const appFavorites = useAppFavoritesStore((s) => s.favorites)
+  const placeFavorite = useAppFavoritesStore((s) => s.place)
+  const unfavoriteApp = useAppFavoritesStore((s) => s.unfavorite)
+  const lastLeftPanelRef = useRef<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'llama' | 'settings' | 'apps'>('files')
   const [sidebarRem, setSidebarRem] = useState(() => loadRem(SIDEBAR_WIDTH_KEY, SIDEBAR_PANEL))
   const [chatRem, setChatRem] = useState(() => loadRem(CHAT_WIDTH_KEY, CHAT_PANEL))
   // The panel group's width and the root font size: the two numbers needed to
@@ -784,6 +795,15 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    return window.api.onMenuReloadActive(() => {
+      // Focus in a terminal or agent panel (both xterm): leave the live
+      // session alone rather than reloading whatever editor tab is active.
+      if (document.activeElement?.closest('.xterm')) return
+      useEditorStore.getState().requestReloadActive()
+    })
+  }, [])
+
+  useEffect(() => {
     return window.api.onMenuReopenClosedTab(() => {
       useEditorStore.getState().reopenLastClosed()
     })
@@ -886,27 +906,30 @@ export default function App() {
           onClick={(e) => e.stopPropagation()}
         >
           {memoryUsageVisible && memoryUsage && <MemoryPill usage={memoryUsage} />}
+          <BatteryPill withDivider={!!(memoryUsageVisible && memoryUsage)} />
         </div>
       </div>
       <div className="flex flex-1 min-h-0">
         {(() => {
-          const primaryActivityBar = (
-        <ActivityBar
-          side={mirrored ? 'right' : 'left'}
-          groups={[[
+          // File Tree, Search and Git are locked at the top. Every other app
+          // is listed in the All Apps panel, and the favorites (starred there)
+          // also sit on the bar, user-ordered and draggable. A disabled app
+          // appears nowhere (null here).
+          const togglePanel = (id: NonNullable<typeof leftPanel>) => () => setLeftPanel((p) => (p === id ? null : id))
+          const lockedItems: ActivityBarItem[] = [
             {
               id: 'files',
               icon: <FilesIcon />,
-              title: 'File Tree',
+              title: 'Site Tree',
               active: leftPanel === 'files',
-              onClick: () => setLeftPanel((p) => (p === 'files' ? null : 'files')),
+              onClick: togglePanel('files'),
             },
             ...(projectRoot ? [{
               id: 'search',
               icon: <SearchIcon />,
               title: 'Search',
               active: leftPanel === 'search',
-              onClick: () => setLeftPanel((p) => (p === 'search' ? null : 'search')),
+              onClick: togglePanel('search'),
             }] : []),
             ...(projectRoot ? [{
               id: 'git',
@@ -914,68 +937,112 @@ export default function App() {
               title: 'Git',
               active: leftPanel === 'git',
               badge: gitBadge,
-              onClick: () => setLeftPanel((p) => (p === 'git' ? null : 'git')),
+              onClick: togglePanel('git'),
             }] : []),
-            ...(dockerEnabled && projectRoot ? [{
+          ]
+          const appItems: Record<MovableAppId, ActivityBarItem | null> = {
+            docker: dockerEnabled && projectRoot ? {
               id: 'docker',
               icon: <DockerIcon />,
               title: 'Docker',
               active: leftPanel === 'docker',
               badge: dockerBadge,
-              onClick: () => setLeftPanel((p) => (p === 'docker' ? null : 'docker')),
-            }] : []),
-            ...(llamaEnabled ? [{
+              onClick: togglePanel('docker'),
+            } : null,
+            llama: llamaEnabled ? {
               id: 'llama',
               icon: <LlamaIcon />,
               title: 'Llama',
               active: leftPanel === 'llama',
               badge: runningLlamaCount > 0 ? runningLlamaCount : undefined,
-              onClick: () => setLeftPanel((p) => (p === 'llama' ? null : 'llama')),
-            }] : []),
-            ...(mobileEnabled && projectRoot ? [{
+              onClick: togglePanel('llama'),
+            } : null,
+            mobile: mobileEnabled && projectRoot ? {
               id: 'mobile',
               icon: <PhoneIcon />,
               title: 'Mobile Display',
               active: leftPanel === 'mobile',
               badge: mobileBadge,
-              onClick: () => setLeftPanel((p) => (p === 'mobile' ? null : 'mobile')),
-            }] : []),
-            ...(graphifyEnabled && projectRoot ? [{
+              onClick: togglePanel('mobile'),
+            } : null,
+            graphify: graphifyEnabled && projectRoot ? {
               id: 'graphify',
               icon: <GraphIcon />,
               title: 'Graphify',
               active: leftPanel === 'graphify',
-              onClick: () => setLeftPanel((p) => (p === 'graphify' ? null : 'graphify')),
-            }] : []),
-            ...(todoEnabled ? [{
+              onClick: togglePanel('graphify'),
+            } : null,
+            todos: todoEnabled ? {
               id: 'todos',
               icon: <TodoIcon />,
               title: 'To Do',
               active: leftPanel === 'todos',
-              onClick: () => setLeftPanel((p) => (p === 'todos' ? null : 'todos')),
-            }] : []),
-            ...(notesEnabled ? [{
+              onClick: togglePanel('todos'),
+            } : null,
+            notes: notesEnabled ? {
               id: 'notes',
               icon: <NotesIcon />,
               title: 'Notes',
               active: leftPanel === 'notes',
-              onClick: () => setLeftPanel((p) => (p === 'notes' ? null : 'notes')),
-            }] : []),
-            ...(gitRemoteReady ? [{
+              onClick: togglePanel('notes'),
+            } : null,
+            'git-remote': gitRemoteReady ? {
               id: 'git-remote',
               icon: gitRemoteIcon(gitRemoteProvider),
               title: gitRemoteLabel(gitRemoteProvider),
               active: activeTabPath === buildBrowserPath(GIT_REMOTE_BROWSER_ID),
               onClick: openGitRemote,
-            }] : []),
-            ...(jiraReady ? [{
+            } : null,
+            jira: jiraReady ? {
               id: 'jira',
               icon: <JiraIcon />,
               title: 'Jira',
               active: activeTabPath === buildBrowserPath(JIRA_BROWSER_ID),
               onClick: openJira,
-            }] : []),
-          ]]}
+            } : null,
+          }
+          const enabledApps = (Object.keys(appItems) as MovableAppId[]).filter((id) => appItems[id])
+          const { favorites: favoriteIds, others: otherIds } = splitApps(enabledApps, appFavorites)
+          const favoriteItems = favoriteIds.map((id): ActivityBarItem => ({ ...appItems[id]!, dragId: id }))
+          // An unfavorited app opened from All Apps shows under the separator
+          // only while it's the active one; switching or closing clears it.
+          const temporaryItem = otherIds.map((id) => appItems[id]!).find((item) => item.active)
+          // Badges of unfavorited apps are otherwise only visible inside the
+          // panel, so All Apps carries a dot for them (the temporary slot
+          // already shows its own).
+          const hiddenBadge = otherIds.some((id) => appItems[id] !== temporaryItem && hasBadge(appItems[id]!.badge))
+          const primaryGroups: ActivityBarItem[][] = [
+            [...lockedItems, ...favoriteItems],
+            ...(enabledApps.length > 0 ? [[
+              ...(temporaryItem ? [temporaryItem] : []),
+              {
+                id: 'apps',
+                icon: <AllAppsIcon />,
+                title: 'All Apps',
+                active: leftPanel === 'apps',
+                onClick: togglePanel('apps'),
+                dot: hiddenBadge,
+                // Dropping a favorite or All Apps row here appends it.
+                dragId: APPEND_TARGET,
+                dropOnly: true,
+              },
+            ]] : []),
+          ]
+          // Every enabled app, favorites included (the star shows which).
+          const allAppsEntries = MOVABLE_APP_IDS.filter((id) => appItems[id]).map((id) => ({
+            id,
+            title: appItems[id]!.title,
+            icon: appItems[id]!.icon,
+            favorite: favoriteIds.includes(id),
+            badge: appItems[id]!.badge,
+            onOpen: appItems[id]!.onClick,
+          }))
+          const primaryActivityBar = (
+        <ActivityBar
+          side={mirrored ? 'right' : 'left'}
+          groups={primaryGroups}
+          onReorder={(dragId, targetId, placement) => placeFavorite(dragId, targetId, placement)}
+          dragMime={APP_DRAG_MIME}
           bottomGroups={[[
             {
               id: 'browser',
@@ -1019,7 +1086,14 @@ export default function App() {
           >
             {(() => {
               const activeLeftPanel = leftPanel ?? lastLeftPanelRef.current
-              return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'search' ? <SearchPanel /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'docker' ? <DockerPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : activeLeftPanel === 'todos' ? <TodoPanel /> : activeLeftPanel === 'notes' ? <NotesPanel /> : activeLeftPanel === 'llama' ? <LlamaPanel /> : <SettingsPanel />
+              return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'search' ? <SearchPanel /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'docker' ? <DockerPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : activeLeftPanel === 'todos' ? <TodoPanel /> : activeLeftPanel === 'notes' ? <NotesPanel /> : activeLeftPanel === 'llama' ? <LlamaPanel /> : activeLeftPanel === 'apps' ? (
+                <AllAppsPanel
+                  apps={allAppsEntries}
+                  open={leftPanel === 'apps'}
+                  onFavorite={(id) => placeFavorite(id, APPEND_TARGET, 'after')}
+                  onUnfavorite={unfavoriteApp}
+                />
+              ) : <SettingsPanel />
             })()}
           </Panel>
           )

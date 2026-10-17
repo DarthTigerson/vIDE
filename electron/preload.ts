@@ -42,6 +42,7 @@ contextBridge.exposeInMainWorld('api', {
   openFolder: () => ipcRenderer.invoke('dialog:openFolder'),
   openFile: (opts: { defaultPath?: string; filters?: { name: string; extensions: string[] }[] }) => ipcRenderer.invoke('dialog:openFile', opts),
   getSystemMemoryUsage: () => ipcRenderer.invoke('system:getMemoryUsage'),
+  getBatteryStatus: () => ipcRenderer.invoke('system:getBattery'),
   fsWatchRoot: (cwd: string | null) => ipcRenderer.send('fs:watchRoot', cwd),
   onFsChanged: (cb: (cwd: string) => void) => {
     const handler = (_: Electron.IpcRendererEvent, cwd: string) => cb(cwd)
@@ -217,6 +218,7 @@ contextBridge.exposeInMainWorld('api', {
   updateGetStatus: () => ipcRenderer.invoke('update:getStatus'),
   updateCheck: () => ipcRenderer.invoke('update:check'),
   updateRestart: () => ipcRenderer.send('update:restart'),
+  restartApp: () => ipcRenderer.send('app:restart'),
   updateRun: () => ipcRenderer.invoke('update:run'),
   updateGetRemoteChangelog: (version: string) => ipcRenderer.invoke('update:getRemoteChangelog', version),
   onUpdateOutput: (cb: (out: import('./updateRunner').UpdateOutputLine) => void) => {
@@ -301,6 +303,11 @@ contextBridge.exposeInMainWorld('api', {
     const handler = () => cb()
     ipcRenderer.on('menu:newTerminal', handler)
     return () => ipcRenderer.removeListener('menu:newTerminal', handler)
+  },
+  onMenuReloadActive: (cb: () => void) => {
+    const handler = () => cb()
+    ipcRenderer.on('menu:reloadActive', handler)
+    return () => ipcRenderer.removeListener('menu:reloadActive', handler)
   },
   onMenuReopenClosedTab: (cb: () => void) => {
     const handler = () => cb()
@@ -430,6 +437,7 @@ contextBridge.exposeInMainWorld('api', {
   notesRenameEntry: (oldPath: string, newName: string, isNote: boolean) =>
     ipcRenderer.invoke('notes:renameEntry', oldPath, newName, isNote),
   notesSearch: (query: string) => ipcRenderer.invoke('notes:search', query),
+  notesReadDir: (dirPath: string) => ipcRenderer.invoke('notes:readDir', dirPath),
   notesMcpEnable: () => ipcRenderer.invoke('notes:mcp:enable'),
   notesMcpDisable: () => ipcRenderer.invoke('notes:mcp:disable'),
   browserMcpEnable: () => ipcRenderer.invoke('browser:mcp:enable'),

@@ -185,6 +185,8 @@ declare global {
       onSearchDone: (cb: (done: SearchDone) => void) => () => void
       openFolder: () => Promise<string | null>
       getSystemMemoryUsage: () => Promise<{ usedBytes: number; totalBytes: number; appBytes: number }>
+      // null on a machine without a battery (iMac, desktop PC).
+      getBatteryStatus: () => Promise<{ percent: number; charging: boolean; pluggedIn: boolean; minutesLeft: number | null } | null>
       fsWatchRoot: (cwd: string | null) => void
       onFsChanged: (cb: (cwd: string) => void) => () => void
 
@@ -265,6 +267,7 @@ declare global {
       onMenuNewFile: (cb: () => void) => () => void
       onMenuNewFolder: (cb: () => void) => () => void
       onMenuNewTerminal: (cb: () => void) => () => void
+      onMenuReloadActive: (cb: () => void) => () => void
       onMenuReopenClosedTab: (cb: () => void) => () => void
       onMenuSave: (cb: () => void) => () => void
       onMenuFind: (cb: () => void) => () => void
@@ -301,6 +304,8 @@ declare global {
       updateGetStatus: () => Promise<UpdateCheckStatus>
       updateCheck: () => Promise<UpdateCheckStatus>
       updateRestart: () => void
+      // Relaunches every window (palette "App: Restart vIDE", Cmd+Alt+R).
+      restartApp: () => void
       // Runs install.sh in the background (VIDE-142); output/exit stream back.
       updateRun: () => Promise<void>
       updateGetRemoteChangelog: (version: string) => Promise<string | null>
@@ -376,6 +381,8 @@ declare global {
       notesCreateFolder: (dirPath: string, name: string) => Promise<NotesEntryResult>
       notesRenameEntry: (oldPath: string, newName: string, isNote: boolean) => Promise<NotesEntryResult>
       notesSearch: (query: string) => Promise<NotesSearchResult[]>
+      // readDir plus each entry's createdMs/updatedMs, for the Notes sorts.
+      notesReadDir: (dirPath: string) => Promise<FileNode[]>
       notesMcpEnable: () => Promise<void>
       notesMcpDisable: () => Promise<void>
       browserMcpEnable: () => Promise<void>
