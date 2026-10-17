@@ -120,7 +120,7 @@ import { NotesPanel } from './components/Notes/NotesPanel'
 import { ScriptsPanel } from './components/Scripts/ScriptsPanel'
 import { useScriptsStore } from './stores/scriptsStore'
 import { useScriptsSettingsStore } from './stores/scriptsSettingsStore'
-import { runScriptInNewTerminal } from './lib/runScript'
+import { runScriptInNewTerminal, runScriptInAgentTerminal } from './lib/runScript'
 import { LlamaPanel } from './components/Llama/LlamaPanel'
 import { useNotificationSoundSettingsStore, playNotificationSound } from './stores/notificationSoundSettingsStore'
 import { useConfigRepoStore } from './stores/configRepoStore'
@@ -1336,6 +1336,9 @@ export default function App() {
             if (!projectRoot) return
             useClaudeStore.getState().newSession(projectRoot, kind)
             useClaudeStore.getState().setChatVisible(true)
+          }}
+          onPickScript={(script) => {
+            if (projectRoot) runScriptInAgentTerminal(script, projectRoot)
           }}
           onClose={closeNewSessionMenu}
         />

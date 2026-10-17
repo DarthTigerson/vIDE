@@ -87,7 +87,8 @@ interface ClaudeState {
   agentBarCollapsed: boolean
   toggleAgentBarCollapsed: () => void
   loadInstancesFromSession: (data: { agentSessions?: unknown; claudeInstances?: unknown } | null | undefined) => void
-  newSession: (cwd: string, kind: AssistantKind) => void
+  // Returns the new session's id (a terminal session's id is also its PTY id).
+  newSession: (cwd: string, kind: AssistantKind) => string
   moveInstance: (cwd: string, dragId: string, targetId: string, placement: 'before' | 'after') => void
   previousSession: (cwd: string) => void
   resumeSession: (cwd: string) => void
@@ -203,6 +204,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
     const nextInstances = [...instances, instance]
     set({ instances: nextInstances, activeInstanceId: instance.id, ...(kind === 'claude' ? {} : { usageOpen: false, costOpen: false }) })
     persist(cwd, nextInstances)
+    return instance.id
   },
 
   moveInstance: (cwd, dragId, targetId, placement) => {

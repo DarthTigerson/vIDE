@@ -9,7 +9,7 @@ vi.hoisted(() => {
   }
 })
 
-const api = { termWrite: vi.fn(), scriptsTagAdd: vi.fn(async () => ({ s1: ['/p'] })) }
+const api = { termWrite: vi.fn(), scriptsTagAdd: vi.fn(async () => ({ s1: ['/p'] })), sessionSave: vi.fn(async () => {}) }
 vi.stubGlobal('window', { api })
 
 import { runScriptInTerminal, runScriptInNewTerminal } from '../runScript'
@@ -57,5 +57,20 @@ describe('runScriptInNewTerminal', () => {
     useEditorStore.setState({ openTab: vi.fn() })
     const id = runScriptInNewTerminal(script, 'marked\n')
     expect(pendingTerminalCommands.get(id)).toBe('marked\n')
+  })
+})
+
+describe('runScriptInAgentTerminal', () => {
+  it('opens a new agent-bar terminal session named after the script, with the script queued in it', async () => {
+    const { runScriptInAgentTerminal } = await import('../runScript')
+    const { useClaudeStore } = await import('@/stores/claudeStore')
+    useClaudeStore.setState({ instances: [], activeInstanceId: null, chatVisible: false })
+    const id = runScriptInAgentTerminal(script, '/p')
+    const inst = useClaudeStore.getState().instances.find((i) => i.id === id)
+    expect(inst).toMatchObject({ kind: 'terminal', name: 'Hi' })
+    expect(useClaudeStore.getState().activeInstanceId).toBe(id)
+    expect(useClaudeStore.getState().chatVisible).toBe(true)
+    expect(pendingTerminalCommands.get(id)).toBe('echo hi\n')
+    expect(api.scriptsTagAdd).toHaveBeenCalledWith('s1', '/p')
   })
 })
