@@ -4,6 +4,7 @@ import { useNotificationArrival } from '@/hooks/useNotificationArrival'
 import { useNotificationPanelStore } from '@/stores/notificationPanelStore'
 import { useNotificationAcknowledgedStore } from '@/stores/notificationAcknowledgedStore'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
+import { footerPopupShadow } from '@/components/ui/footerPopup'
 
 // How long each peeked row stays up; matches the `notification-peek-drain`
 // keyframes duration in index.css.
@@ -97,7 +98,8 @@ export function NotificationPeek() {
       }}
       className={[
         'notification-peek absolute bottom-full right-0 mb-[3px] w-[28rem] max-w-[92vw] z-40',
-        'overflow-hidden rounded-t border border-b-0 border-border bg-popover shadow-lg shadow-black/40',
+        'overflow-hidden rounded-t border border-b-0 border-border bg-popover',
+        footerPopupShadow,
         'transition-[opacity,transform] duration-200 ease-out',
         closing ? 'opacity-0 translate-y-1 pointer-events-none' : 'opacity-100 translate-y-0',
       ].join(' ')}
