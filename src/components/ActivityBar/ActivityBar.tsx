@@ -6,6 +6,9 @@ export interface ActivityBarItem {
   title: string
   active: boolean
   badge?: string | number
+  // A small accent dot in the badge's corner, for "something inside wants
+  // attention" without a count (All Apps, when an unfavorited app has a badge).
+  dot?: boolean
   disabled?: boolean
   onClick: (event: React.MouseEvent<HTMLButtonElement>) => void
   onContextMenu?: (event: React.MouseEvent) => void
@@ -21,6 +24,10 @@ export interface ActivityBarItem {
   dropOnly?: boolean
   // Stays a centred icon (with its hover tooltip) even in a `wide` bar.
   iconOnly?: boolean
+}
+
+export function hasBadge(badge: ActivityBarItem['badge']): boolean {
+  return badge !== undefined && badge !== null && badge !== ''
 }
 
 type DropPlacement = 'before' | 'after'
@@ -175,10 +182,12 @@ function ActivityBarButton({ item, showAccent, side, dense, wide, dropMarker, dr
           {item.label ?? item.title}
         </span>
       )}
-      {item.badge !== undefined && item.badge !== null && item.badge !== '' && (
+      {hasBadge(item.badge) ? (
         <span className="absolute right-1 bottom-1 min-w-4 h-4 rounded-full bg-accent px-1 text-[0.5625rem] font-bold leading-4 text-on-accent shadow shadow-black/40">
           {item.badge}
         </span>
+      ) : item.dot && (
+        <span data-testid="activity-dot" className="absolute right-2 bottom-2 w-2 h-2 rounded-full bg-accent shadow shadow-black/40" />
       )}
       {!showLabel && <span
         className={[

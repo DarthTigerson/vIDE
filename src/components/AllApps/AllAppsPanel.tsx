@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react'
-import { APP_DRAG_MIME } from '@/components/ActivityBar/ActivityBar'
+import { APP_DRAG_MIME, hasBadge } from '@/components/ActivityBar/ActivityBar'
 
 export interface AllAppsEntry {
   id: string
   title: string
   icon: React.ReactNode
   favorite: boolean
+  badge?: string | number
   onOpen: (event: React.MouseEvent<HTMLButtonElement>) => void
 }
 
@@ -89,7 +90,14 @@ export function AllAppsPanel({ apps, open, onFavorite, onUnfavorite }: {
               onClick={app.onOpen}
               className="flex-1 min-w-0 h-full pl-3 flex items-center gap-2.5 text-left text-sm text-fg-muted group-hover:text-fg"
             >
-              <span className="w-5 h-5 shrink-0 flex items-center justify-center [&>svg]:w-4 [&>svg]:h-4">{app.icon}</span>
+              <span className="relative w-5 h-5 shrink-0 flex items-center justify-center [&>svg]:w-4 [&>svg]:h-4">
+                {app.icon}
+                {hasBadge(app.badge) && (
+                  <span className="absolute -right-1.5 -bottom-1 min-w-3.5 h-3.5 rounded-full bg-accent px-0.5 text-center text-[0.5rem] font-bold leading-[0.875rem] text-on-accent shadow shadow-black/40">
+                    {app.badge}
+                  </span>
+                )}
+              </span>
               <span className="truncate">{app.title}</span>
             </button>
             <button

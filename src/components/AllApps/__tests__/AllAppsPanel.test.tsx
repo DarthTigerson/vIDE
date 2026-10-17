@@ -5,7 +5,7 @@ import { APP_DRAG_MIME } from '@/components/ActivityBar/ActivityBar'
 
 const apps = [
   { id: 'docker', title: 'Docker', icon: null, favorite: true, onOpen: vi.fn() },
-  { id: 'todos', title: 'To Do', icon: null, favorite: false, onOpen: vi.fn() },
+  { id: 'todos', title: 'To Do', icon: null, favorite: false, badge: 2, onOpen: vi.fn() },
   { id: 'notes', title: 'Notes', icon: null, favorite: false, onOpen: vi.fn() },
 ]
 
@@ -21,6 +21,12 @@ function setup(open = true) {
 }
 
 describe('AllAppsPanel', () => {
+  it("shows an app's badge on its row", () => {
+    setup()
+    expect(screen.getByText('To Do').closest('button')!.textContent).toContain('2')
+    expect(screen.getByText('Notes').closest('button')!.textContent).toBe('Notes')
+  })
+
   it('lists the apps and opens one on click', () => {
     setup()
     fireEvent.click(screen.getByText('Notes'))

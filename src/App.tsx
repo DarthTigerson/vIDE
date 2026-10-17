@@ -36,6 +36,7 @@ import {
   LlamaIcon,
   AllAppsIcon,
   APP_DRAG_MIME,
+  hasBadge,
 } from './components/ActivityBar/ActivityBar'
 import type { ActivityBarItem } from './components/ActivityBar/ActivityBar'
 import { AllAppsPanel } from './components/AllApps/AllAppsPanel'
@@ -1004,6 +1005,10 @@ export default function App() {
           // An unfavorited app opened from All Apps shows under the separator
           // only while it's the active one; switching or closing clears it.
           const temporaryItem = otherIds.map((id) => appItems[id]!).find((item) => item.active)
+          // Badges of unfavorited apps are otherwise only visible inside the
+          // panel, so All Apps carries a dot for them (the temporary slot
+          // already shows its own).
+          const hiddenBadge = otherIds.some((id) => appItems[id] !== temporaryItem && hasBadge(appItems[id]!.badge))
           const primaryGroups: ActivityBarItem[][] = [
             [...lockedItems, ...favoriteItems],
             ...(enabledApps.length > 0 ? [[
@@ -1014,6 +1019,7 @@ export default function App() {
                 title: 'All Apps',
                 active: leftPanel === 'apps',
                 onClick: togglePanel('apps'),
+                dot: hiddenBadge,
                 // Dropping a favorite or All Apps row here appends it.
                 dragId: APPEND_TARGET,
                 dropOnly: true,
@@ -1026,6 +1032,7 @@ export default function App() {
             title: appItems[id]!.title,
             icon: appItems[id]!.icon,
             favorite: favoriteIds.includes(id),
+            badge: appItems[id]!.badge,
             onOpen: appItems[id]!.onClick,
           }))
           const primaryActivityBar = (

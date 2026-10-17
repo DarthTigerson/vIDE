@@ -147,3 +147,13 @@ describe('ActivityBar edgeToggle', () => {
     expect(flipped('Collapse session names')).toBe(true)
   })
 })
+
+describe('ActivityBar dot', () => {
+  it('shows a dot when set, and a badge takes its place', () => {
+    const { rerender } = render(<ActivityBar side="left" groups={[[item({ dot: true })]]} />)
+    expect(screen.getByTestId('activity-dot')).toBeTruthy()
+    rerender(<ActivityBar side="left" groups={[[item({ dot: true, badge: 3 })]]} />)
+    expect(screen.queryByTestId('activity-dot')).toBeNull()
+    expect(screen.getByText('3')).toBeTruthy()
+  })
+})
