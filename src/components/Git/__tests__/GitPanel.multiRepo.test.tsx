@@ -155,7 +155,7 @@ describe('GitPanel — multi-repo accordion', () => {
     setTwoRepos('/proj/repoA')
     render(<GitPanel />)
     fireEvent.contextMenu(screen.getByText('repoB'))
-    fireEvent.click(screen.getByText('Reveal in File Tree'))
+    fireEvent.click(screen.getByText('Reveal in Site Tree'))
     expect(useSidebarUiStore.getState().revealRequest).toEqual({ path: '/proj/repoB', expandTarget: true })
   })
 

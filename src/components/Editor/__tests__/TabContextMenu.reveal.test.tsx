@@ -43,7 +43,7 @@ function renderMenu(path: string) {
 describe('TabContextMenu — reveal', () => {
   it('reveals a file tab in the file tree', async () => {
     renderMenu('/proj/a.ts')
-    fireEvent.click(await screen.findByRole('button', { name: 'Reveal in File Tree' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Reveal in Site Tree' }))
     expect(useSidebarUiStore.getState().revealRequest?.path).toBe('/proj/a.ts')
   })
 
@@ -56,7 +56,7 @@ describe('TabContextMenu — reveal', () => {
   it('does not offer Reveal in Finder on Linux', async () => {
     platform.mac = false
     renderMenu('/proj/a.ts')
-    await screen.findByRole('button', { name: 'Reveal in File Tree' })
+    await screen.findByRole('button', { name: 'Reveal in Site Tree' })
     expect(screen.queryByRole('button', { name: 'Reveal in Finder' })).toBeNull()
   })
 
@@ -71,13 +71,13 @@ describe('TabContextMenu — reveal', () => {
     renderMenu('/proj/a.ts')
     await screen.findByRole('button', { name: 'Copy File Path' })
     await Promise.resolve()
-    expect(screen.queryByRole('button', { name: 'Reveal in File Tree' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Reveal in Site Tree' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Reveal in Finder' })).toBeNull()
   })
 
   it('offers neither for a tab with no file, like Settings', () => {
     renderMenu(GIT_SETTINGS_TAB_PATH)
-    expect(screen.queryByRole('button', { name: 'Reveal in File Tree' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Reveal in Site Tree' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Reveal in Finder' })).toBeNull()
   })
 })

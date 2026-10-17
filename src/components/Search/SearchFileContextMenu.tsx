@@ -60,7 +60,7 @@ export function SearchFileContextMenu({ x, y, onClose, ...actions }: SearchFileM
       onClick={(e) => e.stopPropagation()}
     >
       {item('Open / Edit', actions.onOpen)}
-      {item('Reveal in File Tree', actions.onRevealInFileTree)}
+      {item('Reveal in Site Tree', actions.onRevealInFileTree)}
       <ContextMenuDivider />
       {item('Copy', actions.onCopy)}
       {item('Copy Path', actions.onCopyPath)}

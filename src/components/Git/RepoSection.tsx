@@ -707,7 +707,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
           {menu.file.status !== 'D' && (
             <>
               <ContextMenuButton onClick={() => { useSidebarUiStore.getState().requestReveal(`${repo}/${menu.file.path}`); setMenu(null) }}>
-                Reveal in File Tree
+                Reveal in Site Tree
               </ContextMenuButton>
               <ContextMenuButton onClick={() => { window.api.revealInFinder(`${repo}/${menu.file.path}`); setMenu(null) }}>
                 Reveal in Finder
@@ -848,7 +848,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
           onClick={(e) => e.stopPropagation()}
         >
           <ContextMenuButton onClick={() => { useSidebarUiStore.getState().requestReveal(repo, true); setHeaderMenu(null) }}>
-            Reveal in File Tree
+            Reveal in Site Tree
           </ContextMenuButton>
           <ContextMenuButton onClick={() => { window.api.revealInFinder(repo); setHeaderMenu(null) }}>
             Reveal in Finder

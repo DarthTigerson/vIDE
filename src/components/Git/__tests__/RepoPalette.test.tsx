@@ -115,7 +115,7 @@ describe('RepoPalette', () => {
     render(<RepoPalette onClose={onClose} />)
     fireEvent.contextMenu(screen.getByText('repoB'))
 
-    const item = screen.getByText('Go to File Tree')
+    const item = screen.getByText('Go to Site Tree')
     expect(item).toBeTruthy()
     fireEvent.click(item)
 
@@ -130,7 +130,7 @@ describe('RepoPalette', () => {
     const onClose = vi.fn()
     render(<RepoPalette onClose={onClose} />)
     fireEvent.contextMenu(screen.getByText('repoB'))
-    fireEvent.click(screen.getByText('Go to File Tree'))
+    fireEvent.click(screen.getByText('Go to Site Tree'))
     expect(onClose).toHaveBeenCalledWith()
   })
 

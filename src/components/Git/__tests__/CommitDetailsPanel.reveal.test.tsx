@@ -32,7 +32,7 @@ describe('CommitDetailsPanel — Reveal in File Tree', () => {
     const fileRow = await screen.findByText('src/components/App.tsx')
     fireEvent.contextMenu(fileRow)
 
-    const revealButton = await screen.findByText('Reveal in File Tree')
+    const revealButton = await screen.findByText('Reveal in Site Tree')
     fireEvent.click(revealButton)
 
     expect(useSidebarUiStore.getState().revealRequest).toEqual({

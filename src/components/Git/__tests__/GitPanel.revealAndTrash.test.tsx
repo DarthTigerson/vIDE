@@ -53,14 +53,14 @@ describe('GitPanel — Reveal in Finder', () => {
     useSidebarUiStore.setState({ revealRequest: null })
     render(<GitPanel />)
     rightClickFile('src/App.tsx')
-    fireEvent.click(screen.getByRole('button', { name: 'Reveal in File Tree' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Reveal in Site Tree' }))
     expect(useSidebarUiStore.getState().revealRequest?.path).toBe('/proj/src/App.tsx')
   })
 
   it('offers neither reveal for a deleted file', () => {
     render(<GitPanel />)
     rightClickFile('old.ts')
-    expect(screen.queryByRole('button', { name: 'Reveal in File Tree' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Reveal in Site Tree' })).toBeNull()
   })
 
   it('does not offer it for a deleted file', () => {

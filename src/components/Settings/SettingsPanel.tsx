@@ -29,7 +29,7 @@ const NAV_GROUPS: NavGroup[] = [
       { path: GENERAL_SETTINGS_TAB_PATH, label: 'General', icon: <SettingsIcon /> },
       { path: EDITOR_SETTINGS_TAB_PATH, label: 'Editor', icon: <EditorIcon /> },
       { path: DISPLAY_TAB_PATH, label: 'Display', icon: <DisplaySettingsIcon /> },
-      { path: FILE_TREE_SETTINGS_TAB_PATH, label: 'File Tree', icon: <FilesIcon /> },
+      { path: FILE_TREE_SETTINGS_TAB_PATH, label: 'Site Tree', icon: <FilesIcon /> },
       { path: ABOUT_SETTINGS_TAB_PATH, label: 'About', icon: <AboutIcon /> },
     ],
   },

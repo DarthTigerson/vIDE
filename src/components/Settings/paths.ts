@@ -10,7 +10,7 @@ export function getBrowserId(path: string): string { return path.slice(BROWSER_P
 
 export const GENERAL_SETTINGS_TAB_PATH = 'settings://General'
 export const DISPLAY_TAB_PATH = 'settings://Display'
-export const FILE_TREE_SETTINGS_TAB_PATH = 'settings://File Tree'
+export const FILE_TREE_SETTINGS_TAB_PATH = 'settings://Site Tree'
 export const EDITOR_SETTINGS_TAB_PATH = 'settings://Editor'
 export const GIT_SETTINGS_TAB_PATH = 'settings://Git'
 export const BROWSER_SETTINGS_TAB_PATH = 'settings://Browser'

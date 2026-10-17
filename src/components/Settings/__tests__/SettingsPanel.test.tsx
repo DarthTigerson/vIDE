@@ -14,7 +14,7 @@ const ITEMS: { label: string; path: string }[] = [
   { label: 'General', path: GENERAL_SETTINGS_TAB_PATH },
   { label: 'Editor', path: EDITOR_SETTINGS_TAB_PATH },
   { label: 'Display', path: DISPLAY_TAB_PATH },
-  { label: 'File Tree', path: FILE_TREE_SETTINGS_TAB_PATH },
+  { label: 'Site Tree', path: FILE_TREE_SETTINGS_TAB_PATH },
   { label: 'Claude', path: CLAUDE_SETTINGS_TAB_PATH },
   { label: 'Bridge', path: BRIDGE_SETTINGS_TAB_PATH },
   { label: 'Llama', path: LLAMA_SETTINGS_TAB_PATH },
