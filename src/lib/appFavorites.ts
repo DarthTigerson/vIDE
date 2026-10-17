@@ -61,6 +61,18 @@ export function removeFavorite(favorites: MovableAppId[], id: string): MovableAp
   return favorites.includes(id as MovableAppId) ? favorites.filter((f) => f !== id) : favorites
 }
 
+// The unfavorited app in the bar's temporary slot: the active one if there
+// is one, else the last one that was, so you can jump back to it. It goes
+// once it's favorited or disabled (no longer in `others`).
+export function pickTemporaryApp<T extends string>(
+  others: readonly T[],
+  activeId: T | undefined,
+  lastId: string | null
+): T | null {
+  if (activeId && others.includes(activeId)) return activeId
+  return others.find((id) => id === lastId) ?? null
+}
+
 // Splits the currently enabled apps into the bar's favorites (in favorite
 // order) and the rest (in MOVABLE_APP_IDS order) — the candidates for the
 // bar's temporary slot.

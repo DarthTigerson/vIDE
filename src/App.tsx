@@ -43,7 +43,7 @@ import type { ActivityBarItem } from './components/ActivityBar/ActivityBar'
 import { BatteryPill } from './components/TitleBar/BatteryPill'
 import { AllAppsPanel } from './components/AllApps/AllAppsPanel'
 import { useAppFavoritesStore } from './stores/appFavoritesStore'
-import { APPEND_TARGET, MOVABLE_APP_IDS, splitApps, type MovableAppId } from './lib/appFavorites'
+import { APPEND_TARGET, MOVABLE_APP_IDS, pickTemporaryApp, splitApps, type MovableAppId } from './lib/appFavorites'
 import { SessionIcon } from './components/ActivityBar/SessionIcon'
 import { NewSessionMenu } from './components/ActivityBar/NewSessionMenu'
 import { ClaudeSessionContextMenu } from './components/ActivityBar/ClaudeSessionContextMenu'
@@ -194,6 +194,8 @@ export default function App() {
   const appFavorites = useAppFavoritesStore((s) => s.favorites)
   const placeFavorite = useAppFavoritesStore((s) => s.place)
   const unfavoriteApp = useAppFavoritesStore((s) => s.unfavorite)
+  // The bar's temporary slot: the last unfavorited app that was opened.
+  const lastTemporaryAppRef = useRef<string | null>(null)
   const lastLeftPanelRef = useRef<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'scripts' | 'llama' | 'settings' | 'apps'>('files')
   const [sidebarRem, setSidebarRem] = useState(() => loadRem(SIDEBAR_WIDTH_KEY, SIDEBAR_PANEL))
   const [chatRem, setChatRem] = useState(() => loadRem(CHAT_WIDTH_KEY, CHAT_PANEL))
@@ -1033,8 +1035,11 @@ export default function App() {
           const { favorites: favoriteIds, others: otherIds } = splitApps(enabledApps, appFavorites)
           const favoriteItems = favoriteIds.map((id): ActivityBarItem => ({ ...appItems[id]!, dragId: id }))
           // An unfavorited app opened from All Apps shows under the separator
-          // only while it's the active one; switching or closing clears it.
-          const temporaryItem = otherIds.map((id) => appItems[id]!).find((item) => item.active)
+          // and stays there after you switch away, until another unfavorited
+          // app takes its place. Not persisted: a restart clears it.
+          const temporaryId = pickTemporaryApp(otherIds, otherIds.find((id) => appItems[id]!.active), lastTemporaryAppRef.current)
+          lastTemporaryAppRef.current = temporaryId
+          const temporaryItem = temporaryId ? appItems[temporaryId]! : undefined
           // Badges of unfavorited apps are otherwise only visible inside the
           // panel, so All Apps carries a dot for them (the temporary slot
           // already shows its own).
