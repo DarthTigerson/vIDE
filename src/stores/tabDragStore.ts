@@ -7,7 +7,10 @@ interface DraggingTab {
 
 interface TabDragStore {
   dragging: DraggingTab | null
+  // A file dragged from the file tree (not yet necessarily open as a tab).
+  draggingFile: string | null
   startDrag: (path: string, sourcePaneId: string) => void
+  startFileDrag: (path: string) => void
   endDrag: () => void
 }
 
@@ -17,6 +20,8 @@ interface TabDragStore {
 // which pane's TabBar started it.
 export const useTabDragStore = create<TabDragStore>((set) => ({
   dragging: null,
+  draggingFile: null,
   startDrag: (path, sourcePaneId) => set({ dragging: { path, sourcePaneId } }),
-  endDrag: () => set({ dragging: null }),
+  startFileDrag: (path) => set({ draggingFile: path }),
+  endDrag: () => set({ dragging: null, draggingFile: null }),
 }))

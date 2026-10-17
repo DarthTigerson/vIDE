@@ -1,5 +1,5 @@
 /// <reference types="@testing-library/jest-dom" />
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, cleanup, fireEvent } from '@testing-library/react'
 import { PaneDropZoneOverlay } from '../PaneDropZoneOverlay'
 import { useEditorStore } from '@/stores/editorStore'
@@ -13,16 +13,16 @@ function stubRect() {
   Element.prototype.getBoundingClientRect = () => RECT as DOMRect
 }
 
-function videDataTransfer() {
-  return { types: ['text/plain', 'application/x-vide-pane'], dropEffect: 'none' } as unknown as DataTransfer
+function videDataTransfer(types = ['text/plain', 'application/x-vide-pane']) {
+  return { types, dropEffect: 'none' } as unknown as DataTransfer
 }
 
 // jsdom doesn't implement DragEvent, so fireEvent.dragOver/.drop silently
 // drop clientX/clientY from the init dict - build the event by hand and
 // assign the MouseEvent-ish properties directly instead.
-function dragEventAt(type: 'dragover' | 'drop', clientX: number, clientY: number): Event {
+function dragEventAt(type: 'dragover' | 'drop', clientX: number, clientY: number, types?: string[]): Event {
   const event = new Event(type, { bubbles: true, cancelable: true })
-  Object.assign(event, { clientX, clientY, dataTransfer: videDataTransfer() })
+  Object.assign(event, { clientX, clientY, dataTransfer: videDataTransfer(types) })
   return event
 }
 
@@ -51,12 +51,12 @@ function twoPaneLayout() {
 
 beforeEach(() => {
   stubRect()
-  useTabDragStore.setState({ dragging: null })
+  useTabDragStore.setState({ dragging: null, draggingFile: null })
 })
 
 afterEach(() => {
   cleanup()
-  useTabDragStore.setState({ dragging: null })
+  useTabDragStore.setState({ dragging: null, draggingFile: null })
 })
 
 describe('PaneDropZoneOverlay', () => {
@@ -132,5 +132,71 @@ describe('PaneDropZoneOverlay', () => {
     const { container } = render(<PaneDropZoneOverlay paneId="pane-left" />)
     const overlay = container.firstElementChild as HTMLElement
     expect(overlay.className).toMatch(/pointer-events-none/)
+  })
+
+  describe('file dragged from the file tree', () => {
+    const FILE_TYPES = ['text/plain', 'application/x-vide-file']
+
+    beforeEach(() => {
+      ;(window as unknown as { api: unknown }).api = { readFile: vi.fn(async () => 'new contents') }
+    })
+
+    async function dropFile(path: string, clientX: number) {
+      twoPaneLayout()
+      useTabDragStore.getState().startFileDrag(path)
+      const { container } = render(<PaneDropZoneOverlay paneId="pane-left" />)
+      const overlay = container.firstElementChild as HTMLElement
+      expect(overlay.className).toMatch(/pointer-events-auto/)
+      fireEvent(overlay, dragEventAt('dragover', clientX, 20 + 50, FILE_TYPES))
+      fireEvent(overlay, dragEventAt('drop', clientX, 20 + 50, FILE_TYPES))
+      await vi.waitFor(() => expect(useEditorStore.getState().activeTabPath).toBe(path))
+      expect(useTabDragStore.getState().draggingFile).toBeNull()
+      return useEditorStore.getState()
+    }
+
+    it('opens an unopened file in a new split when dropped on an edge', async () => {
+      const state = await dropFile('/new.ts', 50 + 190)
+      expect(state.paneTabLists['pane-left']).toEqual(['/left.ts'])
+      expect(state.paneTabLists[state.activePaneId]).toEqual(['/new.ts'])
+      expect(state.tabs.find((t) => t.path === '/new.ts')?.content).toBe('new contents')
+      expect(state.layout).toEqual({
+        type: 'split',
+        direction: 'horizontal',
+        children: [
+          { type: 'split', direction: 'horizontal', children: [{ type: 'pane', id: 'pane-left' }, { type: 'pane', id: state.activePaneId }] },
+          { type: 'pane', id: 'pane-right' },
+        ],
+      })
+    })
+
+    it('opens an unopened file in the pane when dropped in the center', async () => {
+      const state = await dropFile('/new.ts', 50 + 100)
+      expect(state.paneTabLists['pane-left']).toEqual(['/left.ts', '/new.ts'])
+    })
+
+    it('moves a file already open in another pane into the split', async () => {
+      const state = await dropFile('/right.ts', 50 + 190)
+      expect(state.paneTabLists['pane-right']).toBeUndefined()
+      expect(state.paneTabLists[state.activePaneId]).toEqual(['/right.ts'])
+      expect(window.api.readFile).not.toHaveBeenCalled()
+    })
+  })
+
+  it('opens a dropped file in the pane, never a split, over the empty editor (centerOnly)', async () => {
+    ;(window as unknown as { api: unknown }).api = { readFile: vi.fn(async () => 'x') }
+    useEditorStore.setState({
+      tabs: [], activeTabPath: null, layout: { type: 'pane', id: 'pane-root' }, activePaneId: 'pane-root',
+      paneTabs: {}, paneTabLists: {}, closedTabs: [], pinnedPaths: new Set(),
+    })
+    useTabDragStore.getState().startFileDrag('/new.ts')
+    const { container } = render(<PaneDropZoneOverlay paneId="pane-root" centerOnly />)
+    const overlay = container.firstElementChild as HTMLElement
+    const types = ['text/plain', 'application/x-vide-file']
+    fireEvent(overlay, dragEventAt('dragover', 50 + 190, 20 + 50, types))
+    fireEvent(overlay, dragEventAt('drop', 50 + 190, 20 + 50, types))
+    await vi.waitFor(() => expect(useEditorStore.getState().activeTabPath).toBe('/new.ts'))
+    const state = useEditorStore.getState()
+    expect(state.layout).toEqual({ type: 'pane', id: 'pane-root' })
+    expect(state.paneTabLists['pane-root']).toEqual(['/new.ts'])
   })
 })

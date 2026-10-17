@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import MonacoEditor, { DiffEditor, loader } from '@monaco-editor/react'
 import type * as Monaco from 'monaco-editor'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
-import { useEditorStore, type EditorLayoutNode } from '@/stores/editorStore'
+import { collectPaneIds, useEditorStore, type EditorLayoutNode } from '@/stores/editorStore'
 import { useSearchStore } from '@/stores/searchStore'
 import { useGlobalSearchStore } from '@/stores/globalSearchStore'
 import { useEditorFindStore } from '@/stores/editorFindStore'
@@ -285,6 +285,8 @@ export function Editor() {
       ) : (
         <div className="flex-1 relative overflow-hidden">
           <EmptyEditorBackground />
+          {/* With no tabs there's no EditorPane, so files dragged from the tree land here. */}
+          <PaneDropZoneOverlay paneId={collectPaneIds(layout)[0]} centerOnly />
         </div>
       )}
     </div>

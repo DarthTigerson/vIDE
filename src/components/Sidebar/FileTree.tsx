@@ -2,6 +2,7 @@ import type { MouseEvent } from 'react'
 import type { FileNode } from '@/types/index'
 import { useFileStore } from '@/stores/fileStore'
 import { useEditorStore } from '@/stores/editorStore'
+import { useTabDragStore } from '@/stores/tabDragStore'
 import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
 import { useRepoGitState } from '@/stores/gitStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
@@ -208,7 +209,13 @@ export function FileTree({
                 onDragStart={(event) => {
                   event.dataTransfer.effectAllowed = 'move'
                   event.dataTransfer.setData('text/plain', node.path)
+                  // Files can also be dropped on an editor pane to open or split.
+                  if (!node.isDirectory) {
+                    event.dataTransfer.setData('application/x-vide-file', node.path)
+                    useTabDragStore.getState().startFileDrag(node.path)
+                  }
                 }}
+                onDragEnd={() => useTabDragStore.getState().endDrag()}
                 onDragOver={(event) => {
                   if (!node.isDirectory) return
                   event.preventDefault()
@@ -220,6 +227,8 @@ export function FileTree({
                   event.preventDefault()
                   event.stopPropagation()
                   setDragOverPath(null)
+                  // The move below can unmount the dragged row before its dragend fires.
+                  useTabDragStore.getState().endDrag()
                   if (!node.isDirectory) return
                   if (isExternalFileDrag(event.dataTransfer)) {
                     const files = Array.from(event.dataTransfer.files)

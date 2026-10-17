@@ -1,7 +1,10 @@
 import { useRef, useState } from 'react'
-import { useEditorStore, type EditorSplitDirection, type SplitPlacement } from '@/stores/editorStore'
+import { collectPaneIds, useEditorStore, type EditorSplitDirection, type SplitPlacement } from '@/stores/editorStore'
 import { useTabDragStore } from '@/stores/tabDragStore'
 import { computeDropZone, type DropZone } from './dropZone'
+import { buildImagePreviewPath, buildMarkdownPreviewPath } from '@/components/Viewer/paths'
+import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
+import { isImageFile, isMarkdownFile } from '@/lib/fileKinds'
 
 const SPLIT_FOR_ZONE: Record<Exclude<DropZone, 'center'>, { direction: EditorSplitDirection; placement: SplitPlacement }> = {
   left: { direction: 'horizontal', placement: 'before' },
@@ -18,6 +21,36 @@ const HIGHLIGHT_CLASS_FOR_ZONE: Record<DropZone, string> = {
   down: 'inset-x-0 bottom-0 h-1/2',
 }
 
+// The tab path a file-tree click would open for this file (image and
+// Markdown previews have their own tab paths).
+function tabPathForFile(path: string): string {
+  if (isImageFile(path)) return buildImagePreviewPath(path)
+  if (isMarkdownFile(path) && useEditorSettingsStore.getState().markdownOpenMode === 'preview') {
+    return buildMarkdownPreviewPath(path)
+  }
+  return path
+}
+
+// Drops a file dragged from the file tree. A file already open in some pane
+// moves like a dragged tab from that pane; otherwise it opens fresh.
+async function dropFile(path: string, paneId: string, zone: DropZone) {
+  const tabPath = tabPathForFile(path)
+  const before = useEditorStore.getState()
+  const sourcePaneId = collectPaneIds(before.layout).find((pid) => (before.paneTabLists[pid] ?? []).includes(tabPath))
+  const split = zone === 'center' ? null : SPLIT_FOR_ZONE[zone]
+  if (sourcePaneId) {
+    if (split) before.splitPaneWithIncomingTab(paneId, sourcePaneId, tabPath, split.direction, split.placement)
+    else if (sourcePaneId !== paneId) before.moveTabBetweenPanes(sourcePaneId, paneId, tabPath)
+    else before.setPaneActive(paneId, tabPath)
+    return
+  }
+  const content = tabPath === path ? await window.api.readFile(path) : ''
+  const tab = { path: tabPath, content, dirty: false }
+  const store = useEditorStore.getState()
+  if (split) store.openTabInNewSplitPane(tab, paneId, split.direction, split.placement)
+  else store.openTabInPane(tab, paneId)
+}
+
 // Sits over a pane's content area (below its tab strip) so a tab drag that
 // misses the tab strip lands here instead of falling through to whatever's
 // underneath (Monaco pastes the dragged path as text otherwise). Always
@@ -25,23 +58,28 @@ const HIGHLIGHT_CLASS_FOR_ZONE: Record<DropZone, string> = {
 // drag targeting - except during an actual tab drag; that sidesteps any
 // mount-timing race with the drag already being mid-flight by the time a
 // drag-in-progress condition would first render it.
-export function PaneDropZoneOverlay({ paneId }: { paneId: string }) {
+// centerOnly: every drop lands in the pane (the empty editor, where a split
+// would only add a blank pane).
+export function PaneDropZoneOverlay({ paneId, centerOnly = false }: { paneId: string; centerOnly?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [zone, setZone] = useState<DropZone | null>(null)
   const dragging = useTabDragStore((s) => s.dragging)
+  const draggingFile = useTabDragStore((s) => s.draggingFile)
   const moveTabBetweenPanes = useEditorStore((s) => s.moveTabBetweenPanes)
   const splitPaneWithIncomingTab = useEditorStore((s) => s.splitPaneWithIncomingTab)
 
   const endDrag = useTabDragStore((s) => s.endDrag)
 
-  const isDragActive = dragging !== null
+  const isDragActive = dragging !== null || draggingFile !== null
 
   function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
-    if (!dragging || !e.dataTransfer.types.includes('application/x-vide-pane')) return
+    const isTabDrag = dragging && e.dataTransfer.types.includes('application/x-vide-pane')
+    const isFileDrag = draggingFile && e.dataTransfer.types.includes('application/x-vide-file')
+    if (!isTabDrag && !isFileDrag) return
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     const rect = containerRef.current!.getBoundingClientRect()
-    setZone(computeDropZone(rect, e.clientX, e.clientY))
+    setZone(centerOnly ? 'center' : computeDropZone(rect, e.clientX, e.clientY))
   }
 
   function handleDragLeave(e: React.DragEvent<HTMLDivElement>) {
@@ -58,6 +96,10 @@ export function PaneDropZoneOverlay({ paneId }: { paneId: string }) {
     // dragend on it means dragend may never fire - which would leave `dragging`
     // stuck non-null and every pane's overlay permanently pointer-events-auto.
     endDrag()
+    if (draggingFile && zone) {
+      void dropFile(draggingFile, paneId, zone)
+      return
+    }
     if (!current || !zone) return
 
     if (zone === 'center') {

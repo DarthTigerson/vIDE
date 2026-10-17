@@ -47,7 +47,7 @@ function removePane(node: EditorLayoutNode, paneId: string): EditorLayoutNode | 
   return { ...node, children: [left, right] }
 }
 
-function collectPaneIds(node: EditorLayoutNode): string[] {
+export function collectPaneIds(node: EditorLayoutNode): string[] {
   if (node.type === 'pane') return [node.id]
   return [...collectPaneIds(node.children[0]), ...collectPaneIds(node.children[1])]
 }
