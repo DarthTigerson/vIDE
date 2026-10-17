@@ -1,12 +1,18 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { ActivityBar } from '../ActivityBar'
+import { ActivityBar, APP_DRAG_MIME } from '../ActivityBar'
 
-const item = (id: string, dragId?: string) => ({ id, icon: <span>{id}</span>, title: id, active: false, onClick: () => {}, dragId })
+const item = (id: string, dragId?: string, extra: object = {}) => ({ id, icon: <span>{id}</span>, title: id, active: false, onClick: () => {}, dragId, ...extra })
 
-function dataTransfer() {
-  const data: Record<string, string> = {}
-  return { setData: (k: string, v: string) => { data[k] = v }, getData: (k: string) => data[k] ?? '', effectAllowed: '', dropEffect: '' }
+function dataTransfer(initial: Record<string, string> = {}) {
+  const data: Record<string, string> = { ...initial }
+  return {
+    setData: (k: string, v: string) => { data[k] = v },
+    getData: (k: string) => data[k] ?? '',
+    get types() { return Object.keys(data) },
+    effectAllowed: '',
+    dropEffect: '',
+  }
 }
 
 describe('ActivityBar drag reorder', () => {
@@ -37,5 +43,27 @@ describe('ActivityBar drag reorder', () => {
     fireEvent.dragStart(a, { dataTransfer: dt })
     fireEvent.drop(a, { dataTransfer: dt, clientY: 0 })
     expect(onReorder).not.toHaveBeenCalled()
+  })
+
+  it('accepts a drop that started outside the bar when it carries the bar\'s drag type', () => {
+    const onReorder = vi.fn()
+    render(<ActivityBar side="left" groups={[[item('a', 'a')]]} onReorder={onReorder} dragMime={APP_DRAG_MIME} />)
+    const a = screen.getByLabelText('a')
+    const dt = dataTransfer({ [APP_DRAG_MIME]: 'notes' })
+    const over = fireEvent.dragOver(a, { dataTransfer: dt, clientY: 10 })
+    expect(over).toBe(false) // preventDefault — the drop is allowed
+    fireEvent.drop(a, { dataTransfer: dt, clientY: 10 })
+    expect(onReorder).toHaveBeenCalledWith('notes', 'a', expect.any(String))
+  })
+
+  it('ignores drags of another bar\'s type', () => {
+    render(<ActivityBar side="left" groups={[[item('a', 'a')]]} onReorder={() => {}} dragMime={APP_DRAG_MIME} />)
+    const over = fireEvent.dragOver(screen.getByLabelText('a'), { dataTransfer: dataTransfer({ 'application/x-vide-session': 's1' }) })
+    expect(over).toBe(true)
+  })
+
+  it('a dropOnly item takes drops but cannot be dragged', () => {
+    render(<ActivityBar side="left" groups={[[item('apps', 'apps', { dropOnly: true })]]} onReorder={() => {}} dragMime={APP_DRAG_MIME} />)
+    expect(screen.getByLabelText('apps').getAttribute('draggable')).toBe('false')
   })
 })

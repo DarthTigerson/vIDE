@@ -16,6 +16,9 @@ export interface ActivityBarItem {
   // Set on items the user may drag to reorder (agent sessions); the bar's
   // onReorder receives these ids.
   dragId?: string
+  // With dragId: the item is a drop target only (e.g. All Apps, which takes
+  // drops to append a favorite) and can't itself be dragged.
+  dropOnly?: boolean
   // Stays a centred icon (with its hover tooltip) even in a `wide` bar.
   iconOnly?: boolean
 }
@@ -36,9 +39,14 @@ interface ActivityBarProps {
   // A half-moon tab on the bar's inner border, by the last row, that toggles it.
   edgeToggle?: { label: string; onClick: () => void }
   onReorder?: ReorderHandler
+  // dataTransfer type carrying a dragged item's id. Each bar uses its own, so
+  // a drag that starts elsewhere with the same type (the All Apps panel) can
+  // be dropped here, while the two bars never accept each other's items.
+  dragMime?: string
 }
 
-const DRAG_MIME = 'application/x-vide-session'
+export const SESSION_DRAG_MIME = 'application/x-vide-session'
+export const APP_DRAG_MIME = 'application/x-vide-app'
 
 function placementFor(e: React.DragEvent<HTMLElement>): DropPlacement {
   const rect = e.currentTarget.getBoundingClientRect()
@@ -191,7 +199,7 @@ function Divider({ dense }: { dense: boolean }) {
   return <div className={['w-full h-px bg-border shrink-0', dense ? 'my-0.5' : 'my-1'].join(' ')} />
 }
 
-function ItemGroups({ groups, side, showAccent, dense, wide, onReorder }: { groups: ActivityBarItem[][]; side: 'left' | 'right'; showAccent: boolean; dense: boolean; wide: boolean; onReorder?: ReorderHandler }) {
+function ItemGroups({ groups, side, showAccent, dense, wide, onReorder, dragMime = SESSION_DRAG_MIME }: { groups: ActivityBarItem[][]; side: 'left' | 'right'; showAccent: boolean; dense: boolean; wide: boolean; onReorder?: ReorderHandler; dragMime?: string }) {
   const [dragging, setDragging] = React.useState<string | null>(null)
   const [drop, setDrop] = React.useState<{ id: string; placement: DropPlacement } | null>(null)
   const clear = () => { setDragging(null); setDrop(null) }
@@ -200,14 +208,17 @@ function ItemGroups({ groups, side, showAccent, dense, wide, onReorder }: { grou
     const id = item.dragId
     if (!id || !onReorder || item.disabled) return undefined
     return {
-      draggable: true,
+      draggable: !item.dropOnly,
       onDragStart: (e: React.DragEvent<HTMLButtonElement>) => {
-        e.dataTransfer.setData(DRAG_MIME, id)
+        if (item.dropOnly) return
+        e.dataTransfer.setData(dragMime, id)
         e.dataTransfer.effectAllowed = 'move'
         setDragging(id)
       },
       onDragOver: (e: React.DragEvent<HTMLButtonElement>) => {
-        if (!dragging || dragging === id) return
+        // The id itself isn't readable until drop, but the type is — that's
+        // what lets a drag from outside the bar (no local `dragging`) land.
+        if (dragging === id || !e.dataTransfer.types.includes(dragMime)) return
         e.preventDefault()
         e.dataTransfer.dropEffect = 'move'
         setDrop({ id, placement: placementFor(e) })
@@ -215,7 +226,7 @@ function ItemGroups({ groups, side, showAccent, dense, wide, onReorder }: { grou
       onDragLeave: () => setDrop((d) => (d?.id === id ? null : d)),
       onDrop: (e: React.DragEvent<HTMLButtonElement>) => {
         e.preventDefault()
-        const from = e.dataTransfer.getData(DRAG_MIME) || dragging
+        const from = e.dataTransfer.getData(dragMime) || dragging
         if (from && from !== id) onReorder(from, id, placementFor(e))
         clear()
       },
@@ -246,7 +257,7 @@ function ItemGroups({ groups, side, showAccent, dense, wide, onReorder }: { grou
   )
 }
 
-export function ActivityBar({ side, groups, bottomGroups, showAccent = true, dense = false, wide = false, expandOnHover = false, edgeToggle, onReorder }: ActivityBarProps) {
+export function ActivityBar({ side, groups, bottomGroups, showAccent = true, dense = false, wide = false, expandOnHover = false, edgeToggle, onReorder, dragMime }: ActivityBarProps) {
   const [hovered, setHovered] = React.useState(false)
   // An inline rename only renders in the wide bar, so keep it open while one
   // is in progress even if the pointer leaves.
@@ -262,7 +273,7 @@ export function ActivityBar({ side, groups, bottomGroups, showAccent = true, den
         expandOnHover && showWide ? 'shadow-lg shadow-black/40' : '',
       ].join(' ')}
     >
-      <ItemGroups groups={groups} side={side} showAccent={showAccent} dense={dense} wide={showWide} onReorder={onReorder} />
+      <ItemGroups groups={groups} side={side} showAccent={showAccent} dense={dense} wide={showWide} onReorder={onReorder} dragMime={dragMime} />
       {bottomGroups && (
         <div className={['flex flex-col mt-auto', showWide ? 'items-stretch' : 'items-center'].join(' ')}>
           <ItemGroups groups={bottomGroups} side={side} showAccent={showAccent} dense={dense} wide={showWide} />
@@ -292,6 +303,17 @@ export function FilesIcon() {
     <svg width="1.5rem" height="1.5rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M3 5C3 3.9 3.9 3 5 3H10.17C10.7 3 11.21 3.21 11.59 3.59L12.41 4.41C12.79 4.79 13.3 5 13.83 5H19C20.1 5 21 5.9 21 7V19C21 20.1 20.1 21 19 21H5C3.9 21 3 20.1 3 19V5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
       <path d="M3 9H21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function AllAppsIcon() {
+  return (
+    <svg width="1.5rem" height="1.5rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="4" width="6.5" height="6.5" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
+      <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
+      <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
+      <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
     </svg>
   )
 }
