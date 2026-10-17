@@ -4,7 +4,9 @@ import type { ReactNode } from 'react'
 import { useEditorStore, findAdjacentPane, type PaneDirection, type EditorSplitDirection, type SplitPlacement } from '@/stores/editorStore'
 import { useBrowserStore } from '@/stores/browserStore'
 import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
-import { isBrowserTab, getBrowserId, buildBrowserPath } from '@/components/Settings/paths'
+import { isBrowserTab, getBrowserId, buildBrowserPath, isTerminalTab, getTerminalId } from '@/components/Settings/paths'
+import { ScriptsSubmenu } from '@/components/Scripts/ScriptsSubmenu'
+import { runScriptInTerminal } from '@/lib/runScript'
 import { clampToViewport } from '@/components/ui/clampToViewport'
 import { diffFilePathForTab, filePathForTab } from './breadcrumbPath'
 import { useFileExists } from './useFileExists'
@@ -254,6 +256,13 @@ export function TabContextMenu({ x, y, paneId, path, onClose, onRequestClose }: 
               )}
             </>
           )}
+        </>
+      )}
+
+      {isTerminalTab(path) && (
+        <>
+          <MenuDivider />
+          <ScriptsSubmenu onPick={(script) => withClose(() => runScriptInTerminal(script, getTerminalId(path)))()} />
         </>
       )}
     </div>,

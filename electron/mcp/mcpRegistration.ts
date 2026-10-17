@@ -6,6 +6,7 @@ import { mkdir, writeFile } from 'fs/promises'
 export const MCP_SERVER_NAME = 'vide-todos'
 export const NOTES_MCP_SERVER_NAME = 'vide-notes'
 export const BROWSER_MCP_SERVER_NAME = 'vide-browser'
+export const SCRIPTS_MCP_SERVER_NAME = 'vide-scripts'
 
 function run(command: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
@@ -271,4 +272,50 @@ export async function disableBrowserMcp(): Promise<void> {
 export function registerBrowserMcpHandlers(): void {
   ipcMain.handle('browser:mcp:enable', () => enableBrowserMcp())
   ipcMain.handle('browser:mcp:disable', () => disableBrowserMcp())
+}
+
+function scriptsMcpScriptPath(): string {
+  return join(__dirname, 'scriptsMcpServer.js')
+}
+
+// Same shape as vide-notes: the data dir is fixed at registration, so
+// list/read/create/update work from any session. run_script additionally
+// needs VIDE_WINDOW_ID / VIDE_BROWSER_SHIM_SOCK, inherited (like
+// vide-browser) only when spawned by a vIDE Claude panel.
+export async function enableScriptsMcp(): Promise<void> {
+  const claudeBin = await resolveClaudeBinary()
+  try { await run(claudeBin, ['mcp', 'remove', SCRIPTS_MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
+  try {
+    await run(claudeBin, [
+      'mcp',
+      'add',
+      SCRIPTS_MCP_SERVER_NAME,
+      '--scope',
+      'user',
+      '-e',
+      `VIDE_SCRIPTS_DATA_DIR=${app.getPath('userData')}`,
+      '-e',
+      'ELECTRON_RUN_AS_NODE=1',
+      '--',
+      process.execPath,
+      scriptsMcpScriptPath(),
+    ])
+  } catch (err) {
+    const msg = ((err as { stderr?: string }).stderr ?? '') + ((err as Error).message ?? '')
+    if (!msg.includes('already exists')) throw err
+  }
+}
+
+export async function disableScriptsMcp(): Promise<void> {
+  try {
+    const claudeBin = await resolveClaudeBinary()
+    await run(claudeBin, ['mcp', 'remove', SCRIPTS_MCP_SERVER_NAME, '--scope', 'user'])
+  } catch {
+    // ignore
+  }
+}
+
+export function registerScriptsMcpHandlers(): void {
+  ipcMain.handle('scripts:mcp:enable', () => enableScriptsMcp())
+  ipcMain.handle('scripts:mcp:disable', () => disableScriptsMcp())
 }

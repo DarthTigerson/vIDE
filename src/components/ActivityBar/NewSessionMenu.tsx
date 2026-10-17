@@ -5,7 +5,9 @@ import type { AgentOption } from '@/lib/agentKinds'
 import { isLlamaKind, TERMINAL_KIND } from '@/lib/agentKinds'
 import { clampToViewport } from '@/components/ui/clampToViewport'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
-import { ClaudeIcon, BridgeIcon, LlamaIcon, TerminalIcon } from './ActivityBar'
+import type { Script } from '@/types/api'
+import { ScriptsSubmenu } from '@/components/Scripts/ScriptsSubmenu'
+import { ClaudeIcon, BridgeIcon, LlamaIcon, TerminalIcon, ScriptsIcon } from './ActivityBar'
 
 const GAP_PX = 4
 
@@ -18,14 +20,16 @@ function kindIcon(kind: AssistantKind) {
 const ROW_CLASS = 'flex h-8 w-full items-center gap-2 rounded px-2 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg'
 
 // The "+" launcher: every agent available right now, then a plain Terminal
-// that is always offered (it needs no agent enabled). Opens beside the
+// that is always offered (it needs no agent enabled), then Scripts ▸ — a new
+// terminal session that runs the picked script. Opens beside the
 // activity bar (left of it when the bar is on the right) and is clamped into
 // the viewport after measuring, like the session context menu.
-export function NewSessionMenu({ anchor, side, options, onPick, onClose }: {
+export function NewSessionMenu({ anchor, side, options, onPick, onPickScript, onClose }: {
   anchor: DOMRect
   side: 'left' | 'right'
   options: Array<AgentOption & { running?: boolean }>
   onPick: (kind: AssistantKind) => void
+  onPickScript?: (script: Script) => void
   onClose: () => void
 }) {
   useCoverNativeViews()
@@ -87,6 +91,14 @@ export function NewSessionMenu({ anchor, side, options, onPick, onClose }: {
         <span className="text-fg-subtle"><TerminalIcon /></span>
         <span className="flex-1 truncate">Terminal</span>
       </button>
+      {onPickScript && (
+        <ScriptsSubmenu
+          opens={side === 'right' ? 'left' : 'right'}
+          triggerClassName={ROW_CLASS}
+          icon={<span className="text-fg-subtle [&>svg]:w-4 [&>svg]:h-4"><ScriptsIcon /></span>}
+          onPick={(script) => { onPickScript(script); onClose() }}
+        />
+      )}
     </div>,
     document.body
   )

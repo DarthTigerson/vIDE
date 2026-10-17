@@ -22,6 +22,7 @@ export const DOCKER_SETTINGS_TAB_PATH = 'settings://Docker'
 export const MOBILE_SETTINGS_TAB_PATH = 'settings://Mobile'
 export const TODO_SETTINGS_TAB_PATH = 'settings://Todo'
 export const NOTES_SETTINGS_TAB_PATH = 'settings://Notes'
+export const SCRIPTS_SETTINGS_TAB_PATH = 'settings://Scripts'
 export const LLAMA_SETTINGS_TAB_PATH = 'settings://Llama'
 // Version, update check and release history (VIDE-143).
 export const ABOUT_SETTINGS_TAB_PATH = 'settings://About'
@@ -99,3 +100,9 @@ export function getTodoDetailIds(path: string): { projectId: string; todoId: str
   return { projectId, todoId }
 }
 
+
+// A script's editor page (Scripts app).
+const SCRIPT_PREFIX = 'script://'
+export function isScriptTab(path: string): boolean { return path.startsWith(SCRIPT_PREFIX) }
+export function buildScriptPath(scriptId: string): string { return SCRIPT_PREFIX + scriptId }
+export function getScriptId(path: string): string { return path.slice(SCRIPT_PREFIX.length) }

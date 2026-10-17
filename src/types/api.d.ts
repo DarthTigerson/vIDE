@@ -11,8 +11,14 @@ import type { LlamaLaunchConfig } from '../../electron/llama'
 import type { OnboardingStatus, GitIdentity } from '../../electron/onboarding'
 import type { ConfigRepoSettings } from '../../electron/configRepo'
 import type { SearchHit, SearchOptions, SearchBatch, SearchDone } from '../../electron/searchTypes'
+import type { Script } from '../../electron/scriptsData'
+import type { ScriptTags } from '../../electron/scriptTags'
 
 export type { LatestUsage, UsageSnapshot, UpdateInfo, DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats }
+
+export type { Script, ScriptTags }
+export type ScriptInput = { title: string; description?: string; body?: string; shareOutput?: boolean }
+export type ScriptPatch = Partial<Pick<Script, 'title' | 'description' | 'body' | 'shareOutput'>>
 
 export type AssistantKind = 'claude' | 'bridge' | (string & {})
 
@@ -385,6 +391,18 @@ declare global {
       notesReadDir: (dirPath: string) => Promise<FileNode[]>
       notesMcpEnable: () => Promise<void>
       notesMcpDisable: () => Promise<void>
+      scriptsList: () => Promise<Script[]>
+      scriptsCreate: (input: ScriptInput) => Promise<Script>
+      scriptsUpdate: (id: string, patch: ScriptPatch) => Promise<Script>
+      scriptsDelete: (id: string) => Promise<void>
+      scriptsTags: () => Promise<ScriptTags>
+      scriptsTagAdd: (id: string, projectRoot: string) => Promise<ScriptTags>
+      scriptsTagRemove: (id: string, projectRoot: string) => Promise<ScriptTags>
+      onScriptsChanged: (cb: () => void) => () => void
+      scriptsMcpEnable: () => Promise<void>
+      scriptsMcpDisable: () => Promise<void>
+      // Claude's run_script: open a terminal with this id and type `command`.
+      onScriptRunRequest: (cb: (req: { terminalId: string; scriptId: string; command: string }) => void) => () => void
       browserMcpEnable: () => Promise<void>
       browserMcpDisable: () => Promise<void>
 

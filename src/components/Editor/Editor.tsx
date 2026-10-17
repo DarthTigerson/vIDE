@@ -53,6 +53,9 @@ import {
   isAlarmsTab,
   isUpdateTab,
   isTodoBoardTab,
+  isScriptTab,
+  getScriptId,
+  SCRIPTS_SETTINGS_TAB_PATH,
   isTodoTrashTab,
   getTodoBoardProjectId,
   isTodoDetailTab,
@@ -111,6 +114,8 @@ import { AlarmsPage } from '@/components/Alarms/AlarmsPage'
 import { UpdatePage } from '@/components/Update/UpdatePage'
 import { TodoTrashPage } from '@/components/Todo/TodoTrashPage'
 import { TodoBoardPage } from '@/components/Todo/TodoBoardPage'
+import { ScriptEditorPage } from '@/components/Scripts/ScriptEditorPage'
+import { ScriptsSettingsPage } from '@/components/Settings/ScriptsSettingsPage'
 import { TodoDetailPage } from '@/components/Todo/TodoDetailPage'
 import {
   isImagePreviewTab,
@@ -464,6 +469,7 @@ function EditorPane({ paneId }: { paneId: string }) {
   const isAlarms = !!activeTab && isAlarmsTab(activeTab.path)
   const isUpdate = !!activeTab && isUpdateTab(activeTab.path)
   const isTodoBoard = !!activeTab && isTodoBoardTab(activeTab.path)
+  const isScript = !!activeTab && isScriptTab(activeTab.path)
   const isTodoDetail = !!activeTab && isTodoDetailTab(activeTab.path)
   const isTodoTrash = !!activeTab && isTodoTrashTab(activeTab.path)
   const isLlamaModel = !!activeTab && isLlamaModelTab(activeTab.path)
@@ -478,7 +484,7 @@ function EditorPane({ paneId }: { paneId: string }) {
     !!activeTab &&
     !isVirtual && !isTerminal && !isBrowser &&
     !isDiff && !isCommitDiff && !isGitLog && !isGitGraph && !isGitBranchDiff &&
-    !isGraphifyGraph && !isUsageGraph && !isAlarms && !isUpdate && !isTodoBoard && !isTodoDetail && !isTodoTrash &&
+    !isGraphifyGraph && !isUsageGraph && !isAlarms && !isUpdate && !isTodoBoard && !isScript && !isTodoDetail && !isTodoTrash &&
     !isLlamaModel && !isDockerLogs && !isImagePreview && !isMarkdownPreview &&
     // A scratch tab has no file on disk yet, so there is no path to show —
     // without this the breadcrumb splits 'scratch://<uuid>' on '/' and
@@ -683,6 +689,8 @@ function EditorPane({ paneId }: { paneId: string }) {
             <TodoSettingsPage />
           ) : activeTab.path === NOTES_SETTINGS_TAB_PATH ? (
             <NotesSettingsPage />
+          ) : activeTab.path === SCRIPTS_SETTINGS_TAB_PATH ? (
+            <ScriptsSettingsPage />
           ) : activeTab.path === LLAMA_SETTINGS_TAB_PATH ? (
             <LlamaSettingsPage />
           ) : activeTab.path === GENERAL_SETTINGS_TAB_PATH ? (
@@ -708,6 +716,15 @@ function EditorPane({ paneId }: { paneId: string }) {
           <TodoTrashPage />
         ) : isTodoBoard ? (
           <TodoBoardPage key={activeTab.path} projectId={getTodoBoardProjectId(activeTab.path)} />
+        ) : isScript ? (
+          <ScriptEditorPage
+            key={activeTab.path}
+            scriptId={getScriptId(activeTab.path)}
+            monacoTheme={monacoTheme}
+            beforeMount={defineMonacoThemes}
+            fontSize={editorFontSize}
+            font={font}
+          />
         ) : isLlamaModel ? (
           <LlamaCreateModelPage
             key={activeTab.path}

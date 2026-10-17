@@ -14,6 +14,7 @@ export const MOVABLE_APP_IDS = [
   'graphify',
   'todos',
   'notes',
+  'scripts',
   'git-remote',
   'jira',
 ] as const

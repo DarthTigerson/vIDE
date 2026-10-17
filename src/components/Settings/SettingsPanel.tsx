@@ -3,12 +3,12 @@ import { useEditorStore } from '@/stores/editorStore'
 import {
   GENERAL_SETTINGS_TAB_PATH, DISPLAY_TAB_PATH, EDITOR_SETTINGS_TAB_PATH, GIT_SETTINGS_TAB_PATH, FILE_TREE_SETTINGS_TAB_PATH,
   BROWSER_SETTINGS_TAB_PATH, CLAUDE_SETTINGS_TAB_PATH, BRIDGE_SETTINGS_TAB_PATH, GRAPHIFY_SETTINGS_TAB_PATH,
-  JIRA_SETTINGS_TAB_PATH, DOCKER_SETTINGS_TAB_PATH, MOBILE_SETTINGS_TAB_PATH, NOTES_SETTINGS_TAB_PATH,
+  JIRA_SETTINGS_TAB_PATH, DOCKER_SETTINGS_TAB_PATH, MOBILE_SETTINGS_TAB_PATH, NOTES_SETTINGS_TAB_PATH, SCRIPTS_SETTINGS_TAB_PATH,
   TODO_SETTINGS_TAB_PATH, LLAMA_SETTINGS_TAB_PATH, ABOUT_SETTINGS_TAB_PATH,
 } from './paths'
 import {
   SettingsIcon, EditorIcon, DisplaySettingsIcon, FilesIcon, ClaudeIcon, BridgeIcon, GitIcon, DockerIcon,
-  BrowserIcon, JiraIcon, GraphIcon, PhoneIcon, NotesIcon, TodoIcon, LlamaIcon,
+  BrowserIcon, JiraIcon, GraphIcon, PhoneIcon, NotesIcon, ScriptsIcon, TodoIcon, LlamaIcon,
 } from '@/components/ActivityBar/ActivityBar'
 
 interface NavItem {
@@ -60,6 +60,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Productivity',
     items: [
       { path: NOTES_SETTINGS_TAB_PATH, label: 'Notes', icon: <NotesIcon /> },
+      { path: SCRIPTS_SETTINGS_TAB_PATH, label: 'Scripts', icon: <ScriptsIcon /> },
       { path: TODO_SETTINGS_TAB_PATH, label: 'To Do', icon: <TodoIcon /> },
       { path: JIRA_SETTINGS_TAB_PATH, label: 'Jira', icon: <JiraIcon /> },
     ],

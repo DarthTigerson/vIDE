@@ -27,12 +27,7 @@ function editorTabStillOpen(terminalId: string): boolean {
   return useEditorStore.getState().tabs.some((t) => t.path === tabPath)
 }
 
-// A command queued to run as soon as a fresh terminal with this id finishes
-// spawning — e.g. the file tree's "Run" action on a .sh file, which opens a
-// brand-new terminal and needs the script to execute in it. Set this before
-// opening the tab; TerminalTab writes and clears it once its own spawn
-// promise resolves, so the write can never race ahead of the PTY existing.
-export const pendingTerminalCommands = new Map<string, string>()
+import { pendingTerminalCommands } from '@/lib/pendingTerminalCommands'
 
 function hasValidSize(cols: number, rows: number): boolean {
   return cols > 0 && rows > 0
@@ -181,7 +176,7 @@ export function TerminalTab({ terminalId, isStillOpen }: Props) {
           setMenu({ x: event.clientX, y: event.clientY, selection })
         }}
       />
-      {menu && <TerminalContextMenu x={menu.x} y={menu.y} selection={menu.selection} onClose={closeMenu} />}
+      {menu && <TerminalContextMenu x={menu.x} y={menu.y} selection={menu.selection} terminalId={terminalId} onClose={closeMenu} />}
     </>
   )
 }

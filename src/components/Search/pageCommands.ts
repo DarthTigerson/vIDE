@@ -21,6 +21,7 @@ import {
   MOBILE_SETTINGS_TAB_PATH,
   TODO_SETTINGS_TAB_PATH,
   NOTES_SETTINGS_TAB_PATH,
+  SCRIPTS_SETTINGS_TAB_PATH,
   LLAMA_SETTINGS_TAB_PATH,
   USAGE_GRAPH_TAB_PATH,
   ALARMS_TAB_PATH,
@@ -56,6 +57,7 @@ export const SETTINGS_PAGES: SettingsPage[] = [
   { id: 'settings-mobile', label: 'Settings: Mobile', path: MOBILE_SETTINGS_TAB_PATH, keywords: ['phone', 'qr', 'pair'] },
   { id: 'settings-todo', label: 'Settings: Todo', path: TODO_SETTINGS_TAB_PATH, keywords: ['tasks', 'board'] },
   { id: 'settings-notes', label: 'Settings: Notes', path: NOTES_SETTINGS_TAB_PATH, keywords: ['markdown'] },
+  { id: 'settings-scripts', label: 'Settings: Scripts', path: SCRIPTS_SETTINGS_TAB_PATH, keywords: ['routine', 'shell', 'mcp'] },
   { id: 'settings-llama', label: 'Settings: Llama', path: LLAMA_SETTINGS_TAB_PATH, keywords: ['local', 'model', 'llm'] },
 ]
 
@@ -140,6 +142,13 @@ export function pageCommands(): Command[] {
       description: 'Open the Notes panel',
       keywords: ['markdown'],
       action: () => usePanelRequestStore.getState().requestPanel('notes'),
+    },
+    {
+      id: 'view-scripts',
+      label: 'View: Scripts',
+      description: 'Open the Scripts panel',
+      keywords: ['routine', 'shell'],
+      action: () => usePanelRequestStore.getState().requestPanel('scripts'),
     },
     {
       id: 'app-reload-window',

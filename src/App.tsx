@@ -33,6 +33,7 @@ import {
   CostIcon,
   UsageGraphIcon,
   NotesIcon,
+  ScriptsIcon,
   LlamaIcon,
   AllAppsIcon,
   APP_DRAG_MIME,
@@ -116,6 +117,10 @@ import { ConfirmDiscardScratchModal } from './components/Editor/ConfirmDiscardSc
 import { buildTerminalPath, buildBrowserPath, JIRA_SETTINGS_TAB_PATH, GIT_SETTINGS_TAB_PATH, USAGE_GRAPH_TAB_PATH } from './components/Settings/paths'
 import { TodoPanel } from './components/Todo/TodoPanel'
 import { NotesPanel } from './components/Notes/NotesPanel'
+import { ScriptsPanel } from './components/Scripts/ScriptsPanel'
+import { useScriptsStore } from './stores/scriptsStore'
+import { useScriptsSettingsStore } from './stores/scriptsSettingsStore'
+import { runScriptInNewTerminal, runScriptInAgentTerminal } from './lib/runScript'
 import { LlamaPanel } from './components/Llama/LlamaPanel'
 import { useNotificationSoundSettingsStore, playNotificationSound } from './stores/notificationSoundSettingsStore'
 import { useConfigRepoStore } from './stores/configRepoStore'
@@ -185,11 +190,11 @@ export default function App() {
     running: isLlamaKind(o.kind) ? Boolean(llamaRuns[llamaModelId(o.kind)]?.running) : undefined,
   }))
   const repoName = projectRoot ? projectRoot.split('/').pop() : null
-  const [leftPanel, setLeftPanel] = useState<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'llama' | 'settings' | 'apps' | null>('files')
+  const [leftPanel, setLeftPanel] = useState<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'scripts' | 'llama' | 'settings' | 'apps' | null>('files')
   const appFavorites = useAppFavoritesStore((s) => s.favorites)
   const placeFavorite = useAppFavoritesStore((s) => s.place)
   const unfavoriteApp = useAppFavoritesStore((s) => s.unfavorite)
-  const lastLeftPanelRef = useRef<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'llama' | 'settings' | 'apps'>('files')
+  const lastLeftPanelRef = useRef<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'scripts' | 'llama' | 'settings' | 'apps'>('files')
   const [sidebarRem, setSidebarRem] = useState(() => loadRem(SIDEBAR_WIDTH_KEY, SIDEBAR_PANEL))
   const [chatRem, setChatRem] = useState(() => loadRem(CHAT_WIDTH_KEY, CHAT_PANEL))
   // The panel group's width and the root font size: the two numbers needed to
@@ -268,6 +273,21 @@ export default function App() {
     useConfigRepoStore.getState().syncOnLaunch()
   }, [])
 
+  // Scripts live in the main process (and are written by the vide-scripts
+  // MCP server and vIDE Sync too), so reload on every change it reports.
+  // run_script from Claude arrives as a request to open a terminal here.
+  useEffect(() => {
+    const reload = () => { void useScriptsStore.getState().load().catch(() => {}) }
+    reload()
+    const offChanged = window.api.onScriptsChanged(reload)
+    const offRun = window.api.onScriptRunRequest(async (req) => {
+      await useScriptsStore.getState().load().catch(() => {})
+      const script = useScriptsStore.getState().scripts.find((s) => s.id === req.scriptId)
+      if (script) runScriptInNewTerminal(script, req.command, req.terminalId)
+    })
+    return () => { offChanged(); offRun() }
+  }, [])
+
   useEffect(() => {
     if (!dockerOpenRequest) return
     setLeftPanel('docker')
@@ -291,6 +311,7 @@ export default function App() {
   const mobileDefaultMode = useMobileSettingsStore((s) => s.defaultMode)
   const todoEnabled = useTodoSettingsStore((s) => s.enabled)
   const notesEnabled = useNotesSettingsStore((s) => s.enabled)
+  const scriptsEnabled = useScriptsSettingsStore((s) => s.enabled)
   const llamaEnabled = useLlamaSettingsStore((s) => s.enabled)
   const runningLlamaCount = useRunningLlamaCount(llamaEnabled)
   useLlamaAvailability(llamaEnabled)
@@ -986,6 +1007,13 @@ export default function App() {
               active: leftPanel === 'notes',
               onClick: togglePanel('notes'),
             } : null,
+            scripts: scriptsEnabled ? {
+              id: 'scripts',
+              icon: <ScriptsIcon />,
+              title: 'Scripts',
+              active: leftPanel === 'scripts',
+              onClick: togglePanel('scripts'),
+            } : null,
             'git-remote': gitRemoteReady ? {
               id: 'git-remote',
               icon: gitRemoteIcon(gitRemoteProvider),
@@ -1086,7 +1114,7 @@ export default function App() {
           >
             {(() => {
               const activeLeftPanel = leftPanel ?? lastLeftPanelRef.current
-              return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'search' ? <SearchPanel /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'docker' ? <DockerPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : activeLeftPanel === 'todos' ? <TodoPanel /> : activeLeftPanel === 'notes' ? <NotesPanel /> : activeLeftPanel === 'llama' ? <LlamaPanel /> : activeLeftPanel === 'apps' ? (
+              return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'search' ? <SearchPanel /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'docker' ? <DockerPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : activeLeftPanel === 'todos' ? <TodoPanel /> : activeLeftPanel === 'notes' ? <NotesPanel /> : activeLeftPanel === 'scripts' ? <ScriptsPanel /> : activeLeftPanel === 'llama' ? <LlamaPanel /> : activeLeftPanel === 'apps' ? (
                 <AllAppsPanel
                   apps={allAppsEntries}
                   open={leftPanel === 'apps'}
@@ -1308,6 +1336,9 @@ export default function App() {
             if (!projectRoot) return
             useClaudeStore.getState().newSession(projectRoot, kind)
             useClaudeStore.getState().setChatVisible(true)
+          }}
+          onPickScript={(script) => {
+            if (projectRoot) runScriptInAgentTerminal(script, projectRoot)
           }}
           onClose={closeNewSessionMenu}
         />

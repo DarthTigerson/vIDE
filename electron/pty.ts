@@ -17,8 +17,32 @@ interface WindowState {
   killedIds: Set<string> // tracks intentional kills
 }
 
+interface PtyWatcher {
+  onData: (data: string) => void
+  onExit: () => void
+}
+
 export class PtyManager {
   private byWindow = new Map<number, WindowState>()
+  // Main-process listeners on a terminal's output (the Scripts run_script
+  // path), keyed `${winId}:${id}`. Can be added before the renderer spawns
+  // the PTY, so nothing the script prints is missed.
+  private watchers = new Map<string, Set<PtyWatcher>>()
+
+  watch(winId: number, id: string, onData: (data: string) => void, onExit: () => void): () => void {
+    const key = `${winId}:${id}`
+    const watcher = { onData, onExit }
+    let set = this.watchers.get(key)
+    if (!set) {
+      set = new Set()
+      this.watchers.set(key, set)
+    }
+    set.add(watcher)
+    return () => {
+      set.delete(watcher)
+      if (set.size === 0 && this.watchers.get(key) === set) this.watchers.delete(key)
+    }
+  }
 
   registerHandlers(): void {
     ipcMain.handle('term:spawn', (event, id: string, cwd?: string) => {
@@ -65,11 +89,14 @@ export class PtyManager {
       env,
     })
     state.procs.set(id, proc)
+    const watchKey = `${win.id}:${id}`
     proc.onData((data) => {
       if (!win.isDestroyed()) win.webContents.send('term:data', id, data)
       getMobileBroadcaster().emit('term:data', id, data)
+      this.watchers.get(watchKey)?.forEach((w) => w.onData(data))
     })
     proc.onExit(() => {
+      this.watchers.get(watchKey)?.forEach((w) => w.onExit())
       if (state.killedIds.has(id)) {
         state.killedIds.delete(id) // intentional kill — no notification
         return

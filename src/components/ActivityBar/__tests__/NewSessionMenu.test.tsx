@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { NewSessionMenu } from '../NewSessionMenu'
+import { useScriptsStore } from '@/stores/scriptsStore'
+import { useScriptsSettingsStore } from '@/stores/scriptsSettingsStore'
 
 vi.mock('@/lib/nativeViewCover', () => ({ useCoverNativeViews: () => {} }))
 
@@ -52,5 +54,21 @@ describe('NewSessionMenu', () => {
     render(<NewSessionMenu anchor={anchor} side="right" options={options} onPick={() => {}} onClose={() => {}} />)
     const names = screen.getAllByRole('menuitem').map((el) => el.textContent)
     expect(names.at(-1)).toBe('Terminal')
+  })
+
+  it('has a Scripts submenu under Terminal; picking a script reports it and closes', () => {
+    useScriptsSettingsStore.setState({ enabled: true })
+    const script = { id: 's1', title: 'Pre Commit', description: '', body: 'pre-commit run', shareOutput: true, createdAt: 1, updatedAt: 1 }
+    useScriptsStore.setState({ scripts: [script], tags: {} })
+    const onPickScript = vi.fn()
+    const onClose = vi.fn()
+    render(<NewSessionMenu anchor={anchor} side="right" options={options} onPick={() => {}} onPickScript={onPickScript} onClose={onClose} />)
+    const trigger = screen.getByRole('button', { name: 'Scripts' })
+    const rows = screen.getAllByRole('menuitem').map((el) => el.textContent)
+    expect(rows[rows.length - 1]).toContain('Terminal')
+    fireEvent.mouseEnter(trigger.parentElement!)
+    fireEvent.click(screen.getByRole('button', { name: 'Pre Commit' }))
+    expect(onPickScript).toHaveBeenCalledWith(script)
+    expect(onClose).toHaveBeenCalled()
   })
 })

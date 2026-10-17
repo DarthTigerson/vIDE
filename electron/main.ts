@@ -29,8 +29,9 @@ import { writeClipboardFiles, readClipboardFiles } from './fileClipboard'
 import { registerSessionHandlers } from './session'
 import { registerRecentProjectsHandlers, readRecents, addRecentProject, clearRecentProjects } from './recentProjects'
 import { registerTodoHandlers } from './todos'
-import { registerTodoMcpHandlers, registerNotesMcpHandlers, registerBrowserMcpHandlers } from './mcp/mcpRegistration'
+import { registerTodoMcpHandlers, registerNotesMcpHandlers, registerBrowserMcpHandlers, registerScriptsMcpHandlers } from './mcp/mcpRegistration'
 import { registerNotesHandlers } from './notes'
+import { registerScriptsHandlers, registerScriptRunRoute } from './scripts'
 import { registerSearchHandlers } from './search'
 import { UpdateChecker } from './updateChecker'
 import { UpdateRunner } from './updateRunner'
@@ -732,7 +733,9 @@ app.whenReady().then(async () => {
   registerTodoMcpHandlers()
   registerNotesHandlers()
   registerNotesMcpHandlers()
+  registerScriptsHandlers()
   registerBrowserMcpHandlers()
+  registerScriptsMcpHandlers()
   registerWindowHandlers()
   registerSystemHandlers()
   registerOnboardingHandlers()
@@ -744,6 +747,7 @@ app.whenReady().then(async () => {
   browserViewMgr.registerHandlers()
   const browserBridge = new BrowserBridge(app.getPath('userData'), browserViewMgr)
   browserBridge.start()
+  registerScriptRunRoute(browserBridge, ptyMgr)
   // claude-sessions/ is machine-local (transcripts live in this machine's
   // ~/.claude) — deliberately not part of vIDE Sync.
   claudeMgr = new ClaudeManager(browserBridge, join(app.getPath('userData'), 'claude-sessions'))

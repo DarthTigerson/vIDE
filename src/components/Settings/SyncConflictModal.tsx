@@ -11,7 +11,7 @@ interface Props {
 
 const CATEGORY_LABELS: Record<string, string> = {
   general: 'General', models: 'Models', git: 'Git', docker: 'Docker',
-  integrations: 'Integrations', notes: 'Notes', todo: 'Todo', jira: 'Jira',
+  integrations: 'Integrations', notes: 'Notes', todo: 'Todo', jira: 'Jira', scripts: 'Scripts',
 }
 
 function truncate(v: string, max = 48): string {

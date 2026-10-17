@@ -5,6 +5,8 @@ import { execFile } from 'child_process'
 import { readTodosData, writeTodosData } from './todosStore'
 import type { TodosData } from './todosStore'
 import { mergeTodosData } from './todosMerge'
+import { readScriptsData, mutateScriptsData, type ScriptsData } from './scriptsData'
+import { mergeScriptsData } from './scriptsMerge'
 import { shouldSkipUsageOnlyCommit } from './usageCommitThrottle'
 import { buildAuthUrl, SYNC_GIT_CONFIG_ARGS, SYNC_GIT_ENV } from './configRepoAuth'
 
@@ -21,13 +23,13 @@ const DEFAULT_SETTINGS: ConfigRepoSettings = {
   token: '',
   categories: {
     general: true, models: true, git: true, docker: true,
-    integrations: true, notes: true, todo: true, jira: true,
+    integrations: true, notes: true, todo: true, jira: true, scripts: true,
   },
 }
 
 // Allowlist guards both shell-command arguments and file-write paths.
 const ALLOWED_CATEGORIES = new Set([
-  'general', 'models', 'git', 'docker', 'integrations', 'notes', 'todo', 'jira',
+  'general', 'models', 'git', 'docker', 'integrations', 'notes', 'todo', 'jira', 'scripts',
 ])
 
 export interface ConflictEntry {
@@ -142,6 +144,20 @@ async function readRemoteCategoryFile(category: string): Promise<Record<string, 
   }
 }
 
+// Only rewrites the local file (and so only wakes the Scripts watcher) when
+// the merge actually changed something — the periodic push runs every two
+// minutes.
+async function writeScriptsIfChanged(merged: ScriptsData): Promise<void> {
+  const dataDir = app.getPath('userData')
+  const local = await readScriptsData(dataDir)
+  if (JSON.stringify(local) === JSON.stringify(merged)) return
+  // Through the write queue, re-merging with whatever is on disk by then, so
+  // an editor save that landed during the push isn't overwritten.
+  await mutateScriptsData(dataDir, (data) => {
+    data.scripts = mergeScriptsData(merged, data).scripts
+  })
+}
+
 function broadcastNotesChanged(): void {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) win.webContents.send('notes:changed')
@@ -194,6 +210,18 @@ async function pullSettings(
       // newer copy wins for shared IDs; local-only items preserved
       await writeTodosData(app.getPath('userData'), mergeTodosData(local, remote))
     } catch { /* no todos in remote yet */ }
+  }
+
+  // ── File-based: scripts ────────────────────────────────────────────────────
+  // scripts-data.json, not scripts.json: <category>.json is the scripts
+  // category's own localStorage settings file. Project tags
+  // (script-tags.json) are machine-local and never synced.
+  if (categories.scripts) {
+    try {
+      const raw = await runGit(['show', 'origin/HEAD:scripts-data.json'], { cwd: repoDir(), timeout: 10000 })
+      const remote: ScriptsData = JSON.parse(raw)
+      await writeScriptsIfChanged(mergeScriptsData(remote, await readScriptsData(app.getPath('userData'))))
+    } catch { /* no scripts in remote yet */ }
   }
 
   // ── File-based: usage history ──────────────────────────────────────────────
@@ -311,6 +339,19 @@ export async function pushSettings(data: Record<string, Record<string, string>>,
           await writeFile(join(dir, 'todos-data.json'), JSON.stringify(merged), 'utf8')
           await writeTodosData(app.getPath('userData'), merged)
         } catch { /* no todos yet */ }
+      }
+
+      // ── File-based: scripts ────────────────────────────────────────────────
+      if ('scripts' in data) {
+        try {
+          let repoScripts: ScriptsData = { scripts: [] }
+          try {
+            repoScripts = JSON.parse(await readFile(join(dir, 'scripts-data.json'), 'utf8'))
+          } catch { /* remote had no scripts yet */ }
+          const merged = mergeScriptsData(repoScripts, await readScriptsData(app.getPath('userData')))
+          await writeFile(join(dir, 'scripts-data.json'), JSON.stringify(merged, null, 2), 'utf8')
+          await writeScriptsIfChanged(merged)
+        } catch { /* no scripts yet */ }
       }
 
       // ── File-based: usage history ──────────────────────────────────────────

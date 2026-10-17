@@ -39,6 +39,13 @@ export const EXCLUDED_CHANNELS = new Set<string>([
   'browser:mcp:enable', 'browser:mcp:disable',
   'todos:mcp:enable', 'todos:mcp:disable',
   'notes:mcp:enable', 'notes:mcp:disable',
+  'scripts:mcp:enable', 'scripts:mcp:disable',
+
+  // Scripts — run by typing into desktop terminals; desktop-only for now (the
+  // mobile shim stubs an empty list). run-request is Claude's run_script
+  // opening a terminal in this desktop window.
+  'scripts:list', 'scripts:create', 'scripts:update', 'scripts:delete',
+  'scripts:tags', 'scripts:tagAdd', 'scripts:tagRemove', 'scripts:changed', 'scripts:run-request',
 
   // vIDE Sync — backs up this desktop's settings to a private git repo; the repo lives on this machine
   'configRepo:getSettings', 'configRepo:setSettings', 'configRepo:connect', 'configRepo:pull',

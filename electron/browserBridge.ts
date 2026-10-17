@@ -55,6 +55,14 @@ export class BrowserBridge {
   // can switch to any user-open tab via browser_use_tab so it can pick up
   // a session the user already has loaded (e.g. logged-in scraper target).
   private readonly targetTabIds = new Map<number, string>()
+  // Window-scoped routes other features hang off this same socket (the
+  // vide-scripts MCP server's /run-script), so a vIDE-spawned CLI has one
+  // way back into its window rather than one socket per feature.
+  private readonly extraRoutes = new Map<string, (windowId: number, body: string) => Promise<unknown>>()
+
+  registerRoute(url: string, handler: (windowId: number, body: string) => Promise<unknown>): void {
+    this.extraRoutes.set(url, handler)
+  }
 
   private getTargetTabId(windowId: number): string {
     return this.targetTabIds.get(windowId) ?? CLAUDE_TAB_ID
@@ -142,6 +150,12 @@ export class BrowserBridge {
     const windowIdHeader = req.headers['x-vide-window-id']
     const windowId = Number(Array.isArray(windowIdHeader) ? windowIdHeader[0] : windowIdHeader)
     if (!Number.isFinite(windowId)) throw new Error('Missing or invalid X-Vide-Window-Id header')
+
+    const extraRoute = req.url ? this.extraRoutes.get(req.url) : undefined
+    if (extraRoute) {
+      this.endJson(res, await extraRoute(windowId, body))
+      return
+    }
 
     // Resolved once; all handlers below use this rather than hardcoding CLAUDE_TAB_ID.
     const tabId = this.getTargetTabId(windowId)
