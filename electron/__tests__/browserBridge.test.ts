@@ -266,3 +266,35 @@ describe('BrowserBridge — Claude tab control routes (VIDE-53)', () => {
     expect(JSON.parse(res.body)).toEqual({ error: 'vIDE window 7 not found' })
   })
 })
+
+describe('BrowserBridge.registerRoute', () => {
+  let userDataDir: string
+  let bridge: BrowserBridge | undefined
+
+  beforeEach(() => { userDataDir = mkdtempSync(join(tmpdir(), 'vide-browserbridge-route-')) })
+  afterEach(() => {
+    bridge?.stop()
+    bridge = undefined
+    rmSync(userDataDir, { recursive: true, force: true })
+  })
+
+  it('dispatches a registered route with the window id and body, and reports its errors as 400 JSON', async () => {
+    bridge = new BrowserBridge(userDataDir, fakeBrowserViews() as any)
+    const handler = vi.fn(async (windowId: number, body: string) => {
+      if (body === 'id=bad') throw new Error('Script "bad" not found')
+      return { text: `ran in ${windowId}` }
+    })
+    bridge.registerRoute('/run-script', handler)
+    bridge.start()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const ok = await post(bridge.socketPath, '/run-script', { 'X-Vide-Window-Id': '4' }, 'id=abc')
+    expect(ok.status).toBe(200)
+    expect(JSON.parse(ok.body)).toEqual({ text: 'ran in 4' })
+    expect(handler).toHaveBeenCalledWith(4, 'id=abc')
+
+    const bad = await post(bridge.socketPath, '/run-script', { 'X-Vide-Window-Id': '4' }, 'id=bad')
+    expect(bad.status).toBe(400)
+    expect(JSON.parse(bad.body).error).toBe('Script "bad" not found')
+  })
+})

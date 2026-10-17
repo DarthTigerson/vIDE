@@ -8,6 +8,8 @@ import { copyText } from '@/lib/copyText'
 import { formatTerminalSelectionForAssistant } from '@/lib/sendSelectionToAssistant'
 import { useClaudeStore } from '@/stores/claudeStore'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
+import { ScriptsSubmenu } from '@/components/Scripts/ScriptsSubmenu'
+import { runScriptInTerminal } from '@/lib/runScript'
 
 const SEND_HINT = isMac ? '⌘L' : 'Ctrl+L'
 
@@ -32,10 +34,13 @@ function MenuButton({ children, hint, disabled, onClick }: {
 
 // Right-click menu for a terminal tab. `selection` is read by the caller at
 // the moment the menu opens, so the actions act on what was highlighted then.
-export function TerminalContextMenu({ x, y, selection, onClose }: {
+// `terminalId` is set only for real shells — it adds the Scripts submenu,
+// which types the picked script into this terminal (not the Docker log view).
+export function TerminalContextMenu({ x, y, selection, terminalId, onClose }: {
   x: number
   y: number
   selection: string
+  terminalId?: string
   onClose: () => void
 }) {
   useCoverNativeViews()
@@ -87,6 +92,17 @@ export function TerminalContextMenu({ x, y, selection, onClose }: {
       >
         Send to Claude
       </MenuButton>
+      {terminalId && (
+        <>
+          <div className="my-1 h-px bg-border" />
+          <ScriptsSubmenu
+            onPick={(script) => {
+              runScriptInTerminal(script, terminalId)
+              onClose()
+            }}
+          />
+        </>
+      )}
     </div>,
     document.body
   )

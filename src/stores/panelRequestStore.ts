@@ -5,7 +5,7 @@ import { create } from 'zustand'
 // wants a panel shown (a notification click, "Open File" from a diff) asks
 // for it here and App applies it via usePanelRequests.
 export type RequestablePanel =
-  | 'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'llama' | 'settings'
+  | 'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'scripts' | 'llama' | 'settings'
 
 interface PanelRequestStore {
   // A fresh object every call (not a bare string) so requesting the same

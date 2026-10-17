@@ -49,3 +49,28 @@ describe('TerminalContextMenu', () => {
     expect(onClose).toHaveBeenCalled()
   })
 })
+
+describe('TerminalContextMenu scripts submenu', () => {
+  it('has no Scripts row without a terminalId (e.g. the Docker log view)', () => {
+    render(<TerminalContextMenu x={10} y={10} selection="" onClose={() => {}} />)
+    expect(screen.queryByRole('button', { name: 'Scripts' })).toBeNull()
+  })
+
+  it('types the picked script into this terminal and closes', async () => {
+    const { useScriptsStore } = await import('@/stores/scriptsStore')
+    const { useScriptsSettingsStore } = await import('@/stores/scriptsSettingsStore')
+    const termWrite = vi.fn()
+    ;(window as unknown as { api: unknown }).api = { termWrite, scriptsTagAdd: vi.fn(async () => ({})) }
+    useScriptsSettingsStore.setState({ enabled: true })
+    useScriptsStore.setState({
+      scripts: [{ id: 's1', title: 'Lint', description: '', body: 'npm run lint', shareOutput: true, createdAt: 1, updatedAt: 1 }],
+      tags: {},
+    })
+    const onClose = vi.fn()
+    render(<TerminalContextMenu x={10} y={10} selection="" terminalId="term-9" onClose={onClose} />)
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Scripts' }).parentElement!)
+    fireEvent.click(screen.getByRole('button', { name: 'Lint' }))
+    expect(termWrite).toHaveBeenCalledWith('term-9', 'npm run lint\n')
+    expect(onClose).toHaveBeenCalled()
+  })
+})

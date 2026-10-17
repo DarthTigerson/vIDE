@@ -440,6 +440,25 @@ contextBridge.exposeInMainWorld('api', {
   notesReadDir: (dirPath: string) => ipcRenderer.invoke('notes:readDir', dirPath),
   notesMcpEnable: () => ipcRenderer.invoke('notes:mcp:enable'),
   notesMcpDisable: () => ipcRenderer.invoke('notes:mcp:disable'),
+  scriptsList: () => ipcRenderer.invoke('scripts:list'),
+  scriptsCreate: (input: unknown) => ipcRenderer.invoke('scripts:create', input),
+  scriptsUpdate: (id: string, patch: unknown) => ipcRenderer.invoke('scripts:update', id, patch),
+  scriptsDelete: (id: string) => ipcRenderer.invoke('scripts:delete', id),
+  scriptsTags: () => ipcRenderer.invoke('scripts:tags'),
+  scriptsTagAdd: (id: string, projectRoot: string) => ipcRenderer.invoke('scripts:tagAdd', id, projectRoot),
+  scriptsTagRemove: (id: string, projectRoot: string) => ipcRenderer.invoke('scripts:tagRemove', id, projectRoot),
+  scriptsMcpEnable: () => ipcRenderer.invoke('scripts:mcp:enable'),
+  scriptsMcpDisable: () => ipcRenderer.invoke('scripts:mcp:disable'),
+  onScriptRunRequest: (cb: (req: { terminalId: string; scriptId: string; command: string }) => void) => {
+    const handler = (_e: unknown, req: { terminalId: string; scriptId: string; command: string }) => cb(req)
+    ipcRenderer.on('scripts:run-request', handler)
+    return () => ipcRenderer.removeListener('scripts:run-request', handler)
+  },
+  onScriptsChanged: (cb: () => void) => {
+    const handler = () => cb()
+    ipcRenderer.on('scripts:changed', handler)
+    return () => ipcRenderer.removeListener('scripts:changed', handler)
+  },
   browserMcpEnable: () => ipcRenderer.invoke('browser:mcp:enable'),
   browserMcpDisable: () => ipcRenderer.invoke('browser:mcp:disable'),
 

@@ -88,3 +88,37 @@ describe('PtyManager multi-window isolation', () => {
     expect(procB.kill).not.toHaveBeenCalled()
   })
 })
+
+describe('PtyManager.watch', () => {
+  beforeEach(() => {
+    spawnMock.mockReset()
+  })
+
+  it('delivers data and exit for a watcher registered before spawn, scoped to its window, until unsubscribed', () => {
+    const manager = new PtyManager()
+    manager.registerHandlers()
+    const win = { ...fakeWin(1), isDestroyed: () => false }
+    const proc = fakePty()
+    spawnMock.mockReturnValueOnce(proc)
+    const onData = vi.fn()
+    const onExit = vi.fn()
+    const otherWindow = vi.fn()
+
+    const unsubscribe = manager.watch(1, 'script-1', onData, onExit)
+    manager.watch(2, 'script-1', otherWindow, () => {})
+    handlers['term:spawn']({ sender: win }, 'script-1', '/p')
+
+    const emitData = proc.onData.mock.calls[0][0]
+    const emitExit = proc.onExit.mock.calls[0][0]
+    emitData('hello')
+    expect(onData).toHaveBeenCalledWith('hello')
+    expect(otherWindow).not.toHaveBeenCalled()
+
+    emitExit()
+    expect(onExit).toHaveBeenCalled()
+
+    unsubscribe()
+    emitData('later')
+    expect(onData).toHaveBeenCalledTimes(1)
+  })
+})

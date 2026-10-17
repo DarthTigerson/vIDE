@@ -15,6 +15,7 @@ const SYNC_ITEMS = [
   { key: 'docker', label: 'Docker' },
   { key: 'integrations', label: 'Integrations' },
   { key: 'notes', label: 'Notes' },
+  { key: 'scripts', label: 'Scripts' },
   { key: 'todo', label: 'Todo' },
   { key: 'jira', label: 'Jira' },
 ]

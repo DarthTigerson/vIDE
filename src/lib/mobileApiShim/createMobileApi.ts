@@ -400,6 +400,20 @@ export function createMobileApi(wsUrl: string) {
     notesMcpEnable: stubInvoke(undefined as void),
     notesMcpDisable: stubInvoke(undefined as void),
 
+    // Scripts run in desktop terminals and are desktop-only for now; the
+    // phone sees an empty list.
+    scriptsList: stubInvoke([]),
+    scriptsCreate: () => Promise.reject(new Error('Scripts are not available on mobile')),
+    scriptsUpdate: () => Promise.reject(new Error('Scripts are not available on mobile')),
+    scriptsDelete: stubInvoke(undefined as void),
+    scriptsTags: stubInvoke({}),
+    scriptsTagAdd: stubInvoke({}),
+    scriptsTagRemove: stubInvoke({}),
+    onScriptsChanged: stubOn(),
+    scriptsMcpEnable: stubInvoke(undefined as void),
+    scriptsMcpDisable: stubInvoke(undefined as void),
+    onScriptRunRequest: stubOn(),
+
     // App-level update checking/restart — tied to this desktop install
     updateGetLatest: stubInvoke(null),
     updateGetStatus: stubInvoke({ latest: null, lastCheckedAt: null, failed: false }),
