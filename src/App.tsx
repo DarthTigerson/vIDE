@@ -1119,7 +1119,7 @@ export default function App() {
                 <AllAppsPanel
                   apps={allAppsEntries}
                   open={leftPanel === 'apps'}
-                  onFavorite={(id) => placeFavorite(id, APPEND_TARGET, 'after')}
+                  onPlace={(id, beforeId) => placeFavorite(id, beforeId ?? APPEND_TARGET, beforeId ? 'before' : 'after')}
                   onUnfavorite={unfavoriteApp}
                 />
               ) : <SettingsPanel />

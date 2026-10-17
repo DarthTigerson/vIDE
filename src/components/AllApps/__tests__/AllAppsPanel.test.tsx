@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { AllAppsPanel } from '../AllAppsPanel'
+import { AllAppsPanel, ALL_APPS_VIEW_KEY } from '../AllAppsPanel'
 import { APP_DRAG_MIME } from '@/components/ActivityBar/ActivityBar'
 
 const apps = [
@@ -14,10 +14,10 @@ function dataTransfer(data: Record<string, string>) {
 }
 
 function setup(open = true) {
-  const onFavorite = vi.fn()
+  const onPlace = vi.fn()
   const onUnfavorite = vi.fn()
-  const utils = render(<AllAppsPanel apps={apps} open={open} onFavorite={onFavorite} onUnfavorite={onUnfavorite} />)
-  return { ...utils, onFavorite, onUnfavorite }
+  const utils = render(<AllAppsPanel apps={apps} open={open} onPlace={onPlace} onUnfavorite={onUnfavorite} />)
+  return { ...utils, onPlace, onUnfavorite }
 }
 
 describe('AllAppsPanel', () => {
@@ -34,11 +34,11 @@ describe('AllAppsPanel', () => {
       { id: 'notes', title: 'Notes', icon: null, favorite: true, onOpen: vi.fn() },
       { id: 'docker', title: 'Docker', icon: null, favorite: false, onOpen: vi.fn() },
     ]
-    const { rerender } = render(<AllAppsPanel apps={list} open onFavorite={vi.fn()} onUnfavorite={vi.fn()} />)
+    const { rerender } = render(<AllAppsPanel apps={list} open onPlace={vi.fn()} onUnfavorite={vi.fn()} />)
     expect(order()).toEqual(['Notes', 'To Do', 'Docker'])
 
     const unstarred = list.map((app) => ({ ...app, favorite: false }))
-    rerender(<AllAppsPanel apps={unstarred} open onFavorite={vi.fn()} onUnfavorite={vi.fn()} />)
+    rerender(<AllAppsPanel apps={unstarred} open onPlace={vi.fn()} onUnfavorite={vi.fn()} />)
     expect(order()).toEqual(['To Do', 'Notes', 'Docker'])
   })
 
@@ -49,12 +49,12 @@ describe('AllAppsPanel', () => {
   })
 
   it('filters by the search box and clears it when the panel closes', () => {
-    const { rerender, onFavorite, onUnfavorite } = setup()
+    const { rerender, onPlace, onUnfavorite } = setup()
     fireEvent.change(screen.getByLabelText('Search apps'), { target: { value: 'not' } })
     expect(screen.queryByText('To Do')).toBeNull()
     expect(screen.getByText('Notes')).toBeTruthy()
 
-    rerender(<AllAppsPanel apps={apps} open={false} onFavorite={onFavorite} onUnfavorite={onUnfavorite} />)
+    rerender(<AllAppsPanel apps={apps} open={false} onPlace={onPlace} onUnfavorite={onUnfavorite} />)
     expect((screen.getByLabelText('Search apps') as HTMLInputElement).value).toBe('')
     expect(screen.getByText('To Do')).toBeTruthy()
   })
@@ -73,19 +73,46 @@ describe('AllAppsPanel', () => {
     expect(onUnfavorite).not.toHaveBeenCalled()
   })
 
-  it('lists favorites too, with a filled star that unfavorites', () => {
+  it('drops a row on the "On the bar" section to favorite it, appended', () => {
+    const { onPlace } = setup()
+    const zone = screen.getByRole('region', { name: 'On the bar' })
+    fireEvent.dragOver(zone, { dataTransfer: dataTransfer({ [APP_DRAG_MIME]: 'notes' }) })
+    fireEvent.drop(zone, { dataTransfer: dataTransfer({ [APP_DRAG_MIME]: 'notes' }) })
+    expect(onPlace).toHaveBeenCalledWith('notes', null)
+  })
+
+  it('drops onto a favorite to place the app before it', () => {
+    const { onPlace, onUnfavorite } = setup()
+    fireEvent.drop(screen.getByText('Docker'), { dataTransfer: dataTransfer({ [APP_DRAG_MIME]: 'notes' }) })
+    expect(onPlace).toHaveBeenCalledWith('notes', 'docker')
+    expect(onUnfavorite).not.toHaveBeenCalled()
+  })
+
+  it('drops a favorite on the "More apps" section to take it off the bar', () => {
     const { onUnfavorite } = setup()
-    const star = screen.getByLabelText('Remove Docker from favorites')
-    expect(star.getAttribute('aria-pressed')).toBe('true')
-    fireEvent.click(star)
+    fireEvent.drop(screen.getByRole('region', { name: 'More apps' }), { dataTransfer: dataTransfer({ [APP_DRAG_MIME]: 'docker' }) })
     expect(onUnfavorite).toHaveBeenCalledWith('docker')
   })
 
-  it('an empty star favorites the app', () => {
-    const { onFavorite } = setup()
-    const star = screen.getByLabelText('Add To Do to favorites')
-    expect(star.getAttribute('aria-pressed')).toBe('false')
-    fireEvent.click(star)
-    expect(onFavorite).toHaveBeenCalledWith('todos')
+  it('has no star buttons', () => {
+    setup()
+    expect(screen.queryByLabelText(/favorites/)).toBeNull()
+  })
+
+  it('switches to icon mode and remembers it', () => {
+    localStorage.removeItem(ALL_APPS_VIEW_KEY)
+    const { unmount } = setup()
+    const icons = screen.getByRole('button', { name: 'Icons' })
+    expect(icons.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(icons)
+    expect(icons.getAttribute('aria-pressed')).toBe('true')
+    expect(localStorage.getItem(ALL_APPS_VIEW_KEY)).toBe('"icons"')
+    unmount()
+
+    setup()
+    expect(screen.getByRole('button', { name: 'Icons' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByText('To Do').closest('button')!.textContent).toContain('2')
+    fireEvent.click(screen.getByRole('button', { name: 'List' }))
+    expect(localStorage.getItem(ALL_APPS_VIEW_KEY)).toBe('"list"')
   })
 })
