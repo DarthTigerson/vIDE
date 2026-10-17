@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useClaudeStore } from '@/stores/claudeStore'
 import { ClaudeIcon } from './ActivityBar'
 import { pickClaudeGif } from '@/assets/claudeGifs'
@@ -13,8 +13,14 @@ const CYCLE_INTERVAL_MS = 60_000
 // just freeze on one animation. The gif pool has no color variety of its
 // own — every gif's mascot body is the same brand orange — so it's tinted
 // toward this instance's own color via a CSS hue-rotate filter rather than
-// picked from a set of pre-colored variants.
-export function ClaudeStatusIcon({ instanceId, color }: { instanceId: string; color: string }) {
+// picked from a set of pre-colored variants. Rocky Code passes its own gif
+// picker and idle icon; its art shares the same orange-brown base hue.
+export function ClaudeStatusIcon({ instanceId, color, pickGif = pickClaudeGif, idleIcon }: {
+  instanceId: string
+  color: string
+  pickGif?: () => string
+  idleIcon?: ReactNode
+}) {
   const busy = useClaudeStore((s) => s.busyByInstance[instanceId] ?? false)
   const [gif, setGif] = useState<string | null>(null)
 
@@ -23,10 +29,10 @@ export function ClaudeStatusIcon({ instanceId, color }: { instanceId: string; co
       setGif(null)
       return
     }
-    setGif(pickClaudeGif())
-    const interval = setInterval(() => setGif(pickClaudeGif()), CYCLE_INTERVAL_MS)
+    setGif(pickGif())
+    const interval = setInterval(() => setGif(pickGif()), CYCLE_INTERVAL_MS)
     return () => clearInterval(interval)
-  }, [busy])
+  }, [busy, pickGif])
 
   if (busy && gif) {
     return (
@@ -38,5 +44,5 @@ export function ClaudeStatusIcon({ instanceId, color }: { instanceId: string; co
       />
     )
   }
-  return <ClaudeIcon color={color} />
+  return idleIcon ?? <ClaudeIcon color={color} />
 }
