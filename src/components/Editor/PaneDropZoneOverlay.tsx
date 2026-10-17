@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { collectPaneIds, useEditorStore, type EditorSplitDirection, type SplitPlacement } from '@/stores/editorStore'
 import { useTabDragStore } from '@/stores/tabDragStore'
 import { computeDropZone, type DropZone } from './dropZone'
+import { useCoverNativeViews } from '@/lib/nativeViewCover'
 import { buildImagePreviewPath, buildMarkdownPreviewPath } from '@/components/Viewer/paths'
 import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
 import { isImageFile, isMarkdownFile } from '@/lib/fileKinds'
@@ -19,6 +20,14 @@ const HIGHLIGHT_CLASS_FOR_ZONE: Record<DropZone, string> = {
   right: 'inset-y-0 right-0 w-1/2',
   up: 'inset-x-0 top-0 h-1/2',
   down: 'inset-x-0 bottom-0 h-1/2',
+}
+
+// Browser pages are native views drawn above every overlay, so a drag over
+// one would go to the page instead of the drop zones. While a tab or file is
+// being dragged, cover them (they show a snapshot) like any open popup.
+// Called once, by Editor, rather than per pane.
+export function useCoverNativeViewsWhileDragging(): void {
+  useCoverNativeViews(useTabDragStore((s) => s.dragging !== null || s.draggingFile !== null))
 }
 
 // The tab path a file-tree click would open for this file (image and

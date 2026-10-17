@@ -38,7 +38,7 @@ import { useFooterBlameStore } from '@/stores/footerBlameStore'
 import { TabBar } from './TabBar'
 import { EditorBreadcrumb } from './EditorBreadcrumb'
 import { EditorContextMenu } from './EditorContextMenu'
-import { PaneDropZoneOverlay } from './PaneDropZoneOverlay'
+import { PaneDropZoneOverlay, useCoverNativeViewsWhileDragging } from './PaneDropZoneOverlay'
 import { EmptyEditorBackground } from './EmptyEditorBackground'
 import { detectLang } from './utils'
 import { breadcrumbPathForTab, diffFilePathForTab } from './breadcrumbPath'
@@ -195,6 +195,7 @@ export function Editor() {
   const activeCustomId = useCustomThemeStore((s) => s.activeId)
   const customThemes = useCustomThemeStore((s) => s.themes)
   const editorBackground = useEditorBackground()
+  useCoverNativeViewsWhileDragging()
 
   // Keeps CUSTOM_DEFAULT_THEME_ID/CUSTOM_HIGH_CONTRAST_THEME_ID's definitions
   // in sync with the active custom theme's own colours (background for

@@ -1,7 +1,8 @@
 /// <reference types="@testing-library/jest-dom" />
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, cleanup, fireEvent } from '@testing-library/react'
-import { PaneDropZoneOverlay } from '../PaneDropZoneOverlay'
+import { render, cleanup, fireEvent, renderHook, act } from '@testing-library/react'
+import { PaneDropZoneOverlay, useCoverNativeViewsWhileDragging } from '../PaneDropZoneOverlay'
+import { useNativeViewCoverStore } from '@/lib/nativeViewCover'
 import { useEditorStore } from '@/stores/editorStore'
 import { useTabDragStore } from '@/stores/tabDragStore'
 
@@ -198,5 +199,17 @@ describe('PaneDropZoneOverlay', () => {
     const state = useEditorStore.getState()
     expect(state.layout).toEqual({ type: 'pane', id: 'pane-root' })
     expect(state.paneTabLists['pane-root']).toEqual(['/new.ts'])
+  })
+
+  it('hides browser pages (native views) while a tab or file drag is in progress, so the drop zones get the drag', () => {
+    renderHook(() => useCoverNativeViewsWhileDragging())
+    expect(useNativeViewCoverStore.getState().count).toBe(0)
+    act(() => useTabDragStore.getState().startFileDrag('/a.ts'))
+    expect(useNativeViewCoverStore.getState().count).toBe(1)
+    act(() => useTabDragStore.getState().endDrag())
+    expect(useNativeViewCoverStore.getState().count).toBe(0)
+    act(() => useTabDragStore.getState().startDrag('/a.ts', 'pane-left'))
+    expect(useNativeViewCoverStore.getState().count).toBe(1)
+    act(() => useTabDragStore.getState().endDrag())
   })
 })
