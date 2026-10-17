@@ -206,3 +206,21 @@ describe('TabContextMenu — diff tabs', () => {
     expect(screen.queryByRole('button', { name: 'Copy File Path' })).not.toBeInTheDocument()
   })
 })
+
+describe('TabContextMenu — terminal tab scripts', () => {
+  it('offers Scripts ▸ on a terminal tab and types the picked script into that terminal', async () => {
+    resetStores()
+    const termWrite = vi.fn()
+    ;(global as any).window.api = { pathExists: vi.fn().mockResolvedValue(true), termWrite, scriptsTagAdd: vi.fn(async () => ({})) }
+    const { useScriptsStore } = await import('@/stores/scriptsStore')
+    const { useScriptsSettingsStore } = await import('@/stores/scriptsSettingsStore')
+    useScriptsSettingsStore.setState({ enabled: true })
+    useScriptsStore.setState({ scripts: [{ id: 's1', title: 'Lint', description: '', body: 'npm run lint', shareOutput: true, createdAt: 1, updatedAt: 1 }], tags: {} })
+    const onClose = vi.fn()
+    render(<TabContextMenu x={0} y={0} paneId="pane-1" path={buildTerminalPath('t1')} onClose={onClose} onRequestClose={() => {}} />)
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Scripts' }).parentElement!)
+    fireEvent.click(screen.getByRole('button', { name: 'Lint' }))
+    expect(termWrite).toHaveBeenCalledWith('t1', 'npm run lint\n')
+    expect(onClose).toHaveBeenCalled()
+  })
+})

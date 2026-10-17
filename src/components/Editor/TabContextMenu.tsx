@@ -184,13 +184,6 @@ export function TabContextMenu({ x, y, paneId, path, onClose, onRequestClose }: 
         </>
       )}
 
-      {isTerminalTab(path) && (
-        <>
-          <ScriptsSubmenu onPick={(script) => withClose(() => runScriptInTerminal(script, getTerminalId(path)))()} />
-          <MenuDivider />
-        </>
-      )}
-
       {diffFilePath && diffFileExists && (
         <>
           <MenuButton
@@ -263,6 +256,13 @@ export function TabContextMenu({ x, y, paneId, path, onClose, onRequestClose }: 
               )}
             </>
           )}
+        </>
+      )}
+
+      {isTerminalTab(path) && (
+        <>
+          <MenuDivider />
+          <ScriptsSubmenu onPick={(script) => withClose(() => runScriptInTerminal(script, getTerminalId(path)))()} />
         </>
       )}
     </div>,
