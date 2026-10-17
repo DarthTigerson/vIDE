@@ -9,6 +9,7 @@ vi.mock('@/lib/nativeViewCover', () => ({ useCoverNativeViews: () => {} }))
 const anchor = { left: 900, right: 948, top: 40, bottom: 88, width: 48, height: 48, x: 900, y: 40, toJSON: () => ({}) } as DOMRect
 const options = [
   { kind: 'claude', label: 'Claude Code' },
+  { kind: 'rocky', label: 'Rocky Code' },
   { kind: 'llama:q1', label: 'Qwen 32B', running: true },
   { kind: 'llama:g1', label: 'Gemma', running: false },
 ]
@@ -17,6 +18,7 @@ describe('NewSessionMenu', () => {
   it('lists every option and marks running llama servers', () => {
     render(<NewSessionMenu anchor={anchor} side="right" options={options} onPick={() => {}} onClose={() => {}} />)
     expect(screen.getByRole('menuitem', { name: /Claude Code/ })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /Rocky Code/ })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /Qwen 32B/ }).querySelector('[data-running]')).not.toBeNull()
     expect(screen.getByRole('menuitem', { name: /Gemma/ }).querySelector('[data-running]')).toBeNull()
   })

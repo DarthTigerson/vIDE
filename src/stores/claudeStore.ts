@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { AssistantKind } from '@/types/api'
 import { hueForInstanceIndex, nextHueForInstances } from '@/lib/claudeInstanceHues'
 import { cleanSessionTitle } from '@/lib/claudeSessionName'
-import { agentModeOnLaunchFor, isBridgeLike, isTerminalKind } from '@/lib/agentKinds'
+import { agentModeOnLaunchFor, isBridgeLike, isClaudeLike, isTerminalKind } from '@/lib/agentKinds'
 import { clearLiveTerminal } from '@/lib/liveTerminals'
 import { useBridgeStore } from './bridgeStore'
 
@@ -118,7 +118,7 @@ export function selectActiveSession(s: Pick<ClaudeState, 'instances' | 'activeIn
 // close whenever the session that ends up active isn't Claude (or there is
 // none). Shared by setActiveInstance and closeInstance.
 function usagePanelsFor(next: AgentSession | undefined): Partial<Pick<ClaudeState, 'usageOpen' | 'costOpen'>> {
-  return next?.kind === 'claude' ? {} : { usageOpen: false, costOpen: false }
+  return isClaudeLike(next?.kind) ? {} : { usageOpen: false, costOpen: false }
 }
 
 // Tears down one session's backing process/conversation: Claude and terminal
@@ -202,7 +202,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
     const instance = createInstance(kind, nextHueForInstances(instances))
     openIfBridgeLike(instance)
     const nextInstances = [...instances, instance]
-    set({ instances: nextInstances, activeInstanceId: instance.id, ...(kind === 'claude' ? {} : { usageOpen: false, costOpen: false }) })
+    set({ instances: nextInstances, activeInstanceId: instance.id, ...(isClaudeLike(kind) ? {} : { usageOpen: false, costOpen: false }) })
     persist(cwd, nextInstances)
     return instance.id
   },
@@ -220,15 +220,15 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
   },
 
   previousSession: (cwd) => {
-    if (selectActiveSession(get())?.kind !== 'claude') return
+    if (!isClaudeLike(selectActiveSession(get())?.kind)) return
     set((s) => ({ restartToken: s.restartToken + 1 }))
-    window.api.claudeSpawn(cwd, get().activeInstanceId, 'continue')
+    window.api.claudeSpawn(cwd, get().activeInstanceId, 'continue', selectActiveSession(get())?.kind)
   },
 
   resumeSession: (cwd) => {
-    if (selectActiveSession(get())?.kind !== 'claude') return
+    if (!isClaudeLike(selectActiveSession(get())?.kind)) return
     set((s) => ({ restartToken: s.restartToken + 1 }))
-    window.api.claudeSpawn(cwd, get().activeInstanceId, 'resume')
+    window.api.claudeSpawn(cwd, get().activeInstanceId, 'resume', selectActiveSession(get())?.kind)
   },
 
   setActiveInstance: (id) => {
@@ -279,17 +279,17 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
   },
 
   compact: () => {
-    if (selectActiveSession(get())?.kind === 'claude') window.api.claudeWrite(get().activeInstanceId, '/compact\r')
+    if (isClaudeLike(selectActiveSession(get())?.kind)) window.api.claudeWrite(get().activeInstanceId, '/compact\r')
   },
   clearContext: () => {
     const active = selectActiveSession(get())
     if (!active) return
-    if (active.kind === 'claude') window.api.claudeWrite(active.id, '/clear\r')
+    if (isClaudeLike(active.kind)) window.api.claudeWrite(active.id, '/clear\r')
     else if (isTerminalKind(active.kind)) clearLiveTerminal(active.id)
     else useBridgeStore.getState().clearConversation(active.id)
   },
   usage: () => {
-    if (selectActiveSession(get())?.kind !== 'claude') return
+    if (!isClaudeLike(selectActiveSession(get())?.kind)) return
     // Usage and Cost are mutually exclusive — opening one closes the other,
     // so at most one of these bottom panels is ever showing at a time.
     set((s) => {
@@ -298,7 +298,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
     })
   },
   cost: () => {
-    if (selectActiveSession(get())?.kind !== 'claude') return
+    if (!isClaudeLike(selectActiveSession(get())?.kind)) return
     set((s) => {
       const costOpen = !s.costOpen
       return { costOpen, usageOpen: costOpen ? false : s.usageOpen }

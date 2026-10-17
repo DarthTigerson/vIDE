@@ -254,7 +254,8 @@ declare global {
       onTermData: (cb: (id: string, data: string) => void) => () => void
       onTermExit: (cb: (id: string) => void) => () => void
 
-      claudeSpawn: (cwd: string, instanceId: string, mode?: 'new' | 'continue' | 'resume') => Promise<void>
+      // `kind` is the session's AssistantKind; 'rocky' launches Rocky Code.
+      claudeSpawn: (cwd: string, instanceId: string, mode?: 'new' | 'continue' | 'resume', kind?: AssistantKind) => Promise<void>
       claudeWrite: (instanceId: string, data: string) => void
       claudeResize: (instanceId: string, cols: number, rows: number) => void
       claudeKill: (instanceId: string) => void

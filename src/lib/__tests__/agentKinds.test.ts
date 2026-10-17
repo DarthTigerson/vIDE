@@ -9,7 +9,7 @@ vi.hoisted(() => {
   }
 })
 
-import { agentLabel, availableAgents, isBridgeLike, isLlamaKind, llamaModelId, agentModeOnLaunchFor } from '../agentKinds'
+import { agentLabel, availableAgents, isBridgeLike, isClaudeLike, isLlamaKind, llamaModelId, agentModeOnLaunchFor } from '../agentKinds'
 import { defaultLlamaModelConfig, useLlamaModelsStore } from '@/stores/llamaModelsStore'
 import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
 import { useBridgeSettingsStore } from '@/stores/bridgeSettingsStore'
@@ -27,10 +27,16 @@ describe('agentKinds', () => {
     expect(isBridgeLike('bridge')).toBe(true)
     expect(isBridgeLike('llama:q1')).toBe(true)
     expect(isBridgeLike('claude')).toBe(false)
+    expect(isBridgeLike('rocky')).toBe(false)
+    expect(isClaudeLike('claude')).toBe(true)
+    expect(isClaudeLike('rocky')).toBe(true)
+    expect(isClaudeLike('bridge')).toBe(false)
+    expect(isClaudeLike(undefined)).toBe(false)
   })
 
   it('labels kinds, falling back for unnamed or missing llama models', () => {
     expect(agentLabel('claude', [])).toBe('Claude Code')
+    expect(agentLabel('rocky', [])).toBe('Rocky Code')
     expect(agentLabel('bridge', [])).toBe('Bridge')
     expect(agentLabel('llama:q1', [qwen])).toBe('Qwen 32B')
     expect(agentLabel('llama:u1', [unnamed])).toBe('Llama Model')
@@ -40,6 +46,7 @@ describe('agentKinds', () => {
   it('lists enabled built-ins then enabled llama models', () => {
     expect(availableAgents({ claude: true, bridge: false }, [qwen, off])).toEqual([
       { kind: 'claude', label: 'Claude Code' },
+      { kind: 'rocky', label: 'Rocky Code' },
       { kind: 'llama:q1', label: 'Qwen 32B' },
     ])
     expect(availableAgents({ claude: false, bridge: true }, [])).toEqual([{ kind: 'bridge', label: 'Bridge' }])

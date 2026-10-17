@@ -101,7 +101,7 @@ import { useNotesSettingsStore } from './stores/notesSettingsStore'
 import { useLlamaSettingsStore } from './stores/llamaSettingsStore'
 import { useLlamaModelsStore } from './stores/llamaModelsStore'
 import { useLlamaStore } from './stores/llamaStore'
-import { availableAgents, agentLabel, isLlamaKind, isTerminalKind, llamaModelId } from './lib/agentKinds'
+import { availableAgents, agentLabel, isClaudeLike, isLlamaKind, isTerminalKind, llamaModelId } from './lib/agentKinds'
 import { useRunningLlamaCount } from './hooks/useRunningLlamaCount'
 import { useLlamaAvailability } from './hooks/useLlamaAvailability'
 import { usePanelRequests } from './hooks/usePanelRequests'
@@ -179,8 +179,8 @@ export default function App() {
   const llamaModels = useLlamaModelsStore((s) => s.models)
   const llamaRuns = useLlamaStore((s) => s.runs)
   const activeSession = useClaudeStore(selectActiveSession)
-  const hasClaudeSession = instances.some((inst) => inst.kind === 'claude')
-  const activeIsClaude = activeSession?.kind === 'claude'
+  const hasClaudeSession = instances.some((inst) => isClaudeLike(inst.kind))
+  const activeIsClaude = isClaudeLike(activeSession?.kind)
   const [newSessionMenu, setNewSessionMenu] = useState<DOMRect | null>(null)
   // Stable identity: NewSessionMenu's window listeners depend on onClose, so an
   // inline arrow would tear down and re-add them on every App render.
