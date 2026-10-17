@@ -17,6 +17,9 @@ export interface TodoProject {
   // additive merge carries it to other machines instead of resurrecting a
   // hard-deleted project. Missing on data written before the Trash existed.
   trashedAt?: number | null
+  // Bumped by rename and Trash/restore, so vIDE Sync keeps the newer copy.
+  // Missing on data written before it existed.
+  updatedAt?: number
 }
 
 export interface TodoComment {
@@ -143,6 +146,7 @@ export async function createProject(dataDir: string, name: string, key: string):
     key: trimmedKey,
     nextNumber: 1,
     createdAt: Date.now(),
+    updatedAt: Date.now(),
   }
   data.projects.push(project)
   await writeTodosData(dataDir, data)
@@ -171,6 +175,7 @@ export async function renameProject(
 
   project.name = name
   project.key = trimmedKey
+  project.updatedAt = Date.now()
   await writeTodosData(dataDir, data)
   return project
 }
@@ -180,6 +185,7 @@ async function setProjectTrashedAt(dataDir: string, id: string, trashedAt: numbe
   const project = data.projects.find((p) => p.id === id)
   if (!project) throw new Error(`No such project: ${id}`)
   project.trashedAt = trashedAt
+  project.updatedAt = Date.now()
   await writeTodosData(dataDir, data)
   return project
 }
