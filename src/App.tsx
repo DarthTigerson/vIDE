@@ -918,7 +918,7 @@ export default function App() {
             {
               id: 'files',
               icon: <FilesIcon />,
-              title: 'File Tree',
+              title: 'Site Tree',
               active: leftPanel === 'files',
               onClick: togglePanel('files'),
             },

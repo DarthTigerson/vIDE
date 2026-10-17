@@ -394,7 +394,7 @@ export function Sidebar() {
         <>
           <div className="h-9 px-3 flex items-center justify-between border-b border-border shrink-0">
             <span className="text-xs font-semibold text-fg-muted uppercase tracking-wider truncate">
-              {projectRoot.split('/').pop()}
+              Site Tree
             </span>
           </div>
 
