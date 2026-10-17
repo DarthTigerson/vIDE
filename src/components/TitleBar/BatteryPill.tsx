@@ -81,20 +81,20 @@ export function BatteryPill({ withDivider = false }: { withDivider?: boolean }) 
 function BatteryIcon({ percent, charging, low }: { percent: number; charging: boolean; low: boolean }) {
   const fillWidth = Math.max(1, (14 * Math.min(100, Math.max(0, percent))) / 100)
   return (
-    <svg className="shrink-0" width="22" height="14" viewBox="0 0 22 14" fill="none" aria-hidden="true">
-      <rect x="0.75" y="1.75" width="17.5" height="10.5" rx="2.5" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="19.2" y="5" width="1.8" height="4" rx="0.9" fill="currentColor" />
+    <svg className="shrink-0" width="22" height="12" viewBox="0 0 22 12" fill="none" aria-hidden="true">
+      <rect x="0.75" y="1.75" width="17.5" height="8.5" rx="2.25" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="19.2" y="4.25" width="1.8" height="3.5" rx="0.9" fill="currentColor" />
       <rect
         x="2.5"
         y="3.5"
         width={fillWidth}
-        height="7"
-        rx="1.2"
+        height="5"
+        rx="1"
         className={charging ? 'fill-accent' : low ? 'fill-red-400' : 'fill-current'}
       />
       {charging && (
         <path
-          d="M10.5 2.5L6.8 7.6H9.4L8.3 11.5L12.2 6.3H9.6L10.5 2.5Z"
+          d="M10.3 2.3L7 6.6H9.3L8.4 9.7L11.7 5.4H9.4L10.3 2.3Z"
           className="fill-fg stroke-tab-bar"
           strokeWidth="0.8"
           strokeLinejoin="round"
