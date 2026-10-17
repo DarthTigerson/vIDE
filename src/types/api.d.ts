@@ -379,6 +379,8 @@ declare global {
       notesCreateFolder: (dirPath: string, name: string) => Promise<NotesEntryResult>
       notesRenameEntry: (oldPath: string, newName: string, isNote: boolean) => Promise<NotesEntryResult>
       notesSearch: (query: string) => Promise<NotesSearchResult[]>
+      // readDir plus each entry's createdMs/updatedMs, for the Notes sorts.
+      notesReadDir: (dirPath: string) => Promise<FileNode[]>
       notesMcpEnable: () => Promise<void>
       notesMcpDisable: () => Promise<void>
       browserMcpEnable: () => Promise<void>

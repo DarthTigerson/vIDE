@@ -18,7 +18,7 @@ beforeEach(() => {
   notesSearch = vi.fn().mockResolvedValue([])
   readFile = vi.fn().mockResolvedValue('note body')
   ;(global as any).window.api = {
-    readDir: vi.fn().mockResolvedValue(rootChildren),
+    notesReadDir: vi.fn().mockResolvedValue(rootChildren),
     notesGetRoot: vi.fn().mockResolvedValue(ROOT),
     notesSearch,
     readFile,

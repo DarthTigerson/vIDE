@@ -436,6 +436,7 @@ contextBridge.exposeInMainWorld('api', {
   notesRenameEntry: (oldPath: string, newName: string, isNote: boolean) =>
     ipcRenderer.invoke('notes:renameEntry', oldPath, newName, isNote),
   notesSearch: (query: string) => ipcRenderer.invoke('notes:search', query),
+  notesReadDir: (dirPath: string) => ipcRenderer.invoke('notes:readDir', dirPath),
   notesMcpEnable: () => ipcRenderer.invoke('notes:mcp:enable'),
   notesMcpDisable: () => ipcRenderer.invoke('notes:mcp:disable'),
   browserMcpEnable: () => ipcRenderer.invoke('browser:mcp:enable'),

@@ -287,6 +287,7 @@ export function createMobileApi(wsUrl: string) {
     notesCreateFolder: invoke('notes:createFolder'),
     notesRenameEntry: invoke('notes:renameEntry'),
     notesSearch: invoke('notes:search'),
+    notesReadDir: invoke('notes:readDir'),
 
     // autocomplete — mirrors electron/mobileRelay/channels/autocompleteChannels.ts
     autocompleteComplete: invoke('autocomplete:complete'),

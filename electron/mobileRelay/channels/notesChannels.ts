@@ -1,4 +1,5 @@
 import { registerChannel } from '../dispatch'
+import { buildTreeWithDates } from '../../fsOps'
 import { notesRoot, ensureNotesRoot, startNotesWatcher, createNote, createFolder, renameEntry, searchNotes } from '../../notes'
 
 // Notes channels, mirroring the ipcMain wiring in electron/notes.ts's
@@ -20,4 +21,5 @@ export function registerNotesRelayChannels(): void {
   registerChannel('notes:renameEntry', (oldPath: string, newName: string, isNote: boolean) =>
     renameEntry(oldPath, newName, isNote))
   registerChannel('notes:search', (query: string) => searchNotes(notesRoot(), query))
+  registerChannel('notes:readDir', (dirPath: string) => buildTreeWithDates(dirPath))
 }

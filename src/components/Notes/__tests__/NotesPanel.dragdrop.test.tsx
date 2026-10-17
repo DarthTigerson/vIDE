@@ -42,7 +42,7 @@ beforeEach(() => {
     return Promise.resolve([])
   })
   ;(global as any).window.api = {
-    readDir,
+    notesReadDir: readDir,
     renamePath,
     pathExists,
     notesGetRoot: vi.fn().mockResolvedValue(ROOT),
