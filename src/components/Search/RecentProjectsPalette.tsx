@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { useFileStore } from '@/stores/fileStore'
-import { isMac } from '@/lib/platform'
 import type { RecentProject } from '@/types/api'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
 
@@ -37,6 +36,7 @@ export function RecentProjectsPalette({ onClose }: Props) {
   const listRef = useRef<HTMLUListElement>(null)
 
   const filtered = filterRecents(recents, query)
+  const hasProject = useFileStore((s) => s.projectRoot !== null)
 
   useEffect(() => {
     window.api.recentProjectsList().then(setRecents)
@@ -60,12 +60,15 @@ export function RecentProjectsPalette({ onClose }: Props) {
     onClose()
   }
 
-  async function open(path: string, newWindow: boolean) {
+  // Never replaces the project open in this window: an already-open project
+  // gets its window focused, anything else opens in a new window. Only a
+  // window with no project yet loads it in place (no empty window left over).
+  async function open(path: string) {
     if (await window.api.focusProjectIfOpen(path)) {
       onClose()
       return
     }
-    if (newWindow) openInNewWindow(path)
+    if (useFileStore.getState().projectRoot) openInNewWindow(path)
     else openInCurrentWindow(path)
   }
 
@@ -79,7 +82,7 @@ export function RecentProjectsPalette({ onClose }: Props) {
     } else if (e.key === 'Enter') {
       e.preventDefault()
       const selected = filtered[activeIndex]
-      if (selected) open(selected.path, isMac ? e.metaKey : e.ctrlKey)
+      if (selected) open(selected.path)
     } else if (e.key === 'Escape') {
       onClose()
     }
@@ -111,7 +114,7 @@ export function RecentProjectsPalette({ onClose }: Props) {
                 <li key={recent.path}>
                   <button
                     type="button"
-                    onMouseDown={(e) => open(recent.path, isMac ? e.metaKey : e.ctrlKey)}
+                    onMouseDown={() => open(recent.path)}
                     onMouseEnter={() => setActiveIndex(i)}
                     className={[
                       'w-full flex flex-col px-4 py-2 text-left transition-colors',
@@ -139,8 +142,7 @@ export function RecentProjectsPalette({ onClose }: Props) {
 
         {filtered.length > 0 && (
           <div className="flex items-center gap-4 px-4 py-2 border-t border-border shrink-0 text-xs text-fg-subtle">
-            <span>↵ open here</span>
-            <span>{isMac ? '⌘' : 'Ctrl'}↵ open in new window</span>
+            <span>↵ {hasProject ? 'open in new window' : 'open'}</span>
           </div>
         )}
       </div>
