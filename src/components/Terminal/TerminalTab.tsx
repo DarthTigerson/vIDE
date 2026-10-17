@@ -12,19 +12,20 @@ import { useEditorStore } from '@/stores/editorStore'
 import { buildTerminalPath } from '@/components/Settings/paths'
 import { createTerminalKeyHandler } from './terminalKeys'
 import { TerminalContextMenu } from './TerminalContextMenu'
+import { liveTerminals, type LiveTerminal as TerminalInstance } from '@/lib/liveTerminals'
 
 interface Props {
   terminalId: string
+  // Whether the terminal's owner still exists when this unmounts; if not,
+  // the xterm and its PTY are torn down. Defaults to "its editor tab is
+  // still open" — agent-bar terminal sessions pass their own check.
+  isStillOpen?: () => boolean
 }
 
-interface TerminalInstance {
-  xterm: XTerm
-  fit: FitAddon
+function editorTabStillOpen(terminalId: string): boolean {
+  const tabPath = buildTerminalPath(terminalId)
+  return useEditorStore.getState().tabs.some((t) => t.path === tabPath)
 }
-
-// Module-level map keeps XTerm instances alive across React remounts
-// (split pane reflows, StrictMode double-invoke, tab switching)
-const liveTerminals = new Map<string, TerminalInstance>()
 
 // A command queued to run as soon as a fresh terminal with this id finishes
 // spawning — e.g. the file tree's "Run" action on a .sh file, which opens a
@@ -37,7 +38,7 @@ function hasValidSize(cols: number, rows: number): boolean {
   return cols > 0 && rows > 0
 }
 
-export function TerminalTab({ terminalId }: Props) {
+export function TerminalTab({ terminalId, isStillOpen }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const instanceRef = useRef<TerminalInstance | null>(null)
   const theme = useThemeStore((s) => s.theme)
@@ -126,8 +127,7 @@ export function TerminalTab({ terminalId }: Props) {
       cleanupExit()
       observer.disconnect()
 
-      const tabPath = buildTerminalPath(terminalId)
-      const stillOpen = useEditorStore.getState().tabs.some((t) => t.path === tabPath)
+      const stillOpen = isStillOpen ? isStillOpen() : editorTabStillOpen(terminalId)
       if (!stillOpen) {
         // Tab was closed — clean up everything
         xterm.dispose()

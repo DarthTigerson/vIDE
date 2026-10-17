@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, cleanup, waitFor, act } from '@testing-library/react'
+import { render, cleanup, waitFor, act, screen } from '@testing-library/react'
 import { Chat } from '../Chat'
 import { useFileStore } from '@/stores/fileStore'
 import { useClaudeStore } from '@/stores/claudeStore'
@@ -7,6 +7,8 @@ import { SHIFT_ENTER_SEQUENCE } from '../shiftEnterSequence'
 import { BRACKETED_PASTE_START, BRACKETED_PASTE_END } from '@/lib/sendSelectionToAssistant'
 import { useInstanceFontSizeStore } from '@/stores/instanceFontSizeStore'
 import { useFontSizeStore } from '@/stores/fontSizeStore'
+import { useBridgeStore } from '@/stores/bridgeStore'
+import { useLlamaModelsStore, defaultLlamaModelConfig } from '@/stores/llamaModelsStore'
 
 const TEST_INSTANCE_ID = 'test-instance-1'
 
@@ -18,17 +20,22 @@ beforeEach(() => {
     claudeResize: vi.fn(),
     claudeKill: vi.fn(),
     onClaudeData: vi.fn(() => () => {}),
+    bridgeSend: vi.fn(),
+    bridgeCancel: vi.fn(),
+    onBridgeEvent: vi.fn(() => () => {}),
   }
   useFileStore.setState({ projectRoot: '/project' })
   useClaudeStore.setState({
-    assistant: 'claude',
-    instances: [{ id: TEST_INSTANCE_ID, hue: '#D97757' }],
+    instances: [{ id: TEST_INSTANCE_ID, kind: 'claude', hue: '#D97757' }],
     activeInstanceId: TEST_INSTANCE_ID,
     restartToken: 0,
     pendingInjection: null,
     focusToken: 0,
+    usageOpen: false,
+    costOpen: false,
   })
   useInstanceFontSizeStore.getState().resetAll()
+  useBridgeStore.setState({ conversations: {} })
 })
 
 afterEach(() => {
@@ -192,8 +199,8 @@ describe('Chat (claude terminal)', () => {
     const secondId = 'test-instance-2'
     useClaudeStore.setState({
       instances: [
-        { id: TEST_INSTANCE_ID, hue: '#D97757' },
-        { id: secondId, hue: '#5B9BD5' },
+        { id: TEST_INSTANCE_ID, kind: 'claude', hue: '#D97757' },
+        { id: secondId, kind: 'claude', hue: '#5B9BD5' },
       ],
       activeInstanceId: TEST_INSTANCE_ID,
     })
@@ -209,8 +216,8 @@ describe('Chat (claude terminal)', () => {
     const secondId = 'test-instance-2'
     useClaudeStore.setState({
       instances: [
-        { id: TEST_INSTANCE_ID, hue: '#D97757' },
-        { id: secondId, hue: '#5B9BD5' },
+        { id: TEST_INSTANCE_ID, kind: 'claude', hue: '#D97757' },
+        { id: secondId, kind: 'claude', hue: '#5B9BD5' },
       ],
       activeInstanceId: secondId,
     })
@@ -232,8 +239,8 @@ describe('Chat (claude terminal)', () => {
     const secondId = 'test-instance-2'
     useClaudeStore.setState({
       instances: [
-        { id: TEST_INSTANCE_ID, hue: '#D97757' },
-        { id: secondId, hue: '#5B9BD5' },
+        { id: TEST_INSTANCE_ID, kind: 'claude', hue: '#D97757' },
+        { id: secondId, kind: 'claude', hue: '#5B9BD5' },
       ],
       activeInstanceId: TEST_INSTANCE_ID,
     })
@@ -248,7 +255,7 @@ describe('Chat (claude terminal)', () => {
     // claudeStore.closeInstance() does in one atomic update.
     act(() => {
       useClaudeStore.setState({
-        instances: [{ id: secondId, hue: '#5B9BD5' }],
+        instances: [{ id: secondId, kind: 'claude', hue: '#5B9BD5' }],
         activeInstanceId: secondId,
       })
     })
@@ -277,6 +284,42 @@ describe('Chat (claude terminal)', () => {
     const killMock = (window.api as any).claudeKill as ReturnType<typeof vi.fn>
     expect(killMock).toHaveBeenCalledWith(TEST_INSTANCE_ID)
   })
+
+  it('renders BridgeChat for an active Bridge session and keeps Claude terminals hidden', () => {
+    useBridgeStore.getState().openConversation('b1', false)
+    useClaudeStore.setState({
+      instances: [{ id: TEST_INSTANCE_ID, kind: 'claude', hue: '#D97757' }, { id: 'b1', kind: 'bridge', hue: '#5B9BD5' }],
+      activeInstanceId: 'b1',
+    })
+    render(<Chat />)
+    expect(screen.getByPlaceholderText('Message Bridge…')).toBeInTheDocument()
+  })
+
+  it('shows model-unavailable for a missing llama model', () => {
+    useLlamaModelsStore.setState({ models: [] })
+    useBridgeStore.getState().openConversation('l1', false)
+    useClaudeStore.setState({ instances: [{ id: 'l1', kind: 'llama:gone', hue: '#5B9BD5' }], activeInstanceId: 'l1' })
+    render(<Chat />)
+    expect(screen.getByText(/Model not available/)).toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).toBeNull()
+  })
+
+  it('shows model-unavailable (input disabled) for a saved llama session whose model was disabled', () => {
+    useLlamaModelsStore.setState({ models: [{ ...defaultLlamaModelConfig(), id: 'off', displayName: 'Off model', enabled: false }] })
+    useBridgeStore.getState().openConversation('l2', false)
+    useClaudeStore.setState({ instances: [{ id: 'l2', kind: 'llama:off', hue: '#5B9BD5' }], activeInstanceId: 'l2' })
+    render(<Chat />)
+    expect(screen.getByText(/Model not available/)).toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).toBeNull()
+  })
+
+  it('hides Usage for a non-Claude active session even if usageOpen is set', () => {
+    useBridgeStore.getState().openConversation('b1', false)
+    useClaudeStore.setState({ instances: [{ id: 'b1', kind: 'bridge', hue: '#5B9BD5' }], activeInstanceId: 'b1', usageOpen: true })
+    render(<Chat />)
+    // UsagePanel is not mocked here; its empty state is the marker.
+    expect(screen.queryByText('No usage data yet')).toBeNull()
+  })
 })
 
 describe('Chat session title capture', () => {
@@ -292,5 +335,46 @@ describe('Chat session title capture', () => {
     await waitFor(() =>
       expect(useClaudeStore.getState().titleByInstance[TEST_INSTANCE_ID]).toBe('Fix redis cache key'),
     )
+  })
+})
+
+describe('Chat terminal sessions', () => {
+  beforeEach(() => {
+    ;(global as any).window.api = {
+      ...(global as any).window.api,
+      termSpawn: vi.fn(() => Promise.resolve()),
+      termWrite: vi.fn(),
+      termResize: vi.fn(),
+      termKill: vi.fn(),
+      onTermData: vi.fn(() => () => {}),
+      onTermExit: vi.fn(() => () => {}),
+    }
+    useClaudeStore.setState({ instances: [{ id: 't1', kind: 'terminal', hue: '#5B9BD5' }], activeInstanceId: 't1' })
+  })
+
+  it('spawns a plain shell in the project folder and no Claude CLI', async () => {
+    render(<Chat />)
+    await waitFor(() => expect((window.api as any).termSpawn).toHaveBeenCalledWith('t1', '/project'))
+    expect(window.api.claudeSpawn).not.toHaveBeenCalled()
+  })
+
+  it('pastes a sent selection at the prompt without running it', async () => {
+    render(<Chat />)
+    act(() => useClaudeStore.getState().sendSelection('ls -la'))
+    await waitFor(() =>
+      expect((window.api as any).termWrite).toHaveBeenCalledWith('t1', `${BRACKETED_PASTE_START}ls -la${BRACKETED_PASTE_END}`),
+    )
+    expect(useClaudeStore.getState().pendingInjection).toBeNull()
+  })
+
+  it('kills the shell once the session is closed', async () => {
+    // A fresh id: TerminalTab keeps live xterms in a module-level map, so 't1'
+    // would just be reattached from the tests above.
+    useClaudeStore.setState({ instances: [{ id: 't-close', kind: 'terminal', hue: '#5B9BD5' }], activeInstanceId: 't-close' })
+    const { unmount } = render(<Chat />)
+    await waitFor(() => expect((window.api as any).termSpawn).toHaveBeenCalledWith('t-close', '/project'))
+    useClaudeStore.setState({ instances: [] })
+    unmount()
+    expect((window.api as any).termKill).toHaveBeenCalledWith('t-close')
   })
 })

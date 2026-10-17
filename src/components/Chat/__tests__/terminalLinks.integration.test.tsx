@@ -33,8 +33,7 @@ describe('Chat terminal link provider (integration)', () => {
     }
     useFileStore.setState({ projectRoot: '/project' })
     useClaudeStore.setState({
-      assistant: 'claude',
-      instances: [{ id: TEST_INSTANCE_ID, hue: '#D97757' }],
+      instances: [{ id: TEST_INSTANCE_ID, kind: 'claude', hue: '#D97757' }],
       activeInstanceId: TEST_INSTANCE_ID,
       restartToken: 0,
       pendingInjection: null,

@@ -23,8 +23,6 @@ const ORIGINAL_IDS = [
   'settings-display',
   'settings-editor',
   'settings-git',
-  'switch-to-claude',
-  'switch-to-bridge',
 ]
 
 describe('commandRegistry', () => {

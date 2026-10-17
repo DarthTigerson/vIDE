@@ -2,18 +2,9 @@ import { create } from 'zustand'
 import type { AssistantKind } from '@/types/api'
 import { hueForInstanceIndex, nextHueForInstances } from '@/lib/claudeInstanceHues'
 import { cleanSessionTitle } from '@/lib/claudeSessionName'
-
-const ASSISTANT_KEY = 'vide-last-assistant'
-function readStoredAssistant(): AssistantKind {
-  try {
-    const v = localStorage.getItem(ASSISTANT_KEY)
-    if (!v) return 'claude'
-    if (v === 'claude' || v === 'bridge' || v.startsWith('llama:')) return v
-    return 'claude'
-  } catch {
-    return 'claude'
-  }
-}
+import { agentModeOnLaunchFor, isBridgeLike, isTerminalKind } from '@/lib/agentKinds'
+import { clearLiveTerminal } from '@/lib/liveTerminals'
+import { useBridgeStore } from './bridgeStore'
 
 const AGENT_BAR_COLLAPSED_KEY = 'vide-agent-bar-collapsed'
 function readStoredAgentBarCollapsed(): boolean {
@@ -24,24 +15,56 @@ function readStoredAgentBarCollapsed(): boolean {
   }
 }
 
-export interface ClaudeInstance {
+// One activity-bar session. Every kind (Claude, Bridge, llama:<id>) lives in
+// the same ordered list — there is no global "assistant mode" any more.
+export interface AgentSession {
   id: string
+  kind: AssistantKind
   hue: string
   // User-chosen label (right-click → Rename…). Persisted; overrides the
   // live terminal title in titleByInstance.
   name?: string
 }
 
-function createInstance(hue: string): ClaudeInstance {
-  return { id: crypto.randomUUID(), hue }
+// Older name, kept so existing imports keep compiling.
+export type ClaudeInstance = AgentSession
+
+function createInstance(kind: AssistantKind, hue: string): AgentSession {
+  return { id: crypto.randomUUID(), kind, hue }
+}
+
+function parseSaved(raw: unknown, defaultKind?: AssistantKind): AgentSession[] {
+  if (!Array.isArray(raw)) return []
+  return raw.flatMap((inst) => {
+    if (typeof inst?.id !== 'string' || typeof inst?.hue !== 'string') return []
+    const kind = typeof inst.kind === 'string' ? inst.kind : defaultKind
+    if (!kind) return []
+    const session: AgentSession = { id: inst.id, kind, hue: inst.hue }
+    if (typeof inst.name === 'string' && inst.name) session.name = inst.name
+    return [session]
+  })
+}
+
+// Whole-file overwrite — fine today since agentSessions is the only field
+// anything writes to session data, but a future feature that starts
+// persisting layout/tabs here would need a read-merge-write instead, or its
+// data will be silently erased on every "+"/close/reorder.
+// Terminal sessions are left out: a shell can't be resumed, so they don't
+// come back after a relaunch.
+function persist(cwd: string, instances: AgentSession[]) {
+  const agentSessions = instances.filter((inst) => !isTerminalKind(inst.kind))
+  window.api.sessionSave(cwd, { agentSessions } as any)
+}
+
+function openIfBridgeLike(inst: AgentSession) {
+  if (isBridgeLike(inst.kind)) useBridgeStore.getState().openConversation(inst.id, agentModeOnLaunchFor(inst.kind))
 }
 
 interface ClaudeState {
-  assistant: AssistantKind
   // The stacked Claude sessions. Starts empty — App.tsx populates it via
   // loadInstancesFromSession() once sessionLoad() resolves for the current
   // project, so no throwaway instance is ever created and then discarded.
-  instances: ClaudeInstance[]
+  instances: AgentSession[]
   activeInstanceId: string
   restartToken: number
   usageOpen: boolean
@@ -52,8 +75,8 @@ interface ClaudeState {
   // Whether that instance's CLI is actively generating (electron/claude.ts
   // infers this from PTY output timing, filtering out echoes of the user's
   // own keystrokes — see the ECHO_WINDOW_MS comment there). Keyed by
-  // instance id — Bridge never appears here, it never went through the
-  // busy-tracking IPC channel.
+  // instance id. Bridge/llama sessions never appear here — their busy state
+  // is `bridgeStore.conversations[id].streaming`.
   busyByInstance: Record<string, boolean>
   // Claude Code's live terminal title per instance (see cleanSessionTitle).
   // Not persisted — the CLI re-emits it once the session is active again.
@@ -63,13 +86,14 @@ interface ClaudeState {
   // produce a vIDE Sync commit.
   agentBarCollapsed: boolean
   toggleAgentBarCollapsed: () => void
-  setAssistant: (assistant: AssistantKind) => void
-  loadInstancesFromSession: (saved: ClaudeInstance[] | undefined) => void
-  newSession: (cwd: string) => void
+  loadInstancesFromSession: (data: { agentSessions?: unknown; claudeInstances?: unknown } | null | undefined) => void
+  newSession: (cwd: string, kind: AssistantKind) => void
+  moveInstance: (cwd: string, dragId: string, targetId: string, placement: 'before' | 'after') => void
   previousSession: (cwd: string) => void
   resumeSession: (cwd: string) => void
   closeInstance: (cwd: string, id: string) => void
   closeAllInstances: (cwd: string) => void
+  closeOtherInstances: (cwd: string, keepId: string) => void
   setActiveInstance: (id: string) => void
   compact: () => void
   clearContext: () => void
@@ -85,8 +109,27 @@ interface ClaudeState {
   renameInstance: (cwd: string, id: string, name: string) => void
 }
 
+export function selectActiveSession(s: Pick<ClaudeState, 'instances' | 'activeInstanceId'>): AgentSession | undefined {
+  return s.instances.find((inst) => inst.id === s.activeInstanceId)
+}
+
+// Usage/Cost render inside the chat panel against the Claude CLI, so they
+// close whenever the session that ends up active isn't Claude (or there is
+// none). Shared by setActiveInstance and closeInstance.
+function usagePanelsFor(next: AgentSession | undefined): Partial<Pick<ClaudeState, 'usageOpen' | 'costOpen'>> {
+  return next?.kind === 'claude' ? {} : { usageOpen: false, costOpen: false }
+}
+
+// Tears down one session's backing process/conversation: Claude and terminal
+// sessions own a PTY, Bridge/llama a conversation that gets cancelled and
+// archived to history.
+function endSession(inst: AgentSession) {
+  if (isBridgeLike(inst.kind)) useBridgeStore.getState().closeConversation(inst.id)
+  else if (isTerminalKind(inst.kind)) window.api.termKill(inst.id)
+  else window.api.claudeKill(inst.id)
+}
+
 export const useClaudeStore = create<ClaudeState>((set, get) => ({
-  assistant: readStoredAssistant(),
   instances: [],
   activeInstanceId: '',
   restartToken: 0,
@@ -128,20 +171,14 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
       return trimmed ? { ...rest, name: trimmed } : rest
     })
     set({ instances: nextInstances })
-    // Whole-file overwrite — see the comment in newSession() below.
-    window.api.sessionSave(cwd, { claudeInstances: nextInstances } as any)
+    persist(cwd, nextInstances)
   },
 
-  setAssistant: (assistant: AssistantKind) => {
-    try { localStorage.setItem(ASSISTANT_KEY, assistant) } catch {}
-    set({ assistant })
-  },
-
-  loadInstancesFromSession: (saved) => {
-    const validSaved = Array.isArray(saved)
-      ? saved.filter((inst): inst is ClaudeInstance => typeof inst?.id === 'string' && typeof inst?.hue === 'string')
-      : []
-    const instances = validSaved.length > 0 ? validSaved : [createInstance(hueForInstanceIndex(0))]
+  loadInstancesFromSession: (data) => {
+    const fromAgent = parseSaved(data?.agentSessions)
+    const saved = fromAgent.length > 0 ? fromAgent : parseSaved(data?.claudeInstances, 'claude')
+    const instances = saved.length > 0 ? saved : [createInstance('claude', hueForInstanceIndex(0))]
+    instances.forEach(openIfBridgeLike)
     set({ instances, activeInstanceId: instances[0].id })
   },
 
@@ -159,29 +196,43 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
 
   consumeInjection: () => set({ pendingInjection: null }),
 
-  newSession: (cwd: string) => {
+  newSession: (cwd, kind) => {
     const instances = get().instances
-    const instance = createInstance(nextHueForInstances(instances))
+    const instance = createInstance(kind, nextHueForInstances(instances))
+    openIfBridgeLike(instance)
     const nextInstances = [...instances, instance]
-    set({ instances: nextInstances, activeInstanceId: instance.id })
-    // Whole-file overwrite — fine today since claudeInstances is the only
-    // field anything writes to session data, but a future feature that
-    // starts persisting layout/tabs here would need a read-merge-write
-    // instead, or its data will be silently erased on every "+"/close.
-    window.api.sessionSave(cwd, { claudeInstances: nextInstances } as any)
+    set({ instances: nextInstances, activeInstanceId: instance.id, ...(kind === 'claude' ? {} : { usageOpen: false, costOpen: false }) })
+    persist(cwd, nextInstances)
   },
 
-  previousSession: (cwd: string) => {
+  moveInstance: (cwd, dragId, targetId, placement) => {
+    const instances = get().instances
+    const dragged = instances.find((inst) => inst.id === dragId)
+    if (!dragged || dragId === targetId || !instances.some((inst) => inst.id === targetId)) return
+    const without = instances.filter((inst) => inst.id !== dragId)
+    const targetIndex = without.findIndex((inst) => inst.id === targetId)
+    const insertAt = placement === 'before' ? targetIndex : targetIndex + 1
+    const nextInstances = [...without.slice(0, insertAt), dragged, ...without.slice(insertAt)]
+    set({ instances: nextInstances })
+    persist(cwd, nextInstances)
+  },
+
+  previousSession: (cwd) => {
+    if (selectActiveSession(get())?.kind !== 'claude') return
     set((s) => ({ restartToken: s.restartToken + 1 }))
     window.api.claudeSpawn(cwd, get().activeInstanceId, 'continue')
   },
 
-  resumeSession: (cwd: string) => {
+  resumeSession: (cwd) => {
+    if (selectActiveSession(get())?.kind !== 'claude') return
     set((s) => ({ restartToken: s.restartToken + 1 }))
     window.api.claudeSpawn(cwd, get().activeInstanceId, 'resume')
   },
 
-  setActiveInstance: (id) => set({ activeInstanceId: id }),
+  setActiveInstance: (id) => {
+    const next = get().instances.find((inst) => inst.id === id)
+    set({ activeInstanceId: id, ...usagePanelsFor(next) })
+  },
 
   // Closing the last remaining instance is allowed — there's nothing left
   // to switch to, so the "+" in the activity bar becomes the only way back
@@ -192,7 +243,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
     if (closedIndex === -1) return
 
     const nextInstances = instances.filter((inst) => inst.id !== id)
-    window.api.claudeKill(id)
+    endSession(instances[closedIndex])
 
     const nextActiveId =
       activeInstanceId !== id
@@ -202,30 +253,41 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
     set({
       instances: nextInstances,
       activeInstanceId: nextActiveId,
+      ...usagePanelsFor(nextInstances.find((inst) => inst.id === nextActiveId)),
       // Nothing left to show — collapse the chat panel instead of leaving
       // it open on an empty terminal. newSession()'s "+" click handler
       // already sets this back to true, so it reopens itself for free.
       ...(nextInstances.length === 0 ? { chatVisible: false } : {}),
     })
-    // Whole-file overwrite — see the comment in newSession() above.
-    window.api.sessionSave(cwd, { claudeInstances: nextInstances } as any)
+    persist(cwd, nextInstances)
   },
 
-  closeAllInstances: (cwd: string) => {
-    const { instances } = get()
-    for (const inst of instances) window.api.claudeKill(inst.id)
+  closeAllInstances: (cwd) => {
+    get().instances.forEach(endSession)
     set({ instances: [], activeInstanceId: '', chatVisible: false })
-    window.api.sessionSave(cwd, { claudeInstances: [] } as any)
+    persist(cwd, [])
+  },
+
+  closeOtherInstances: (cwd, keepId) => {
+    const kept = get().instances.find((inst) => inst.id === keepId)
+    if (!kept) return
+    get().instances.filter((inst) => inst.id !== keepId).forEach(endSession)
+    set({ instances: [kept], activeInstanceId: keepId, ...usagePanelsFor(kept) })
+    persist(cwd, [kept])
   },
 
   compact: () => {
-    if (get().assistant === 'claude') window.api.claudeWrite(get().activeInstanceId, '/compact\r')
+    if (selectActiveSession(get())?.kind === 'claude') window.api.claudeWrite(get().activeInstanceId, '/compact\r')
   },
   clearContext: () => {
-    if (get().assistant === 'claude') window.api.claudeWrite(get().activeInstanceId, '/clear\r')
+    const active = selectActiveSession(get())
+    if (!active) return
+    if (active.kind === 'claude') window.api.claudeWrite(active.id, '/clear\r')
+    else if (isTerminalKind(active.kind)) clearLiveTerminal(active.id)
+    else useBridgeStore.getState().clearConversation(active.id)
   },
   usage: () => {
-    if (get().assistant !== 'claude') return
+    if (selectActiveSession(get())?.kind !== 'claude') return
     // Usage and Cost are mutually exclusive — opening one closes the other,
     // so at most one of these bottom panels is ever showing at a time.
     set((s) => {
@@ -234,7 +296,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
     })
   },
   cost: () => {
-    if (get().assistant !== 'claude') return
+    if (selectActiveSession(get())?.kind !== 'claude') return
     set((s) => {
       const costOpen = !s.costOpen
       return { costOpen, usageOpen: costOpen ? false : s.usageOpen }

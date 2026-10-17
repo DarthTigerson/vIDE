@@ -1,48 +1,13 @@
 import { create } from 'zustand'
 import { useBridgeSettingsStore } from './bridgeSettingsStore'
-import type { BridgeEvent, BridgeMessage } from '@/types/api'
+import type { BridgeMessage, BridgeSessionEvent } from '@/types/api'
 
-const CURRENT_SESSION_KEY = 'vide:bridge:current'
-const SESSIONS_KEY = 'vide:bridge:sessions'
-
-function newSessionId(): string {
-  return `vide-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
-}
-
-export interface StoredSession {
-  id: string
-  messages: BridgeChatMessage[]
-  timestamp: number
-  title: string
-}
-
-function loadCurrentSession(): { id: string; messages: BridgeChatMessage[] } | null {
-  try {
-    const raw = localStorage.getItem(CURRENT_SESSION_KEY)
-    return raw ? JSON.parse(raw) : null
-  } catch { return null }
-}
-
-function loadStoredSessions(): StoredSession[] {
-  try {
-    const raw = localStorage.getItem(SESSIONS_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch { return [] }
-}
-
-function persistCurrentSession(id: string, messages: BridgeChatMessage[]) {
-  try { localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify({ id, messages })) } catch {}
-}
-
-function saveSessionToHistory(session: StoredSession) {
-  try {
-    const sessions = loadStoredSessions()
-    const idx = sessions.findIndex(s => s.id === session.id)
-    if (idx !== -1) sessions[idx] = session
-    else sessions.unshift(session)
-    localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions.slice(0, 20)))
-  } catch {}
-}
+// Pre-multi-session key: one global conversation. Migrated into history once
+// at import (see migrateLegacyCurrent) and then deleted.
+const LEGACY_CURRENT_KEY = 'vide:bridge:current'
+const HISTORY_KEY = 'vide:bridge:sessions'
+const CONV_KEY_PREFIX = 'vide:bridge:conv:'
+const HISTORY_LIMIT = 20
 
 export interface BridgeToolCallBlock {
   id: string
@@ -58,129 +23,106 @@ export interface BridgeChatMessage {
   toolCalls?: BridgeToolCallBlock[]
 }
 
-function getAgentMode(): boolean {
+export interface StoredSession {
+  id: string
+  messages: BridgeChatMessage[]
+  timestamp: number
+  title: string
+}
+
+export interface BridgeConversation {
+  messages: BridgeChatMessage[]
+  // Id this transcript is archived under in history, and the
+  // X-Bridge-Session-ID header value. Distinct from the agent-session id
+  // (the conversations map key), which never changes for an activity-bar
+  // icon even when Clear/Restore swap the transcript underneath it.
+  historyId: string
+  agentMode: boolean
+  streaming: boolean
+  draftInput: string
+}
+
+type ConnectionOverride = { endpoint: string; apiKey: string; modelId: string }
+
+function newHistoryId(): string {
+  return `vide-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
+}
+
+function loadHistory(): StoredSession[] {
   try {
-    return localStorage.getItem('vide:bridge:agentModeOnLaunch') === 'true'
-  } catch {
-    return false
-  }
+    const raw = localStorage.getItem(HISTORY_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch { return [] }
+}
+
+function saveHistory(history: StoredSession[]) {
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, HISTORY_LIMIT))) } catch {}
+}
+
+function withArchived(history: StoredSession[], historyId: string, messages: BridgeChatMessage[]): StoredSession[] {
+  if (messages.length === 0) return history
+  const title = messages.find((m) => m.role === 'user')?.content?.slice(0, 80) ?? 'Untitled'
+  const entry: StoredSession = { id: historyId, messages, timestamp: Date.now(), title }
+  return [entry, ...history.filter((s) => s.id !== historyId)].slice(0, HISTORY_LIMIT)
+}
+
+function loadPersisted(sessionId: string): { historyId: string; messages: BridgeChatMessage[] } | null {
+  try {
+    const raw = localStorage.getItem(CONV_KEY_PREFIX + sessionId)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (typeof parsed?.historyId !== 'string' || !Array.isArray(parsed?.messages)) return null
+    return parsed
+  } catch { return null }
+}
+
+function persist(sessionId: string, conv: BridgeConversation) {
+  try {
+    localStorage.setItem(CONV_KEY_PREFIX + sessionId, JSON.stringify({ historyId: conv.historyId, messages: conv.messages }))
+  } catch {}
+}
+
+function forgetPersisted(sessionId: string) {
+  try { localStorage.removeItem(CONV_KEY_PREFIX + sessionId) } catch {}
+}
+
+function migrateLegacyCurrent(): StoredSession[] {
+  let history = loadHistory()
+  try {
+    const raw = localStorage.getItem(LEGACY_CURRENT_KEY)
+    if (raw) {
+      const legacy = JSON.parse(raw)
+      if (typeof legacy?.id === 'string' && Array.isArray(legacy?.messages)) {
+        history = withArchived(history, legacy.id, legacy.messages)
+        saveHistory(history)
+      }
+      localStorage.removeItem(LEGACY_CURRENT_KEY)
+    }
+  } catch {}
+  return history
+}
+
+// Main emits nothing for a run once it's cancelled, so Stop settles any tool
+// call still awaiting approval (or mid-flight) here instead of leaving its
+// approve/reject buttons or spinner on screen.
+function settleOpenToolCalls(messages: BridgeChatMessage[]): BridgeChatMessage[] {
+  return messages.map((m) =>
+    m.toolCalls?.some((tc) => tc.status === 'pending-approval' || tc.status === 'running')
+      ? {
+          ...m,
+          toolCalls: m.toolCalls.map((tc) =>
+            tc.status === 'pending-approval' || tc.status === 'running'
+              ? { ...tc, status: 'error' as const, result: 'Cancelled.' }
+              : tc
+          ),
+        }
+      : m
+  )
 }
 
 function toWireMessages(messages: BridgeChatMessage[]): BridgeMessage[] {
   return messages.map((m) => ({ role: m.role, content: m.content }))
 }
-
-interface BridgeStore {
-  messages: BridgeChatMessage[]
-  previousMessages: BridgeChatMessage[]
-  sessionId: string
-  sessions: StoredSession[]
-  showSessionPicker: boolean
-  agentMode: boolean
-  streaming: boolean
-  draftInput: string
-  sendMessage: (cwd: string, text: string, settingsOverride?: { endpoint: string; apiKey: string; modelId: string }) => void
-  regenerate: (cwd: string, messageIndex: number, settingsOverride?: { endpoint: string; apiKey: string; modelId: string }) => void
-  newSession: () => void
-  previousSession: () => void
-  openSessionPicker: () => void
-  restoreSession: (id: string) => void
-  toggleAgentMode: () => void
-  approveToolCall: (id: string) => void
-  rejectToolCall: (id: string) => void
-  cancel: () => void
-  initEventListener: () => () => void
-  setDraftInput: (text: string) => void
-  appendDraftInput: (text: string) => void
-}
-
-const _saved = loadCurrentSession()
-
-export const useBridgeStore = create<BridgeStore>((set, get) => ({
-  messages: _saved?.messages ?? [],
-  previousMessages: [],
-  sessionId: _saved?.id ?? newSessionId(),
-  sessions: loadStoredSessions(),
-  showSessionPicker: false,
-  agentMode: getAgentMode(),
-  streaming: false,
-  draftInput: '',
-
-  sendMessage: (cwd, text, settingsOverride) => {
-    const userMessage: BridgeChatMessage = { role: 'user', content: text }
-    const wire: BridgeChatMessage[] = [...get().messages, userMessage]
-    const placeholder: BridgeChatMessage = { role: 'assistant', content: '' }
-    set({ messages: [...wire, placeholder], streaming: true })
-
-    const s = settingsOverride ?? useBridgeSettingsStore.getState()
-    window.api.bridgeSend(cwd, toWireMessages(wire), get().agentMode, {
-      endpoint: s.endpoint,
-      apiKey: s.apiKey,
-      modelId: s.modelId,
-      sessionId: get().sessionId,
-    })
-  },
-
-  regenerate: (cwd, messageIndex, settingsOverride) => {
-    const all = get().messages
-    const target = all[messageIndex]
-    if (!target || target.role !== 'user') return
-    const history = all.slice(0, messageIndex)
-    const wire: BridgeChatMessage[] = [...history, { role: 'user' as const, content: target.content }]
-    set({ messages: [...wire, { role: 'assistant', content: '' }], streaming: true })
-
-    const s = settingsOverride ?? useBridgeSettingsStore.getState()
-    window.api.bridgeSend(cwd, toWireMessages(wire), get().agentMode, {
-      endpoint: s.endpoint,
-      apiKey: s.apiKey,
-      modelId: s.modelId,
-      sessionId: get().sessionId,
-    })
-  },
-
-  newSession: () => {
-    const { sessionId, messages } = get()
-    if (messages.length > 0) {
-      const title = messages.find(m => m.role === 'user')?.content?.slice(0, 80) ?? 'Untitled'
-      saveSessionToHistory({ id: sessionId, messages, timestamp: Date.now(), title })
-    }
-    const newId = newSessionId()
-    persistCurrentSession(newId, [])
-    set((s) => ({ previousMessages: s.messages, messages: [], sessionId: newId, sessions: loadStoredSessions(), showSessionPicker: false }))
-  },
-
-  previousSession: () => {
-    set((s) => ({ messages: s.previousMessages, showSessionPicker: false }))
-  },
-
-  openSessionPicker: () => set((s) => ({ showSessionPicker: !s.showSessionPicker })),
-
-  restoreSession: (id: string) => {
-    const session = get().sessions.find(s => s.id === id)
-    if (!session) return
-    persistCurrentSession(session.id, session.messages)
-    set({ messages: session.messages, sessionId: session.id, showSessionPicker: false })
-  },
-
-  toggleAgentMode: () => set((s) => ({ agentMode: !s.agentMode })),
-
-  approveToolCall: (id) => window.api.bridgeApprove(id),
-  rejectToolCall: (id) => window.api.bridgeReject(id),
-  cancel: () => {
-    window.api.bridgeCancel()
-    set((s) => ({ messages: dropTrailingEmptyAssistant(s.messages), streaming: false }))
-  },
-
-  initEventListener: () => {
-    return window.api.onBridgeEvent((event: BridgeEvent) => {
-      handleEvent(event, set, get)
-    })
-  },
-
-  setDraftInput: (text) => set({ draftInput: text }),
-  appendDraftInput: (text) =>
-    set((s) => ({ draftInput: s.draftInput ? `${s.draftInput}\n${text}` : text })),
-}))
 
 function ensureAssistantMessage(messages: BridgeChatMessage[]): BridgeChatMessage[] {
   const last = messages[messages.length - 1]
@@ -196,64 +138,199 @@ function dropTrailingEmptyAssistant(messages: BridgeChatMessage[]): BridgeChatMe
   return messages
 }
 
+interface BridgeStore {
+  conversations: Record<string, BridgeConversation>
+  history: StoredSession[]
+  openConversation: (sessionId: string, agentMode: boolean) => void
+  closeConversation: (sessionId: string) => void
+  clearConversation: (sessionId: string) => void
+  restorePrevious: (sessionId: string) => boolean
+  sendMessage: (sessionId: string, cwd: string, text: string, override?: ConnectionOverride) => void
+  regenerate: (sessionId: string, cwd: string, messageIndex: number, override?: ConnectionOverride) => void
+  toggleAgentMode: (sessionId: string) => void
+  approveToolCall: (sessionId: string, toolCallId: string) => void
+  rejectToolCall: (sessionId: string, toolCallId: string) => void
+  cancel: (sessionId: string) => void
+  setDraftInput: (sessionId: string, text: string) => void
+  appendDraftInput: (sessionId: string, text: string) => void
+  initEventListener: () => () => void
+}
+
+export const useBridgeStore = create<BridgeStore>((set, get) => {
+  const patch = (sessionId: string, fn: (c: BridgeConversation) => Partial<BridgeConversation>) => {
+    const current = get().conversations[sessionId]
+    if (!current) return
+    set({ conversations: { ...get().conversations, [sessionId]: { ...current, ...fn(current) } } })
+  }
+
+  // Archives a transcript into history. Always starts from a fresh
+  // localStorage read, not get().history: another window may have archived
+  // sessions since this store loaded, and starting from the snapshot would
+  // erase them on save.
+  const archive = (historyId: string, messages: BridgeChatMessage[]) => {
+    const history = withArchived(loadHistory(), historyId, messages)
+    saveHistory(history)
+    set({ history })
+  }
+
+  const startTurn = (sessionId: string, cwd: string, wire: BridgeChatMessage[], override?: ConnectionOverride) => {
+    const conv = get().conversations[sessionId]
+    if (!conv) return
+    patch(sessionId, () => ({ messages: [...wire, { role: 'assistant', content: '' }], streaming: true }))
+    const s = override ?? useBridgeSettingsStore.getState()
+    window.api.bridgeSend(cwd, toWireMessages(wire), conv.agentMode, {
+      endpoint: s.endpoint,
+      apiKey: s.apiKey,
+      modelId: s.modelId,
+      sessionId: conv.historyId,
+    }, sessionId)
+  }
+
+  return {
+    conversations: {},
+    history: migrateLegacyCurrent(),
+
+    openConversation: (sessionId, agentMode) => {
+      if (get().conversations[sessionId]) return
+      const saved = loadPersisted(sessionId)
+      set({
+        conversations: {
+          ...get().conversations,
+          [sessionId]: {
+            messages: saved?.messages ?? [],
+            historyId: saved?.historyId ?? newHistoryId(),
+            agentMode,
+            streaming: false,
+            draftInput: '',
+          },
+        },
+      })
+    },
+
+    closeConversation: (sessionId) => {
+      const conv = get().conversations[sessionId]
+      if (!conv) return
+      if (conv.streaming) window.api.bridgeCancel(sessionId)
+      archive(conv.historyId, dropTrailingEmptyAssistant(conv.messages))
+      forgetPersisted(sessionId)
+      const { [sessionId]: _closed, ...rest } = get().conversations
+      set({ conversations: rest })
+    },
+
+    clearConversation: (sessionId) => {
+      const conv = get().conversations[sessionId]
+      if (!conv) return
+      if (conv.streaming) window.api.bridgeCancel(sessionId)
+      archive(conv.historyId, dropTrailingEmptyAssistant(conv.messages))
+      patch(sessionId, () => ({ messages: [], historyId: newHistoryId(), streaming: false }))
+      persist(sessionId, get().conversations[sessionId])
+    },
+
+    restorePrevious: (sessionId) => {
+      const conv = get().conversations[sessionId]
+      if (!conv || conv.streaming) return false
+      const previous = loadHistory().find((s) => s.id !== conv.historyId)
+      if (!previous) return false
+      archive(conv.historyId, conv.messages)
+      patch(sessionId, () => ({ messages: previous.messages, historyId: previous.id }))
+      persist(sessionId, get().conversations[sessionId])
+      return true
+    },
+
+    sendMessage: (sessionId, cwd, text, override) => {
+      const conv = get().conversations[sessionId]
+      if (!conv) return
+      startTurn(sessionId, cwd, [...conv.messages, { role: 'user', content: text }], override)
+    },
+
+    regenerate: (sessionId, cwd, messageIndex, override) => {
+      const conv = get().conversations[sessionId]
+      const target = conv?.messages[messageIndex]
+      if (!conv || !target || target.role !== 'user') return
+      startTurn(sessionId, cwd, [...conv.messages.slice(0, messageIndex), { role: 'user', content: target.content }], override)
+    },
+
+    toggleAgentMode: (sessionId) => patch(sessionId, (c) => ({ agentMode: !c.agentMode })),
+
+    approveToolCall: (sessionId, toolCallId) => window.api.bridgeApprove(toolCallId, sessionId),
+    rejectToolCall: (sessionId, toolCallId) => window.api.bridgeReject(toolCallId, sessionId),
+
+    cancel: (sessionId) => {
+      window.api.bridgeCancel(sessionId)
+      patch(sessionId, (c) => ({ messages: settleOpenToolCalls(dropTrailingEmptyAssistant(c.messages)), streaming: false }))
+    },
+
+    setDraftInput: (sessionId, text) => patch(sessionId, () => ({ draftInput: text })),
+    appendDraftInput: (sessionId, text) =>
+      patch(sessionId, (c) => ({ draftInput: c.draftInput ? `${c.draftInput}\n${text}` : text })),
+
+    initEventListener: () =>
+      window.api.onBridgeEvent((event: BridgeSessionEvent) => {
+        const sessionId = event.sessionId
+        // A late event for a session that was closed (or one with no id at
+        // all) has nowhere to go — drop it rather than resurrect anything.
+        if (!sessionId || !get().conversations[sessionId]) return
+        handleEvent(sessionId, event, patch, get)
+      }),
+  }
+})
+
 function handleEvent(
-  event: BridgeEvent,
-  set: (partial: Partial<BridgeStore>) => void,
-  get: () => BridgeStore
+  sessionId: string,
+  event: BridgeSessionEvent,
+  patch: (sessionId: string, fn: (c: BridgeConversation) => Partial<BridgeConversation>) => void,
+  get: () => BridgeStore,
 ): void {
-  const messages = ensureAssistantMessage(get().messages)
-  const last = { ...messages[messages.length - 1] }
+  const updateLast = (fn: (last: BridgeChatMessage) => BridgeChatMessage) =>
+    patch(sessionId, (c) => {
+      const messages = ensureAssistantMessage(c.messages)
+      return { messages: [...messages.slice(0, -1), fn({ ...messages[messages.length - 1] })] }
+    })
 
   switch (event.type) {
-    case 'new-turn': {
-      const current = get().messages
-      const tail = current[current.length - 1]
-      // Don't push if there's already an empty assistant placeholder
-      if (tail?.role === 'assistant' && !tail.content && !tail.toolCalls?.length) return
-      set({ messages: [...current, { role: 'assistant', content: '' }] })
+    case 'new-turn':
+      patch(sessionId, (c) => {
+        const tail = c.messages[c.messages.length - 1]
+        // Don't push if there's already an empty assistant placeholder
+        if (tail?.role === 'assistant' && !tail.content && !tail.toolCalls?.length) return {}
+        return { messages: [...c.messages, { role: 'assistant', content: '' }] }
+      })
       return
-    }
-    case 'text-delta': {
-      last.content += event.delta
-      set({ messages: [...messages.slice(0, -1), last] })
+    case 'text-delta':
+      updateLast((last) => ({ ...last, content: last.content + event.delta }))
       return
-    }
-    case 'content-replace': {
-      last.content = event.content
-      set({ messages: [...messages.slice(0, -1), last] })
+    case 'content-replace':
+      updateLast((last) => ({ ...last, content: event.content }))
       return
-    }
-    case 'tool-call': {
-      last.toolCalls = [...(last.toolCalls ?? []), { id: event.id, name: event.name, args: event.args, status: 'running' }]
-      set({ messages: [...messages.slice(0, -1), last] })
+    case 'tool-call':
+      updateLast((last) => ({
+        ...last,
+        toolCalls: [...(last.toolCalls ?? []), { id: event.id, name: event.name, args: event.args, status: 'running' }],
+      }))
       return
-    }
-    case 'need-approval': {
-      last.toolCalls = (last.toolCalls ?? []).map((tc) =>
-        tc.id === event.id ? { ...tc, status: 'pending-approval' as const } : tc
-      )
-      set({ messages: [...messages.slice(0, -1), last] })
+    case 'need-approval':
+      updateLast((last) => ({
+        ...last,
+        toolCalls: (last.toolCalls ?? []).map((tc) => (tc.id === event.id ? { ...tc, status: 'pending-approval' as const } : tc)),
+      }))
       return
-    }
-    case 'tool-result': {
-      last.toolCalls = (last.toolCalls ?? []).map((tc) =>
-        tc.id === event.id ? { ...tc, status: event.isError ? ('error' as const) : ('done' as const), result: event.result } : tc
-      )
-      set({ messages: [...messages.slice(0, -1), last] })
+    case 'tool-result':
+      updateLast((last) => ({
+        ...last,
+        toolCalls: (last.toolCalls ?? []).map((tc) =>
+          tc.id === event.id ? { ...tc, status: event.isError ? ('error' as const) : ('done' as const), result: event.result } : tc
+        ),
+      }))
       return
-    }
-    case 'done': {
+    case 'done':
       // If the model returned nothing, drop the empty placeholder so it doesn't
       // linger in the transcript as a ghost bubble.
-      set({ messages: dropTrailingEmptyAssistant(get().messages), streaming: false })
-      const { sessionId, messages: finalMessages } = get()
-      persistCurrentSession(sessionId, finalMessages)
+      patch(sessionId, (c) => ({ messages: dropTrailingEmptyAssistant(c.messages), streaming: false }))
+      persist(sessionId, get().conversations[sessionId])
       return
-    }
-    case 'error': {
-      last.content += `\n\n**Error:** ${event.message}`
-      set({ messages: [...messages.slice(0, -1), last], streaming: false })
+    case 'error':
+      updateLast((last) => ({ ...last, content: `${last.content}\n\n**Error:** ${event.message}` }))
+      patch(sessionId, () => ({ streaming: false }))
       return
-    }
   }
 }

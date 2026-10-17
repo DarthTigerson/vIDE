@@ -11,3 +11,9 @@ export function cleanSessionTitle(raw: string): string {
 export function sessionDisplayName(inst: { name?: string }, title: string | undefined, index: number): string {
   return inst.name || title || `Session ${index + 1}`
 }
+
+// Terminal sessions have no live title; they're numbered among themselves
+// ("Terminal", "Terminal 2", …) and that stands in as their auto title.
+export function terminalSessionTitle(ordinal: number): string {
+  return ordinal === 0 ? 'Terminal' : `Terminal ${ordinal + 1}`
+}

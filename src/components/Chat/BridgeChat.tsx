@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { useBridgeStore, type BridgeToolCallBlock } from '@/stores/bridgeStore'
+import { useBridgeStore, type BridgeToolCallBlock, type BridgeChatMessage } from '@/stores/bridgeStore'
 import { useClaudeStore } from '@/stores/claudeStore'
 import { useBridgeAgentModeShortcut } from './useBridgeAgentModeShortcut'
 
-function ToolCallBlock({ block }: { block: BridgeToolCallBlock }) {
+function ToolCallBlock({ sessionId, block }: { sessionId: string; block: BridgeToolCallBlock }) {
   const [expanded, setExpanded] = useState(block.status === 'pending-approval')
   const approveToolCall = useBridgeStore((s) => s.approveToolCall)
   const rejectToolCall = useBridgeStore((s) => s.rejectToolCall)
@@ -31,14 +31,14 @@ function ToolCallBlock({ block }: { block: BridgeToolCallBlock }) {
         <div className="mt-2 flex gap-2">
           <button
             type="button"
-            onClick={() => approveToolCall(block.id)}
+            onClick={() => approveToolCall(sessionId, block.id)}
             className="h-6 px-2 rounded bg-accent/20 text-fg hover:bg-accent/30"
           >
             Approve
           </button>
           <button
             type="button"
-            onClick={() => rejectToolCall(block.id)}
+            onClick={() => rejectToolCall(sessionId, block.id)}
             className="h-6 px-2 rounded border border-border text-fg-muted hover:text-fg"
           >
             Reject
@@ -98,22 +98,22 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
-export function BridgeChat({ cwd, connectionOverride, beforeSend }: {
+const EMPTY: BridgeChatMessage[] = []
+
+export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSend }: {
+  sessionId: string
   cwd: string
+  label: string
   connectionOverride?: { endpoint: string; apiKey: string; modelId: string }
   beforeSend?: () => Promise<void>
 }) {
-  useBridgeAgentModeShortcut()
-  const messages = useBridgeStore((s) => s.messages)
-  const agentMode = useBridgeStore((s) => s.agentMode)
-  const streaming = useBridgeStore((s) => s.streaming)
-  const sendMessage = useBridgeStore((s) => s.sendMessage)
-  const regenerate = useBridgeStore((s) => s.regenerate)
-  const toggleAgentMode = useBridgeStore((s) => s.toggleAgentMode)
-  const cancel = useBridgeStore((s) => s.cancel)
-  const input = useBridgeStore((s) => s.draftInput)
-  const setInput = useBridgeStore((s) => s.setDraftInput)
-  const appendDraftInput = useBridgeStore((s) => s.appendDraftInput)
+  useBridgeAgentModeShortcut(sessionId)
+  const messages = useBridgeStore((s) => s.conversations[sessionId]?.messages ?? EMPTY)
+  const agentMode = useBridgeStore((s) => s.conversations[sessionId]?.agentMode ?? false)
+  const streaming = useBridgeStore((s) => s.conversations[sessionId]?.streaming ?? false)
+  const input = useBridgeStore((s) => s.conversations[sessionId]?.draftInput ?? '')
+  const { sendMessage, regenerate, toggleAgentMode, cancel, setDraftInput, appendDraftInput } = useBridgeStore.getState()
+  const setInput = (text: string) => setDraftInput(sessionId, text)
   const focusToken = useClaudeStore((s) => s.focusToken)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -142,7 +142,7 @@ export function BridgeChat({ cwd, connectionOverride, beforeSend }: {
     // after use, so a stale remount (old focusToken, already-consumed injection) never has
     // one — only a genuine not-yet-consumed Cmd+L send does, even at first mount.
     if (injection) {
-      appendDraftInput(injection)
+      appendDraftInput(sessionId, injection)
       useClaudeStore.getState().consumeInjection()
       textareaRef.current?.focus()
       return
@@ -153,7 +153,7 @@ export function BridgeChat({ cwd, connectionOverride, beforeSend }: {
     if (tokenChangedSinceMount) {
       textareaRef.current?.focus()
     }
-  }, [focusToken, appendDraftInput])
+  }, [focusToken, sessionId])
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -162,7 +162,7 @@ export function BridgeChat({ cwd, connectionOverride, beforeSend }: {
       setStarting(true)
       try { await beforeSend() } finally { setStarting(false) }
     }
-    sendMessage(cwd, input, connectionOverride)
+    sendMessage(sessionId, cwd, input, connectionOverride)
     setInput('')
   }
 
@@ -174,7 +174,7 @@ export function BridgeChat({ cwd, connectionOverride, beforeSend }: {
             {m.toolCalls && m.toolCalls.length > 0 && (
               <div className="mb-1.5 flex flex-col gap-1.5">
                 {m.toolCalls.map((tc) => (
-                  <ToolCallBlock key={tc.id} block={tc} />
+                  <ToolCallBlock key={tc.id} sessionId={sessionId} block={tc} />
                 ))}
               </div>
             )}
@@ -207,7 +207,7 @@ export function BridgeChat({ cwd, connectionOverride, beforeSend }: {
                 <button
                   type="button"
                   disabled={streaming}
-                  onClick={() => regenerate(cwd, i, connectionOverride)}
+                  onClick={() => regenerate(sessionId, cwd, i, connectionOverride)}
                   className="flex items-center gap-1 rounded px-1 py-0.5 text-xs text-fg-muted opacity-50 hover:opacity-100 hover:text-fg disabled:pointer-events-none transition-opacity"
                   title="Regenerate response"
                 >
@@ -235,7 +235,7 @@ export function BridgeChat({ cwd, connectionOverride, beforeSend }: {
               onSubmit(e)
             }
           }}
-          placeholder="Message Bridge…"
+          placeholder={`Message ${label}…`}
           rows={2}
           disabled={starting}
           className="w-full resize-none rounded border border-border bg-panel px-2 py-1.5 text-sm text-fg outline-none focus:border-accent disabled:opacity-50"
@@ -243,7 +243,7 @@ export function BridgeChat({ cwd, connectionOverride, beforeSend }: {
         <div className="flex items-center justify-between">
           <button
             type="button"
-            onClick={() => toggleAgentMode()}
+            onClick={() => toggleAgentMode(sessionId)}
             className={[
               'rounded px-1.5 py-0.5 text-xs transition-colors',
               agentMode ? 'text-accent hover:text-accent/80' : 'text-fg-muted hover:text-fg',
@@ -257,7 +257,7 @@ export function BridgeChat({ cwd, connectionOverride, beforeSend }: {
           {!starting && streaming && (
             <button
               type="button"
-              onClick={() => cancel()}
+              onClick={() => cancel(sessionId)}
               className="h-5 rounded border border-border px-2 text-xs text-fg-muted hover:border-fg-subtle hover:text-fg"
             >
               Stop

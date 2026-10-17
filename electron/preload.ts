@@ -242,16 +242,16 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('update:upToDate', handler)
   },
 
-  bridgeSend: (cwd: string, messages: unknown[], agentMode: boolean, settings: unknown) =>
-    ipcRenderer.send('bridge:send', { cwd, messages, agentMode, settings }),
-  bridgeApprove: (toolCallId: string) => ipcRenderer.send('bridge:approve', toolCallId),
-  bridgeReject: (toolCallId: string) => ipcRenderer.send('bridge:reject', toolCallId),
-  bridgeCancel: () => ipcRenderer.send('bridge:cancel'),
+  bridgeSend: (cwd: string, messages: unknown[], agentMode: boolean, settings: unknown, sessionId: string) =>
+    ipcRenderer.send('bridge:send', { cwd, messages, agentMode, settings, sessionId }),
+  bridgeApprove: (toolCallId: string, sessionId: string) => ipcRenderer.send('bridge:approve', toolCallId, sessionId),
+  bridgeReject: (toolCallId: string, sessionId: string) => ipcRenderer.send('bridge:reject', toolCallId, sessionId),
+  bridgeCancel: (sessionId: string) => ipcRenderer.send('bridge:cancel', sessionId),
   bridgeTestConnection: (settings: unknown) => ipcRenderer.invoke('bridge:testConnection', settings),
   bridgeGetSettings: () => ipcRenderer.invoke('bridge:getSettings'),
   bridgeSetSettings: (settings: unknown) => ipcRenderer.invoke('bridge:setSettings', settings),
-  onBridgeEvent: (cb: (event: import('./bridge').BridgeEvent) => void) => {
-    const handler = (_: Electron.IpcRendererEvent, event: import('./bridge').BridgeEvent) => cb(event)
+  onBridgeEvent: (cb: (event: import('./bridge').BridgeSessionEvent) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, event: import('./bridge').BridgeSessionEvent) => cb(event)
     ipcRenderer.on('bridge:event', handler)
     return () => ipcRenderer.removeListener('bridge:event', handler)
   },

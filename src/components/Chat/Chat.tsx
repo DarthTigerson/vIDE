@@ -4,18 +4,18 @@ import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
 import { useFileStore } from '@/stores/fileStore'
-import { useClaudeStore } from '@/stores/claudeStore'
+import { useClaudeStore, selectActiveSession } from '@/stores/claudeStore'
 import { useThemeStore, type ThemeId } from '@/stores/themeStore'
 import { useCustomThemeStore, effectiveXtermTheme } from '@/stores/customThemeStore'
 import { useFontSizeStore } from '@/stores/fontSizeStore'
 import { useInstanceFontSizeStore } from '@/stores/instanceFontSizeStore'
 import { useDisplayStore, type PanelStyle } from '@/stores/displayStore'
 import { BridgeChat } from './BridgeChat'
-import { useBridgeStore } from '@/stores/bridgeStore'
-import { useBridgeSettingsStore } from '@/stores/bridgeSettingsStore'
 import { useLlamaModelsStore } from '@/stores/llamaModelsStore'
-import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
 import { useLlamaStore } from '@/stores/llamaStore'
+import { agentLabel, isBridgeLike, isLlamaKind, isTerminalKind, llamaModelId } from '@/lib/agentKinds'
+import { TerminalTab } from '@/components/Terminal/TerminalTab'
+import { liveTerminals } from '@/lib/liveTerminals'
 import { UsagePanel } from '@/components/UsagePanel/UsagePanel'
 import { CostPanel } from '@/components/UsagePanel/CostPanel'
 import { isShiftEnterKeydown, SHIFT_ENTER_SEQUENCE } from './shiftEnterSequence'
@@ -52,27 +52,34 @@ function createXTerm(themeId: ThemeId, panelStyle: PanelStyle, fontSize: number)
 
 export function Chat() {
   const projectRoot = useFileStore((s) => s.projectRoot)
-  const assistant = useClaudeStore((s) => s.assistant)
+  const instances = useClaudeStore((s) => s.instances)
+  const activeInstanceId = useClaudeStore((s) => s.activeInstanceId)
+  const activeSession = useClaudeStore(selectActiveSession)
+  const activeKind = activeSession?.kind ?? 'claude'
   const llamaModels = useLlamaModelsStore((s) => s.models)
-  const isLlama = assistant.startsWith('llama:')
-  const isBridgeLike = assistant === 'bridge' || isLlama
-  const llamaConnection = isLlama ? (() => {
-    const model = llamaModels.find((m) => m.id === assistant.slice('llama:'.length))
-    if (!model) return undefined
-    return {
-      endpoint: `http://${model.host}:${model.port}/v1`,
-      apiKey: model.apiKey,
-      modelId: model.alias || model.displayName || model.id,
-    }
-  })() : undefined
+  const isLlama = isLlamaKind(activeKind)
+  const isBridgeLikeActive = isBridgeLike(activeKind)
+  // A removed *or* disabled model counts as unavailable: the session is kept,
+  // but no connection is built and the server is never launched for it.
+  const llamaModel = isLlama
+    ? llamaModels.find((m) => m.id === llamaModelId(activeKind) && m.enabled)
+    : undefined
+  const llamaConnection = llamaModel
+    ? { endpoint: `http://${llamaModel.host}:${llamaModel.port}/v1`, apiKey: llamaModel.apiKey, modelId: llamaModel.alias || llamaModel.displayName || llamaModel.id }
+    : undefined
+  // Claude sessions own an xterm/PTY here; Bridge/llama render BridgeChat;
+  // terminal sessions render a plain TerminalTab each.
+  const claudeInstances = instances.filter((inst) => inst.kind === 'claude')
+  const terminalSessions = instances.filter((inst) => isTerminalKind(inst.kind))
+  const isTerminalActive = isTerminalKind(activeKind)
 
   // Auto-launch the llama server when sending a message if it isn't running.
   // Health-checks first so a server started externally (or in a prior session)
   // is discovered without a redundant relaunch.
   const llamaBeforeSend = useCallback(async () => {
-    const modelId = assistant.slice('llama:'.length)
+    const modelId = llamaModelId(activeKind)
     const model = useLlamaModelsStore.getState().models.find((m) => m.id === modelId)
-    if (!model) return
+    if (!model?.enabled) return
 
     const healthUrl = `http://${model.host}:${model.port}/health`
 
@@ -113,9 +120,7 @@ export function Chat() {
         if (resp.ok) return
       } catch {}
     }
-  }, [assistant])
-  const instances = useClaudeStore((s) => s.instances)
-  const activeInstanceId = useClaudeStore((s) => s.activeInstanceId)
+  }, [activeKind])
   const usageOpen = useClaudeStore((s) => s.usageOpen)
   const costOpen = useClaudeStore((s) => s.costOpen)
   const focusToken = useClaudeStore((s) => s.focusToken)
@@ -133,17 +138,6 @@ export function Chat() {
   const isFirstRestart = useRef(true)
   const seenFocusTokenRef = useRef(focusToken)
 
-  // Sync agent mode to the "on launch" setting whenever the assistant changes.
-  useEffect(() => {
-    if (isLlama) {
-      const model = useLlamaModelsStore.getState().models.find((m) => m.id === assistant.slice('llama:'.length))
-      const globalDefault = useLlamaSettingsStore.getState().agentModeOnLaunch
-      useBridgeStore.setState({ agentMode: model?.agentModeOnLaunch ?? globalDefault })
-    } else if (assistant === 'bridge') {
-      useBridgeStore.setState({ agentMode: useBridgeSettingsStore.getState().agentModeOnLaunch })
-    }
-  }, [assistant])
-
   useEffect(() => {
     activeInstanceRef.current = activeInstanceId
   }, [activeInstanceId])
@@ -152,7 +146,7 @@ export function Chat() {
     // Not "instances.length === 0" — every instance can now be closed, and
     // that case still needs to reach the stale-terminal cleanup below to
     // tear down the last one's xterm/DOM host instead of leaking it.
-    if (!projectRoot || !containerRef.current || isBridgeLike) return
+    if (!projectRoot || !containerRef.current) return
 
     const container = containerRef.current
 
@@ -247,7 +241,7 @@ export function Chat() {
     // first clicked. This is also what brings restored (persisted)
     // instances back running on next launch, with no separate bootstrap
     // path: "spawn if this id has no terminal yet" already covers them.
-    instances.forEach(({ id }) => {
+    claudeInstances.forEach(({ id }) => {
       const terminal = ensureTerminal(id)
       terminal.host.style.display = id === activeInstanceId ? 'block' : 'none'
     })
@@ -261,7 +255,7 @@ export function Chat() {
     // released. claudeKill is a no-op on the main-process side if the
     // instance was already killed via closeInstance(), so this is safe to
     // call unconditionally here.
-    const liveIds = new Set(instances.map((inst) => inst.id))
+    const liveIds = new Set(claudeInstances.map((inst) => inst.id))
     Object.keys(terminalsRef.current).forEach((id) => {
       if (liveIds.has(id)) return
       const terminal = terminalsRef.current[id]
@@ -282,10 +276,21 @@ export function Chat() {
         }
       })
     }
-  }, [projectRoot, assistant, instances, activeInstanceId])
+  }, [projectRoot, instances, activeInstanceId])
 
   useEffect(() => {
-    if (isBridgeLike) return
+    if (isBridgeLikeActive) return
+    if (isTerminalActive) {
+      // Pasted at the prompt, not run — the user decides whether to hit Enter.
+      const injection = useClaudeStore.getState().pendingInjection
+      if (injection) {
+        window.api.termWrite(activeInstanceId, wrapBracketedPaste(injection))
+        useClaudeStore.getState().consumeInjection()
+      }
+      seenFocusTokenRef.current = focusToken
+      liveTerminals.get(activeInstanceId)?.xterm.focus()
+      return
+    }
     const terminal = terminalsRef.current[activeInstanceId]
     if (!terminal) return
 
@@ -300,7 +305,7 @@ export function Chat() {
     if (focusToken === seenFocusTokenRef.current) return
     seenFocusTokenRef.current = focusToken
     terminal.xterm.focus()
-  }, [focusToken, assistant, activeInstanceId])
+  }, [focusToken, activeKind, activeInstanceId])
 
   useEffect(() => {
     Object.values(terminalsRef.current).forEach((terminal) => {
@@ -309,7 +314,7 @@ export function Chat() {
   }, [theme, panelStyle, customActiveId, customThemes])
 
   useEffect(() => {
-    instances.forEach(({ id }) => {
+    claudeInstances.forEach(({ id }) => {
       const terminal = terminalsRef.current[id]
       if (!terminal) return
       terminal.xterm.options.fontSize = instanceFontOverrides[id] ?? fontSize
@@ -325,7 +330,7 @@ export function Chat() {
   }, [fontSize, instanceFontOverrides, instances])
 
   useEffect(() => {
-    instances.forEach(({ id }) => {
+    claudeInstances.forEach(({ id }) => {
       const terminal = terminalsRef.current[id]
       if (!terminal) return
       terminal.xterm.options.fontFamily = font
@@ -395,23 +400,52 @@ export function Chat() {
           <div
             ref={containerRef}
             className="flex-1 overflow-hidden p-1"
-            style={{ display: isBridgeLike ? 'none' : 'block' }}
+            style={{ display: isBridgeLikeActive || isTerminalActive ? 'none' : 'block' }}
           />
-          {isBridgeLike && (
+          {/* Every terminal session stays mounted (hidden when inactive) so
+              its output keeps streaming in while another session is shown. */}
+          {terminalSessions.map((inst) => (
+            <div
+              key={inst.id}
+              className="flex-1 overflow-hidden"
+              style={{ display: inst.id === activeInstanceId ? 'block' : 'none' }}
+            >
+              <TerminalTab
+                terminalId={inst.id}
+                isStillOpen={() => useClaudeStore.getState().instances.some((i) => i.id === inst.id)}
+              />
+            </div>
+          ))}
+          {activeSession && isBridgeLikeActive && (
             <div className="flex-1 overflow-hidden">
-              <BridgeChat cwd={projectRoot} connectionOverride={llamaConnection} beforeSend={isLlama ? llamaBeforeSend : undefined} />
+              {isLlama && !llamaModel ? (
+                <div className="h-full flex items-center justify-center px-6">
+                  <p className="text-xs text-fg-muted text-center leading-relaxed">
+                    Model not available — enable it in Settings &gt; Llama
+                  </p>
+                </div>
+              ) : (
+                <BridgeChat
+                  key={activeSession.id}
+                  sessionId={activeSession.id}
+                  label={agentLabel(activeKind, llamaModels)}
+                  cwd={projectRoot}
+                  connectionOverride={llamaConnection}
+                  beforeSend={isLlama ? llamaBeforeSend : undefined}
+                />
+              )}
             </div>
           )}
         </>
       ) : (
         <div className="flex-1 flex items-center justify-center px-6">
           <p className="text-xs text-fg-muted text-center leading-relaxed">
-            Open a folder to start {assistant === 'claude' ? 'Claude Code' : 'Bridge'}
+            Open a folder to start an agent session
           </p>
         </div>
       )}
-      {assistant === 'claude' && usageOpen && <UsagePanel />}
-      {assistant === 'claude' && costOpen && <CostPanel />}
+      {activeKind === 'claude' && usageOpen && <UsagePanel />}
+      {activeKind === 'claude' && costOpen && <CostPanel />}
     </div>
   )
 }

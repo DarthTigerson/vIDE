@@ -25,6 +25,10 @@ export interface SessionData {
   tabs: { path: string }[]
   browserUrls: Record<string, string>
   claudeInstances?: { id: string; hue: string }[]
+  // Mixed agent sessions (Claude / Bridge / llama:<id>) in activity-bar
+  // order. claudeInstances is the pre-mixed-sessions field, read only as a
+  // fallback when this is absent.
+  agentSessions?: { id: string; kind: string; hue: string }[]
 }
 
 export interface MobileNetworkInterface {
@@ -69,6 +73,8 @@ export interface BridgeSettings {
   endpoint: string
   apiKey: string
   modelId: string
+  // X-Bridge-Session-ID header value (the conversation's historyId)
+  sessionId?: string
 }
 
 export interface RecentProject {
@@ -144,6 +150,8 @@ export type BridgeEvent =
   | { type: 'new-turn' }
   | { type: 'done' }
   | { type: 'error'; message: string }
+
+export type BridgeSessionEvent = BridgeEvent & { sessionId?: string }
 
 declare global {
   // package.json version, injected by electron.vite.config.ts's `define`
@@ -303,14 +311,14 @@ declare global {
       getChangelogForVersion: (version: string) => Promise<string | null>
       getChangelogReleases: () => Promise<ChangelogRelease[]>
 
-      bridgeSend: (cwd: string, messages: BridgeMessage[], agentMode: boolean, settings: BridgeSettings) => void
-      bridgeApprove: (toolCallId: string) => void
-      bridgeReject: (toolCallId: string) => void
-      bridgeCancel: () => void
+      bridgeSend: (cwd: string, messages: BridgeMessage[], agentMode: boolean, settings: BridgeSettings, sessionId: string) => void
+      bridgeApprove: (toolCallId: string, sessionId: string) => void
+      bridgeReject: (toolCallId: string, sessionId: string) => void
+      bridgeCancel: (sessionId: string) => void
       bridgeTestConnection: (settings: BridgeSettings) => Promise<{ ok: boolean; error?: string }>
       bridgeGetSettings: () => Promise<BridgeSettings | null>
       bridgeSetSettings: (settings: BridgeSettings) => Promise<void>
-      onBridgeEvent: (cb: (event: BridgeEvent) => void) => () => void
+      onBridgeEvent: (cb: (event: BridgeSessionEvent) => void) => () => void
 
       devtoolsAttach: (targetId: number, hostId: number) => Promise<void>
       devtoolsDetach: (targetId: number) => Promise<void>

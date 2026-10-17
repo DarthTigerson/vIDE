@@ -20,8 +20,8 @@ interface CommandBase {
   label: string
   description?: string
   keywords?: string[]
-  // Hides the command entirely (e.g. "Switch to Claude" while Claude is
-  // already the active assistant).
+  // Hides the command entirely (e.g. "Show Inline Diff Highlight" while
+  // it is already on).
   condition?: () => boolean
   // Greys the row and shows the returned reason in place of the description.
   // null means the command can run right now.

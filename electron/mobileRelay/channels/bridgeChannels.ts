@@ -20,17 +20,17 @@ import type { BridgeStoredSettings } from '../../bridge'
 // phone sees the same configured endpoint/API key/model rather than its own
 // throwaway in-memory copy.
 export function registerBridgeRelayChannels(bridgeManager: BridgeManager, win: BrowserWindow): void {
-  // window.api.bridgeSend's renderer-facing signature is 4 separate args
+  // window.api.bridgeSend's renderer-facing signature is 5 separate args (the last is the agent sessionId)
   // (src/types/api.d.ts) — electron/preload.ts happens to bundle them into
   // one payload object before handing off to ipcRenderer.send, but the
   // mobile shim (src/lib/mobileApiShim) forwards whatever args the caller
-  // passed, unbundled, so this channel receives the same 4 args and does
+  // passed, unbundled, so this channel receives the same args and does
   // that bundling itself, matching BridgeSendPayload.
-  registerChannel('bridge:send', (cwd: string, messages: BridgeMessage[], agentMode: boolean, settings: BridgeSettings) =>
-    bridgeManager.send(win, { cwd, messages, agentMode, settings }))
-  registerChannel('bridge:approve', (toolCallId: string) => bridgeManager.approve(win, toolCallId))
-  registerChannel('bridge:reject', (toolCallId: string) => bridgeManager.reject(win, toolCallId))
-  registerChannel('bridge:cancel', () => bridgeManager.cancel(win))
+  registerChannel('bridge:send', (cwd: string, messages: BridgeMessage[], agentMode: boolean, settings: BridgeSettings, sessionId?: string) =>
+    bridgeManager.send(win, { cwd, messages, agentMode, settings, sessionId }))
+  registerChannel('bridge:approve', (toolCallId: string, sessionId?: string) => bridgeManager.approve(win, toolCallId, sessionId))
+  registerChannel('bridge:reject', (toolCallId: string, sessionId?: string) => bridgeManager.reject(win, toolCallId, sessionId))
+  registerChannel('bridge:cancel', (sessionId?: string) => bridgeManager.cancel(win, sessionId))
 
   registerChannel('bridge:testConnection', (settings: BridgeSettings) => bridgeManager.testConnection(settings))
 

@@ -5,7 +5,11 @@ const { store, apiMock } = vi.hoisted(() => {
   ;(global as any).localStorage = {
     getItem: (k: string) => store[k] ?? null,
     setItem: (k: string, v: string) => { store[k] = v },
+    removeItem: (k: string) => { delete store[k] },
   }
+  // Legacy single-session key from before multi-session Bridge — migrated
+  // into history once at import time.
+  store['vide:bridge:current'] = JSON.stringify({ id: 'legacy-1', messages: [{ role: 'user', content: 'old question' }] })
   const apiMock = {
     bridgeSend: vi.fn(),
     bridgeApprove: vi.fn(),
@@ -19,166 +23,212 @@ const { store, apiMock } = vi.hoisted(() => {
 
 import { useBridgeStore } from '../bridgeStore'
 
-describe('bridgeStore', () => {
+let emit: (e: any) => void = () => {}
+
+function conv(id: string) {
+  return useBridgeStore.getState().conversations[id]
+}
+
+describe('bridgeStore legacy migration', () => {
+  it('moves the old global current conversation into history and deletes the key', () => {
+    expect(store['vide:bridge:current']).toBeUndefined()
+    expect(useBridgeStore.getState().history[0]).toMatchObject({ id: 'legacy-1', title: 'old question' })
+  })
+})
+
+describe('bridgeStore conversations', () => {
   beforeEach(() => {
-    Object.keys(store).forEach((k) => delete store[k])
+    for (const k of Object.keys(store)) delete store[k]
     vi.clearAllMocks()
-    useBridgeStore.setState({ messages: [], previousMessages: [], agentMode: false, streaming: false })
-  })
-
-  it('sendMessage appends a user message plus an empty assistant placeholder and calls window.api.bridgeSend', () => {
-    useBridgeStore.getState().sendMessage('/project', 'hello')
-
-    const state = useBridgeStore.getState()
-    expect(state.messages).toHaveLength(2)
-    expect(state.messages[0]).toMatchObject({ role: 'user', content: 'hello' })
-    expect(state.messages[1]).toMatchObject({ role: 'assistant', content: '' })
-    expect(state.streaming).toBe(true)
-    // The wire payload must NOT include the placeholder — it's UI-only.
-    expect(apiMock.bridgeSend).toHaveBeenCalledWith('/project', [{ role: 'user', content: 'hello' }], false, expect.any(Object))
-  })
-
-  it('cancel drops the trailing empty assistant placeholder', () => {
-    useBridgeStore.getState().sendMessage('/project', 'hello')
-    useBridgeStore.getState().cancel()
-
-    const state = useBridgeStore.getState()
-    expect(state.streaming).toBe(false)
-    expect(state.messages).toHaveLength(1)
-    expect(state.messages[0]).toMatchObject({ role: 'user', content: 'hello' })
-  })
-
-  it('cancel keeps an assistant placeholder that has content', () => {
-    let handler: (e: any) => void = () => {}
-    apiMock.onBridgeEvent.mockImplementation((cb) => { handler = cb; return () => {} })
+    useBridgeStore.setState({ conversations: {}, history: [] })
+    apiMock.onBridgeEvent.mockImplementation((cb) => { emit = cb; return () => {} })
     useBridgeStore.getState().initEventListener()
-
-    useBridgeStore.getState().sendMessage('/project', 'hello')
-    handler({ type: 'text-delta', delta: 'partial' })
-    useBridgeStore.getState().cancel()
-
-    const state = useBridgeStore.getState()
-    expect(state.messages).toHaveLength(2)
-    expect(state.messages[1]).toMatchObject({ role: 'assistant', content: 'partial' })
+    useBridgeStore.getState().openConversation('A', false)
+    useBridgeStore.getState().openConversation('B', true)
   })
 
-  it('done drops a trailing empty assistant placeholder (empty model response)', () => {
-    let handler: (e: any) => void = () => {}
-    apiMock.onBridgeEvent.mockImplementation((cb) => { handler = cb; return () => {} })
-    useBridgeStore.getState().initEventListener()
-
-    useBridgeStore.getState().sendMessage('/project', 'hello')
-    handler({ type: 'done' })
-
-    const state = useBridgeStore.getState()
-    expect(state.streaming).toBe(false)
-    expect(state.messages).toHaveLength(1)
-    expect(state.messages[0]).toMatchObject({ role: 'user', content: 'hello' })
+  it('openConversation creates an empty conversation with the given agent mode, and is idempotent', () => {
+    expect(conv('A')).toMatchObject({ messages: [], agentMode: false, streaming: false, draftInput: '' })
+    expect(conv('B').agentMode).toBe(true)
+    useBridgeStore.getState().sendMessage('A', '/p', 'hi')
+    useBridgeStore.getState().openConversation('A', true)
+    expect(conv('A').messages).toHaveLength(2)
+    expect(conv('A').agentMode).toBe(false)
   })
 
-  it('toggleAgentMode flips agentMode for the session without persisting it', () => {
-    useBridgeStore.getState().toggleAgentMode()
-    expect(useBridgeStore.getState().agentMode).toBe(true)
-    useBridgeStore.getState().toggleAgentMode()
-    expect(useBridgeStore.getState().agentMode).toBe(false)
-    // The launch default is a Bridge setting (agentModeOnLaunch), not the toggle.
-    expect(store['vide:bridge:agentMode']).toBeUndefined()
+  it('openConversation reloads a conversation persisted under the session id', () => {
+    store['vide:bridge:conv:C'] = JSON.stringify({ historyId: 'h-c', messages: [{ role: 'user', content: 'saved' }] })
+    useBridgeStore.getState().openConversation('C', false)
+    expect(conv('C')).toMatchObject({ historyId: 'h-c', messages: [{ role: 'user', content: 'saved' }] })
   })
 
-  it('newSession moves current messages to previousMessages and clears the transcript', () => {
-    useBridgeStore.setState({ messages: [{ role: 'user', content: 'hi', status: 'done' } as any] })
-    useBridgeStore.getState().newSession()
-
-    const state = useBridgeStore.getState()
-    expect(state.messages).toEqual([])
-    expect(state.previousMessages).toHaveLength(1)
+  it('sendMessage only touches its own conversation and passes the session id over IPC', () => {
+    useBridgeStore.getState().sendMessage('A', '/p', 'hello')
+    expect(conv('A').messages).toEqual([{ role: 'user', content: 'hello' }, { role: 'assistant', content: '' }])
+    expect(conv('A').streaming).toBe(true)
+    expect(conv('B').messages).toEqual([])
+    expect(apiMock.bridgeSend).toHaveBeenCalledWith(
+      '/p', [{ role: 'user', content: 'hello' }], false,
+      expect.objectContaining({ sessionId: conv('A').historyId }), 'A',
+    )
   })
 
-  it('previousSession restores the saved transcript', () => {
-    useBridgeStore.setState({ previousMessages: [{ role: 'user', content: 'old', status: 'done' } as any] })
-    useBridgeStore.getState().previousSession()
-
-    expect(useBridgeStore.getState().messages).toEqual([{ role: 'user', content: 'old', status: 'done' }])
+  it('routes events by sessionId', () => {
+    useBridgeStore.getState().sendMessage('A', '/p', 'a')
+    useBridgeStore.getState().sendMessage('B', '/p', 'b')
+    emit({ type: 'text-delta', delta: 'to A', sessionId: 'A' })
+    emit({ type: 'text-delta', delta: 'to B', sessionId: 'B' })
+    emit({ type: 'done', sessionId: 'A' })
+    expect(conv('A').messages.at(-1)).toMatchObject({ content: 'to A' })
+    expect(conv('A').streaming).toBe(false)
+    expect(conv('B').messages.at(-1)).toMatchObject({ content: 'to B' })
+    expect(conv('B').streaming).toBe(true)
   })
 
-  it('approveToolCall/rejectToolCall delegate to window.api', () => {
-    useBridgeStore.getState().approveToolCall('call_1')
-    useBridgeStore.getState().rejectToolCall('call_2')
-    expect(apiMock.bridgeApprove).toHaveBeenCalledWith('call_1')
-    expect(apiMock.bridgeReject).toHaveBeenCalledWith('call_2')
+  it('drops events for unknown or missing session ids', () => {
+    useBridgeStore.getState().sendMessage('A', '/p', 'a')
+    const before = useBridgeStore.getState().conversations
+    emit({ type: 'text-delta', delta: 'ghost', sessionId: 'closed-one' })
+    emit({ type: 'text-delta', delta: 'ghost' })
+    expect(useBridgeStore.getState().conversations).toBe(before)
   })
 
-  it('handles a text-delta event by appending to the in-progress assistant message', () => {
-    let handler: (e: any) => void = () => {}
-    apiMock.onBridgeEvent.mockImplementation((cb) => { handler = cb; return () => {} })
-    useBridgeStore.getState().initEventListener()
-
-    useBridgeStore.getState().sendMessage('/project', 'hi')
-    handler({ type: 'text-delta', delta: 'Hel' })
-    handler({ type: 'text-delta', delta: 'lo' })
-
-    const messages = useBridgeStore.getState().messages
-    expect(messages[messages.length - 1]).toMatchObject({ role: 'assistant', content: 'Hello' })
-  })
-
-  it('handles a done event by clearing streaming state', () => {
-    let handler: (e: any) => void = () => {}
-    apiMock.onBridgeEvent.mockImplementation((cb) => { handler = cb; return () => {} })
-    useBridgeStore.getState().initEventListener()
-
-    useBridgeStore.getState().sendMessage('/project', 'hi')
-    handler({ type: 'done' })
-
-    expect(useBridgeStore.getState().streaming).toBe(false)
-  })
-
-  it('handles need-approval by adding a pending tool-call block to the assistant message', () => {
-    let handler: (e: any) => void = () => {}
-    apiMock.onBridgeEvent.mockImplementation((cb) => { handler = cb; return () => {} })
-    useBridgeStore.getState().initEventListener()
-
-    useBridgeStore.getState().sendMessage('/project', 'hi')
-    handler({ type: 'tool-call', id: 'call_1', name: 'write_file', args: { path: '/x' } })
-    handler({ type: 'need-approval', id: 'call_1', name: 'write_file', args: { path: '/x' } })
-
-    const messages = useBridgeStore.getState().messages
-    const assistantMsg = messages[messages.length - 1]
-    expect(assistantMsg.toolCalls?.[0]).toMatchObject({ id: 'call_1', name: 'write_file', status: 'pending-approval' })
-  })
-
-  it('handles tool-result by updating the matching tool-call block to done/error', () => {
-    let handler: (e: any) => void = () => {}
-    apiMock.onBridgeEvent.mockImplementation((cb) => { handler = cb; return () => {} })
-    useBridgeStore.getState().initEventListener()
-
-    useBridgeStore.getState().sendMessage('/project', 'hi')
-    handler({ type: 'tool-call', id: 'call_1', name: 'write_file', args: { path: '/x' } })
-    handler({ type: 'tool-result', id: 'call_1', result: 'Wrote 2 bytes', isError: false })
-
-    const messages = useBridgeStore.getState().messages
-    const assistantMsg = messages[messages.length - 1]
-    expect(assistantMsg.toolCalls?.[0]).toMatchObject({ id: 'call_1', status: 'done', result: 'Wrote 2 bytes' })
-  })
-
-  describe('draft input', () => {
-    beforeEach(() => {
-      useBridgeStore.setState({ draftInput: '' })
+  it('persists a conversation under its session id when a turn finishes', () => {
+    useBridgeStore.getState().sendMessage('A', '/p', 'a')
+    emit({ type: 'text-delta', delta: 'answer', sessionId: 'A' })
+    emit({ type: 'done', sessionId: 'A' })
+    expect(JSON.parse(store['vide:bridge:conv:A'])).toMatchObject({
+      historyId: conv('A').historyId,
+      messages: [{ role: 'user', content: 'a' }, { role: 'assistant', content: 'answer' }],
     })
+  })
 
-    it('setDraftInput replaces the draft', () => {
-      useBridgeStore.getState().setDraftInput('hello')
-      expect(useBridgeStore.getState().draftInput).toBe('hello')
-    })
+  it('cancel stops only that session and drops its empty placeholder', () => {
+    useBridgeStore.getState().sendMessage('A', '/p', 'a')
+    useBridgeStore.getState().sendMessage('B', '/p', 'b')
+    useBridgeStore.getState().cancel('A')
+    expect(apiMock.bridgeCancel).toHaveBeenCalledWith('A')
+    expect(conv('A')).toMatchObject({ streaming: false, messages: [{ role: 'user', content: 'a' }] })
+    expect(conv('B').streaming).toBe(true)
+  })
 
-    it('appendDraftInput appends onto existing text with a newline separator', () => {
-      useBridgeStore.getState().setDraftInput('question?')
-      useBridgeStore.getState().appendDraftInput('```ts\ncode\n```')
-      expect(useBridgeStore.getState().draftInput).toBe('question?\n```ts\ncode\n```')
-    })
+  it('cancel settles that session\'s pending/running tool calls (main emits nothing after a cancel)', () => {
+    useBridgeStore.getState().sendMessage('A', '/p', 'hi')
+    emit({ type: 'tool-call', id: 'call_1', name: 'write_file', args: { path: '/x' }, sessionId: 'A' })
+    emit({ type: 'need-approval', id: 'call_1', name: 'write_file', args: { path: '/x' }, sessionId: 'A' })
+    emit({ type: 'tool-call', id: 'call_2', name: 'read_file', args: { path: '/y' }, sessionId: 'A' })
+    useBridgeStore.getState().cancel('A')
+    expect(conv('A').messages.at(-1)?.toolCalls).toEqual([
+      expect.objectContaining({ id: 'call_1', status: 'error', result: 'Cancelled.' }),
+      expect.objectContaining({ id: 'call_2', status: 'error', result: 'Cancelled.' }),
+    ])
+  })
 
-    it('appendDraftInput on an empty draft does not add a leading newline', () => {
-      useBridgeStore.getState().appendDraftInput('```ts\ncode\n```')
-      expect(useBridgeStore.getState().draftInput).toBe('```ts\ncode\n```')
-    })
+  it('closeConversation keeps history another window wrote since this store loaded', () => {
+    useBridgeStore.getState().sendMessage('A', '/p', 'mine')
+    const historyId = conv('A').historyId
+    // Another window archived a session after this store read history.
+    store['vide:bridge:sessions'] = JSON.stringify([{ id: 'other-win', messages: [{ role: 'user', content: 'theirs' }], timestamp: 1, title: 'theirs' }])
+    useBridgeStore.getState().closeConversation('A')
+    const stored = JSON.parse(store['vide:bridge:sessions']).map((s: any) => s.id)
+    expect(stored).toEqual([historyId, 'other-win'])
+    expect(useBridgeStore.getState().history.map((s) => s.id)).toEqual([historyId, 'other-win'])
+  })
+
+  it('clearConversation keeps history another window wrote since this store loaded', () => {
+    useBridgeStore.getState().sendMessage('A', '/p', 'mine')
+    emit({ type: 'done', sessionId: 'A' })
+    const historyId = conv('A').historyId
+    store['vide:bridge:sessions'] = JSON.stringify([{ id: 'other-win', messages: [{ role: 'user', content: 'theirs' }], timestamp: 1, title: 'theirs' }])
+    useBridgeStore.getState().clearConversation('A')
+    expect(JSON.parse(store['vide:bridge:sessions']).map((s: any) => s.id)).toEqual([historyId, 'other-win'])
+  })
+
+  it('restorePrevious finds a session another window archived', () => {
+    store['vide:bridge:sessions'] = JSON.stringify([{ id: 'other-win', messages: [{ role: 'user', content: 'theirs' }], timestamp: 1, title: 'theirs' }])
+    expect(useBridgeStore.getState().restorePrevious('A')).toBe(true)
+    expect(conv('A')).toMatchObject({ historyId: 'other-win', messages: [{ role: 'user', content: 'theirs' }] })
+  })
+
+  it('closeConversation cancels only that session, archives it, and forgets it', () => {
+    useBridgeStore.getState().sendMessage('A', '/p', 'question A')
+    useBridgeStore.getState().sendMessage('B', '/p', 'b')
+    store['vide:bridge:conv:A'] = '{}'
+    const historyId = conv('A').historyId
+    useBridgeStore.getState().closeConversation('A')
+    expect(apiMock.bridgeCancel).toHaveBeenCalledWith('A')
+    expect(apiMock.bridgeCancel).not.toHaveBeenCalledWith('B')
+    expect(conv('A')).toBeUndefined()
+    expect(store['vide:bridge:conv:A']).toBeUndefined()
+    expect(useBridgeStore.getState().history[0]).toMatchObject({ id: historyId, title: 'question A' })
+    expect(conv('B').streaming).toBe(true)
+  })
+
+  it('closeConversation of an empty conversation does not add a history entry', () => {
+    useBridgeStore.getState().closeConversation('B')
+    expect(useBridgeStore.getState().history).toEqual([])
+  })
+
+  it('clearConversation archives the transcript and starts fresh under a new history id', () => {
+    useBridgeStore.getState().sendMessage('A', '/p', 'first')
+    emit({ type: 'done', sessionId: 'A' })
+    const oldHistoryId = conv('A').historyId
+    useBridgeStore.getState().clearConversation('A')
+    expect(conv('A').messages).toEqual([])
+    expect(conv('A').historyId).not.toBe(oldHistoryId)
+    expect(useBridgeStore.getState().history[0].id).toBe(oldHistoryId)
+  })
+
+  it('restorePrevious loads the newest archived conversation that is not the current one', () => {
+    store['vide:bridge:sessions'] = JSON.stringify([
+      { id: 'h-new', messages: [{ role: 'user', content: 'newest' }], timestamp: 2, title: 'newest' },
+      { id: 'h-old', messages: [{ role: 'user', content: 'older' }], timestamp: 1, title: 'older' },
+    ])
+    expect(useBridgeStore.getState().restorePrevious('A')).toBe(true)
+    expect(conv('A')).toMatchObject({ historyId: 'h-new', messages: [{ role: 'user', content: 'newest' }] })
+  })
+
+  it('restorePrevious returns false with empty history', () => {
+    expect(useBridgeStore.getState().restorePrevious('A')).toBe(false)
+    expect(conv('A').messages).toEqual([])
+  })
+
+  it('approve/reject forward the session id', () => {
+    useBridgeStore.getState().approveToolCall('A', 'call_1')
+    useBridgeStore.getState().rejectToolCall('B', 'call_2')
+    expect(apiMock.bridgeApprove).toHaveBeenCalledWith('call_1', 'A')
+    expect(apiMock.bridgeReject).toHaveBeenCalledWith('call_2', 'B')
+  })
+
+  it('tool-call / need-approval / tool-result update the right conversation', () => {
+    useBridgeStore.getState().sendMessage('A', '/p', 'hi')
+    emit({ type: 'tool-call', id: 'call_1', name: 'write_file', args: { path: '/x' }, sessionId: 'A' })
+    emit({ type: 'need-approval', id: 'call_1', name: 'write_file', args: { path: '/x' }, sessionId: 'A' })
+    expect(conv('A').messages.at(-1)?.toolCalls?.[0]).toMatchObject({ status: 'pending-approval' })
+    emit({ type: 'tool-result', id: 'call_1', result: 'ok', isError: false, sessionId: 'A' })
+    expect(conv('A').messages.at(-1)?.toolCalls?.[0]).toMatchObject({ status: 'done', result: 'ok' })
+  })
+
+  it('toggleAgentMode flips only that session', () => {
+    useBridgeStore.getState().toggleAgentMode('A')
+    expect(conv('A').agentMode).toBe(true)
+    expect(conv('B').agentMode).toBe(true)
+  })
+
+  it('draft input is per session; append adds a newline separator only when non-empty', () => {
+    useBridgeStore.getState().appendDraftInput('A', 'code')
+    expect(conv('A').draftInput).toBe('code')
+    useBridgeStore.getState().setDraftInput('B', 'question?')
+    useBridgeStore.getState().appendDraftInput('B', 'code')
+    expect(conv('B').draftInput).toBe('question?\ncode')
+  })
+
+  it('regenerate resends history up to and including the chosen user message', () => {
+    useBridgeStore.getState().sendMessage('A', '/p', 'q1')
+    emit({ type: 'text-delta', delta: 'a1', sessionId: 'A' })
+    emit({ type: 'done', sessionId: 'A' })
+    useBridgeStore.getState().regenerate('A', '/p', 0)
+    expect(conv('A').messages).toEqual([{ role: 'user', content: 'q1' }, { role: 'assistant', content: '' }])
+    expect(apiMock.bridgeSend).toHaveBeenLastCalledWith('/p', [{ role: 'user', content: 'q1' }], false, expect.any(Object), 'A')
   })
 })

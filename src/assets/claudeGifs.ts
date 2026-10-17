@@ -1,4 +1,5 @@
 import clawdDancing from './clawdDancing.gif'
+import claudeArtist from './claude-artist.gif'
 import claudeFu from './claude-fu.gif'
 import claudeIdea from './claude-idea.gif'
 import claudeJam from './claude-jam.gif'
@@ -9,6 +10,7 @@ import claudePolish from './claude-polish.gif'
 // generate button (GitPanel) and the activity bar icon (ClaudeStatusIcon).
 export const CLAUDE_WORKING_GIFS = [
   clawdDancing,
+  claudeArtist,
   claudeFu,
   claudeIdea,
   claudeJam,
