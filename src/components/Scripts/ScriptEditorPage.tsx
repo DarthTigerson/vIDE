@@ -4,6 +4,29 @@ import type { ScriptPatch } from '@/types/api'
 import { useScriptsStore } from '@/stores/scriptsStore'
 import { runScriptInNewTerminal } from '@/lib/runScript'
 import { Switch } from '@/components/ui/Toggle'
+import { ScriptsIcon } from '@/components/ActivityBar/ActivityBar'
+
+// A bordered, tinted box around the name and description so they read as
+// editable fields at rest, not as headings.
+const fieldClass =
+  '-ml-2.5 flex items-center rounded-lg border border-border bg-white/[0.03] px-2.5 cursor-text transition-colors hover:border-white/20 focus-within:border-accent'
+
+function PencilIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 text-fg-subtle">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+    </svg>
+  )
+}
+
+function FolderIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    </svg>
+  )
+}
 
 const SAVE_DELAY_MS = 500
 // One shared empty list: a fresh `[]` from the selector on every read makes
@@ -61,83 +84,110 @@ export function ScriptEditorPage({ scriptId, monacoTheme, beforeMount, fontSize,
     )
   }
 
+  async function run() {
+    await flush()
+    const latest = useScriptsStore.getState().scripts.find((x) => x.id === scriptId)
+    if (latest) runScriptInNewTerminal(latest)
+  }
+
+  const lineCount = draft.body ? draft.body.replace(/\n+$/, '').split('\n').length : 0
+
   return (
-    <div className="h-full flex flex-col bg-panel overflow-hidden">
-      <div className="shrink-0 p-4 pb-3 flex flex-col gap-2 border-b border-border">
-        <div className="flex items-center gap-2">
-          <input
-            value={draft.title}
-            onChange={(e) => change({ title: e.target.value })}
-            placeholder="Untitled script"
-            aria-label="Script title"
-            className="flex-1 min-w-0 bg-transparent text-base font-semibold text-fg placeholder:text-fg-subtle focus:outline-none"
-          />
-          <button
-            type="button"
-            onClick={async () => {
-              await flush()
-              const latest = useScriptsStore.getState().scripts.find((x) => x.id === scriptId)
-              if (latest) runScriptInNewTerminal(latest)
-            }}
-            className="shrink-0 px-3 py-1 text-xs rounded-lg bg-accent text-on-accent font-semibold hover:opacity-90"
-          >
-            ▶ Run
-          </button>
+    <div className="h-full flex flex-col gap-6 overflow-hidden bg-panel px-10 py-8">
+      <div className="shrink-0 flex items-start gap-4">
+        <div className="w-12 h-12 shrink-0 rounded-[10px] border border-accent/40 bg-accent/15 text-accent flex items-center justify-center [&>svg]:w-6 [&>svg]:h-6">
+          <ScriptsIcon />
         </div>
-        <textarea
-          value={draft.description}
-          onChange={(e) => change({ description: e.target.value })}
-          placeholder="What this does and when to use it (Claude reads this too)"
-          aria-label="Script description"
-          rows={2}
-          className="w-full resize-y rounded border border-border bg-bg px-2 py-1.5 text-sm text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-1 focus:ring-accent/70"
-        />
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-          <div className="flex items-center gap-2 text-xs text-fg-muted">
-            <Switch checked={draft.shareOutput} onChange={(value) => change({ shareOutput: value })} label="Share output with Claude" />
-            Share output with Claude
-            <span className="text-fg-subtle">{draft.shareOutput ? '' : '(Claude only hears success or failure)'}</span>
-          </div>
-          <p className="text-xs text-fg-subtle">
-            Success = exit status of the last command; chain with <code className="font-mono">&&</code> to stop at the first failure.
-          </p>
+        <div className="flex-1 min-w-0 max-w-[820px] flex flex-col gap-2.5">
+          <label className={`${fieldClass} gap-2.5 py-1`}>
+            <input
+              value={draft.title}
+              onChange={(e) => change({ title: e.target.value })}
+              placeholder="Untitled script"
+              aria-label="Script title"
+              className="flex-1 min-w-0 bg-transparent py-0.5 text-[1.375rem] font-semibold tracking-tight text-fg placeholder:text-fg-subtle focus:outline-none"
+            />
+            <PencilIcon />
+          </label>
+          <label className={`${fieldClass} flex-col items-stretch gap-1.5 pt-2 pb-2.5`}>
+            <span className="flex items-center gap-2 text-[0.6875rem] text-fg-subtle">
+              Description
+              <span aria-hidden="true">·</span>
+              <span>Claude reads this to decide when to use it</span>
+              <span className="flex-1" />
+              <PencilIcon />
+            </span>
+            <textarea
+              value={draft.description}
+              onChange={(e) => change({ description: e.target.value })}
+              placeholder="What this does and when to use it"
+              aria-label="Script description"
+              rows={2}
+              className="w-full resize-none bg-transparent text-sm leading-relaxed text-fg-muted placeholder:text-fg-subtle focus:outline-none"
+            />
+          </label>
         </div>
-        {tags.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 text-xs text-fg-subtle">
-            <span>Used in:</span>
-            {tags.map((root) => (
-              <span key={root} className="flex items-center gap-1 rounded bg-white/5 pl-1.5 pr-0.5 py-0.5 font-mono text-fg-muted">
-                {root.split('/').pop() || root}
-                <button
-                  type="button"
-                  aria-label={`Remove ${root}`}
-                  title={root}
-                  onClick={() => void useScriptsStore.getState().removeTag(scriptId, root)}
-                  className="w-4 h-4 flex items-center justify-center rounded hover:bg-white/10 hover:text-fg"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
+        <button
+          type="button"
+          onClick={() => void run()}
+          className="shrink-0 h-9 px-4 rounded-lg bg-accent text-on-accent text-sm font-semibold flex items-center gap-2 hover:bg-accent/90"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z" /></svg>
+          Run in terminal
+        </button>
       </div>
-      <div className="flex-1 min-h-0">
-        <MonacoEditor
-          value={draft.body}
-          language="shell"
-          theme={monacoTheme}
-          beforeMount={beforeMount}
-          onChange={(value) => change({ body: value ?? '' })}
-          options={{
-            fontSize,
-            fontFamily: font,
-            minimap: { enabled: false },
-            scrollBeyondLastLine: false,
-            padding: { top: 8 },
-            automaticLayout: true,
-          }}
-        />
+
+      <div className="shrink-0 flex flex-wrap items-center gap-2 text-xs">
+        <span className="mr-1 text-fg-subtle">Used in</span>
+        {tags.length === 0 && <span className="text-fg-subtle">not run in a project yet</span>}
+        {tags.map((root) => (
+          <span key={root} title={root} className="h-[1.625rem] flex items-center gap-1.5 rounded-full bg-white/5 pl-2.5 pr-1 text-fg-muted">
+            <FolderIcon />
+            {root.split('/').pop() || root}
+            <button
+              type="button"
+              aria-label={`Remove ${root}`}
+              onClick={() => void useScriptsStore.getState().removeTag(scriptId, root)}
+              className="w-[1.125rem] h-[1.125rem] flex items-center justify-center rounded-full text-fg-subtle hover:bg-white/10 hover:text-fg"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <span className="mx-2 h-[1.125rem] w-px bg-border" />
+        <div className="flex items-center gap-2.5 text-fg-muted">
+          <Switch checked={draft.shareOutput} onChange={(value) => change({ shareOutput: value })} label="Claude sees the output" />
+          <span>Claude sees the output</span>
+          {!draft.shareOutput && <span className="text-fg-subtle">(only success or failure)</span>}
+        </div>
+      </div>
+
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden rounded-[10px] border border-border bg-bg">
+        <div className="h-10 shrink-0 flex items-center gap-2.5 border-b border-border bg-white/[0.03] px-3.5 text-xs">
+          <span className="font-semibold text-fg">Commands</span>
+          <span className="text-fg-subtle">{lineCount === 1 ? '1 line' : `${lineCount} lines`}</span>
+          <span className="flex-1" />
+          <span className="truncate text-fg-subtle">
+            Typed line by line · chain with <code className="font-mono">&&</code> to stop at the first failure
+          </span>
+        </div>
+        <div className="flex-1 min-h-0">
+          <MonacoEditor
+            value={draft.body}
+            language="shell"
+            theme={monacoTheme}
+            beforeMount={beforeMount}
+            onChange={(value) => change({ body: value ?? '' })}
+            options={{
+              fontSize,
+              fontFamily: font,
+              minimap: { enabled: false },
+              scrollBeyondLastLine: false,
+              padding: { top: 12 },
+              automaticLayout: true,
+            }}
+          />
+        </div>
       </div>
     </div>
   )
