@@ -1,17 +1,18 @@
 import React, { useEffect, useState } from 'react'
 import { APP_DRAG_MIME } from '@/components/ActivityBar/ActivityBar'
-import { AppFavoriteContextMenu } from './AppFavoriteContextMenu'
 
 export interface AllAppsEntry {
   id: string
   title: string
   icon: React.ReactNode
-  onOpen: () => void
+  favorite: boolean
+  onOpen: (event: React.MouseEvent<HTMLButtonElement>) => void
 }
 
 // The sidebar panel behind the activity bar's All Apps button: every enabled
-// app that isn't a favorite. Rows drag onto the bar to favorite them; a
-// favorite dragged off the bar and dropped here is unfavorited.
+// app, favorites included. The star on each row toggles whether it's on the
+// bar; rows also drag onto the bar to favorite them, and a favorite dragged
+// off the bar and dropped here is unfavorited.
 export function AllAppsPanel({ apps, open, onFavorite, onUnfavorite }: {
   apps: AllAppsEntry[]
   // False while the sidebar shows another panel (or is collapsed) — the
@@ -22,7 +23,6 @@ export function AllAppsPanel({ apps, open, onFavorite, onUnfavorite }: {
 }) {
   const [query, setQuery] = useState('')
   const [dropActive, setDropActive] = useState(false)
-  const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null)
 
   useEffect(() => {
     if (!open) setQuery('')
@@ -30,7 +30,7 @@ export function AllAppsPanel({ apps, open, onFavorite, onUnfavorite }: {
 
   const q = query.trim().toLowerCase()
   const visible = q ? apps.filter((app) => app.title.toLowerCase().includes(q)) : apps
-  const appIds = new Set(apps.map((app) => app.id))
+  const favoriteIds = new Set(apps.filter((app) => app.favorite).map((app) => app.id))
 
   return (
     <div
@@ -48,8 +48,8 @@ export function AllAppsPanel({ apps, open, onFavorite, onUnfavorite }: {
         e.preventDefault()
         setDropActive(false)
         const id = e.dataTransfer.getData(APP_DRAG_MIME)
-        // A row dragged and dropped back onto this panel is a no-op.
-        if (id && !appIds.has(id)) onUnfavorite(id)
+        // An unfavorited row dragged back onto this panel is a no-op.
+        if (favoriteIds.has(id)) onUnfavorite(id)
       }}
     >
       <div className="h-9 px-3 border-b border-border shrink-0 flex items-center">
@@ -78,40 +78,50 @@ export function AllAppsPanel({ apps, open, onFavorite, onUnfavorite }: {
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto py-1">
         {visible.map((app) => (
-          <button
-            key={app.id}
-            type="button"
-            draggable
-            onDragStart={(e) => {
-              e.dataTransfer.setData(APP_DRAG_MIME, app.id)
-              e.dataTransfer.effectAllowed = 'move'
-            }}
-            onClick={app.onOpen}
-            onContextMenu={(e) => {
-              e.preventDefault()
-              setMenu({ id: app.id, x: e.clientX, y: e.clientY })
-            }}
-            className="w-full h-8 px-3 flex items-center gap-2.5 text-left text-sm text-fg-muted hover:text-fg hover:bg-white/5 transition-colors"
-          >
-            <span className="w-5 h-5 shrink-0 flex items-center justify-center [&>svg]:w-4 [&>svg]:h-4">{app.icon}</span>
-            <span className="truncate">{app.title}</span>
-          </button>
+          <div key={app.id} className="group h-8 pr-2 flex items-center hover:bg-white/5 transition-colors">
+            <button
+              type="button"
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData(APP_DRAG_MIME, app.id)
+                e.dataTransfer.effectAllowed = 'move'
+              }}
+              onClick={app.onOpen}
+              className="flex-1 min-w-0 h-full pl-3 flex items-center gap-2.5 text-left text-sm text-fg-muted group-hover:text-fg"
+            >
+              <span className="w-5 h-5 shrink-0 flex items-center justify-center [&>svg]:w-4 [&>svg]:h-4">{app.icon}</span>
+              <span className="truncate">{app.title}</span>
+            </button>
+            <button
+              type="button"
+              aria-pressed={app.favorite}
+              aria-label={app.favorite ? `Remove ${app.title} from favorites` : `Add ${app.title} to favorites`}
+              title={app.favorite ? 'Remove from favorites' : 'Add to favorites'}
+              onClick={() => (app.favorite ? onUnfavorite(app.id) : onFavorite(app.id))}
+              className={[
+                'w-6 h-6 shrink-0 rounded flex items-center justify-center hover:bg-white/10',
+                app.favorite ? 'text-accent' : 'text-fg-subtle hover:text-fg',
+              ].join(' ')}
+            >
+              <StarIcon filled={app.favorite} />
+            </button>
+          </div>
         ))}
-        {visible.length === 0 && (
-          <p className="px-3 py-2 text-xs text-fg-subtle">
-            {apps.length === 0 ? 'Every app is a favorite.' : 'No apps match.'}
-          </p>
-        )}
+        {visible.length === 0 && <p className="px-3 py-2 text-xs text-fg-subtle">No apps match.</p>}
       </div>
-      {menu && (
-        <AppFavoriteContextMenu
-          x={menu.x}
-          y={menu.y}
-          favorite={false}
-          onToggle={() => onFavorite(menu.id)}
-          onClose={() => setMenu(null)}
-        />
-      )}
     </div>
+  )
+}
+
+function StarIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} aria-hidden="true">
+      <path
+        d="M12 3.5l2.6 5.3 5.8.85-4.2 4.1 1 5.8L12 16.8l-5.2 2.75 1-5.8-4.2-4.1 5.8-.85L12 3.5z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+    </svg>
   )
 }

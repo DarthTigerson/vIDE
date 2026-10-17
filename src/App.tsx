@@ -39,9 +39,8 @@ import {
 } from './components/ActivityBar/ActivityBar'
 import type { ActivityBarItem } from './components/ActivityBar/ActivityBar'
 import { AllAppsPanel } from './components/AllApps/AllAppsPanel'
-import { AppFavoriteContextMenu } from './components/AllApps/AppFavoriteContextMenu'
 import { useAppFavoritesStore } from './stores/appFavoritesStore'
-import { APPEND_TARGET, splitApps, type MovableAppId } from './lib/appFavorites'
+import { APPEND_TARGET, MOVABLE_APP_IDS, splitApps, type MovableAppId } from './lib/appFavorites'
 import { SessionIcon } from './components/ActivityBar/SessionIcon'
 import { NewSessionMenu } from './components/ActivityBar/NewSessionMenu'
 import { ClaudeSessionContextMenu } from './components/ActivityBar/ClaudeSessionContextMenu'
@@ -188,8 +187,6 @@ export default function App() {
   const appFavorites = useAppFavoritesStore((s) => s.favorites)
   const placeFavorite = useAppFavoritesStore((s) => s.place)
   const unfavoriteApp = useAppFavoritesStore((s) => s.unfavorite)
-  const [appMenu, setAppMenu] = useState<{ id: string; x: number; y: number } | null>(null)
-  const closeAppMenu = useCallback(() => setAppMenu(null), [])
   const lastLeftPanelRef = useRef<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'llama' | 'settings' | 'apps'>('files')
   const [sidebarRem, setSidebarRem] = useState(() => loadRem(SIDEBAR_WIDTH_KEY, SIDEBAR_PANEL))
   const [chatRem, setChatRem] = useState(() => loadRem(CHAT_WIDTH_KEY, CHAT_PANEL))
@@ -912,8 +909,9 @@ export default function App() {
       <div className="flex flex-1 min-h-0">
         {(() => {
           // File Tree, Search and Git are locked at the top. Every other app
-          // is a favorite (on the bar, user-ordered, draggable) or listed in
-          // the All Apps panel; a disabled app is in neither (null here).
+          // is listed in the All Apps panel, and the favorites (starred there)
+          // also sit on the bar, user-ordered and draggable. A disabled app
+          // appears nowhere (null here).
           const togglePanel = (id: NonNullable<typeof leftPanel>) => () => setLeftPanel((p) => (p === id ? null : id))
           const lockedItems: ActivityBarItem[] = [
             {
@@ -1002,20 +1000,13 @@ export default function App() {
           }
           const enabledApps = (Object.keys(appItems) as MovableAppId[]).filter((id) => appItems[id])
           const { favorites: favoriteIds, others: otherIds } = splitApps(enabledApps, appFavorites)
-          const favoriteItems = favoriteIds.map((id): ActivityBarItem => ({
-            ...appItems[id]!,
-            dragId: id,
-            onContextMenu: (e) => {
-              e.preventDefault()
-              setAppMenu({ id, x: e.clientX, y: e.clientY })
-            },
-          }))
+          const favoriteItems = favoriteIds.map((id): ActivityBarItem => ({ ...appItems[id]!, dragId: id }))
           // An unfavorited app opened from All Apps shows under the separator
           // only while it's the active one; switching or closing clears it.
           const temporaryItem = otherIds.map((id) => appItems[id]!).find((item) => item.active)
           const primaryGroups: ActivityBarItem[][] = [
             [...lockedItems, ...favoriteItems],
-            ...(otherIds.length > 0 ? [[
+            ...(enabledApps.length > 0 ? [[
               ...(temporaryItem ? [temporaryItem] : []),
               {
                 id: 'apps',
@@ -1029,10 +1020,12 @@ export default function App() {
               },
             ]] : []),
           ]
-          const allAppsEntries = otherIds.map((id) => ({
+          // Every enabled app, favorites included (the star shows which).
+          const allAppsEntries = MOVABLE_APP_IDS.filter((id) => appItems[id]).map((id) => ({
             id,
             title: appItems[id]!.title,
             icon: appItems[id]!.icon,
+            favorite: favoriteIds.includes(id),
             onOpen: appItems[id]!.onClick,
           }))
           const primaryActivityBar = (
@@ -1308,15 +1301,6 @@ export default function App() {
             useClaudeStore.getState().setChatVisible(true)
           }}
           onClose={closeNewSessionMenu}
-        />
-      )}
-      {appMenu && (
-        <AppFavoriteContextMenu
-          x={appMenu.x}
-          y={appMenu.y}
-          favorite
-          onToggle={() => unfavoriteApp(appMenu.id)}
-          onClose={closeAppMenu}
         />
       )}
       {sessionMenu && (

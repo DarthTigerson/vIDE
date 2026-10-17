@@ -1,9 +1,9 @@
 // Pure ordering rules for the left activity bar's apps (VIDE All Apps).
 //
 // File Tree, Search and Git are locked at the top and never appear here.
-// Every other app is either a favorite (shown on the bar, in the user's
-// order) or in the All Apps panel. Disabled apps are filtered out by the
-// caller before any of this runs, so they appear in neither.
+// Every other app is listed in the All Apps panel; favorites also sit on the
+// bar, in the user's order. Disabled apps are filtered out by the caller
+// before any of this runs, so they appear nowhere.
 
 // Apps that can be favorited/unfavorited. Order here is the All Apps panel's
 // order; new apps (e.g. future plugins) get appended and start unfavorited.
@@ -61,7 +61,8 @@ export function removeFavorite(favorites: MovableAppId[], id: string): MovableAp
 }
 
 // Splits the currently enabled apps into the bar's favorites (in favorite
-// order) and the All Apps list (in MOVABLE_APP_IDS order).
+// order) and the rest (in MOVABLE_APP_IDS order) — the candidates for the
+// bar's temporary slot.
 export function splitApps(
   enabled: readonly MovableAppId[],
   favorites: readonly MovableAppId[]

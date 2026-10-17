@@ -3,11 +3,10 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { AllAppsPanel } from '../AllAppsPanel'
 import { APP_DRAG_MIME } from '@/components/ActivityBar/ActivityBar'
 
-vi.mock('@/lib/nativeViewCover', () => ({ useCoverNativeViews: () => {} }))
-
 const apps = [
-  { id: 'todos', title: 'To Do', icon: null, onOpen: vi.fn() },
-  { id: 'notes', title: 'Notes', icon: null, onOpen: vi.fn() },
+  { id: 'docker', title: 'Docker', icon: null, favorite: true, onOpen: vi.fn() },
+  { id: 'todos', title: 'To Do', icon: null, favorite: false, onOpen: vi.fn() },
+  { id: 'notes', title: 'Notes', icon: null, favorite: false, onOpen: vi.fn() },
 ]
 
 function dataTransfer(data: Record<string, string>) {
@@ -25,7 +24,7 @@ describe('AllAppsPanel', () => {
   it('lists the apps and opens one on click', () => {
     setup()
     fireEvent.click(screen.getByText('Notes'))
-    expect(apps[1].onOpen).toHaveBeenCalled()
+    expect(apps[2].onOpen).toHaveBeenCalled()
   })
 
   it('filters by the search box and clears it when the panel closes', () => {
@@ -47,16 +46,25 @@ describe('AllAppsPanel', () => {
     expect(onUnfavorite).toHaveBeenCalledWith('docker')
   })
 
-  it('ignores a row dropped back onto the panel', () => {
+  it('ignores an unfavorited row dropped back onto the panel', () => {
     const { container, onUnfavorite } = setup()
     fireEvent.drop(container.firstChild as HTMLElement, { dataTransfer: dataTransfer({ [APP_DRAG_MIME]: 'notes' }) })
     expect(onUnfavorite).not.toHaveBeenCalled()
   })
 
-  it('favorites from the right-click menu', () => {
+  it('lists favorites too, with a filled star that unfavorites', () => {
+    const { onUnfavorite } = setup()
+    const star = screen.getByLabelText('Remove Docker from favorites')
+    expect(star.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(star)
+    expect(onUnfavorite).toHaveBeenCalledWith('docker')
+  })
+
+  it('an empty star favorites the app', () => {
     const { onFavorite } = setup()
-    fireEvent.contextMenu(screen.getByText('To Do'))
-    fireEvent.click(screen.getByText('Add to Favorites'))
+    const star = screen.getByLabelText('Add To Do to favorites')
+    expect(star.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(star)
     expect(onFavorite).toHaveBeenCalledWith('todos')
   })
 })
