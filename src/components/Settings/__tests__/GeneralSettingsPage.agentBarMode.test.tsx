@@ -15,7 +15,7 @@ describe('GeneralSettingsPage — Agent panel session names', () => {
   it('defaults to click to collapse', () => {
     render(<GeneralSettingsPage />)
     expect(screen.getByRole('radio', { name: 'Click to collapse' })).toHaveAttribute('aria-checked', 'true')
-    expect(screen.getByText(/grip on the bar's inner edge/)).toBeInTheDocument()
+    expect(screen.getByText(/small tab on the bar's inner edge/)).toBeInTheDocument()
     expect(screen.getByTestId('agent-bar-preview').querySelector('[data-mode]')).toHaveAttribute('data-mode', 'collapse')
   })
 

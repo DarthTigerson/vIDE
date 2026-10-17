@@ -88,7 +88,7 @@ export function GeneralSettingsPage() {
           <p className="max-w-[460px] text-xs text-fg-muted">
             {agentBarMode === 'hover'
               ? 'The bar shows icons only and widens over the panel while you hover it.'
-              : 'A grip on the bar\'s inner edge, near the bottom, collapses it to icons or expands it to show names.'}
+              : 'A small tab on the bar\'s inner edge, near the bottom, collapses it to icons or expands it to show names.'}
           </p>
         </FeatureBlock>
 
