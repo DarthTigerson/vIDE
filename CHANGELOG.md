@@ -1,4 +1,27 @@
 # vIDE
+## v0.2.24 (2026-10-17)
+- **One session bar for every agent**: Bridge and local Llama models now run several sessions side by side, just like Claude, all in the same bar. The "+" button opens a menu of every agent that's available, plus a plain **Terminal** session that's always offered and needs no agent enabled. "New Session" in the Action Palette lists them all too
+- **Close Other Sessions**: a session's right-click menu can now close every other session at once (hidden when it's the only one)
+- **All Apps**: a new four-squares icon in the activity bar opens a list of every enabled app with a search box. Site Tree, Search and Git stay locked at the top; star an app in the list to pin it to the bar (Docker and Llama are pinned by default), or unstar it to take it off. Drag pinned apps to reorder them, drag a row from the list onto the bar to pin it, or drag a pinned app onto the list to unpin it. An unpinned app you open shows under the divider while it's active, and its badge count shows in the list, with a dot on the All Apps icon when one has something new. Your pinned apps sync through vIDE Sync and update live in every open window
+- **Battery in the title bar**: on a laptop, a battery icon with its percentage sits beside the memory pill. Hover it for whether it's on battery, charging or plugged in, and the time left. It turns red at 20% or below, fills gold while charging, and doesn't show at all on a machine without a battery
+- **Notes sorting**: right-click in the Notes panel for Sort by Alphabetical, Created, Updated or Manual. In Manual, drag notes and folders up and down to put them in your own order — a line shows where each will land, and dropping on the middle of a folder still moves it inside. Folders stay above notes in every mode, and the sort and your manual order sync through vIDE Sync
+- **Drag files into the editor**: drag a file from the Site Tree onto an editor pane to open it, or onto the pane's edge to split the pane and open it there. It works on an empty editor, on browser tabs and over other files; a file that's already open moves over like a dragged tab
+- **Switch Project never replaces your project**: picking a project in Switch Project (now ⌘⇧R) always opens it in a new window, or jumps to the window it's already open in. Only an empty window loads it in place. The ⌘↵ option is gone, since Enter does this now
+- **Reload a tab (⌘R)**: reloads the focused browser page, or re-reads the focused file from disk (unsaved changes are kept). Terminals and agent panels ignore it, so ⌘R in a shell still reaches the shell
+- **Restart vIDE (⌘⌥R, Ctrl+Alt+R on Linux)**: a last-resort recovery that reloads every window, even one that's frozen, without quitting the app or ending your sessions. Also in the app menu and the Action Palette ("App: Restart vIDE"), with "App: Reload Window" beside it
+- Switch Project moved from ⌃R to ⌘⇧R, so Ctrl+R reverse-search works in terminals again
+- The file tree is now called the **Site Tree** everywhere — its icon, its panel header (which used to show the project name), Settings, the Action Palette and every "Reveal in Site Tree" menu item
+- The session bar's three-dot grip is now a half-moon tab with an arrow pointing the way it will open or close
+- Files and folders now sort numbers by value in the Site Tree, Notes and the mobile view, so 0.1.3 comes before 0.1.21
+- Dragging over the All Apps list now tints it the same way as the Site Tree and Notes, instead of outlining the panel
+- Popups that rise from the footer (notifications, alarms, the clock and hover labels) no longer cast a shadow onto the footer, so they look like they slide out from behind it
+- Added a new animation to Claude's "working" gifs
+
+**Bug fixes**
+- Fixed vIDE Sync reopening closed To Do tickets: a machine holding an older copy of a ticket overwrote newer changes from your other machine on every sync. Each ticket and board now keeps whichever copy was changed most recently, and new ticket numbers can no longer repeat. Update vIDE on every synced machine to stop it for good
+- Fixed Custom editor colours picked on a dark theme disappearing on a light one (and the other way round) — light and dark themes now each keep their own set
+
+
 ## v0.2.23 (2026-10-14)
 - **Claude session names**: the Claude session bar now widens to show each session's name beside its icon, so stacked sessions are no longer told apart by colour alone. The name follows the title Claude Code gives the conversation (or "Session N" until it sets one), and Rename… in a session's right-click menu sets your own — leave it blank to go back to the automatic title. Bridge and Llama keep the narrow icon bar
 - **Collapsible session bar**: a grip on the bar's inner edge, near the bottom, collapses it back to icons only or expands it to show names; collapsed, hovering a session's icon shows its name. Prefer it out of the way? Pick "Expand on hover" under Settings > General > Agent panel and the bar stays as icons, widening over the panel while you hover it
@@ -6,6 +29,7 @@
 
 **Bug fixes**
 - Fixed Custom editor colours reverting to the default placeholders when vIDE opened on a non-editor tab (like Settings), until you changed a colour, theme or panel style
+
 
 ## v0.2.22 (2026-10-09)
 - **Inline diff highlight**: lines you've changed since the last commit now get a faint tint in the editor — green for added, amber for modified — and the exact words that changed are highlighted on top. Switch it on or off from a new highlighter button in the footer, "Show/Hide Inline Diff Highlight" in the Action Palette, or Show/Hide Inline Diff in a tab's right-click menu. Very long lines and very large edited blocks skip the word highlight so typing stays smooth
