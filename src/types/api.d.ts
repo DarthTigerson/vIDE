@@ -22,19 +22,30 @@ export type ScriptPatch = Partial<Pick<Script, 'title' | 'description' | 'body' 
 
 export type AssistantKind = 'claude' | 'bridge' | (string & {})
 
+// The RAM panel's hover breakdown of everything vIDE runs (system:getMemoryBreakdown).
+export interface MemoryBreakdown {
+  appBytes: number
+  sessions: { instanceId: string; projectRoot: string | null; hue?: string; name?: string; bytes: number }[]
+  terminalsBytes: number
+  languageServersBytes: number
+}
+
+// Each writer saves only its own slice; main merges it into the file on disk
+// (see electron/session.ts).
 export interface SessionData {
-  layout: unknown
-  paneTabs: Record<string, string | null>
-  paneTabLists: Record<string, string[]>
-  activeTabPath: string | null
-  activePaneId: string
-  tabs: { path: string }[]
-  browserUrls: Record<string, string>
+  layout?: unknown
+  paneTabs?: Record<string, string | null>
+  paneTabLists?: Record<string, string[]>
+  activeTabPath?: string | null
+  activePaneId?: string
+  tabs?: { path: string }[]
+  browserUrls?: Record<string, string>
   claudeInstances?: { id: string; hue: string }[]
   // Mixed agent sessions (Claude / Bridge / llama:<id>) in activity-bar
   // order. claudeInstances is the pre-mixed-sessions field, read only as a
   // fallback when this is absent.
   agentSessions?: { id: string; kind: string; hue: string }[]
+  windowBounds?: { x: number; y: number; width: number; height: number; maximized: boolean }
 }
 
 export interface MobileNetworkInterface {
@@ -191,6 +202,7 @@ declare global {
       onSearchDone: (cb: (done: SearchDone) => void) => () => void
       openFolder: () => Promise<string | null>
       getSystemMemoryUsage: () => Promise<{ usedBytes: number; totalBytes: number; appBytes: number }>
+      getMemoryBreakdown: () => Promise<MemoryBreakdown>
       // null on a machine without a battery (iMac, desktop PC).
       getBatteryStatus: () => Promise<{ percent: number; charging: boolean; pluggedIn: boolean; minutesLeft: number | null } | null>
       fsWatchRoot: (cwd: string | null) => void

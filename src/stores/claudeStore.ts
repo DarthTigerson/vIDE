@@ -45,15 +45,12 @@ function parseSaved(raw: unknown, defaultKind?: AssistantKind): AgentSession[] {
   })
 }
 
-// Whole-file overwrite — fine today since agentSessions is the only field
-// anything writes to session data, but a future feature that starts
-// persisting layout/tabs here would need a read-merge-write instead, or its
-// data will be silently erased on every "+"/close/reorder.
-// Terminal sessions are left out: a shell can't be resumed, so they don't
-// come back after a relaunch.
-function persist(cwd: string, instances: AgentSession[]) {
-  const agentSessions = instances.filter((inst) => !isTerminalKind(inst.kind))
-  window.api.sessionSave(cwd, { agentSessions } as any)
+// Writes only the agentSessions slice — main merges it into the project's
+// session file alongside the editor tabs and window bounds.
+// Terminal sessions are saved too: a shell can't be resumed, but it comes
+// back after a relaunch as a fresh one in the same place in the bar.
+function persist(cwd: string, agentSessions: AgentSession[]) {
+  window.api.sessionSave(cwd, { agentSessions })
 }
 
 function openIfBridgeLike(inst: AgentSession) {

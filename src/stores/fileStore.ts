@@ -50,13 +50,17 @@ export const useFileStore = create<FileState>((set, get) => {
     const previousRoot = get().projectRoot
     localStorage.setItem(LAST_ROOT_KEY, root)
     set({ projectRoot: root, tree, expandedPaths: new Set() })
+    // Straight after the root changes, before anything awaits: the new
+    // project's tabs are restored once its session loads (lib/editorSession.ts),
+    // which a later reset would wipe — and resetting while the old root is
+    // still current would save the empty editor over the old project's tabs.
+    if (previousRoot !== null && previousRoot !== root) {
+      useEditorStore.getState().resetForNewProject()
+    }
     await discoverAndWatchRepos(root)
     window.api.fsWatchRoot(root)
     window.api.recentProjectsAdd(root)
     window.api.setWindowTitle(root)
-    if (previousRoot !== null && previousRoot !== root) {
-      useEditorStore.getState().resetForNewProject()
-    }
   }
 
   // Shared by every place a project root gets set (dialog pick, recent
@@ -183,8 +187,9 @@ export const useFileStore = create<FileState>((set, get) => {
     window.api.fsWatchRoot(null)
     window.api.gitWatchRoot(null)
     useGitReposStore.getState().setRepos([])
-    useEditorStore.getState().resetForNewProject()
+    // Root cleared first so the reset isn't saved as this project's tabs.
     set({ projectRoot: null, tree: [], selectedPath: null, expandedPaths: new Set(), revealedPath: null })
+    useEditorStore.getState().resetForNewProject()
   },
   }
 })

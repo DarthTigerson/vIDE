@@ -5,6 +5,8 @@ import { ImperativePanelHandle, Panel, PanelGroup, PanelResizeHandle } from 'rea
 import { SIDEBAR_PANEL, CHAT_PANEL, clampRem, remToPercent, percentToRem, percentLimits, loadRem } from '@/lib/remPanelSize'
 import { openNewBrowserTab } from '@/lib/openBrowserTab'
 import { syncOpenTabsFromDisk } from '@/lib/syncOpenTabsFromDisk'
+import { restoreEditorSession, startEditorSessionPersistence } from '@/lib/editorSession'
+import { formatMemory, memoryRows } from '@/lib/memoryBreakdown'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import { Editor } from './components/Editor/Editor'
 import { ActionPalette } from './components/Search/ActionPalette'
@@ -124,7 +126,7 @@ import { runScriptInNewTerminal, runScriptInAgentTerminal } from './lib/runScrip
 import { LlamaPanel } from './components/Llama/LlamaPanel'
 import { useNotificationSoundSettingsStore, playNotificationSound } from './stores/notificationSoundSettingsStore'
 import { useConfigRepoStore } from './stores/configRepoStore'
-import type { AssistantKind } from './types/api'
+import type { AssistantKind, MemoryBreakdown } from './types/api'
 
 // Rendered once at the app root rather than per-TabBar: Cmd+W is handled here,
 // and the prompt has to appear whichever route asked to close the tab.
@@ -161,6 +163,10 @@ const MEMORY_POLL_INTERVAL_MS = 3000
 const SIDEBAR_WIDTH_KEY = 'vide:layout:sidebarWidthRem'
 const CHAT_WIDTH_KEY = 'vide:layout:chatWidthRem'
 const MAIN_PANEL_GROUP_ID = 'main-layout'
+// The initial-project pull below must run once per page load: main hands the
+// project out exactly once, so StrictMode's dev-only second effect run got
+// null and restoreRoot() loaded the last project over the requested one.
+let initialProjectRequested = false
 
 function readRootPx(): number {
   return parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
@@ -458,15 +464,19 @@ export default function App() {
   // whichever project just opened. Falls back to a single fresh instance
   // when there's nothing saved yet (a project that predates this feature,
   // or a load failure — sessionLoad already resolves null in both cases).
+  // The same session file also holds the project's open editor tabs.
   useEffect(() => {
     if (!projectRoot) return
     let cancelled = false
     window.api.sessionLoad(projectRoot).then((data) => {
       if (cancelled) return
       useClaudeStore.getState().loadInstancesFromSession(data)
+      void restoreEditorSession(projectRoot, data)
     })
     return () => { cancelled = true }
   }, [projectRoot])
+
+  useEffect(() => startEditorSessionPersistence(), [])
 
   // Search/Git/Docker/Mobile Display/Graphify only make sense with a project open
   // (their ActivityBar icons disappear entirely when projectRoot is null,
@@ -520,6 +530,8 @@ export default function App() {
     // never actually observe an IPC message arriving before the very next
     // synchronous line ran — and reload-safe, since the main-process side is
     // one-shot per window and returns null on a later call.
+    if (initialProjectRequested) return
+    initialProjectRequested = true
     ;(async () => {
       const initialProject = await window.api.getInitialProject()
       if (initialProject) {
@@ -1415,6 +1427,24 @@ function MemoryPill({ usage }: { usage: { usedBytes: number; totalBytes: number;
   // undefined = not yet fetched, null = nothing running / hide row.
   const [dockerBytes, setDockerBytes] = useState<number | null | undefined>(undefined)
   const [llamaBytes, setLlamaBytes] = useState<number | null | undefined>(undefined)
+  // What vIDE itself runs, split by session — refreshed only while the panel
+  // is open, and kept after it closes so reopening shows it straight away.
+  const [breakdown, setBreakdown] = useState<MemoryBreakdown | null>(null)
+  const instances = useClaudeStore((s) => s.instances)
+
+  useEffect(() => {
+    if (!hovered) return
+    const poll = () => { window.api.getMemoryBreakdown().then(setBreakdown).catch(() => {}) }
+    poll()
+    const interval = setInterval(poll, MEMORY_POLL_INTERVAL_MS)
+    return () => clearInterval(interval)
+  }, [hovered])
+
+  const ownHues = Object.fromEntries(instances.map((inst) => [inst.id, inst.hue]))
+  const { totalBytes: videBytes, rows: videRows } = memoryRows(
+    breakdown ?? { appBytes: usage.appBytes, sessions: [], terminalsBytes: 0, languageServersBytes: 0 },
+    ownHues
+  )
 
   function handleEnter() {
     setHovered(true)
@@ -1438,15 +1468,24 @@ function MemoryPill({ usage }: { usage: { usedBytes: number; totalBytes: number;
       <RamIcon />
       {formatGb(usage.usedBytes)}/{formatGb(usage.totalBytes)} GB
       {hovered && (
-        <div className="absolute right-0 top-[calc(100%+6px)] z-30 w-48 rounded-md border border-border bg-popover p-2.5 shadow-2xl shadow-black/40">
+        <div className="absolute right-0 top-[calc(100%+6px)] z-30 w-64 rounded-md border border-border bg-popover p-2.5 shadow-2xl shadow-black/40">
           <div className="flex items-center justify-between gap-3 text-xs">
             <span className="text-fg-muted">System</span>
             <span className="font-medium text-fg tabular-nums">{formatGb(usage.usedBytes)}/{formatGb(usage.totalBytes)} GB</span>
           </div>
-          <div className="mt-1.5 flex items-center justify-between gap-3 text-xs">
-            <span className="text-fg-muted">vIDE</span>
-            <span className="font-medium text-fg tabular-nums">{formatGb(usage.appBytes)} GB</span>
+          <div className="mt-2 flex items-center justify-between gap-3 border-t border-border pt-2 text-xs">
+            <span className="text-fg">vIDE total</span>
+            <span className="font-medium text-fg tabular-nums">{formatMemory(videBytes)}</span>
           </div>
+          {videRows.map((row) => (
+            <div key={row.key} className="mt-1.5 flex items-center justify-between gap-3 pl-3 text-xs">
+              <span className="flex min-w-0 items-center gap-1.5 text-fg-muted">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: row.hue }} />
+                <span className="truncate" title={row.label}>{row.label}</span>
+              </span>
+              <span className="shrink-0 whitespace-nowrap text-fg tabular-nums">{formatMemory(row.bytes)}</span>
+            </div>
+          ))}
           {dockerBytes != null && (
             <div className="mt-1.5 flex items-center justify-between gap-3 text-xs">
               <span className="text-fg-muted">Docker</span>

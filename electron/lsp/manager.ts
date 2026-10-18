@@ -188,6 +188,13 @@ export class LanguageServerManager {
     state?.servers.delete(serverId)
   }
 
+  // Every running language server, for the RAM panel (system:getMemoryBreakdown).
+  listPids(): number[] {
+    return [...this.byWindow.values()].flatMap((state) =>
+      [...state.servers.values()].flatMap((server) => (server.proc.pid ? [server.proc.pid] : []))
+    )
+  }
+
   disposeWindow(winId: number): void {
     const state = this.byWindow.get(winId)
     if (!state) return

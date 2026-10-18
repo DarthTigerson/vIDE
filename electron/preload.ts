@@ -42,6 +42,7 @@ contextBridge.exposeInMainWorld('api', {
   openFolder: () => ipcRenderer.invoke('dialog:openFolder'),
   openFile: (opts: { defaultPath?: string; filters?: { name: string; extensions: string[] }[] }) => ipcRenderer.invoke('dialog:openFile', opts),
   getSystemMemoryUsage: () => ipcRenderer.invoke('system:getMemoryUsage'),
+  getMemoryBreakdown: () => ipcRenderer.invoke('system:getMemoryBreakdown'),
   getBatteryStatus: () => ipcRenderer.invoke('system:getBattery'),
   fsWatchRoot: (cwd: string | null) => ipcRenderer.send('fs:watchRoot', cwd),
   onFsChanged: (cb: (cwd: string) => void) => {

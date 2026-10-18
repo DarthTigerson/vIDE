@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu, webContents, nativeImage } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, Menu, webContents, nativeImage, screen } from 'electron'
 import { basename, join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import { access, cp } from 'fs/promises'
@@ -26,7 +26,9 @@ import {
   copyInto, moveInto,
 } from './fsOps'
 import { writeClipboardFiles, readClipboardFiles } from './fileClipboard'
-import { registerSessionHandlers } from './session'
+import { registerSessionHandlers, loadSession, saveSession, loadOpenWindows, saveOpenWindows, getAgentSessionInfo, type WindowBounds } from './session'
+import { childrenByParent, readProcessTable, treeRssBytes } from './processMemory'
+import { fitBoundsToDisplays } from './windowBounds'
 import { registerRecentProjectsHandlers, readRecents, addRecentProject, clearRecentProjects } from './recentProjects'
 import { registerTodoHandlers } from './todos'
 import { registerTodoMcpHandlers, registerNotesMcpHandlers, registerBrowserMcpHandlers, registerScriptsMcpHandlers } from './mcp/mcpRegistration'
@@ -85,15 +87,37 @@ function registerFsHandlers(): void {
   })
 }
 
+// app.getAppMetrics() covers every one of Electron's own OS processes - main,
+// every renderer window, GPU, and any utility/zygote helpers. It does not see
+// the child processes vIDE starts (Claude CLIs, shells, language servers);
+// system:getMemoryBreakdown adds those up separately.
+// workingSetSize is in KB on both platforms vIDE ships (see systemMemory.ts).
+function electronAppBytes(): number {
+  return app.getAppMetrics().reduce((sum, p) => sum + p.memory.workingSetSize * 1024, 0)
+}
+
 function registerSystemHandlers(): void {
   ipcMain.handle('system:getMemoryUsage', async () => {
     const system = await getSystemMemoryUsage()
-    // app.getAppMetrics() covers every one of vIDE's own OS processes - main,
-    // every renderer window, GPU, and any utility/zygote helpers - so this is
-    // vIDE's real total footprint, not just the process serving this window.
-    // workingSetSize is in KB on both platforms vIDE ships (see systemMemory.ts).
-    const appBytes = app.getAppMetrics().reduce((sum, p) => sum + p.memory.workingSetSize * 1024, 0)
-    return { ...system, appBytes }
+    return { ...system, appBytes: electronAppBytes() }
+  })
+  // The RAM panel's hover breakdown, fetched only while it is open. One `ps`
+  // call; each tracked process is counted with everything it started.
+  ipcMain.handle('system:getMemoryBreakdown', async () => {
+    const table = await readProcessTable().catch(() => new Map())
+    const children = childrenByParent(table)
+    const sumTrees = (pids: number[]) => pids.reduce((sum, pid) => sum + treeRssBytes(pid, table, children), 0)
+    return {
+      appBytes: electronAppBytes(),
+      sessions: claudeMgr.listProcesses().map(({ windowId, instanceId, pid }) => ({
+        instanceId,
+        projectRoot: windowProjectRoots.get(windowId) ?? null,
+        ...getAgentSessionInfo(instanceId),
+        bytes: treeRssBytes(pid, table, children),
+      })),
+      terminalsBytes: sumTrees(ptyMgr.listPids()),
+      languageServersBytes: sumTrees(lspMgr.listPids()),
+    }
   })
   ipcMain.handle('system:getBattery', () => getBatteryStatus())
 }
@@ -123,6 +147,7 @@ function registerWindowHandlers(): void {
     if (!win || win.isDestroyed()) return
     win.setTitle(basename(root))
     windowProjectRoots.set(win.id, root)
+    persistOpenWindows()
   })
 
   // Renderer pulls its initial project once, on startup, instead of main
@@ -178,7 +203,10 @@ const promptingClose = new Set<number>()
 // prompted and leave the app running. Tracked here so a confirmed close can
 // re-issue the quit, and a cancelled one can call it off properly.
 let quitting = false
-app.on('before-quit', () => { quitting = true })
+app.on('before-quit', () => {
+  quitting = true
+  persistOpenWindows()
+})
 // Windows whose renderer has stopped responding, so reloadAllWindows() knows
 // to crash them first — a reload request alone never gets through to a hung
 // renderer.
@@ -208,10 +236,40 @@ const windowProjectRoots = new Map<number, string>()
 // push-based 'menu:openInitialProject' message.
 const pendingInitialProject = new Map<number, string>()
 
-function createWindow(projectRoot?: string): BrowserWindow {
+// Records which projects are open, in window-opening order, so the next
+// launch reopens them all (see restoreOpenWindows). Never writes an empty
+// list: the windows closing one by one during a quit, or the last window
+// closing just before the app exits on Linux, would otherwise wipe out the
+// very session that should come back. Skipped mid-quit for the same reason —
+// before-quit has already recorded the full set.
+function persistOpenWindows(): void {
+  if (windows.size === 0) return
+  const roots = [...windows.keys()]
+    .map((id) => windowProjectRoots.get(id))
+    .filter((root): root is string => !!root)
+  void saveOpenWindows(roots)
+}
+
+// Remembered per project rather than per window, so a project reopens at its
+// own size whichever way it is opened (relaunch, Recent Projects, palette).
+function saveWindowBounds(win: BrowserWindow): void {
+  const root = windowProjectRoots.get(win.id)
+  if (!root || win.isDestroyed()) return
+  // getNormalBounds: the un-maximized size, so un-maximizing after a restore
+  // goes back to the user's own size rather than to the full screen.
+  void saveSession(root, { windowBounds: { ...win.getNormalBounds(), maximized: win.isMaximized() } })
+}
+
+function boundsOptionsFor(saved?: WindowBounds): { x?: number; y?: number; width: number; height: number } {
+  if (!saved) return { width: 1440, height: 900 }
+  const primary = screen.getPrimaryDisplay()
+  const workAreas = [primary, ...screen.getAllDisplays().filter((d) => d.id !== primary.id)].map((d) => d.workArea)
+  return fitBoundsToDisplays(saved, workAreas)
+}
+
+function createWindow(projectRoot?: string, savedBounds?: WindowBounds): BrowserWindow {
   const win = new BrowserWindow({
-    width: 1440,
-    height: 900,
+    ...boundsOptionsFor(savedBounds),
     minWidth: 800,
     minHeight: 600,
     show: false,
@@ -227,6 +285,7 @@ function createWindow(projectRoot?: string): BrowserWindow {
   })
 
   windows.set(win.id, win)
+  if (savedBounds?.maximized) win.maximize()
   win.once('ready-to-show', () => win.show())
   win.on('unresponsive', () => unresponsiveWindows.add(win.id))
   win.on('responsive', () => unresponsiveWindows.delete(win.id))
@@ -242,6 +301,7 @@ function createWindow(projectRoot?: string): BrowserWindow {
   // but a never-saved scratch tab exists nowhere else, so this warns about
   // the two cases separately rather than lumping them together.
   win.on('close', (e) => {
+    saveWindowBounds(win)
     if (confirmedClose.has(win.id)) return
     const unsaved = unsavedByWindow.get(win.id)
     if (!unsaved || (unsaved.dirty === 0 && unsaved.neverSaved === 0)) return
@@ -271,6 +331,8 @@ function createWindow(projectRoot?: string): BrowserWindow {
       promptingClose.delete(win.id)
       if (response !== 1) {
         quitting = false
+        // Windows closed earlier in the cancelled quit are gone for good.
+        persistOpenWindows()
         return
       }
       confirmedClose.add(win.id)
@@ -289,6 +351,7 @@ function createWindow(projectRoot?: string): BrowserWindow {
     confirmedClose.delete(win.id)
     promptingClose.delete(win.id)
     windowProjectRoots.delete(win.id)
+    if (!quitting) persistOpenWindows()
     ptyMgr.disposeWindow(win.id)
     claudeMgr.disposeWindow(win.id)
     gitWatcher.disposeWindow(win.id)
@@ -332,6 +395,7 @@ function createWindow(projectRoot?: string): BrowserWindow {
   if (projectRoot) {
     pendingInitialProject.set(win.id, projectRoot)
     windowProjectRoots.set(win.id, projectRoot)
+    persistOpenWindows()
   }
 
   return win
@@ -339,8 +403,32 @@ function createWindow(projectRoot?: string): BrowserWindow {
 
 async function openProjectInNewWindow(path: string): Promise<void> {
   await addRecentProject(path)
-  createWindow(path)
+  createWindow(path, (await loadSession(path))?.windowBounds)
   buildMenu()
+}
+
+// Launch: reopen every window that was open when vIDE last quit, each at its
+// project's saved size. Projects deleted since then are skipped; with nothing
+// left (first launch, or upgrading from before this existed) it opens the one
+// window it always has, which restores the last project on its own.
+// True until restoreOpenWindows() has opened its windows, so a Dock
+// 'activate' landing mid-restore doesn't add a stray empty window.
+let restoringWindows = true
+
+async function restoreOpenWindows(): Promise<void> {
+  const roots = [...new Set(await loadOpenWindows())]
+  let opened = 0
+  for (const root of roots) {
+    try {
+      await access(root)
+    } catch {
+      continue
+    }
+    createWindow(root, (await loadSession(root))?.windowBounds)
+    opened++
+  }
+  if (opened === 0) createWindow()
+  restoringWindows = false
 }
 
 app.name = 'vIDE'
@@ -433,7 +521,20 @@ async function buildMenu(): Promise<void> {
           accelerator: process.platform === 'darwin' ? 'Command+Alt+R' : 'Control+Alt+R',
           click: () => reloadAllWindows(),
         },
-        { role: 'quit' },
+        {
+          // Cmd+Q only closes the focused window, so quitting one project
+          // doesn't take every other open window down with it. The last
+          // window quits outright rather than leaving a windowless app in
+          // the Dock (macOS keeps the app resident otherwise).
+          label: 'Close Window',
+          accelerator: 'CmdOrCtrl+Q',
+          click: () => {
+            const win = BrowserWindow.getFocusedWindow()
+            if (win && windows.size > 1) win.close()
+            else app.quit()
+          },
+        },
+        { role: 'quit', label: 'Quit vIDE', accelerator: 'CmdOrCtrl+Shift+Q' },
       ],
     },
     {
@@ -779,7 +880,9 @@ app.whenReady().then(async () => {
   lspMgr.registerHandlers()
 
   buildMenu()
-  createWindow()
+  // Not awaited: the IPC handlers registered below must be in place before
+  // any restored window's renderer starts calling them.
+  void restoreOpenWindows()
 
   // MobileServer and UsageManager (deliberately left untouched — app-wide
   // singletons per the spec, not per-window) push events to whatever `win`
@@ -847,7 +950,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('changelog:getReleases', () => getChangelogReleases())
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (!restoringWindows && BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
 

@@ -239,6 +239,15 @@ export class ClaudeManager {
     getMobileBroadcaster().emit('claude:busy', instanceId, busy, inst.busyChunkCount)
   }
 
+  // Every live Claude PTY, for the RAM panel's per-session rows
+  // (system:getMemoryBreakdown). The pid is the login shell; the CLI and its
+  // MCP servers are its descendants.
+  listProcesses(): { windowId: number; instanceId: string; pid: number }[] {
+    return [...this.byWindow].flatMap(([windowId, state]) =>
+      [...state.instances].flatMap(([instanceId, inst]) => (inst.proc ? [{ windowId, instanceId, pid: inst.proc.pid }] : []))
+    )
+  }
+
   private stateFor(winId: number): WindowState {
     let state = this.byWindow.get(winId)
     if (!state) {
