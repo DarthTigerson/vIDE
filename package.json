@@ -1,6 +1,6 @@
 {
   "name": "vide",
-  "version": "0.2.24",
+  "version": "0.2.25",
   "description": "A Claude-native IDE",
   "author": "Thomas Bonnici",
   "license": "MIT",

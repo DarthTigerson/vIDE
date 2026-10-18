@@ -38,7 +38,11 @@ memory indicator built into the status bar is there to keep that honest.
   round-trip through the chat panel
 - **Find in files** — project-wide search (Cmd+Shift+F)
 - **Claude panel** — run Claude Code as a first-class terminal agent, with
-  support for multiple concurrent sessions
+  support for multiple concurrent sessions that resume their conversations
+  after a relaunch
+- **Rocky Code** — Claude Code on Opus that talks like Rocky from *Project
+  Hail Mary*, handing heavy reading to a Haiku helper and large edits to a
+  Sonnet helper, then reviewing their work itself to save usage
 - **Llama panel** — manage and chat with local LLMs via
   [llama.cpp](https://github.com/ggml-org/llama.cpp): configure models, launch
   `llama-server` without leaving the app, and select any running model from the
@@ -51,6 +55,16 @@ memory indicator built into the status bar is there to keep that honest.
   commit, push/pull, all without leaving the app
 - **Integrated terminal** — a real shell (via `node-pty`) alongside the
   agent panels
+- **Session restore** — quit and relaunch to get every window back with its
+  project, size and position, its open files, split panes and active tabs,
+  and its terminals (as fresh shells). Cmd+Q closes only the current window;
+  Cmd+Shift+Q quits vIDE
+- **Scripts** — save the shell routines you run over and over, each with a
+  description of what it's for, and run one in a new or existing terminal in
+  a couple of clicks. Agents can list, write and run them through their own
+  MCP server
+- **All Apps** — every enabled app in one searchable list; pin the ones you
+  use onto the activity bar and drag them into your own order
 - **To Do board** — a Kanban-style board with its own MCP server, so agents
   can create and update tickets directly
 - **Notes** — a built-in notes app, also exposed to agents via its own MCP
@@ -68,8 +82,9 @@ memory indicator built into the status bar is there to keep that honest.
 - **Graphify** — build and browse a knowledge graph of the open codebase,
   right inside the app
 - **Usage tracking** — Claude usage/burn-rate monitoring built into the
-  status bar; the RAM hover shows system, vIDE, Docker, and Llama memory
-  at a glance
+  status bar; the RAM hover shows system memory and everything vIDE runs —
+  the app itself, each Claude session with its MCP servers, terminals and
+  language servers — plus Docker and Llama
 - **Status bar** — a clock with the date on hover, the cursor position, a
   notification bell with an unread count (new notifications briefly peek
   above it), and git quick actions from a left or right click on the branch
@@ -88,12 +103,13 @@ memory indicator built into the status bar is there to keep that honest.
 
 ## MCP servers
 
-Three of vIDE's own panels are exposed as MCP servers, so a connected agent
+Four of vIDE's own panels are exposed as MCP servers, so a connected agent
 can drive them directly instead of needing separate tool wiring:
 
 - **To Do board** — create, update, comment on, and archive tickets
 - **Notes** — read and write notes
 - **Browser** — navigate, click, and read pages
+- **Scripts** — list, read, create, update, and run saved scripts
 
 ## Customization
 
