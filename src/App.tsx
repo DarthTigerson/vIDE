@@ -5,6 +5,7 @@ import { ImperativePanelHandle, Panel, PanelGroup, PanelResizeHandle } from 'rea
 import { SIDEBAR_PANEL, CHAT_PANEL, clampRem, remToPercent, percentToRem, percentLimits, loadRem } from '@/lib/remPanelSize'
 import { openNewBrowserTab } from '@/lib/openBrowserTab'
 import { syncOpenTabsFromDisk } from '@/lib/syncOpenTabsFromDisk'
+import { restoreEditorSession, startEditorSessionPersistence } from '@/lib/editorSession'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import { Editor } from './components/Editor/Editor'
 import { ActionPalette } from './components/Search/ActionPalette'
@@ -462,15 +463,19 @@ export default function App() {
   // whichever project just opened. Falls back to a single fresh instance
   // when there's nothing saved yet (a project that predates this feature,
   // or a load failure — sessionLoad already resolves null in both cases).
+  // The same session file also holds the project's open editor tabs.
   useEffect(() => {
     if (!projectRoot) return
     let cancelled = false
     window.api.sessionLoad(projectRoot).then((data) => {
       if (cancelled) return
       useClaudeStore.getState().loadInstancesFromSession(data)
+      void restoreEditorSession(projectRoot, data)
     })
     return () => { cancelled = true }
   }, [projectRoot])
+
+  useEffect(() => startEditorSessionPersistence(), [])
 
   // Search/Git/Docker/Mobile Display/Graphify only make sense with a project open
   // (their ActivityBar icons disappear entirely when projectRoot is null,

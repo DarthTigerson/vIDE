@@ -549,13 +549,17 @@ describe('claudeStore terminal sessions', () => {
     ;(window.api as any).termKill = vi.fn()
   })
 
-  it('are never persisted, but agent sessions around them are', () => {
+  it('are persisted alongside agent sessions, so a fresh shell comes back after relaunch', () => {
     useClaudeStore.getState().newSession('/p', 'claude')
     useClaudeStore.getState().newSession('/p', 'terminal')
     const [claude, term] = useClaudeStore.getState().instances
     expect(term.kind).toBe('terminal')
-    expect(window.api.sessionSave).toHaveBeenLastCalledWith('/p', { agentSessions: [claude] })
+    expect(window.api.sessionSave).toHaveBeenLastCalledWith('/p', { agentSessions: [claude, term] })
     expect(window.api.claudeSpawn).not.toHaveBeenCalled()
+
+    useClaudeStore.setState({ instances: [] })
+    useClaudeStore.getState().loadInstancesFromSession({ agentSessions: [claude, term] })
+    expect(useClaudeStore.getState().instances.map((i) => i.kind)).toEqual(['claude', 'terminal'])
   })
 
   it('closing one kills its shell, not a Claude PTY', () => {

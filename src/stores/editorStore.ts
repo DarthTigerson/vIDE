@@ -137,6 +137,63 @@ function closeTabsMatching(state: EditorState, shouldClose: (tab: Tab) => boolea
   }
 }
 
+export interface EditorSessionSnapshot {
+  layout?: unknown
+  paneTabs?: Record<string, string | null>
+  paneTabLists?: Record<string, string[]>
+  activePaneId?: string
+}
+
+function isLayoutNode(node: unknown): node is EditorLayoutNode {
+  if (!node || typeof node !== 'object') return false
+  const n = node as Record<string, unknown>
+  if (n.type === 'pane') return typeof n.id === 'string'
+  return n.type === 'split'
+    && (n.direction === 'horizontal' || n.direction === 'vertical')
+    && Array.isArray(n.children) && n.children.length === 2
+    && isLayoutNode(n.children[0]) && isLayoutNode(n.children[1])
+}
+
+// Rebuilds a saved split layout and its tabs (lib/editorSession.ts). Only tabs
+// with an entry in `contents` come back — the caller leaves out anything that
+// can't be reopened (settings/git/terminal tabs, deleted files) — and a pane
+// left with nothing collapses the way closing its last tab would. Null when
+// there is nothing to restore.
+export function restoredEditorState(
+  saved: EditorSessionSnapshot,
+  contents: Record<string, string>
+): Pick<EditorState, 'tabs' | 'layout' | 'activePaneId' | 'activeTabPath' | 'paneTabs' | 'paneTabLists'> | null {
+  if (!isLayoutNode(saved.layout)) return null
+  let layout: EditorLayoutNode | null = saved.layout
+  const seen = new Set<string>()
+  const paneTabLists: Record<string, string[]> = {}
+  const paneTabs: Record<string, string | null> = {}
+  for (const paneId of collectPaneIds(saved.layout)) {
+    const list = (saved.paneTabLists?.[paneId] ?? []).filter(
+      (path) => typeof path === 'string' && path in contents && !seen.has(path)
+    )
+    list.forEach((path) => seen.add(path))
+    if (list.length === 0) {
+      layout = layout && removePane(layout, paneId)
+      continue
+    }
+    const active = saved.paneTabs?.[paneId]
+    paneTabLists[paneId] = list
+    paneTabs[paneId] = active && list.includes(active) ? active : list[list.length - 1]
+  }
+  if (!layout) return null
+  const paneIds = collectPaneIds(layout)
+  const activePaneId = saved.activePaneId && paneIds.includes(saved.activePaneId) ? saved.activePaneId : paneIds[0]
+  return {
+    tabs: paneIds.flatMap((id) => paneTabLists[id]).map((path) => ({ path, content: contents[path], dirty: false })),
+    layout,
+    activePaneId,
+    activeTabPath: paneTabs[activePaneId],
+    paneTabs,
+    paneTabLists,
+  }
+}
+
 export type PaneDirection = 'left' | 'right' | 'up' | 'down'
 
 interface PaneAncestorStep {

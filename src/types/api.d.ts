@@ -22,19 +22,22 @@ export type ScriptPatch = Partial<Pick<Script, 'title' | 'description' | 'body' 
 
 export type AssistantKind = 'claude' | 'bridge' | (string & {})
 
+// Each writer saves only its own slice; main merges it into the file on disk
+// (see electron/session.ts).
 export interface SessionData {
-  layout: unknown
-  paneTabs: Record<string, string | null>
-  paneTabLists: Record<string, string[]>
-  activeTabPath: string | null
-  activePaneId: string
-  tabs: { path: string }[]
-  browserUrls: Record<string, string>
+  layout?: unknown
+  paneTabs?: Record<string, string | null>
+  paneTabLists?: Record<string, string[]>
+  activeTabPath?: string | null
+  activePaneId?: string
+  tabs?: { path: string }[]
+  browserUrls?: Record<string, string>
   claudeInstances?: { id: string; hue: string }[]
   // Mixed agent sessions (Claude / Bridge / llama:<id>) in activity-bar
   // order. claudeInstances is the pre-mixed-sessions field, read only as a
   // fallback when this is absent.
   agentSessions?: { id: string; kind: string; hue: string }[]
+  windowBounds?: { x: number; y: number; width: number; height: number; maximized: boolean }
 }
 
 export interface MobileNetworkInterface {
