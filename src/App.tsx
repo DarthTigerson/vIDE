@@ -161,6 +161,10 @@ const MEMORY_POLL_INTERVAL_MS = 3000
 const SIDEBAR_WIDTH_KEY = 'vide:layout:sidebarWidthRem'
 const CHAT_WIDTH_KEY = 'vide:layout:chatWidthRem'
 const MAIN_PANEL_GROUP_ID = 'main-layout'
+// The initial-project pull below must run once per page load: main hands the
+// project out exactly once, so StrictMode's dev-only second effect run got
+// null and restoreRoot() loaded the last project over the requested one.
+let initialProjectRequested = false
 
 function readRootPx(): number {
   return parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
@@ -520,6 +524,8 @@ export default function App() {
     // never actually observe an IPC message arriving before the very next
     // synchronous line ran — and reload-safe, since the main-process side is
     // one-shot per window and returns null on a later call.
+    if (initialProjectRequested) return
+    initialProjectRequested = true
     ;(async () => {
       const initialProject = await window.api.getInitialProject()
       if (initialProject) {
