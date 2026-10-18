@@ -30,6 +30,7 @@ export const EXCLUDED_CHANNELS = new Set<string>([
   'menu:resetZoom', 'menu:openSettings', 'menu:newFile', 'menu:newFolder',
   'menu:newTerminal', 'menu:reopenClosedTab', 'menu:save', 'menu:reloadActive',  // native Electron Menu events
   'window:getInitialProject', 'window:openInNewWindow', 'window:focusProjectIfOpen',  // desktop window management
+  'system:getMemoryBreakdown',  // the desktop title bar's RAM hover panel — the phone UI has no title bar
 
   'mobile:start', 'mobile:stop', 'mobile:getState', 'mobile:addDevice', 'mobile:selectInterface',
   'mobile:disconnectDevice', 'mobile:disconnectAll', 'mobile:setDisplay', 'mobile:setDefaultMode',

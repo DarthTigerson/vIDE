@@ -27,10 +27,27 @@ export interface SessionData {
   // Mixed agent sessions (Claude / Bridge / llama:<id>) in activity-bar
   // order. claudeInstances is the pre-mixed-sessions field, read only as a
   // fallback when this is absent.
-  agentSessions?: { id: string; kind: string; hue: string }[]
+  agentSessions?: { id: string; kind: string; hue: string; name?: string }[]
   // Size/position of the last window this project was open in, so it
   // reopens where it was — at relaunch and from Recent Projects alike.
   windowBounds?: WindowBounds
+}
+
+// Colour and name of every agent session seen in a session file this run,
+// keyed by instance id — the RAM panel colours each session's row with it,
+// including sessions that belong to another window.
+const agentSessionInfo = new Map<string, { hue: string; name?: string }>()
+
+function rememberAgentSessions(data: SessionData | null): void {
+  for (const s of data?.agentSessions ?? []) {
+    if (typeof s?.id === 'string' && typeof s.hue === 'string') {
+      agentSessionInfo.set(s.id, { hue: s.hue, ...(typeof s.name === 'string' ? { name: s.name } : {}) })
+    }
+  }
+}
+
+export function getAgentSessionInfo(instanceId: string): { hue: string; name?: string } | undefined {
+  return agentSessionInfo.get(instanceId)
 }
 
 function sessionPathFor(projectRoot: string): string {
@@ -40,8 +57,9 @@ function sessionPathFor(projectRoot: string): string {
 
 export async function loadSession(projectRoot: string): Promise<SessionData | null> {
   try {
-    const data = await readFile(sessionPathFor(projectRoot), 'utf-8')
-    return JSON.parse(data)
+    const data: SessionData = JSON.parse(await readFile(sessionPathFor(projectRoot), 'utf-8'))
+    rememberAgentSessions(data)
+    return data
   } catch {
     return null
   }
@@ -53,6 +71,7 @@ export async function loadSession(projectRoot: string): Promise<SessionData | nu
 const pendingWrites = new Map<string, Promise<void>>()
 
 export function saveSession(projectRoot: string, data: SessionData): Promise<void> {
+  rememberAgentSessions(data)
   const path = sessionPathFor(projectRoot)
   const previous = pendingWrites.get(path) ?? Promise.resolve()
   const next = previous.then(async () => {

@@ -134,6 +134,11 @@ export class PtyManager {
     return state
   }
 
+  // Every live shell, for the RAM panel's Terminals row (system:getMemoryBreakdown).
+  listPids(): number[] {
+    return [...this.byWindow.values()].flatMap((state) => [...state.procs.values()].map((proc) => proc.pid))
+  }
+
   disposeWindow(winId: number): void {
     const state = this.byWindow.get(winId)
     if (!state) return

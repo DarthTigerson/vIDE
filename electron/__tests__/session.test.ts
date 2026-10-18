@@ -63,3 +63,12 @@ describe('session', () => {
     expect(await loadOpenWindows()).toEqual([])
   })
 })
+
+describe('getAgentSessionInfo', () => {
+  it('remembers colour and name from saved and loaded sessions', async () => {
+    const { getAgentSessionInfo } = await import('../session')
+    await saveSession('/proj', { agentSessions: [{ id: 's1', kind: 'claude', hue: '#f80', name: 'Fix bug' }] })
+    expect(getAgentSessionInfo('s1')).toEqual({ hue: '#f80', name: 'Fix bug' })
+    expect(getAgentSessionInfo('unknown')).toBeUndefined()
+  })
+})

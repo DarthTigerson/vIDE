@@ -26,7 +26,8 @@ import {
   copyInto, moveInto,
 } from './fsOps'
 import { writeClipboardFiles, readClipboardFiles } from './fileClipboard'
-import { registerSessionHandlers, loadSession, saveSession, loadOpenWindows, saveOpenWindows, type WindowBounds } from './session'
+import { registerSessionHandlers, loadSession, saveSession, loadOpenWindows, saveOpenWindows, getAgentSessionInfo, type WindowBounds } from './session'
+import { childrenByParent, readProcessTable, treeRssBytes } from './processMemory'
 import { fitBoundsToDisplays } from './windowBounds'
 import { registerRecentProjectsHandlers, readRecents, addRecentProject, clearRecentProjects } from './recentProjects'
 import { registerTodoHandlers } from './todos'
@@ -86,15 +87,37 @@ function registerFsHandlers(): void {
   })
 }
 
+// app.getAppMetrics() covers every one of Electron's own OS processes - main,
+// every renderer window, GPU, and any utility/zygote helpers. It does not see
+// the child processes vIDE starts (Claude CLIs, shells, language servers);
+// system:getMemoryBreakdown adds those up separately.
+// workingSetSize is in KB on both platforms vIDE ships (see systemMemory.ts).
+function electronAppBytes(): number {
+  return app.getAppMetrics().reduce((sum, p) => sum + p.memory.workingSetSize * 1024, 0)
+}
+
 function registerSystemHandlers(): void {
   ipcMain.handle('system:getMemoryUsage', async () => {
     const system = await getSystemMemoryUsage()
-    // app.getAppMetrics() covers every one of vIDE's own OS processes - main,
-    // every renderer window, GPU, and any utility/zygote helpers - so this is
-    // vIDE's real total footprint, not just the process serving this window.
-    // workingSetSize is in KB on both platforms vIDE ships (see systemMemory.ts).
-    const appBytes = app.getAppMetrics().reduce((sum, p) => sum + p.memory.workingSetSize * 1024, 0)
-    return { ...system, appBytes }
+    return { ...system, appBytes: electronAppBytes() }
+  })
+  // The RAM panel's hover breakdown, fetched only while it is open. One `ps`
+  // call; each tracked process is counted with everything it started.
+  ipcMain.handle('system:getMemoryBreakdown', async () => {
+    const table = await readProcessTable().catch(() => new Map())
+    const children = childrenByParent(table)
+    const sumTrees = (pids: number[]) => pids.reduce((sum, pid) => sum + treeRssBytes(pid, table, children), 0)
+    return {
+      appBytes: electronAppBytes(),
+      sessions: claudeMgr.listProcesses().map(({ windowId, instanceId, pid }) => ({
+        instanceId,
+        projectRoot: windowProjectRoots.get(windowId) ?? null,
+        ...getAgentSessionInfo(instanceId),
+        bytes: treeRssBytes(pid, table, children),
+      })),
+      terminalsBytes: sumTrees(ptyMgr.listPids()),
+      languageServersBytes: sumTrees(lspMgr.listPids()),
+    }
   })
   ipcMain.handle('system:getBattery', () => getBatteryStatus())
 }
