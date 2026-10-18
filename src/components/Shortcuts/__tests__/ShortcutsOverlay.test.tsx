@@ -20,7 +20,7 @@ describe('ShortcutsOverlay', () => {
   it('renders one key cap per shortcut key, including shift symbols', () => {
     render(<ShortcutsOverlay />)
 
-    expect(screen.getAllByText('⌘')).toHaveLength(28)
+    expect(screen.getAllByText('⌘')).toHaveLength(30)
     expect(screen.getAllByText('⇧').length).toBeGreaterThan(0)
   })
 })

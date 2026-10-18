@@ -433,7 +433,20 @@ async function buildMenu(): Promise<void> {
           accelerator: process.platform === 'darwin' ? 'Command+Alt+R' : 'Control+Alt+R',
           click: () => reloadAllWindows(),
         },
-        { role: 'quit' },
+        {
+          // Cmd+Q only closes the focused window, so quitting one project
+          // doesn't take every other open window down with it. The last
+          // window quits outright rather than leaving a windowless app in
+          // the Dock (macOS keeps the app resident otherwise).
+          label: 'Close Window',
+          accelerator: 'CmdOrCtrl+Q',
+          click: () => {
+            const win = BrowserWindow.getFocusedWindow()
+            if (win && windows.size > 1) win.close()
+            else app.quit()
+          },
+        },
+        { role: 'quit', label: 'Quit vIDE', accelerator: 'CmdOrCtrl+Shift+Q' },
       ],
     },
     {

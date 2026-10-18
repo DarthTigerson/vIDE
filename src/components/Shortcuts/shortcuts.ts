@@ -42,6 +42,8 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: ['⌘', '⇧', 'N'], label: 'New Window' },
       { keys: ['⌘', 'W'], label: 'Close Tab' },
       { keys: ['⌘', '⇧', 'W'], label: 'Close Window' },
+      { keys: ['⌘', 'Q'], label: 'Close Window' },
+      { keys: ['⌘', '⇧', 'Q'], label: 'Quit vIDE (All Windows)' },
       { keys: ['⌘', '⇧', 'T'], label: 'Reopen Closed Tab' },
     ],
   },
