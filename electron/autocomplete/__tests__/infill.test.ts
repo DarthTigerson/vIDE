@@ -34,61 +34,114 @@ beforeEach(() => { reply = { status: 200, body: {} } })
 describe('requestCompletion (llama.cpp /infill)', () => {
   it('posts the prefix and suffix to /infill with the bearer key', async () => {
     reply = { status: 200, body: { content: 'x' } }
-    await requestCompletion({ kind: 'infill', baseUrl, apiKey: 'k' }, 'return ', '\n}')
+    await requestCompletion({ kind: 'infill', baseUrl, apiKey: 'k' }, { prefix: 'return ', suffix: '\n}' })
     expect(lastPath).toBe('/infill')
     expect(lastAuth).toBe('Bearer k')
-    expect(lastBody).toMatchObject({ input_prefix: 'return ', input_suffix: '\n}', n_predict: 64, cache_prompt: true })
+    expect(lastBody).toMatchObject({ input_prefix: 'return ', input_suffix: '\n}', cache_prompt: true })
   })
 
   it('keeps leading spaces in the completion', async () => {
     reply = { status: 200, body: { content: '  a + b' } }
-    expect(await requestCompletion({ kind: 'infill', baseUrl }, 'return', '')).toBe('  a + b')
+    expect(await requestCompletion({ kind: 'infill', baseUrl }, { prefix: 'return', suffix: '' })).toBe('  a + b')
   })
 
   it('sends no Authorization header without a key', async () => {
     reply = { status: 200, body: { content: 'x' } }
-    await requestCompletion({ kind: 'infill', baseUrl }, 'a', '')
+    await requestCompletion({ kind: 'infill', baseUrl }, { prefix: 'a', suffix: '' })
     expect(lastAuth).toBeUndefined()
   })
 
   it('resolves null on a non-2xx response', async () => {
     reply = { status: 401, body: { error: 'Invalid API Key' } }
-    expect(await requestCompletion({ kind: 'infill', baseUrl, apiKey: 'bad' }, 'a', '')).toBeNull()
+    expect(await requestCompletion({ kind: 'infill', baseUrl, apiKey: 'bad' }, { prefix: 'a', suffix: '' })).toBeNull()
   })
 
   it('resolves null when the request is aborted', async () => {
     reply = { status: 200, body: { content: 'late' }, delayMs: 200 }
     const controller = new AbortController()
-    const p = requestCompletion({ kind: 'infill', baseUrl }, 'a', '', controller.signal)
+    const p = requestCompletion({ kind: 'infill', baseUrl }, { prefix: 'a', suffix: '' }, controller.signal)
     controller.abort()
     expect(await p).toBeNull()
   })
 
   it('resolves null when the server is unreachable', async () => {
-    expect(await requestCompletion({ kind: 'infill', baseUrl: 'http://127.0.0.1:1' }, 'a', '')).toBeNull()
+    expect(await requestCompletion({ kind: 'infill', baseUrl: 'http://127.0.0.1:1' }, { prefix: 'a', suffix: '' })).toBeNull()
+  })
+})
+
+describe('requestCompletion: line and block mode', () => {
+  it('finishes just the current line when the cursor is mid-statement', async () => {
+    reply = { status: 200, body: { content: 'x' } }
+    await requestCompletion({ kind: 'infill', baseUrl }, { prefix: 'const a = foo(', suffix: ')\n' })
+    expect(lastBody.stop).toEqual(['\n'])
+    expect(lastBody.n_indent).toBeUndefined()
+  })
+
+  it('allows a block on a fresh line, ending where the indentation drops back', async () => {
+    reply = { status: 200, body: { content: 'x' } }
+    await requestCompletion({ kind: 'infill', baseUrl }, { prefix: 'if (a) {\n    ', suffix: '\n}' })
+    expect(lastBody.n_indent).toBe(4)
+    expect(lastBody.stop).toEqual(['\n\n'])
+  })
+
+  it('decodes greedily: the most likely code, not a random pick', async () => {
+    reply = { status: 200, body: { content: 'x' } }
+    await requestCompletion({ kind: 'infill', baseUrl }, { prefix: 'a', suffix: '' })
+    expect(lastBody.temperature).toBe(0)
+  })
+
+  it('sends other files as input_extra', async () => {
+    reply = { status: 200, body: { content: 'x' } }
+    const extra = [{ filename: 'src/a.ts', text: 'export const A = 1' }]
+    await requestCompletion({ kind: 'infill', baseUrl }, { prefix: 'A', suffix: '', extra })
+    expect(lastBody.input_extra).toEqual(extra)
+  })
+
+  it('trims a closer the completion repeats from right after the cursor', async () => {
+    reply = { status: 200, body: { content: 'win.id)' } }
+    expect(await requestCompletion({ kind: 'infill', baseUrl }, { prefix: 'close(', suffix: ')\n' })).toBe('win.id')
   })
 })
 
 describe('requestCompletion (OpenAI-compatible)', () => {
   it('posts prompt + suffix to /v1/completions and reads choices[0].text', async () => {
     reply = { status: 200, body: { choices: [{ text: 'x' }] } }
-    expect(await requestCompletion({ kind: 'openai', baseUrl }, 'pre', 'suf')).toBe('x')
+    expect(await requestCompletion({ kind: 'openai', baseUrl }, { prefix: 'pre', suffix: 'suf' })).toBe('x')
     expect(lastPath).toBe('/v1/completions')
-    expect(lastBody).toMatchObject({ prompt: 'pre', suffix: 'suf', max_tokens: 64 })
+    expect(lastBody).toMatchObject({ prompt: 'pre', suffix: 'suf' })
   })
 })
 
 describe('postProcessCompletion', () => {
+  const at = (prefix = '', suffix = '') => ({ prefix, suffix })
+
   it('keeps leading whitespace, which is part of a fill-in-the-middle answer', () => {
-    expect(postProcessCompletion('\n  foo  \n')).toBe('\n  foo')
+    expect(postProcessCompletion('\n  foo  \n', at())).toBe('\n  foo')
   })
 
   it('returns null for an empty or whitespace-only completion', () => {
-    expect(postProcessCompletion('  \n ')).toBeNull()
+    expect(postProcessCompletion('  \n ', at())).toBeNull()
   })
 
   it('returns null when the completion exceeds the max length', () => {
-    expect(postProcessCompletion('x'.repeat(2001))).toBeNull()
+    expect(postProcessCompletion('x'.repeat(2001), at())).toBeNull()
+  })
+
+  it("drops the end of the line it would duplicate (Monaco's auto-closed brackets)", () => {
+    expect(postProcessCompletion('a, b)', at('f(', ')'))).toBe('a, b')
+    expect(postProcessCompletion("x, y])", at('g([', '])\nnext'))).toBe('x, y')
+  })
+
+  it('drops trailing lines that repeat what already follows the cursor', () => {
+    expect(postProcessCompletion('  run()\n}', at('if (a) {\n', '\n}\nmore'))).toBe('  run()')
+  })
+
+  it('shows nothing when the suggestion only repeats what is already there', () => {
+    expect(postProcessCompletion(')', at('f(', ')'))).toBeNull()
+  })
+
+  it('shows nothing when it just repeats the line above', () => {
+    expect(postProcessCompletion('doThing(a)', at('  doThing(a)\n  ', ''))).toBeNull()
   })
 })
 

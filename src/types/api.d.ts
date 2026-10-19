@@ -440,7 +440,7 @@ declare global {
 
       setWindowTitle: (root: string) => void
 
-      autocompleteComplete: (prefix: string, suffix: string) => Promise<string | null>
+      autocompleteComplete: (req: { prefix: string; suffix: string; filePath?: string; extra?: { filename: string; text: string }[] }) => Promise<string | null>
       autocompleteConfigure: (source: AutocompleteSource | null) => Promise<AutocompleteRuntimeState>
       autocompleteStart: (force?: boolean) => Promise<void>
       autocompleteStop: () => Promise<void>

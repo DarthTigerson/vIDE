@@ -4,11 +4,11 @@ import { registerAutocompleteRelayChannels } from '../channels/autocompleteChann
 import type { BrowserWindow } from 'electron'
 
 // Mocks the REAL AutocompleteManager shape (electron/autocomplete/manager.ts):
-// a public complete(windowId, prefix, suffix) method.
+// a public complete(windowId, request) method.
 describe('autocompleteChannels', () => {
   const fakeWin = { id: 42 } as BrowserWindow
   const autocompleteManager = {
-    complete: vi.fn(async (_windowId: number, _prefix: string, _suffix: string): Promise<string | null> => 'const x = 1'),
+    complete: vi.fn(async (_windowId: number, _req: { prefix: string; suffix: string }): Promise<string | null> => 'const x = 1'),
   }
 
   beforeEach(() => {
@@ -22,10 +22,10 @@ describe('autocompleteChannels', () => {
       type: 'invoke',
       id: '1',
       method: 'autocomplete:complete',
-      args: ['const x =', ';\n'],
+      args: [{ prefix: 'const x =', suffix: ';\n' }],
     })
     expect(res).toEqual({ type: 'response', id: '1', result: 'const x = 1' })
-    expect(autocompleteManager.complete).toHaveBeenCalledWith(42, 'const x =', ';\n')
+    expect(autocompleteManager.complete).toHaveBeenCalledWith(42, { prefix: 'const x =', suffix: ';\n' })
   })
 
   it('propagates a null completion result', async () => {
@@ -34,7 +34,7 @@ describe('autocompleteChannels', () => {
       type: 'invoke',
       id: '2',
       method: 'autocomplete:complete',
-      args: ['', ''],
+      args: [{ prefix: '', suffix: '' }],
     })
     expect(res).toEqual({ type: 'response', id: '2', result: null })
   })

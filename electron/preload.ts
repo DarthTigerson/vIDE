@@ -468,8 +468,8 @@ contextBridge.exposeInMainWorld('api', {
 
   setWindowTitle: (root: string) => ipcRenderer.send('window:setTitle', root),
 
-  autocompleteComplete: (prefix: string, suffix: string) =>
-    ipcRenderer.invoke('autocomplete:complete', prefix, suffix) as Promise<string | null>,
+  autocompleteComplete: (req: { prefix: string; suffix: string; filePath?: string; extra?: { filename: string; text: string }[] }) =>
+    ipcRenderer.invoke('autocomplete:complete', req) as Promise<string | null>,
   autocompleteConfigure: (source: AutocompleteSource | null) =>
     ipcRenderer.invoke('autocomplete:configure', source) as Promise<AutocompleteRuntimeState>,
   autocompleteStart: (force?: boolean) => ipcRenderer.invoke('autocomplete:start', force) as Promise<void>,

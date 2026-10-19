@@ -66,6 +66,7 @@ function makeDeps(overrides: Partial<ManagerDeps> = {}): ManagerDeps {
     freePort: async () => 5555,
     requestCompletion: vi.fn(async () => 'x'),
     probeCompletion: vi.fn(async () => ({ ok: true })),
+    graphContext: { chunksFor: vi.fn(async () => []) },
     broadcast: (s: AutocompleteRuntimeState) => { if (phases.at(-1) !== s.phase) phases.push(s.phase) },
     ...overrides,
   }
@@ -269,23 +270,51 @@ describe('complete', () => {
   it('returns null without a request while not running', async () => {
     const mgr = new AutocompleteManager(deps)
     await mgr.configure(qwen)
-    expect(await mgr.complete(1, 'a', 'b')).toBeNull()
+    expect(await mgr.complete(1, { prefix: 'a', suffix: 'b' })).toBeNull()
     expect(deps.requestCompletion).not.toHaveBeenCalled()
   })
 
   it("aborts the window's previous request when a new one arrives", async () => {
     const signals: AbortSignal[] = []
     deps = makeDeps({
-      requestCompletion: vi.fn(async (_ep, _p, _s, signal?: AbortSignal) => { signals.push(signal!); return 'x' }),
+      // Like the real one: an aborted request resolves null.
+      requestCompletion: vi.fn(async (_ep, _req, signal?: AbortSignal) => { signals.push(signal!); await Promise.resolve(); return signal!.aborted ? null : 'x' }),
     })
     const mgr = new AutocompleteManager(deps)
     await mgr.configure(qwen)
     await mgr.start()
     signals.length = 0
-    const first = mgr.complete(1, 'a', '')
-    const second = mgr.complete(1, 'ab', '')
-    await Promise.all([first, second])
-    expect(signals[0].aborted).toBe(true)
-    expect(signals[1].aborted).toBe(false)
+    const first = mgr.complete(1, { prefix: 'a', suffix: '' })
+    const second = mgr.complete(1, { prefix: 'ab', suffix: '' })
+    const [a, b] = await Promise.all([first, second])
+    expect(a).toBeNull()
+    expect(b).toBe('x')
+    expect(signals.at(-1)!.aborted).toBe(false)
+    expect(signals.slice(0, -1).every((sig) => sig.aborted)).toBe(true)
+  })
+
+  it("adds the project graph's definitions after the editor's own snippets", async () => {
+    const request = vi.fn(async () => 'x')
+    deps = makeDeps({
+      requestCompletion: request,
+      graphContext: { chunksFor: vi.fn(async () => [{ filename: 'src/store.ts', text: 'export function openTab(tab: Tab) {' }]) },
+    })
+    const mgr = new AutocompleteManager(deps)
+    await mgr.configure(qwen)
+    await mgr.start()
+    await mgr.complete(1, { prefix: 'openTab(', suffix: ')', filePath: '/p/src/Panel.tsx', extra: [{ filename: 'src/a.ts', text: 'a' }] })
+    expect(deps.graphContext.chunksFor).toHaveBeenCalledWith('/p/src/Panel.tsx', 'openTab(', ')')
+    expect(request).toHaveBeenCalledWith(expect.anything(), {
+      prefix: 'openTab(', suffix: ')',
+      extra: [{ filename: 'src/a.ts', text: 'a' }, { filename: 'src/store.ts', text: 'export function openTab(tab: Tab) {' }],
+    }, expect.anything())
+  })
+
+  it('still completes when the graph lookup fails', async () => {
+    deps = makeDeps({ graphContext: { chunksFor: vi.fn(async () => { throw new Error('bad graph') }) } })
+    const mgr = new AutocompleteManager(deps)
+    await mgr.configure(qwen)
+    await mgr.start()
+    expect(await mgr.complete(1, { prefix: 'a', suffix: '', filePath: '/p/a.ts' })).toBe('x')
   })
 })

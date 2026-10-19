@@ -4,7 +4,8 @@ import { stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { MODEL_CATALOG, RAM_OVERHEAD_BYTES, fits } from './catalog'
 import { downloadFile } from './download'
-import { probeCompletion, requestCompletion, type CompletionEndpoint } from './infill'
+import { probeCompletion, requestCompletion, type CompletionEndpoint, type ExtraChunk } from './infill'
+import { GraphContext } from './graphContext'
 import { bundledLlamaDir, findInstalledLlamaServer, findModelOnDisk, installLlama, llamaCacheDir } from './llamaInstall'
 import { LlamaServerProcess, buildServerArgs, freePort } from './server'
 import type { AutocompleteRuntimeState, AutocompleteSource } from './types'
@@ -31,6 +32,7 @@ export interface ManagerDeps {
   freePort: () => Promise<number>
   requestCompletion: typeof requestCompletion
   probeCompletion: typeof probeCompletion
+  graphContext: Pick<GraphContext, 'chunksFor'>
   broadcast: (state: AutocompleteRuntimeState) => void
 }
 
@@ -50,6 +52,7 @@ function defaultDeps(): ManagerDeps {
     freePort,
     requestCompletion,
     probeCompletion,
+    graphContext: new GraphContext(),
     broadcast: (state) => {
       for (const win of BrowserWindow.getAllWindows()) {
         if (!win.isDestroyed()) win.webContents.send('autocomplete:state', state)
@@ -65,6 +68,15 @@ const gb = (bytes: number) => (bytes / 1024 ** 3).toFixed(1)
 // single or double quotes around an argument that contains spaces.
 function splitArgs(text: string): string[] {
   return (text.match(/"[^"]*"|'[^']*'|\S+/g) ?? []).map((a) => a.replace(/^(["'])(.*)\1$/, '$2'))
+}
+
+// One editor request: the text around the cursor, the file it's in (for the
+// project graph lookup) and snippets from the other open files.
+export interface AutocompleteRequest {
+  prefix: string
+  suffix: string
+  filePath?: string
+  extra?: ExtraChunk[]
 }
 
 const BUSY_PHASES = new Set(['installing', 'downloading', 'starting', 'running'])
@@ -111,9 +123,9 @@ export class AutocompleteManager {
     ipcMain.handle('autocomplete:start', (_e, force?: boolean) => this.start(force === true))
     ipcMain.handle('autocomplete:stop', () => this.stop())
     ipcMain.handle('autocomplete:getState', () => this.getState())
-    ipcMain.handle('autocomplete:complete', (event, prefix: string, suffix: string) => {
+    ipcMain.handle('autocomplete:complete', (event, req: AutocompleteRequest) => {
       const win = BrowserWindow.fromWebContents(event.sender)
-      return win ? this.complete(win.id, prefix, suffix) : null
+      return win ? this.complete(win.id, req) : null
     })
   }
 
@@ -279,14 +291,20 @@ export class AutocompleteManager {
     this.set({ phase: 'stopped', progress: null, error: null })
   }
 
-  async complete(windowId: number, prefix: string, suffix: string): Promise<string | null> {
+  async complete(windowId: number, req: AutocompleteRequest): Promise<string | null> {
     this.inFlight.get(windowId)?.abort()
     const endpoint = this.endpoint
     if (this.state.phase !== 'running' || !endpoint) return null
     const controller = new AbortController()
     this.inFlight.set(windowId, controller)
     try {
-      return await this.deps.requestCompletion(endpoint, prefix, suffix, controller.signal)
+      // The graph's definitions go last, nearest the code being completed.
+      const graph = req.filePath
+        ? await this.deps.graphContext.chunksFor(req.filePath, req.prefix, req.suffix).catch(() => [])
+        : []
+      if (controller.signal.aborted) return null
+      const extra = [...(req.extra ?? []), ...graph]
+      return await this.deps.requestCompletion(endpoint, { prefix: req.prefix, suffix: req.suffix, ...(extra.length ? { extra } : {}) }, controller.signal)
     } finally {
       if (this.inFlight.get(windowId) === controller) this.inFlight.delete(windowId)
     }
