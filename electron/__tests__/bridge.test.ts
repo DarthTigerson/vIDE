@@ -31,6 +31,20 @@ vi.mock('../fsOps', async (importOriginal) => {
   }
 })
 
+// web_search must never hit the network in tests. Keep the real
+// formatSearchResults; swap webSearch for a test-controlled stub.
+const { searchMock } = vi.hoisted(() => ({
+  searchMock: { fn: null as null | ((query: string, maxResults?: number) => Promise<unknown>) },
+}))
+vi.mock('../webSearch', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../webSearch')>()
+  return {
+    ...actual,
+    webSearch: (query: string, maxResults?: number) =>
+      searchMock.fn ? searchMock.fn(query, maxResults) : Promise.reject(new Error('webSearch not stubbed')),
+  }
+})
+
 import { BridgeManager } from '../bridge'
 
 function sseStream(chunks: string[]): Response {
@@ -170,6 +184,29 @@ describe('BridgeManager tool calls', () => {
     expect(events).toContainEqual({ type: 'text-delta', delta: 'done' })
     expect(events).toContainEqual({ type: 'done' })
     expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('agent mode: web_search calls webSearch with the query and streams the formatted results', async () => {
+    const { win, sendHandler } = setup()
+    searchMock.fn = vi.fn().mockResolvedValue([
+      { title: 'Vite', url: 'https://vite.dev', snippet: 'tooling' },
+    ])
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(toolCallStream('web_search', { query: 'vite docs', maxResults: 5 }))
+      .mockResolvedValueOnce(finalTextStream('ok'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await sendHandler({ sender: win }, { cwd: root, messages: [{ role: 'user', content: 'look it up' }], agentMode: true, settings: SETTINGS })
+
+    expect(searchMock.fn).toHaveBeenCalledWith('vite docs', 5)
+    const events = win.webContents.send.mock.calls.filter((c: any[]) => c[0] === 'bridge:event').map((c: any[]) => c[1])
+    expect(events).toContainEqual(expect.objectContaining({
+      type: 'tool-result',
+      id: 'call_1',
+      isError: false,
+      result: expect.stringContaining('https://vite.dev'),
+    }))
+    searchMock.fn = null
   })
 
   it('confirm mode: waits for approval before executing, does nothing on reject', async () => {

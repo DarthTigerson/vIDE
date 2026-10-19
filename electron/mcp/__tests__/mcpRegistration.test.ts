@@ -27,8 +27,12 @@ import {
   enableBrowserMcp,
   disableBrowserMcp,
   registerBrowserMcpHandlers,
+  enableSearchMcp,
+  disableSearchMcp,
+  registerSearchMcpHandlers,
   MCP_SERVER_NAME,
   BROWSER_MCP_SERVER_NAME,
+  SEARCH_MCP_SERVER_NAME,
   ENFORCER_PLUGIN_NAME,
   ENFORCER_MARKETPLACE_NAME,
 } from '../mcpRegistration'
@@ -240,6 +244,46 @@ describe('mcpRegistration', () => {
 
     const enableCall = vi.mocked(ipcMain.handle).mock.calls.find(([channel]) => channel === 'browser:mcp:enable')
     const disableCall = vi.mocked(ipcMain.handle).mock.calls.find(([channel]) => channel === 'browser:mcp:disable')
+    expect(enableCall).toBeDefined()
+    expect(disableCall).toBeDefined()
+
+    await expect((enableCall![1] as () => Promise<unknown>)()).resolves.toBeUndefined()
+    await expect((disableCall![1] as () => Promise<unknown>)()).resolves.toBeUndefined()
+  })
+
+  it('enableSearchMcp registers the server at user scope with only the ELECTRON_RUN_AS_NODE env var (search is self-contained, no data dir or window socket)', async () => {
+    const calls = mockClaudeResolvable()
+    await enableSearchMcp()
+
+    const addCall = calls[2]
+    expect(addCall.args.slice(0, 3)).toEqual(['mcp', 'add', SEARCH_MCP_SERVER_NAME])
+    expect(addCall.args).toContain('--scope')
+    expect(addCall.args).toContain('user')
+    expect(addCall.args).toContain('ELECTRON_RUN_AS_NODE=1')
+    expect(addCall.args.filter((a) => a === '-e')).toHaveLength(1)
+    expect(addCall.args.at(-1)).toMatch(/searchMcpServer\.js$/)
+  })
+
+  it('disableSearchMcp removes the server at user scope', async () => {
+    const calls = mockClaudeResolvable()
+    await disableSearchMcp()
+    const removeCall = calls[1]
+    expect(removeCall.args).toEqual(['mcp', 'remove', SEARCH_MCP_SERVER_NAME, '--scope', 'user'])
+  })
+
+  it('disableSearchMcp never throws, even if the underlying command fails', async () => {
+    execFileMock.mockImplementation((_cmd: string, _args: string[], cb: (...a: any[]) => void) => {
+      cb(new Error('boom'))
+    })
+    await expect(disableSearchMcp()).resolves.toBeUndefined()
+  })
+
+  it('registerSearchMcpHandlers wires search:mcp:enable and search:mcp:disable', async () => {
+    mockClaudeResolvable()
+    registerSearchMcpHandlers()
+
+    const enableCall = vi.mocked(ipcMain.handle).mock.calls.find(([channel]) => channel === 'search:mcp:enable')
+    const disableCall = vi.mocked(ipcMain.handle).mock.calls.find(([channel]) => channel === 'search:mcp:disable')
     expect(enableCall).toBeDefined()
     expect(disableCall).toBeDefined()
 

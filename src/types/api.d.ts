@@ -418,6 +418,8 @@ declare global {
       onScriptRunRequest: (cb: (req: { terminalId: string; scriptId: string; command: string }) => void) => () => void
       browserMcpEnable: () => Promise<void>
       browserMcpDisable: () => Promise<void>
+      searchMcpEnable: () => Promise<void>
+      searchMcpDisable: () => Promise<void>
 
       setWindowTitle: (root: string) => void
 

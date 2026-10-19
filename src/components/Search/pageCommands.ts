@@ -48,7 +48,7 @@ export const SETTINGS_PAGES: SettingsPage[] = [
   { id: 'settings-editor', label: 'Settings: Editor', path: EDITOR_SETTINGS_TAB_PATH, description: 'Font size, auto-save', keywords: ['font', 'autosave', 'editor'] },
   { id: 'settings-git', label: 'Settings: Git', path: GIT_SETTINGS_TAB_PATH, description: 'Remote, identity', keywords: ['remote', 'origin', 'identity'] },
   { id: 'settings-general', label: 'Settings: General', path: GENERAL_SETTINGS_TAB_PATH, keywords: [] },
-  { id: 'settings-browser', label: 'Settings: Browser', path: BROWSER_SETTINGS_TAB_PATH, keywords: ['web', 'url'] },
+  { id: 'settings-browser', label: 'Settings: Browser', path: BROWSER_SETTINGS_TAB_PATH, keywords: ['web', 'url', 'search', 'web search'] },
   { id: 'settings-claude', label: 'Settings: Claude', path: CLAUDE_SETTINGS_TAB_PATH, keywords: ['assistant', 'cli'] },
   { id: 'settings-bridge', label: 'Settings: Bridge', path: BRIDGE_SETTINGS_TAB_PATH, keywords: ['local', 'llm', 'openai'] },
   { id: 'settings-graphify', label: 'Settings: Graphify', path: GRAPHIFY_SETTINGS_TAB_PATH, keywords: ['knowledge', 'graph'] },
