@@ -4,6 +4,7 @@ import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { join, relative } from 'path'
 import { listAllFiles, searchText, buildTree } from './fsOps'
+import { webSearch, formatSearchResults } from './webSearch'
 import { minimatch } from 'minimatch'
 
 const execFileAsync = promisify(execFile)
@@ -246,6 +247,24 @@ export const BRIDGE_TOOLS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'web_search',
+      description:
+        'Search the web and get back a ranked list of results (title, URL, snippet). Use this to look up ' +
+        'documentation, error messages, library APIs, or any current information not in the project. ' +
+        'To read a full result page afterward, fetch its URL with run_command (e.g. curl).',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string' },
+          maxResults: { type: 'number', description: 'How many results to return (default 8, max 15).' },
+        },
+        required: ['query'],
+      },
+    },
+  },
 ] as const
 
 const MAX_TOOL_ROUNDS = 40
@@ -329,6 +348,7 @@ You have the following tools. Use them — do not explain how the user could run
 - grep_search(root, query, caseSensitive?) — search for text in files. caseSensitive defaults to false.
 - glob_search(pattern, root) — find files by glob pattern (e.g. "**/*.tsx", "**/*Git*")
 - run_command(command) — execute any shell command in the project directory
+- web_search(query, maxResults?) — search the web, returns a ranked list of {title, URL, snippet}. Use for docs, error messages, library APIs, or current info. Fetch a result's URL with run_command (curl) to read the full page.
 
 == FINDING FILES ==
 Before editing or reading any file, you MUST know its full absolute path. Follow this workflow:
@@ -699,6 +719,11 @@ export class BridgeManager {
           }
           await rename(from, to)
           return { result: `Moved ${from} to ${to}`, isError: false }
+        }
+        case 'web_search': {
+          const query = args.query as string
+          const results = await webSearch(query, args.maxResults as number | undefined)
+          return { result: formatSearchResults(results, query), isError: false }
         }
         default:
           return { result: `Unknown tool: ${name}`, isError: true }

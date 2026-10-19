@@ -1,5 +1,6 @@
 import { useBrowserSettingsStore } from '@/stores/browserSettingsStore'
 import { useBrowserMcpStore } from '@/stores/browserMcpStore'
+import { useSearchMcpStore } from '@/stores/searchMcpStore'
 import { Switch } from '@/components/ui/Toggle'
 import { FeatureBlock, SettingRow } from './FeatureBlock'
 
@@ -11,6 +12,11 @@ export function BrowserSettingsPage() {
   const mcpPending = useBrowserMcpStore((s) => s.pending)
   const mcpError = useBrowserMcpStore((s) => s.error)
   const setMcpEnabled = useBrowserMcpStore((s) => s.setEnabled)
+
+  const searchEnabled = useSearchMcpStore((s) => s.enabled)
+  const searchPending = useSearchMcpStore((s) => s.pending)
+  const searchError = useSearchMcpStore((s) => s.error)
+  const setSearchEnabled = useSearchMcpStore((s) => s.setEnabled)
 
   return (
     <div className="h-full overflow-auto bg-panel p-6">
@@ -30,6 +36,14 @@ export function BrowserSettingsPage() {
           toggle={{ checked: mcpEnabled, onChange: (value) => void setMcpEnabled(value), label: 'Let Claude drive a browser tab', disabled: mcpPending }}
         >
           {mcpError && <p className="text-xs text-red-500">{mcpError}</p>}
+        </FeatureBlock>
+
+        <FeatureBlock
+          title="Web search"
+          description="Gives Claude Code a web_search tool (via an MCP server, claude mcp, user scope) that returns ranked results from DuckDuckGo — no API key needed. Bridge already has the same web_search tool built in, so this toggle only governs Claude Code."
+          toggle={{ checked: searchEnabled, onChange: (value) => void setSearchEnabled(value), label: 'Let Claude search the web', disabled: searchPending }}
+        >
+          {searchError && <p className="text-xs text-red-500">{searchError}</p>}
         </FeatureBlock>
       </div>
     </div>

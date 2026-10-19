@@ -396,6 +396,8 @@ export function createMobileApi(wsUrl: string) {
     // "give Claude CLI MCP access" toggle is excluded)
     browserMcpEnable: stubInvoke(undefined as void),
     browserMcpDisable: stubInvoke(undefined as void),
+    searchMcpEnable: stubInvoke(undefined as void),
+    searchMcpDisable: stubInvoke(undefined as void),
     todosMcpEnable: stubInvoke(undefined as void),
     todosMcpDisable: stubInvoke(undefined as void),
     notesMcpEnable: stubInvoke(undefined as void),

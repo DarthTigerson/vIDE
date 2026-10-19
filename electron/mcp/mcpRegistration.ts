@@ -7,6 +7,7 @@ export const MCP_SERVER_NAME = 'vide-todos'
 export const NOTES_MCP_SERVER_NAME = 'vide-notes'
 export const BROWSER_MCP_SERVER_NAME = 'vide-browser'
 export const SCRIPTS_MCP_SERVER_NAME = 'vide-scripts'
+export const SEARCH_MCP_SERVER_NAME = 'vide-search'
 
 function run(command: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
@@ -318,4 +319,48 @@ export async function disableScriptsMcp(): Promise<void> {
 export function registerScriptsMcpHandlers(): void {
   ipcMain.handle('scripts:mcp:enable', () => enableScriptsMcp())
   ipcMain.handle('scripts:mcp:disable', () => disableScriptsMcp())
+}
+
+function searchMcpScriptPath(): string {
+  return join(__dirname, 'searchMcpServer.js')
+}
+
+// Simplest of the lot: web search is self-contained (an outbound HTTPS
+// request + parse), so no `-e` data dir and no per-window socket — just the
+// ELECTRON_RUN_AS_NODE flag so the packaged Electron binary runs the bundled
+// script. Available in every vIDE-launched Claude session.
+export async function enableSearchMcp(): Promise<void> {
+  const claudeBin = await resolveClaudeBinary()
+  try { await run(claudeBin, ['mcp', 'remove', SEARCH_MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
+  try {
+    await run(claudeBin, [
+      'mcp',
+      'add',
+      SEARCH_MCP_SERVER_NAME,
+      '--scope',
+      'user',
+      '-e',
+      'ELECTRON_RUN_AS_NODE=1',
+      '--',
+      process.execPath,
+      searchMcpScriptPath(),
+    ])
+  } catch (err) {
+    const msg = ((err as { stderr?: string }).stderr ?? '') + ((err as Error).message ?? '')
+    if (!msg.includes('already exists')) throw err
+  }
+}
+
+export async function disableSearchMcp(): Promise<void> {
+  try {
+    const claudeBin = await resolveClaudeBinary()
+    await run(claudeBin, ['mcp', 'remove', SEARCH_MCP_SERVER_NAME, '--scope', 'user'])
+  } catch {
+    // ignore
+  }
+}
+
+export function registerSearchMcpHandlers(): void {
+  ipcMain.handle('search:mcp:enable', () => enableSearchMcp())
+  ipcMain.handle('search:mcp:disable', () => disableSearchMcp())
 }
