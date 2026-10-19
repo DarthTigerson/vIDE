@@ -13,7 +13,7 @@ import { createBroadcaster, Broadcaster } from './mobileRelay/broadcast'
 import type { PtyManager } from './pty'
 import type { ClaudeManager } from './claude'
 import type { BridgeManager } from './bridge'
-import type { AutocompleteManager } from './autocomplete'
+import type { AutocompleteManager } from './autocomplete/manager'
 import type { InlineEditManager } from './inlineEdit'
 import type { CommitMessageManager } from './commitMessage'
 

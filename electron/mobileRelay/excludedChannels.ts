@@ -53,8 +53,11 @@ export const EXCLUDED_CHANNELS = new Set<string>([
   'configRepo:getSettings', 'configRepo:setSettings', 'configRepo:connect', 'configRepo:pull',
   'configRepo:push', 'configRepo:checkRemote',
 
+  // Setting up, starting and stopping the desktop's local autocomplete model is
+  // desktop settings/footer UI; the phone only asks for completions (relayed)
+  'autocomplete:configure', 'autocomplete:start', 'autocomplete:stop', 'autocomplete:getState',
   // Local Llama server lifecycle — starts/stops a long-running model process (and reads its memory use) on this machine
-  'llama:isAvailable', 'llama:start', 'llama:stop', 'llama:getMemoryUsage',
+  'llama:isAvailable', 'llama:start', 'llama:stop', 'llama:getMemoryUsage', 'llama:getInstall', 'llama:install',
 
   // App-level operations
   'update:restart',  // quits the desktop app

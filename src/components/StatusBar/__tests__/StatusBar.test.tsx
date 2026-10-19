@@ -2,8 +2,7 @@ import { describe, it, expect, afterEach, beforeEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor, act } from '@testing-library/react'
 import { StatusBar } from '../StatusBar'
 import { useAutocompleteSettingsStore } from '@/stores/autocompleteSettingsStore'
-import { useAutocompleteSessionStore } from '@/stores/autocompleteSessionStore'
-import { useAutocompleteStatusStore } from '@/stores/autocompleteStatusStore'
+import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
 import { useGitStore, emptyRepoGitState } from '@/stores/gitStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useFileStore } from '@/stores/fileStore'
@@ -21,37 +20,29 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
-  useAutocompleteSettingsStore.setState({ enabled: true, model: 'claude-haiku-4-5-20251001' })
-  useAutocompleteSessionStore.setState({ paused: false })
-  useAutocompleteStatusStore.setState({ busy: false })
+  useAutocompleteSettingsStore.setState({ enabled: false })
   useGitStore.setState({ repos: {} })
   useGitReposStore.setState({ repos: [], selectedRepo: null })
 })
 
 describe('StatusBar autocomplete icon', () => {
-  // Autocomplete is force-disabled while VIDE-16 reworks it (see
-  // autocompleteEffectiveState.ts) — the icon must stay hidden regardless
-  // of the persisted setting, including for pre-existing users who already
-  // had it enabled.
-  it('does not render the icon even when enabled in settings', () => {
-    useAutocompleteSettingsStore.setState({ enabled: true })
-    render(<StatusBar />)
-    expect(screen.queryByRole('button', { name: 'Autocomplete off' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Autocomplete on' })).toBeNull()
+  beforeEach(() => {
+    useEditorSettingsStore.setState({ inlineDiffFooterIcon: true })
+    useGitReposStore.setState({ repos: ['/repo'], selectedRepo: null })
   })
 
-  it('does not render the icon when disabled in settings', () => {
+  it('shows only the inline diff switch while autocomplete is off', () => {
     useAutocompleteSettingsStore.setState({ enabled: false })
     render(<StatusBar />)
-    expect(screen.queryByRole('button', { name: 'Autocomplete off' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Autocomplete on' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Autocomplete/ })).toBeNull()
+    expect(screen.getByRole('button', { name: /^Inline diff highlight/ })).toBeInTheDocument()
   })
 
-  it('renders no autocomplete-related popup (no button to open it from)', () => {
+  it('folds inline diff into the autocomplete panel while autocomplete is on', () => {
+    useAutocompleteSettingsStore.setState({ enabled: true })
     render(<StatusBar />)
-
-    expect(screen.queryByText('Pause for this session')).toBeNull()
-    expect(screen.queryByText('Resume')).toBeNull()
+    expect(screen.getByRole('button', { name: /^Autocomplete/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Inline diff highlight/ })).toBeNull()
   })
 })
 

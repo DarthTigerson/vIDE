@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { LlamaLaunchConfig } from './llama'
+import type { LlamaLaunchConfig, LlamaInstallInfo } from './llama'
+import type { AutocompleteRuntimeState, AutocompleteSource } from './autocomplete/types'
 
 contextBridge.exposeInMainWorld('api', {
   readDir: (path: string) => ipcRenderer.invoke('fs:readDir', path),
@@ -467,8 +468,18 @@ contextBridge.exposeInMainWorld('api', {
 
   setWindowTitle: (root: string) => ipcRenderer.send('window:setTitle', root),
 
-  autocompleteComplete: (prefix: string, suffix: string, language: string, model: string) =>
-    ipcRenderer.invoke('autocomplete:complete', prefix, suffix, language, model),
+  autocompleteComplete: (prefix: string, suffix: string) =>
+    ipcRenderer.invoke('autocomplete:complete', prefix, suffix) as Promise<string | null>,
+  autocompleteConfigure: (source: AutocompleteSource | null) =>
+    ipcRenderer.invoke('autocomplete:configure', source) as Promise<AutocompleteRuntimeState>,
+  autocompleteStart: (force?: boolean) => ipcRenderer.invoke('autocomplete:start', force) as Promise<void>,
+  autocompleteStop: () => ipcRenderer.invoke('autocomplete:stop') as Promise<void>,
+  autocompleteGetState: () => ipcRenderer.invoke('autocomplete:getState') as Promise<AutocompleteRuntimeState>,
+  onAutocompleteState: (cb: (state: AutocompleteRuntimeState) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, state: AutocompleteRuntimeState) => cb(state)
+    ipcRenderer.on('autocomplete:state', handler)
+    return () => ipcRenderer.removeListener('autocomplete:state', handler)
+  },
 
   commitMessageGenerate: (diff: string, model: string, customPrompt: string) =>
     ipcRenderer.invoke('commitMessage:generate', diff, model, customPrompt) as Promise<string | null>,
@@ -546,6 +557,13 @@ contextBridge.exposeInMainWorld('api', {
   llamaStart: (id: string, cfg: LlamaLaunchConfig) => ipcRenderer.invoke('llama:start', id, cfg),
   llamaStop: (id: string) => ipcRenderer.invoke('llama:stop', id),
   llamaGetMemoryUsage: () => ipcRenderer.invoke('llama:getMemoryUsage') as Promise<number | null>,
+  llamaGetInstall: () => ipcRenderer.invoke('llama:getInstall') as Promise<LlamaInstallInfo>,
+  llamaInstall: () => ipcRenderer.invoke('llama:install') as Promise<{ ok: true; path: string } | { ok: false; error: string }>,
+  onLlamaInstallProgress: (cb: (received: number, total: number) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, received: number, total: number) => cb(received, total)
+    ipcRenderer.on('llama:installProgress', handler)
+    return () => ipcRenderer.removeListener('llama:installProgress', handler)
+  },
   onLlamaData: (cb: (id: string, data: string) => void) => {
     const handler = (_: Electron.IpcRendererEvent, id: string, data: string) => cb(id, data)
     ipcRenderer.on('llama:data', handler)

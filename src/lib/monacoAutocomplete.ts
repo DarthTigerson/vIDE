@@ -1,9 +1,10 @@
 import { getCompletionContext, type PositionLike, type TextModelLike } from './autocompleteContext'
 import { isAutocompleteEffectivelyEnabled } from './autocompleteEffectiveState'
-import { useAutocompleteSettingsStore } from '@/stores/autocompleteSettingsStore'
-import { useAutocompleteStatusStore } from '@/stores/autocompleteStatusStore'
+import { useAutocompleteRuntimeStore } from '@/stores/autocompleteRuntimeStore'
 
-const DEBOUNCE_MS = 700
+// A local model answers in a few hundred ms, so ghost text can follow a short
+// pause in typing rather than the long one the Claude CLI needed.
+const DEBOUNCE_MS = 150
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -36,17 +37,15 @@ export async function provideInlineCompletion(
   if (token.isCancellationRequested || !isAutocompleteEffectivelyEnabled()) return []
 
   const { prefix, suffix } = getCompletionContext(model, position)
-  const language = model.getLanguageId()
-  const selectedModel = useAutocompleteSettingsStore.getState().model
 
-  useAutocompleteStatusStore.getState().setBusy(true)
+  useAutocompleteRuntimeStore.getState().setBusy(true)
   let text: string | null
   try {
-    text = await window.api.autocompleteComplete(prefix, suffix, language, selectedModel)
+    text = await window.api.autocompleteComplete(prefix, suffix)
   } catch {
     return []
   } finally {
-    useAutocompleteStatusStore.getState().setBusy(false)
+    useAutocompleteRuntimeStore.getState().setBusy(false)
   }
 
   if (!text || token.isCancellationRequested) return []

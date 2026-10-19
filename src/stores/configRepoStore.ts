@@ -19,7 +19,9 @@ const CATEGORY_PREFIXES: Record<string, string[]> = {
     'vide:fontSize', 'vide:customTheme',
   ],
   models: [
-    'vide:enabledModels', 'vide:bridge:', 'vide:autocomplete:',
+    // No 'vide:autocomplete:' — autocomplete settings are per machine
+    // (autocompleteSettingsStore.ts).
+    'vide:enabledModels', 'vide:bridge:',
     'vide:llama:', 'vide:llamaModels', 'vide:notificationSound:',
   ],
   git: ['vide:git:', 'vide:gitRemote:', 'vide:gitFavoriteRepos', 'vide:gitFavorites:'],

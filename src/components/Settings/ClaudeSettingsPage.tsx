@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useModelSettingsStore } from '@/stores/modelSettingsStore'
-import { useAutocompleteSettingsStore, AUTOCOMPLETE_MODELS } from '@/stores/autocompleteSettingsStore'
+import { CLAUDE_MODELS } from '@/stores/claudeModels'
 import { useInlineEditSettingsStore } from '@/stores/inlineEditSettingsStore'
 import { useCommitMessageSettingsStore } from '@/stores/commitMessageSettingsStore'
 import { useUsagePassiveSettingsStore } from '@/stores/usagePassiveSettingsStore'
@@ -9,7 +9,7 @@ import { useEditorStore } from '@/stores/editorStore'
 import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
 import { Select } from '@/components/ui/Select'
 import { FeatureBlock, SettingRow } from './FeatureBlock'
-import { AutocompletePreview, InlineEditPreview, CommitMessagePreview } from './previews/claudePreviews'
+import { InlineEditPreview, CommitMessagePreview } from './previews/claudePreviews'
 
 function SpeakerIcon() {
   return (
@@ -31,8 +31,6 @@ function SpeakerIcon() {
 export function ClaudeSettingsPage() {
   const claudeEnabled = useModelSettingsStore((s) => s.enabled.claude)
   const setModelEnabled = useModelSettingsStore((s) => s.setEnabled)
-  const autocompleteModel = useAutocompleteSettingsStore((s) => s.model)
-  const setAutocompleteModel = useAutocompleteSettingsStore((s) => s.setModel)
   const inlineEditEnabled = useInlineEditSettingsStore((s) => s.enabled)
   const setInlineEditEnabled = useInlineEditSettingsStore((s) => s.setEnabled)
   const inlineEditModel = useInlineEditSettingsStore((s) => s.model)
@@ -54,7 +52,7 @@ export function ClaudeSettingsPage() {
     useUsagePassiveSettingsStore.getState().init()
   }, [])
 
-  const modelOptions = AUTOCOMPLETE_MODELS.map((m) => ({ value: m.id, label: m.label }))
+  const modelOptions = CLAUDE_MODELS.map((m) => ({ value: m.id, label: m.label }))
 
   return (
     <div className="h-full overflow-auto bg-panel p-6">
@@ -93,19 +91,6 @@ export function ClaudeSettingsPage() {
               >
                 <SpeakerIcon />
               </button>
-            </div>
-          </SettingRow>
-        </FeatureBlock>
-
-        <FeatureBlock
-          title="Inline autocomplete"
-          description="Temporarily disabled while we rework how this works (VIDE-16): the current design has poor latency and burns subscription usage."
-          toggle={{ checked: false, onChange: () => {}, label: 'Inline Autocomplete', disabled: true }}
-          preview={<AutocompletePreview />}
-        >
-          <SettingRow label="Model">
-            <div className="w-44">
-              <Select id="autocomplete-model" value={autocompleteModel} onChange={setAutocompleteModel} options={modelOptions} ariaLabel="Model" disabled />
             </div>
           </SettingRow>
         </FeatureBlock>

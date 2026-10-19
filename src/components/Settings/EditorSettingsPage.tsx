@@ -5,6 +5,7 @@ import { LSP_SERVER_IDS } from '@/stores/lspSettingsStore'
 import { useLspStatusStore, subscribeLspInstallEvents } from '@/stores/lspStatusStore'
 import { LspServerRow } from './LspServerRow'
 import { FeatureBlock, SettingRow } from './FeatureBlock'
+import { AutocompleteSection } from './AutocompleteSection'
 import {
   AutoSavePreview, WordWrapPreview, MarkdownPreview, GoToDefinitionPreview,
 } from './previews/editorPreviews'
@@ -63,6 +64,8 @@ export function EditorSettingsPage() {
             </div>
           </SettingRow>
         </FeatureBlock>
+
+        <AutocompleteSection />
 
         <FeatureBlock
           title="Go to definition"

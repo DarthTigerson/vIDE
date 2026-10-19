@@ -12,13 +12,15 @@ export interface MemoryRow {
 const VIDE_HUE = '#A8B95C'
 const TERMINALS_HUE = '#7F8CA8'
 const LANGUAGE_SERVERS_HUE = '#A08670'
+const AUTOCOMPLETE_HUE = '#6FA8B8'
 const UNKNOWN_SESSION_HUE = '#D97757'
 
 // The rows under "vIDE total" in the RAM hover panel: vIDE itself, then one
 // "Claude" row per session ("Claude 2", … when there are several), told apart
 // by their agent-bar colour. `ownHues` (this window's sessions) wins over the
 // colour main remembered from session files, which can lag a session that was
-// never saved. Terminal and language server rows only show while one is running.
+// never saved. Terminal, language server and autocomplete rows only show while
+// one is running.
 export function memoryRows(breakdown: MemoryBreakdown, ownHues: Record<string, string>): { totalBytes: number; rows: MemoryRow[] } {
   const rows: MemoryRow[] = [
     { key: 'app', label: 'vIDE', bytes: breakdown.appBytes, hue: VIDE_HUE },
@@ -34,6 +36,9 @@ export function memoryRows(breakdown: MemoryBreakdown, ownHues: Record<string, s
   }
   if (breakdown.languageServersBytes > 0) {
     rows.push({ key: 'lsp', label: 'Language servers', bytes: breakdown.languageServersBytes, hue: LANGUAGE_SERVERS_HUE })
+  }
+  if (breakdown.autocompleteBytes > 0) {
+    rows.push({ key: 'autocomplete', label: 'vIDE Autocomplete', bytes: breakdown.autocompleteBytes, hue: AUTOCOMPLETE_HUE })
   }
   return { totalBytes: rows.reduce((sum, row) => sum + row.bytes, 0), rows }
 }

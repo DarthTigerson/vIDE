@@ -1,46 +1,67 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 const { store } = vi.hoisted(() => {
-  const store: Record<string, string> = {}
+  // An existing user of the old Claude autocomplete, whose toggle defaulted on.
+  const store: Record<string, string> = { 'vide:autocomplete:enabled': 'true', 'vide:autocomplete:model': 'claude-haiku-4-5-20251001' }
   ;(global as any).localStorage = {
     getItem: (k: string) => store[k] ?? null,
     setItem: (k: string, v: string) => { store[k] = v },
   }
   return { store }
 })
-import { vi } from 'vitest'
 
-import { useAutocompleteSettingsStore, AUTOCOMPLETE_MODELS } from '../autocompleteSettingsStore'
+import { useAutocompleteSettingsStore, resolveSource } from '../autocompleteSettingsStore'
+
+const GiB = 1024 ** 3
+const initial = useAutocompleteSettingsStore.getState()
 
 describe('autocompleteSettingsStore', () => {
   beforeEach(() => {
-    Object.keys(store).forEach(k => delete store[k])
-    useAutocompleteSettingsStore.setState({ enabled: true, model: 'claude-haiku-4-5-20251001' })
+    useAutocompleteSettingsStore.setState(initial)
   })
 
-  it('defaults to enabled with Haiku 4.5 as the model', () => {
-    expect(useAutocompleteSettingsStore.getState().enabled).toBe(true)
-    expect(useAutocompleteSettingsStore.getState().model).toBe('claude-haiku-4-5-20251001')
+  it('stays off for a user upgrading with the old enabled key set', () => {
+    expect(initial.enabled).toBe(false)
   })
 
-  it('lists Haiku 4.5, Sonnet 5, Opus 5, and Fable 5 as selectable models', () => {
-    expect(AUTOCOMPLETE_MODELS.map((m) => m.id)).toEqual([
-      'claude-haiku-4-5-20251001',
-      'claude-sonnet-5',
-      'claude-opus-5',
-      'claude-fable-5',
-    ])
+  it('defaults to the recommended model, started with vIDE', () => {
+    expect(initial.model).toBe('recommended')
+    expect(initial.autoStart).toBe(true)
+    expect(initial.customKind).toBe('gguf')
+    expect(initial.serverUrl).toBe('http://127.0.0.1:8012')
   })
 
-  it('setEnabled persists to localStorage', () => {
-    useAutocompleteSettingsStore.getState().setEnabled(false)
-    expect(useAutocompleteSettingsStore.getState().enabled).toBe(false)
-    expect(store['vide:autocomplete:enabled']).toBe('false')
+  it('persists settings under the machine-local key prefix', () => {
+    useAutocompleteSettingsStore.getState().setEnabled(true)
+    useAutocompleteSettingsStore.getState().setAutoStart(false)
+    expect(store['vide:autocomplete:local:enabled']).toBe('true')
+    expect(store['vide:autocomplete:local:autoStart']).toBe('false')
+  })
+})
+
+describe('resolveSource', () => {
+  const on = { ...initial, enabled: true }
+
+  it('is null while autocomplete is off', () => {
+    expect(resolveSource({ ...on, enabled: false }, 32 * GiB)).toBeNull()
   })
 
-  it('setModel persists to localStorage', () => {
-    useAutocompleteSettingsStore.getState().setModel('claude-opus-5')
-    expect(useAutocompleteSettingsStore.getState().model).toBe('claude-opus-5')
-    expect(store['vide:autocomplete:model']).toBe('claude-opus-5')
+  it('turns "recommended" into the model for this machine', () => {
+    expect(resolveSource(on, 32 * GiB)).toEqual({ kind: 'managed', modelId: 'qwen-3b' })
+    expect(resolveSource(on, 8 * GiB)).toEqual({ kind: 'managed', modelId: 'qwen-1.5b' })
+  })
+
+  it('passes an explicit managed model through', () => {
+    expect(resolveSource({ ...on, model: 'mellum-4b' }, 8 * GiB)).toEqual({ kind: 'managed', modelId: 'mellum-4b' })
+  })
+
+  it('builds a custom server source', () => {
+    expect(resolveSource({ ...on, model: 'custom', customKind: 'server', serverUrl: 'http://h:1', serverApi: 'openai', serverKey: 'k' }, 8 * GiB))
+      .toEqual({ kind: 'server', baseUrl: 'http://h:1', api: 'openai', apiKey: 'k' })
+  })
+
+  it('builds a custom GGUF source', () => {
+    expect(resolveSource({ ...on, model: 'custom', customKind: 'gguf', ggufPath: '/m.gguf', extraArgs: '-t 4' }, 8 * GiB))
+      .toEqual({ kind: 'gguf', path: '/m.gguf', extraArgs: '-t 4' })
   })
 })

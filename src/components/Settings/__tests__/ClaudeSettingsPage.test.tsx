@@ -2,7 +2,6 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { ClaudeSettingsPage } from '../ClaudeSettingsPage'
-import { useAutocompleteSettingsStore } from '@/stores/autocompleteSettingsStore'
 import { useModelSettingsStore } from '@/stores/modelSettingsStore'
 import { useInlineEditSettingsStore } from '@/stores/inlineEditSettingsStore'
 import { useUsagePassiveSettingsStore } from '@/stores/usagePassiveSettingsStore'
@@ -24,7 +23,6 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
-  useAutocompleteSettingsStore.setState({ enabled: true, model: 'claude-haiku-4-5-20251001' })
   useModelSettingsStore.setState({ enabled: { claude: true, bridge: true } })
   useInlineEditSettingsStore.setState({ enabled: true, model: 'claude-sonnet-5' })
   useUsagePassiveSettingsStore.setState({ enabled: false, initialized: false })
@@ -46,25 +44,11 @@ describe('ClaudeSettingsPage general section', () => {
   })
 })
 
-describe('ClaudeSettingsPage autocomplete section', () => {
-  it('is force-disabled regardless of the persisted setting (VIDE-16)', () => {
-    useAutocompleteSettingsStore.setState({ enabled: true })
+describe('ClaudeSettingsPage autocomplete', () => {
+  it('has no autocomplete section: autocomplete runs locally, set up in Settings › Editor', () => {
     render(<ClaudeSettingsPage />)
-    const toggle = screen.getByRole('switch', { name: 'Inline Autocomplete' })
-    expect(toggle).toHaveAttribute('aria-checked', 'false')
-    expect(toggle).toBeDisabled()
-  })
-
-  it('does not change the stored setting on click while force-disabled', () => {
-    useAutocompleteSettingsStore.setState({ enabled: false })
-    render(<ClaudeSettingsPage />)
-    fireEvent.click(screen.getByRole('switch', { name: 'Inline Autocomplete' }))
-    expect(useAutocompleteSettingsStore.getState().enabled).toBe(false)
-  })
-
-  it('disables the model picker while autocomplete is force-disabled', () => {
-    render(<ClaudeSettingsPage />)
-    expect(screen.getByLabelText('Model')).toBeDisabled()
+    expect(screen.queryByRole('heading', { name: 'Inline autocomplete' })).toBeNull()
+    expect(screen.queryByRole('switch', { name: 'Inline Autocomplete' })).toBeNull()
   })
 })
 

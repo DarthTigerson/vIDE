@@ -26,7 +26,7 @@ export function postProcessCommitMessage(raw: string): string | null {
 import { BrowserWindow, ipcMain } from 'electron'
 import { spawn, type ChildProcessByStdio } from 'child_process'
 import type { Readable, Writable } from 'stream'
-import { resolveClaudePath } from './autocomplete'
+import { resolveClaudePath } from './claudePath'
 
 const TIMEOUT_MS = 30000
 

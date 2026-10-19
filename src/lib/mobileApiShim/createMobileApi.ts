@@ -1,3 +1,4 @@
+import type { AutocompleteRuntimeState } from '@/types/api'
 // Renderer-side counterpart to electron/preload.ts: a window.api-shaped
 // object backed by a WebSocket connection to the mobile relay instead of
 // Electron's contextBridge, so the same React app/component code can run in
@@ -84,6 +85,11 @@ function stubSend() {
 }
 function stubOn() {
   return (..._args: unknown[]): (() => void) => () => {}
+}
+
+// The phone never runs or controls the desktop's autocomplete model.
+const MOBILE_AUTOCOMPLETE_STATE: AutocompleteRuntimeState = {
+  phase: 'idle', source: null, modelOnDisk: false, progress: null, ramBytes: null, error: null,
 }
 
 export function createMobileApi(wsUrl: string) {
@@ -202,7 +208,7 @@ export function createMobileApi(wsUrl: string) {
 
     // system — mirrors electron/mobileRelay/channels/systemChannels.ts
     getSystemMemoryUsage: invoke('system:getMemoryUsage'),
-    getMemoryBreakdown: stubInvoke({ appBytes: 0, sessions: [], terminalsBytes: 0, languageServersBytes: 0 }),
+    getMemoryBreakdown: stubInvoke({ appBytes: 0, sessions: [], terminalsBytes: 0, languageServersBytes: 0, autocompleteBytes: 0 }),
     getBatteryStatus: invoke('system:getBattery'),
 
     // docker — mirrors electron/mobileRelay/channels/dockerChannels.ts
@@ -293,6 +299,11 @@ export function createMobileApi(wsUrl: string) {
 
     // autocomplete — mirrors electron/mobileRelay/channels/autocompleteChannels.ts
     autocompleteComplete: invoke('autocomplete:complete'),
+    autocompleteConfigure: stubInvoke(MOBILE_AUTOCOMPLETE_STATE),
+    autocompleteStart: stubInvoke(undefined as void),
+    autocompleteStop: stubInvoke(undefined as void),
+    autocompleteGetState: stubInvoke(MOBILE_AUTOCOMPLETE_STATE),
+    onAutocompleteState: stubOn(),
 
     // commitMessage — mirrors electron/mobileRelay/channels/commitMessageChannels.ts
     commitMessageGenerate: invoke('commitMessage:generate'),

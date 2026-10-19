@@ -29,7 +29,7 @@ vi.mock('child_process', async (importOriginal) => {
 })
 
 import { homedir } from 'os'
-import { LlamaManager, resolveLlamaPath, _resetLlamaPathCacheForTesting } from '../llama'
+import { LlamaManager, resolveLlamaPath, _resetLlamaPathCacheForTesting, sumLlamaServerRss } from '../llama'
 
 class FakeChildProcess extends EventEmitter {
   stdout = new EventEmitter()
@@ -92,6 +92,80 @@ describe('LlamaManager', () => {
     proc.emit('spawn')
     await expect(promise).resolves.toBe(true)
     expect(spawnMock).toHaveBeenCalledWith('/opt/homebrew/bin/llama-server', ['--help'], expect.any(Object))
+  })
+
+  describe("vIDE's own llama.cpp (Settings > Llama install button)", () => {
+    function bundled(installed: string | null) {
+      let path = installed
+      return {
+        dir: '/data/autocomplete/llama.cpp',
+        find: vi.fn(async () => path),
+        install: vi.fn(async (_dir: string, opts?: { onProgress?: (r: number, t: number) => void }) => {
+          opts?.onProgress?.(6, 12)
+          opts?.onProgress?.(12, 12)
+          path = '/data/autocomplete/llama.cpp/b11707/llama-b11707/llama-server'
+          return path
+        }),
+      }
+    }
+
+    it('reports a llama.cpp found on PATH as the system install', async () => {
+      execFileMock.mockImplementation((_shell: string, _args: string[], cb: (err: Error | null, stdout: string) => void) => {
+        cb(null, '/opt/homebrew/bin/llama-server\n')
+      })
+      new LlamaManager(() => [], bundled(null)).registerHandlers()
+      await expect(ipcHandlers['llama:getInstall']({})).resolves.toMatchObject({ path: '/opt/homebrew/bin/llama-server', source: 'system' })
+    })
+
+    it("reports vIDE's own copy when there is none on PATH", async () => {
+      new LlamaManager(() => [], bundled('/data/x/llama-server')).registerHandlers()
+      await expect(ipcHandlers['llama:getInstall']({})).resolves.toMatchObject({ path: '/data/x/llama-server', source: 'vide' })
+    })
+
+    it('reports nothing installed, with the download size', async () => {
+      new LlamaManager(() => [], bundled(null)).registerHandlers()
+      const info = await ipcHandlers['llama:getInstall']({}) as { path: string | null; source: string | null; downloadBytes: number | null }
+      expect(info.path).toBeNull()
+      expect(info.source).toBeNull()
+      expect(info.downloadBytes).toBeGreaterThan(0)
+    })
+
+    it('installs into the shared folder, streaming progress to the window that asked', async () => {
+      const b = bundled(null)
+      new LlamaManager(() => [], b).registerHandlers()
+      const send = vi.fn()
+      const result = await ipcHandlers['llama:install']({ sender: { send, isDestroyed: () => false } })
+      expect(b.install).toHaveBeenCalledWith('/data/autocomplete/llama.cpp', expect.any(Object))
+      expect(send).toHaveBeenCalledWith('llama:installProgress', 12, 12)
+      expect(result).toEqual({ ok: true, path: '/data/autocomplete/llama.cpp/b11707/llama-b11707/llama-server' })
+    })
+
+    it('runs one install when asked twice', async () => {
+      const b = bundled(null)
+      new LlamaManager(() => [], b).registerHandlers()
+      const event = { sender: { send: vi.fn(), isDestroyed: () => false } }
+      await Promise.all([ipcHandlers['llama:install'](event), ipcHandlers['llama:install'](event)])
+      expect(b.install).toHaveBeenCalledTimes(1)
+    })
+
+    it('returns the error instead of throwing when the install fails', async () => {
+      const b = bundled(null)
+      b.install.mockRejectedValueOnce(new Error('Download failed: HTTP 404'))
+      new LlamaManager(() => [], b).registerHandlers()
+      await expect(ipcHandlers['llama:install']({ sender: { send: vi.fn(), isDestroyed: () => false } }))
+        .resolves.toEqual({ ok: false, error: 'Download failed: HTTP 404' })
+    })
+
+    it("isAvailable runs vIDE's copy when there is none on PATH", async () => {
+      new LlamaManager(() => [], bundled('/data/x/llama-server')).registerHandlers()
+      const proc = new FakeChildProcess()
+      spawnMock.mockReturnValue(proc)
+      const promise = ipcHandlers['llama:isAvailable']({})
+      await flushMicrotasks()
+      proc.emit('spawn')
+      await expect(promise).resolves.toBe(true)
+      expect(spawnMock).toHaveBeenCalledWith('/data/x/llama-server', ['--help'], expect.any(Object))
+    })
   })
 
   describe('llama:start', () => {
@@ -301,5 +375,25 @@ describe('LlamaManager', () => {
       const resolved = await resolveLlamaPath()
       expect(resolved).toBe('/usr/local/bin/llama-cli')
     })
+  })
+})
+
+describe('sumLlamaServerRss', () => {
+  const ps = [
+    '  101 204800 /opt/homebrew/bin/llama-server',
+    '  202 1048576 /Users/x/Library/Application Support/vIDE/autocomplete/llama.cpp/b11707/llama-b11707/llama-server',
+    '  303 5000 /usr/bin/zsh',
+  ].join('\n')
+
+  it('adds up every llama-server process', () => {
+    expect(sumLlamaServerRss(ps, [])).toBe((204800 + 1048576) * 1024)
+  })
+
+  it("leaves out vIDE's autocomplete server, which has its own RAM row", () => {
+    expect(sumLlamaServerRss(ps, [202])).toBe(204800 * 1024)
+  })
+
+  it('returns null when no llama-server is left', () => {
+    expect(sumLlamaServerRss(ps, [101, 202])).toBeNull()
   })
 })
