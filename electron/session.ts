@@ -31,6 +31,15 @@ export interface SessionData {
   // Size/position of the last window this project was open in, so it
   // reopens where it was — at relaunch and from Recent Projects alike.
   windowBounds?: WindowBounds
+  // The bottom terminal (stores/bottomTerminalStore.ts): switch, sides of
+  // terminal ids, where each moved terminal came from, and panel height.
+  bottomTerminal?: {
+    enabled: boolean
+    sides: string[][]
+    active: (string | null)[]
+    origins: Record<string, { paneId: string; index: number }>
+    size: number
+  }
 }
 
 // Colour and name of every agent session seen in a session file this run,

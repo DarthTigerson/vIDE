@@ -63,6 +63,15 @@ export interface SessionData {
   // fallback when this is absent.
   agentSessions?: { id: string; kind: string; hue: string }[]
   windowBounds?: { x: number; y: number; width: number; height: number; maximized: boolean }
+  // The bottom terminal (stores/bottomTerminalStore.ts): switch, sides of
+  // terminal ids, where each moved terminal came from, and panel height.
+  bottomTerminal?: {
+    enabled: boolean
+    sides: string[][]
+    active: (string | null)[]
+    origins: Record<string, { paneId: string; index: number }>
+    size: number
+  }
 }
 
 export interface MobileNetworkInterface {
