@@ -7,6 +7,7 @@ import { useAutocompleteRuntimeStore } from '@/stores/autocompleteRuntimeStore'
 import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useEditorStore } from '@/stores/editorStore'
+import { useFooterPopoverStore } from '@/stores/footerPopoverStore'
 import type { AutocompleteRuntimeState } from '@/types/api'
 
 const GiB = 1024 ** 3
@@ -37,6 +38,7 @@ beforeEach(() => {
   useAutocompleteSettingsStore.setState({ enabled: true })
   useEditorSettingsStore.setState({ inlineDiffEnabled: true, inlineDiffFooterIcon: true })
   useGitReposStore.setState({ repos: ['/repo'] })
+  useFooterPopoverStore.setState({ openId: null })
   runtime({})
 })
 

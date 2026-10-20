@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { AutocompleteIcon } from '@/components/ActivityBar/ActivityBar'
 import { Switch } from '@/components/ui/Toggle'
 import { footerPopupShadow } from '@/components/ui/footerPopup'
@@ -7,6 +7,7 @@ import { useAutocompleteSettingsStore } from '@/stores/autocompleteSettingsStore
 import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useEditorStore } from '@/stores/editorStore'
+import { useFooterPopoverStore } from '@/stores/footerPopoverStore'
 import { EDITOR_SETTINGS_TAB_PATH } from '@/components/Settings/paths'
 import { MODEL_CATALOG } from '../../../electron/autocomplete/catalog'
 import { formatMemory } from '@/lib/memoryBreakdown'
@@ -38,12 +39,12 @@ export function AutocompleteFooter() {
   const inlineDiffEnabled = useEditorSettingsStore((s) => s.inlineDiffEnabled)
   const showInlineDiff = useEditorSettingsStore((s) => s.inlineDiffFooterIcon)
   const hasRepo = useGitReposStore((s) => s.repos.length > 0)
-  const [open, setOpen] = useState(false)
+  const open = useFooterPopoverStore((s) => s.openId === 'autocomplete')
   useCoverNativeViews(open)
 
   useEffect(() => {
     if (!open) return
-    const close = () => setOpen(false)
+    const close = () => useFooterPopoverStore.getState().close()
     window.addEventListener('click', close)
     return () => window.removeEventListener('click', close)
   }, [open])
@@ -91,7 +92,7 @@ export function AutocompleteFooter() {
   const stop = () => { runtime.resume(); void window.api.autocompleteStop() }
   const openSettings = () => {
     useEditorStore.getState().openTab({ path: EDITOR_SETTINGS_TAB_PATH, content: '', dirty: false })
-    setOpen(false)
+    useFooterPopoverStore.getState().close()
   }
   const label = footerState === 'running' ? 'Autocomplete: on' : footerState === 'snoozed' ? 'Autocomplete: snoozed' : 'Autocomplete: off'
   const live = footerState === 'running' || footerState === 'snoozed'
@@ -101,8 +102,8 @@ export function AutocompleteFooter() {
       <FooterTooltip label={label} hidden={open}>
         <button
           type="button"
-          onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
-          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((o) => !o) }}
+          onClick={(e) => { e.stopPropagation(); useFooterPopoverStore.getState().toggle('autocomplete') }}
+          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); useFooterPopoverStore.getState().toggle('autocomplete') }}
           aria-label={label}
           aria-expanded={open}
           className={[

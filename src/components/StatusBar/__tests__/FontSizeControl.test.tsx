@@ -5,12 +5,14 @@ import { useFontSizeStore } from '@/stores/fontSizeStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { useBottomTerminalStore } from '@/stores/bottomTerminalStore'
 import { useLspSettingsStore } from '@/stores/lspSettingsStore'
+import { useFooterPopoverStore } from '@/stores/footerPopoverStore'
 import { DISPLAY_TAB_PATH } from '@/components/Settings/paths'
 
 beforeEach(() => {
   act(() => useFontSizeStore.getState().setFontSize(13))
   useEditorStore.setState({ activeTabPath: null })
   useLspSettingsStore.setState({ hoverEnabled: true, completionEnabled: true })
+  useFooterPopoverStore.setState({ openId: null })
 })
 
 afterEach(() => {
