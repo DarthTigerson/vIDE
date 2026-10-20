@@ -65,6 +65,9 @@ export const EXCLUDED_CHANNELS = new Set<string>([
   // Language server management — ambiguous whether these should work from mobile; deferred
   'lsp:install', 'lsp:setEnabled', 'lsp:detectAll', 'lsp:getDefinition',
 
+  // .gitignore editing from Settings > Site Tree and tool pages, desktop settings only
+  'gitignore:status', 'gitignore:add', 'gitignore:remove',
+
   // Peripheral features — long-running processes, lower priority
   'graphify:isAvailable', 'graphify:run', 'graphify:readGraph', 'graphify:installClaudeSkill',
   'update:getLatest',  // minor feature

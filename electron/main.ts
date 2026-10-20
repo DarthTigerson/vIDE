@@ -42,6 +42,7 @@ import { getSystemMemoryUsage } from './systemMemory'
 import { getBatteryStatus } from './systemBattery'
 import { registerOnboardingHandlers } from './onboarding'
 import { registerConfigRepoHandlers } from './configRepo'
+import { registerGitignoreHandlers } from './gitignoreEntries'
 
 function registerFsHandlers(): void {
   ipcMain.handle('fs:readDir', (_e, path: string) => buildTree(path))
@@ -842,6 +843,7 @@ app.whenReady().then(async () => {
   registerSystemHandlers()
   registerOnboardingHandlers()
   registerConfigRepoHandlers()
+  registerGitignoreHandlers()
 
   ptyMgr = new PtyManager()
   ptyMgr.registerHandlers()

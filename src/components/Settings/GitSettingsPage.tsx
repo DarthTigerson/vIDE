@@ -11,6 +11,7 @@ import type { ChangeColorMode, ChangeStrength } from '@/lib/gitChangeColors'
 import { Select } from '@/components/ui/Select'
 import { TextField } from './SettingsLayout'
 import { FeatureBlock, SettingRow, NumberInput } from './FeatureBlock'
+import { ToolFolderRows } from './HiddenFolderControls'
 import {
   BlamePreview, InlineDiffPreview, ForcePushPreview, GitLogPreview, FetchPreview, GraphTabsPreview, RemotePreview,
 } from './previews/gitPreviews'
@@ -249,6 +250,13 @@ export function GitSettingsPage() {
           <SettingRow label="Close side panel when opening" description="Give the repo page the full width.">
             <Switch label="Close side panel when opening" checked={gitRemoteCloseSidePanelOnOpen} onChange={setGitRemoteCloseSidePanelOnOpen} />
           </SettingRow>
+        </FeatureBlock>
+
+        <FeatureBlock
+          title=".git folder"
+          description="Git keeps the repository's data in .git at the project root. It can't be gitignored, but you can hide it from the file tree."
+        >
+          <ToolFolderRows name=".git" />
         </FeatureBlock>
       </div>
     </div>

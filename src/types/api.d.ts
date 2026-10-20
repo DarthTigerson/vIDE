@@ -440,6 +440,10 @@ declare global {
       onboardingPrimeAutomationPermission: () => Promise<boolean>
       onboardingOpenAutomationSettings: () => Promise<void>
 
+      gitignoreStatus: (cwd: string, patterns: string[]) => Promise<{ repo: false } | { repo: true; ignored: string[] }>
+      gitignoreAdd: (cwd: string, pattern: string) => Promise<{ ok: boolean; output: string }>
+      gitignoreRemove: (cwd: string, pattern: string) => Promise<{ ok: boolean; output: string }>
+
       graphifyIsAvailable: () => Promise<boolean>
       graphifyRun: (id: string, cwd: string) => Promise<void>
       graphifyReadGraph: (cwd: string) => Promise<GraphifyGraph>

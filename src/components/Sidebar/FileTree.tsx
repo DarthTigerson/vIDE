@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import type { MouseEvent } from 'react'
 import type { FileNode } from '@/types/index'
 import { useFileStore } from '@/stores/fileStore'
@@ -21,6 +22,8 @@ import { FileIcon, FolderIcon } from './FileIcon'
 import { isExternalFileDrag } from './treeUtils'
 import { useGitTreeDecorations } from './useGitTreeDecorations'
 import { useGeneralSettingsStore } from '@/stores/generalSettingsStore'
+import { useHiddenFoldersStore } from '@/stores/hiddenFoldersStore'
+import { filterHiddenNodes } from '@/lib/hiddenFolders'
 import { treeRowDropTargetClass } from '@/components/ui/panelDrop'
 
 export type TreePromptKind = 'file' | 'directory' | 'rename'
@@ -106,6 +109,11 @@ export function FileTree({
   const { files: fileGitDecorations, folders: folderGitAggregates } = useGitTreeDecorations()
   // Settings > General > File Tree: 'letter' keeps names their normal colour.
   const colourGitNames = useGeneralSettingsStore((s) => s.fileTreeGitStatus === 'letterAndColour')
+  // Settings > Site Tree > Hidden folders; FileTree renders itself for each
+  // expanded folder, so this covers every depth.
+  const hiddenNames = useHiddenFoldersStore((s) => s.hidden)
+  const hiddenSet = useMemo(() => new Set(hiddenNames), [hiddenNames])
+  const visibleNodes = useMemo(() => filterHiddenNodes(nodes, hiddenSet), [nodes, hiddenSet])
   const { activeTabPath, openTab, openTabInNewSplitPane } = useEditorStore()
   // isGitDiffTab/isGitCommitDiffTab both carry a repo-*relative* path (that's
   // what git status/git show hand back, and what getDiffContent's own
@@ -176,7 +184,7 @@ export function FileTree({
           />
         </li>
       )}
-      {nodes.map((node) => {
+      {visibleNodes.map((node) => {
         const ignored = !!selectedRepo && isIgnoredPath(node.path, selectedRepo, ignoredPaths)
         // Folders show the dominant color of whatever's changed inside them
         // (an aggregate, so no single-letter badge); files show their own

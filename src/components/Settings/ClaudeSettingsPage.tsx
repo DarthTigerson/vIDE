@@ -9,6 +9,7 @@ import { useEditorStore } from '@/stores/editorStore'
 import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
 import { Select } from '@/components/ui/Select'
 import { FeatureBlock, SettingRow } from './FeatureBlock'
+import { ToolFolderRows } from './HiddenFolderControls'
 import { AutocompletePreview, InlineEditPreview, CommitMessagePreview } from './previews/claudePreviews'
 
 function SpeakerIcon() {
@@ -159,6 +160,13 @@ export function ClaudeSettingsPage() {
           >
             Open Usage Graph
           </button>
+        </FeatureBlock>
+
+        <FeatureBlock
+          title=".claude folder"
+          description="Claude Code keeps project config (skills, settings, CLAUDE.md) in .claude. It's usually committed so the team shares it, so there's no gitignore option, but you can hide it from the file tree."
+        >
+          <ToolFolderRows name=".claude" />
         </FeatureBlock>
       </div>
     </div>

@@ -439,6 +439,11 @@ export function createMobileApi(wsUrl: string) {
     onLspInstallData: stubOn(),
     onLspInstallExit: stubOn(),
 
+    // .gitignore editing from Settings: desktop settings only
+    gitignoreStatus: stubInvoke({ repo: false } as const),
+    gitignoreAdd: stubInvoke({ ok: false, output: 'Not available on mobile.' }),
+    gitignoreRemove: stubInvoke({ ok: false, output: 'Not available on mobile.' }),
+
     // Graphify — peripheral dev-tooling, triggers long-running processes,
     // low real-world value from a phone; deferred (relay-side exclusion)
     graphifyIsAvailable: stubInvoke(false),

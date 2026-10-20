@@ -514,6 +514,9 @@ contextBridge.exposeInMainWorld('api', {
   onboardingPrimeAutomationPermission: () => ipcRenderer.invoke('onboarding:primeAutomationPermission'),
   onboardingOpenAutomationSettings: () => ipcRenderer.invoke('onboarding:openAutomationSettings'),
 
+  gitignoreStatus: (cwd: string, patterns: string[]) => ipcRenderer.invoke('gitignore:status', cwd, patterns),
+  gitignoreAdd: (cwd: string, pattern: string) => ipcRenderer.invoke('gitignore:add', cwd, pattern),
+  gitignoreRemove: (cwd: string, pattern: string) => ipcRenderer.invoke('gitignore:remove', cwd, pattern),
   graphifyIsAvailable: () => ipcRenderer.invoke('graphify:isAvailable'),
   graphifyRun: (id: string, cwd: string) => ipcRenderer.invoke('graphify:run', id, cwd),
   graphifyReadGraph: (cwd: string) => ipcRenderer.invoke('graphify:readGraph', cwd),

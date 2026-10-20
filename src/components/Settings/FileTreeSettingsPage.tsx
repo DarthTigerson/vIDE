@@ -2,6 +2,7 @@ import { useGeneralSettingsStore, type FileTreeGitStatus } from '@/stores/genera
 import { RadioGroup } from '@/components/ui/RadioGroup'
 import { FeatureBlock, SettingRow } from './FeatureBlock'
 import { FileTreePreview } from './previews/fileTreePreviews'
+import { HiddenFoldersList } from './HiddenFolderControls'
 
 export function FileTreeSettingsPage() {
   const fileTreeGitStatus = useGeneralSettingsStore((s) => s.fileTreeGitStatus)
@@ -30,6 +31,13 @@ export function FileTreeSettingsPage() {
               ]}
             />
           </SettingRow>
+        </FeatureBlock>
+
+        <FeatureBlock
+          title="Hidden folders"
+          description="Hide folders that tools create in your project from the file tree (the files stay on disk), and add them to the project's .gitignore where that makes sense."
+        >
+          <HiddenFoldersList />
         </FeatureBlock>
       </div>
     </div>
