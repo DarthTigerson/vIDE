@@ -553,6 +553,14 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('configRepo:remoteSettings', handler)
   },
 
+  graphifyGetInstall: () => ipcRenderer.invoke('graphify:getInstall') as Promise<{ path: string | null; source: 'system' | null; downloadBytes: number | null }>,
+  graphifyInstall: () => ipcRenderer.invoke('graphify:install') as Promise<{ ok: true; path: string } | { ok: false; error: string }>,
+  onGraphifyInstallProgress: (cb: (received: number, total: number) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, received: number, total: number) => cb(received, total)
+    ipcRenderer.on('graphify:installProgress', handler)
+    return () => ipcRenderer.removeListener('graphify:installProgress', handler)
+  },
+
   llamaIsAvailable: () => ipcRenderer.invoke('llama:isAvailable'),
   llamaStart: (id: string, cfg: LlamaLaunchConfig) => ipcRenderer.invoke('llama:start', id, cfg),
   llamaStop: (id: string) => ipcRenderer.invoke('llama:stop', id),

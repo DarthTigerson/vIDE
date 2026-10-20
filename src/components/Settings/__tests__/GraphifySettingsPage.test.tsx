@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { GraphifySettingsPage } from '../GraphifySettingsPage'
 import { useGraphifyStore } from '@/stores/graphifyStore'
 import { useGraphifySettingsStore } from '@/stores/graphifySettingsStore'
@@ -18,6 +18,16 @@ vi.mock('@/stores/fileStore', () => ({
   useFileStore: (selector: (s: { projectRoot: string | null }) => unknown) =>
     selector({ projectRoot: getProjectRoot() }),
 }))
+
+let api: Record<string, ReturnType<typeof vi.fn>>
+beforeEach(() => {
+  api = {
+    graphifyGetInstall: vi.fn().mockResolvedValue({ path: null, source: null, downloadBytes: null }),
+    graphifyInstall: vi.fn().mockResolvedValue({ ok: true, path: '/Users/t/.local/bin/graphify' }),
+    onGraphifyInstallProgress: vi.fn(() => () => {}),
+  }
+  ;(window as any).api = api
+})
 
 function resetStore() {
   useGraphifyStore.setState({
@@ -95,5 +105,30 @@ describe('GraphifySettingsPage', () => {
 
     expect(useGraphifySettingsStore.getState().autoBuildOnOpen).toBe(false)
     expect(screen.queryByText(/spawns a real CLI process/)).not.toBeInTheDocument()
+  })
+
+  it('shows where graphify was found', async () => {
+    api.graphifyGetInstall.mockResolvedValue({ path: '/Users/t/.local/bin/graphify', source: 'system', downloadBytes: null })
+    render(<GraphifySettingsPage />)
+    expect(await screen.findByText('/Users/t/.local/bin/graphify')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Install graphify/ })).toBeNull()
+  })
+
+  it('installs graphify with one click when it is missing', async () => {
+    useGraphifyStore.setState({ available: false })
+    render(<GraphifySettingsPage />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Install graphify' }))
+    api.graphifyGetInstall.mockResolvedValue({ path: '/Users/t/.local/bin/graphify', source: 'system', downloadBytes: null })
+    expect(await screen.findByText('/Users/t/.local/bin/graphify')).toBeInTheDocument()
+    expect(api.graphifyInstall).toHaveBeenCalled()
+    await waitFor(() => expect(useGraphifyStore.getState().available).toBe(true))
+  })
+
+  it('shows the error and lets you retry', async () => {
+    api.graphifyInstall.mockResolvedValue({ ok: false, error: 'uv: network unreachable' })
+    render(<GraphifySettingsPage />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Install graphify' }))
+    expect(await screen.findByText('uv: network unreachable')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
   })
 })

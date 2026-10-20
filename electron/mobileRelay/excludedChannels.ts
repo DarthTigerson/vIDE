@@ -57,7 +57,7 @@ export const EXCLUDED_CHANNELS = new Set<string>([
   // desktop settings/footer UI; the phone only asks for completions (relayed)
   'autocomplete:configure', 'autocomplete:start', 'autocomplete:stop', 'autocomplete:getState',
   // Local Llama server lifecycle — starts/stops a long-running model process (and reads its memory use) on this machine
-  'llama:isAvailable', 'llama:start', 'llama:stop', 'llama:getMemoryUsage', 'llama:getInstall', 'llama:install',
+  'graphify:getInstall', 'graphify:install', 'llama:isAvailable', 'llama:start', 'llama:stop', 'llama:getMemoryUsage', 'llama:getInstall', 'llama:install',
 
   // App-level operations
   'update:restart',  // quits the desktop app

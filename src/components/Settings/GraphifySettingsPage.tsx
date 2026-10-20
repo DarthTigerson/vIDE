@@ -3,6 +3,13 @@ import { useGraphifySettingsStore } from '@/stores/graphifySettingsStore'
 import { useFileStore } from '@/stores/fileStore'
 import { Switch } from '@/components/ui/Toggle'
 import { FeatureBlock, SettingRow } from './FeatureBlock'
+import { ToolInstallRow } from './ToolInstallRow'
+
+const getInstall = () => window.api.graphifyGetInstall()
+const install = () => window.api.graphifyInstall()
+const onProgress = (cb: (received: number, total: number) => void) => window.api.onGraphifyInstallProgress(cb)
+// The Graphify panel stops showing its "graphify isn't installed" state.
+const onInstalled = () => useGraphifyStore.setState({ available: true })
 
 export function GraphifySettingsPage() {
   const projectRoot = useFileStore((s) => s.projectRoot)
@@ -23,6 +30,14 @@ export function GraphifySettingsPage() {
           description="Adds a Graphify icon to the activity bar with the knowledge graph panel."
           toggle={{ checked: enabled, onChange: setEnabled, label: 'Enable Graphify' }}
         >
+          <ToolInstallRow
+            name="graphify"
+            notInstalled="Not installed. vIDE can install it with uv for you (it fetches uv itself if needed), no terminal needed."
+            getInstall={getInstall}
+            install={install}
+            onProgress={onProgress}
+            onInstalled={onInstalled}
+          />
           <SettingRow label="Build when a repo opens" description="The first time you open a repo each session, instead of waiting for a manual click.">
             <Switch label="Auto-build graph when a repo is opened" checked={autoBuildOnOpen} onChange={setAutoBuildOnOpen} />
           </SettingRow>

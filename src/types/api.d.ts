@@ -469,6 +469,10 @@ declare global {
       onGraphifyData: (cb: (id: string, data: string) => void) => () => void
       onGraphifyExit: (cb: (id: string, code: number) => void) => () => void
 
+      graphifyGetInstall: () => Promise<{ path: string | null; source: 'system' | null; downloadBytes: number | null }>
+      graphifyInstall: () => Promise<{ ok: true; path: string } | { ok: false; error: string }>
+      onGraphifyInstallProgress: (cb: (received: number, total: number) => void) => () => void
+
       llamaIsAvailable: () => Promise<boolean>
       llamaStart: (id: string, cfg: LlamaLaunchConfig) => Promise<void>
       llamaStop: (id: string) => Promise<void>

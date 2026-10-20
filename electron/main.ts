@@ -7,6 +7,7 @@ import { ClaudeManager } from './claude'
 import { BrowserBridge } from './browserBridge'
 import { GitRunner } from './gitRunner'
 import { GraphifyManager } from './graphify'
+import { createGraphifyInstaller } from './graphifyInstall'
 import { LlamaManager } from './llama'
 import { bundledLlamaDir, findInstalledLlamaServer, installLlama } from './autocomplete/llamaInstall'
 import { GitWatcher } from './gitWatcher'
@@ -867,7 +868,7 @@ app.whenReady().then(async () => {
   const dockerRunner = new DockerRunner()
   dockerRunner.registerHandlers()
 
-  const graphifyMgr = new GraphifyManager()
+  const graphifyMgr = new GraphifyManager(createGraphifyInstaller(app.getPath('userData')))
   graphifyMgr.registerHandlers()
   const llamaMgr = new LlamaManager(
     () => (autocompleteMgr?.pid ? [autocompleteMgr.pid] : []),

@@ -48,23 +48,13 @@ describe('GraphifyPanel', () => {
     useEditorStore.setState({ openTab: openTabMock })
   })
 
-  it('shows install instructions when graphify is not available', () => {
+  it('points to Settings > Graphify when graphify is not available', () => {
     useGraphifyStore.setState({ available: false })
     render(<GraphifyPanel />)
-    expect(screen.getByText(/uv tool install graphifyy/)).toBeInTheDocument()
-  })
-
-  it('the quick-launch button opens a terminal tab and copies the install command', () => {
-    const writeTextMock = vi.fn().mockResolvedValue(undefined)
-    Object.assign(navigator, { clipboard: { writeText: writeTextMock } })
-    useGraphifyStore.setState({ available: false })
-    render(<GraphifyPanel />)
-
-    fireEvent.click(screen.getByRole('button', { name: /open terminal.*copy install command/i }))
-
-    expect(writeTextMock).toHaveBeenCalledWith('uv tool install graphifyy && graphify install')
-    expect(openTabMock).toHaveBeenCalledTimes(1)
-    expect(openTabMock.mock.calls[0][0].path).toMatch(/^terminal:/)
+    expect(screen.getByText("graphify isn't installed.")).toBeInTheDocument()
+    expect(screen.queryByText(/uv tool install/)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Set up in Settings' }))
+    expect(openTabMock).toHaveBeenCalledWith({ path: 'settings://Graphify', content: '', dirty: false })
   })
 
   it('shows a build button when available but no graph yet', () => {

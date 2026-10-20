@@ -71,8 +71,9 @@ describe('GraphifyManager', () => {
     execFileMock.mockImplementation((_shell: string, _args: string[], cb: (err: Error | null, stdout: string) => void) => {
       cb(new Error('not found'), '')
     })
-    // Default: project directory exists.
-    existsSyncMock.mockReturnValue(true)
+    // Default: project directory exists, but no ~/.local/bin/graphify
+    // (that fallback would replace the bare command name).
+    existsSyncMock.mockImplementation((p: string) => !String(p).endsWith('/.local/bin/graphify'))
   })
 
   it('isAvailable resolves true when the process spawns successfully', async () => {
@@ -179,7 +180,7 @@ describe('GraphifyManager', () => {
     expect(win.webContents.send).toHaveBeenCalledWith(
       'graphify:data',
       'run-1',
-      expect.stringContaining('uv tool install graphifyy')
+      expect.stringContaining('Settings > Graphify')
     )
     expect(win.webContents.send).toHaveBeenCalledWith('graphify:exit', 'run-1', 1)
   })
@@ -201,7 +202,7 @@ describe('GraphifyManager', () => {
     expect(win.webContents.send).not.toHaveBeenCalledWith(
       'graphify:data',
       'run-1',
-      expect.stringContaining('uv tool install graphifyy')
+      expect.stringContaining('Settings > Graphify')
     )
     expect(win.webContents.send).toHaveBeenCalledWith('graphify:exit', 'run-1', 1)
   })
@@ -363,5 +364,70 @@ describe('GraphifyManager', () => {
       const resolved = await resolveGraphifyPath()
       expect(resolved).toBeNull()
     })
+  })
+})
+
+describe("GraphifyManager install (Settings > Graphify button)", () => {
+  function installer(uv: string | null) {
+    return {
+      findUv: vi.fn(async () => uv),
+      downloadUv: vi.fn(async (opts?: { onProgress?: (r: number, t: number) => void }) => {
+        opts?.onProgress?.(20, 20)
+        return '/data/graphify/uv/0.11.1/uv'
+      }),
+      installGraphify: vi.fn(async () => ({ ok: true, output: 'Installed 2 executables: graphify, graphify-mcp' })),
+      toolBinDir: vi.fn(async () => '/Users/t/.local/bin'),
+    }
+  }
+  const event = () => ({ sender: { send: vi.fn(), isDestroyed: () => false } })
+
+  beforeEach(() => {
+    _resetGraphifyPathCacheForTesting()
+    execFileMock.mockReset().mockImplementation((_s: string, _a: string[], cb: (err: Error | null, out: string) => void) => cb(Object.assign(new Error('nf'), { code: 1 }), ''))
+    existsSyncMock.mockReset().mockReturnValue(false)
+  })
+
+  it('reports nothing installed', async () => {
+    new GraphifyManager(installer('/usr/bin/uv')).registerHandlers()
+    await expect(ipcHandlers['graphify:getInstall']({})).resolves.toEqual({ path: null, source: null, downloadBytes: null })
+  })
+
+  it('installs with the uv already on the machine', async () => {
+    const i = installer('/opt/homebrew/bin/uv')
+    new GraphifyManager(i).registerHandlers()
+    const result = await ipcHandlers['graphify:install'](event())
+    expect(i.downloadUv).not.toHaveBeenCalled()
+    expect(i.installGraphify).toHaveBeenCalledWith('/opt/homebrew/bin/uv')
+    expect(result).toEqual({ ok: true, path: '/Users/t/.local/bin/graphify' })
+    // Found from now on even when that folder isn't on the login shell's PATH.
+    await expect(resolveGraphifyPath()).resolves.toBe('/Users/t/.local/bin/graphify')
+  })
+
+  it("downloads vIDE's own uv first when there is none, streaming progress", async () => {
+    const i = installer(null)
+    new GraphifyManager(i).registerHandlers()
+    const e = event()
+    await ipcHandlers['graphify:install'](e)
+    expect(e.sender.send).toHaveBeenCalledWith('graphify:installProgress', 20, 20)
+    expect(i.installGraphify).toHaveBeenCalledWith('/data/graphify/uv/0.11.1/uv')
+  })
+
+  it('runs one install when asked twice', async () => {
+    const i = installer('/usr/bin/uv')
+    new GraphifyManager(i).registerHandlers()
+    await Promise.all([ipcHandlers['graphify:install'](event()), ipcHandlers['graphify:install'](event())])
+    expect(i.installGraphify).toHaveBeenCalledTimes(1)
+  })
+
+  it("returns uv's output as the error when the install fails", async () => {
+    const i = installer('/usr/bin/uv')
+    i.installGraphify.mockResolvedValueOnce({ ok: false, output: 'error: Failed to fetch graphifyy\n' })
+    new GraphifyManager(i).registerHandlers()
+    await expect(ipcHandlers['graphify:install'](event())).resolves.toEqual({ ok: false, error: 'error: Failed to fetch graphifyy' })
+  })
+
+  it("finds a uv-installed graphify in ~/.local/bin when the login shell can't", async () => {
+    existsSyncMock.mockImplementation((p: string) => p.endsWith('/.local/bin/graphify'))
+    await expect(resolveGraphifyPath()).resolves.toMatch(/\/\.local\/bin\/graphify$/)
   })
 })
