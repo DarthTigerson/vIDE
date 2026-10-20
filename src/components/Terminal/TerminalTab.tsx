@@ -9,6 +9,7 @@ import { useInstanceFontSizeStore } from '@/stores/instanceFontSizeStore'
 import { useDisplayStore } from '@/stores/displayStore'
 import { useFileStore } from '@/stores/fileStore'
 import { useEditorStore } from '@/stores/editorStore'
+import { useBottomTerminalStore } from '@/stores/bottomTerminalStore'
 import { buildTerminalPath } from '@/components/Settings/paths'
 import { createTerminalKeyHandler } from './terminalKeys'
 import { TerminalContextMenu } from './TerminalContextMenu'
@@ -18,13 +19,15 @@ interface Props {
   terminalId: string
   // Whether the terminal's owner still exists when this unmounts; if not,
   // the xterm and its PTY are torn down. Defaults to "its editor tab is
-  // still open" — agent-bar terminal sessions pass their own check.
+  // still open" (in the editor or the bottom terminal) — agent-bar terminal
+  // sessions pass their own check.
   isStillOpen?: () => boolean
 }
 
 function editorTabStillOpen(terminalId: string): boolean {
   const tabPath = buildTerminalPath(terminalId)
   return useEditorStore.getState().tabs.some((t) => t.path === tabPath)
+    || useBottomTerminalStore.getState().has(terminalId)
 }
 
 import { pendingTerminalCommands } from '@/lib/pendingTerminalCommands'

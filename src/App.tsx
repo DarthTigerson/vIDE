@@ -6,6 +6,9 @@ import { SIDEBAR_PANEL, CHAT_PANEL, clampRem, remToPercent, percentToRem, percen
 import { openNewBrowserTab } from '@/lib/openBrowserTab'
 import { syncOpenTabsFromDisk } from '@/lib/syncOpenTabsFromDisk'
 import { restoreEditorSession, startEditorSessionPersistence } from '@/lib/editorSession'
+import { resetBottomTerminal, restoreBottomTerminal, startBottomTerminalPersistence } from '@/lib/bottomTerminalSession'
+import { useBottomTerminalStore } from '@/stores/bottomTerminalStore'
+import { BottomTerminal } from './components/Terminal/BottomTerminal'
 import { formatMemory, memoryRows } from '@/lib/memoryBreakdown'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import { Editor } from './components/Editor/Editor'
@@ -325,6 +328,10 @@ export default function App() {
   const runningLlamaCount = useRunningLlamaCount(llamaEnabled)
   useLlamaAvailability(llamaEnabled)
   const graphifyEnabled = useGraphifySettingsStore((s) => s.enabled)
+  const bottomTerminalEnabled = useBottomTerminalStore((s) => s.enabled)
+  // Not subscribed: it only seeds the panel's height when the panel mounts,
+  // and resizing shouldn't re-render the whole app.
+  const bottomTerminalSize = useBottomTerminalStore.getState().size
 
   function openNewTerminal() {
     const id = Date.now().toString(36)
@@ -466,18 +473,23 @@ export default function App() {
   // when there's nothing saved yet (a project that predates this feature,
   // or a load failure — sessionLoad already resolves null in both cases).
   // The same session file also holds the project's open editor tabs.
+  // The bottom terminal is per project too, restored after the editor tabs
+  // so it can sweep in their terminals when it comes back switched on.
   useEffect(() => {
+    resetBottomTerminal()
     if (!projectRoot) return
     let cancelled = false
-    window.api.sessionLoad(projectRoot).then((data) => {
+    window.api.sessionLoad(projectRoot).then(async (data) => {
       if (cancelled) return
       useClaudeStore.getState().loadInstancesFromSession(data)
-      void restoreEditorSession(projectRoot, data)
+      await restoreEditorSession(projectRoot, data)
+      if (!cancelled) restoreBottomTerminal(projectRoot, data)
     })
     return () => { cancelled = true }
   }, [projectRoot])
 
   useEffect(() => startEditorSessionPersistence(), [])
+  useEffect(() => startBottomTerminalPersistence(), [])
 
   // Search/Git/Docker/Mobile Display/Graphify only make sense with a project open
   // (their ActivityBar icons disappear entirely when projectRoot is null,
@@ -1148,9 +1160,29 @@ export default function App() {
           <PanelResizeHandle key="sidebar-handle" onDragging={(dragging) => { draggingRef.current = dragging }} className={`w-px bg-border hover:bg-accent/60 transition-colors cursor-col-resize ${leftPanel ? '' : 'hidden'}`} />
           )
 
+          // Always a vertical group, so switching the bottom terminal on or
+          // off adds a panel beside the editor instead of remounting it.
           const centerPanel = (
           <Panel key="center" id="center" order={2}>
-            <Editor />
+            <PanelGroup id="center-column" direction="vertical">
+              <Panel id="editor" order={1} minSize={15}>
+                <Editor />
+              </Panel>
+              {bottomTerminalEnabled && (
+                <>
+                  <PanelResizeHandle className="h-px bg-border hover:bg-accent/60 transition-colors cursor-row-resize" />
+                  <Panel
+                    id="bottom-terminal"
+                    order={2}
+                    defaultSize={bottomTerminalSize}
+                    minSize={10}
+                    onResize={(size) => useBottomTerminalStore.getState().setSize(size)}
+                  >
+                    <BottomTerminal />
+                  </Panel>
+                </>
+              )}
+            </PanelGroup>
           </Panel>
           )
 

@@ -10,6 +10,7 @@ import { useGraphifyStore } from '@/stores/graphifyStore'
 import { useGraphifySettingsStore } from '@/stores/graphifySettingsStore'
 import { usePanelRequestStore } from '@/stores/panelRequestStore'
 import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
+import { useBottomTerminalStore } from '@/stores/bottomTerminalStore'
 import { openNewBrowserTab } from '@/lib/openBrowserTab'
 import { isMac } from '@/lib/platform'
 import { buildTerminalPath } from '@/components/Settings/paths'
@@ -31,13 +32,29 @@ export function panelCommands(): Command[] {
     {
       id: 'new-terminal',
       label: 'New Terminal',
-      description: 'Open a terminal tab in the active pane',
+      description: 'Open a terminal tab in the active pane, or the bottom terminal when it is on',
       keywords: ['shell', 'bash', 'zsh', 'console'],
       shortcut: isMac ? '⌘T' : 'Ctrl+T',
       action: () => {
         const id = Date.now().toString(36)
         openTab(buildTerminalPath(id))
       },
+    },
+    {
+      id: 'bottom-terminal-on',
+      label: 'Show Bottom Terminal',
+      description: 'Lock every terminal into a panel under the editor',
+      keywords: ['terminal', 'panel', 'bottom', 'toggle', 'shell', 'split'],
+      condition: () => !useBottomTerminalStore.getState().enabled,
+      action: () => useBottomTerminalStore.getState().setEnabled(true),
+    },
+    {
+      id: 'bottom-terminal-off',
+      label: 'Hide Bottom Terminal',
+      description: 'Move its terminals back into the editor as tabs',
+      keywords: ['terminal', 'panel', 'bottom', 'toggle', 'shell'],
+      condition: () => useBottomTerminalStore.getState().enabled,
+      action: () => useBottomTerminalStore.getState().setEnabled(false),
     },
     {
       id: 'inline-diff-show',

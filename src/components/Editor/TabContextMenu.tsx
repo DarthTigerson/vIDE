@@ -42,7 +42,7 @@ function copyToClipboard(text: string): void {
   })
 }
 
-function MenuButton({ children, disabled, onClick }: { children: ReactNode; disabled?: boolean; onClick: () => void }) {
+export function MenuButton({ children, disabled, onClick }: { children: ReactNode; disabled?: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -55,7 +55,7 @@ function MenuButton({ children, disabled, onClick }: { children: ReactNode; disa
   )
 }
 
-function MenuDivider() {
+export function MenuDivider() {
   return <div className="my-1 h-px bg-border" />
 }
 

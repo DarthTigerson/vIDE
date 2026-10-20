@@ -72,9 +72,16 @@ function isTodoProjectTab(path: string, projectId: string): boolean {
   return false
 }
 
-function closeTabsMatching(state: EditorState, shouldClose: (tab: Tab) => boolean): Partial<EditorState> {
+// detach: the tabs are leaving the editor rather than closing (the bottom
+// terminal takes them), so pinned ones go too and none are recorded for
+// Cmd+Shift+T.
+function closeTabsMatching(
+  state: EditorState,
+  shouldClose: (tab: Tab) => boolean,
+  { detach = false }: { detach?: boolean } = {}
+): Partial<EditorState> {
   const pathsToClose = new Set(
-    state.tabs.filter((t) => !state.pinnedPaths.has(t.path) && shouldClose(t)).map((t) => t.path)
+    state.tabs.filter((t) => (detach || !state.pinnedPaths.has(t.path)) && shouldClose(t)).map((t) => t.path)
   )
   if (pathsToClose.size === 0) return {}
 
@@ -119,7 +126,7 @@ function closeTabsMatching(state: EditorState, shouldClose: (tab: Tab) => boolea
     : survivingPaneIds[0]
   const newActiveTabPath = newPaneTabs[newActivePaneId] ?? null
 
-  const closedTabs = [
+  const closedTabs = detach ? state.closedTabs : [
     ...state.closedTabs,
     ...state.tabs
       .filter((tab) => pathsToClose.has(tab.path))
@@ -135,6 +142,22 @@ function closeTabsMatching(state: EditorState, shouldClose: (tab: Tab) => boolea
     paneTabLists: newPaneTabLists,
     closedTabs,
   }
+}
+
+// Lets the bottom terminal claim terminal tabs as they open (true = claimed,
+// the editor leaves it alone). A hook rather than an import so the two stores
+// don't import each other.
+let terminalTabRouter: ((tab: Tab) => boolean) | null = null
+export function setTerminalTabRouter(router: ((tab: Tab) => boolean) | null): void {
+  terminalTabRouter = router
+}
+
+// A tab coming back into the editor (restoreTabs): to `paneId` at `index`
+// when that pane still exists, else wherever a new tab would open.
+export interface RestoredTab {
+  tab: Tab
+  paneId: string | null
+  index: number | null
 }
 
 export interface EditorSessionSnapshot {
@@ -281,6 +304,11 @@ interface EditorState {
   closeOtherTabs: (keepPath: string) => void
   closeSavedTabs: () => void
   closeTabsForProject: (projectId: string) => void
+  // Takes tabs out of the editor without closing them (pinned too, nothing
+  // recorded for reopen); panes left empty collapse as on close.
+  detachTabs: (paths: string[]) => void
+  // Puts detached tabs back, in order, without the terminal router.
+  restoreTabs: (entries: RestoredTab[]) => void
   reopenLastClosed: () => void
   resetForNewProject: () => void
   moveTabWithinPane: (paneId: string, path: string, targetPath: string, placement: 'before' | 'after') => void
@@ -366,6 +394,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   // If the tab is already open somewhere, that pane wins regardless — same
   // as openTab, just factored out so both share this precedence rule.
   openTabInPane: (tab: Tab, paneId: string) => {
+    if (terminalTabRouter?.(tab)) return
     const { tabs, paneTabLists, layout } = get()
     const paneIds = collectPaneIds(layout)
     // If the tab is already open in some pane, focus that pane rather than
@@ -546,6 +575,31 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   closeTabsForProject: (projectId) =>
     set((state) => closeTabsMatching(state, (tab) => isTodoProjectTab(tab.path, projectId))),
+
+  detachTabs: (paths) => {
+    const leaving = new Set(paths)
+    set((state) => closeTabsMatching(state, (tab) => leaving.has(tab.path), { detach: true }))
+  },
+
+  restoreTabs: (entries) =>
+    set((state) => {
+      const paneIds = collectPaneIds(state.layout)
+      const fallbackPaneId = paneForNewTab(state)
+      const tabs = [...state.tabs]
+      const paneTabLists = { ...state.paneTabLists }
+      const paneTabs = { ...state.paneTabs }
+      for (const { tab, paneId, index } of entries) {
+        if (tabs.some((t) => t.path === tab.path)) continue
+        const known = !!paneId && paneIds.includes(paneId)
+        const targetPaneId = known ? paneId : fallbackPaneId
+        const list = [...(paneTabLists[targetPaneId] ?? [])]
+        list.splice(known && index !== null ? Math.min(index, list.length) : list.length, 0, tab.path)
+        paneTabLists[targetPaneId] = list
+        if (!paneTabs[targetPaneId]) paneTabs[targetPaneId] = tab.path
+        tabs.push(tab)
+      }
+      return { tabs, paneTabLists, paneTabs, activeTabPath: paneTabs[state.activePaneId] ?? null }
+    }),
 
   reopenLastClosed: () =>
     set((state) => {

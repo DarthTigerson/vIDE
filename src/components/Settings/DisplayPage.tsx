@@ -1,6 +1,7 @@
 import { useDisplayStore } from '@/stores/displayStore'
+import { useBottomTerminalStore } from '@/stores/bottomTerminalStore'
 import { FeatureBlock } from './FeatureBlock'
-import { MemoryPreview, NavbarPreview } from './previews/displayPreviews'
+import { BottomTerminalPreview, MemoryPreview, NavbarPreview } from './previews/displayPreviews'
 import { ThemeSection } from './ThemeSection'
 import { PanelStyleSection } from './PanelStyleSection'
 import { FontSection } from './FontSection'
@@ -12,6 +13,7 @@ export function DisplayPage() {
     memoryUsageVisible, navbarPosition,
     setMemoryUsageVisible, setNavbarPosition,
   } = useDisplayStore()
+  const bottomTerminal = useBottomTerminalStore((s) => s.enabled)
 
   return (
     <div className="h-full overflow-auto bg-panel p-6">
@@ -37,6 +39,13 @@ export function DisplayPage() {
           description="Gabby Style: the Files, Git and Settings navbar and its panel move to the right edge, and the Claude navbar and chat swap to the left."
           toggle={{ checked: navbarPosition === 'right', onChange: (checked) => setNavbarPosition(checked ? 'right' : 'left') }}
           preview={<NavbarPreview />}
+        />
+
+        <FeatureBlock
+          title="Bottom terminal"
+          description="Lock this project's terminals into a panel under the editor, with tabs on up to two sides. Terminals already open move there and go back to their pane when it is turned off. Agent sessions stay in their bar. Also in the footer's display chip."
+          toggle={{ checked: bottomTerminal, onChange: (on) => useBottomTerminalStore.getState().setEnabled(on) }}
+          preview={<BottomTerminalPreview />}
         />
       </div>
     </div>
