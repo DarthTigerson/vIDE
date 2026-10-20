@@ -547,6 +547,7 @@ contextBridge.exposeInMainWorld('api', {
   graphifyRun: (id: string, cwd: string) => ipcRenderer.invoke('graphify:run', id, cwd),
   graphifyReadGraph: (cwd: string) => ipcRenderer.invoke('graphify:readGraph', cwd),
   graphifyInstallClaudeSkill: (cwd: string) => ipcRenderer.invoke('graphify:installClaudeSkill', cwd),
+  graphifyRepairHooksIfNeeded: (cwd: string) => ipcRenderer.invoke('graphify:repairHooksIfNeeded', cwd),
   graphifyClaudeSkillInstalled: (cwd: string) => ipcRenderer.invoke('graphify:claudeSkillInstalled', cwd),
   graphifyGitignoreStatus: (cwd: string) => ipcRenderer.invoke('graphify:gitignoreStatus', cwd),
   graphifyAddToGitignore: (cwd: string) => ipcRenderer.invoke('graphify:addToGitignore', cwd),

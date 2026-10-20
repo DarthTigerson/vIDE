@@ -7,6 +7,7 @@ import { homedir } from 'os'
 import type { WebContents } from 'electron'
 import type { GraphifyInstaller } from './graphifyInstall'
 import type { GraphifyGraph } from '../src/types/graphify'
+import { findBrokenGraphifyHookPaths } from './graphifyHooks'
 import { getGraphifyGitignoreStatus, addGraphifyOutToGitignore, removeGraphifyOutFromGitignore } from './graphifyGitignore'
 
 const NOT_INSTALLED_MESSAGE =
@@ -103,6 +104,15 @@ export interface GraphifyInstallInfo {
   source: 'system' | null
   // graphify's own size isn't known ahead (uv fetches Python and the package).
   downloadBytes: number | null
+}
+
+function runClaudeSkillInstall(cwd: string): Promise<{ ok: boolean; output: string }> {
+  return resolveGraphifyPath().then((resolved) => new Promise((resolve) => {
+    execFile(resolved ?? 'graphify', ['install', '--platform', 'claude', '--project'], { cwd }, (err, stdout, stderr) => {
+      const output = [stdout, stderr].filter((s) => s && s.trim().length > 0).join('\n').trim()
+      resolve(err ? { ok: false, output: output || err.message } : { ok: true, output })
+    })
+  }))
 }
 
 export class GraphifyManager {
@@ -211,17 +221,23 @@ export class GraphifyManager {
       if (!existsSync(cwd)) {
         return { ok: false, output: `Error: project directory not found: ${cwd}` }
       }
-      const bin = (await resolveGraphifyPath()) ?? 'graphify'
-      return new Promise((resolve) => {
-        execFile(bin, ['install', '--platform', 'claude', '--project'], { cwd }, (err, stdout, stderr) => {
-          const output = [stdout, stderr].filter((s) => s && s.trim().length > 0).join('\n').trim()
-          if (err) {
-            resolve({ ok: false, output: output || err.message })
-            return
-          }
-          stageInstalledSkillFiles(cwd).finally(() => resolve({ ok: true, output }))
-        })
-      })
+      const result = await runClaudeSkillInstall(cwd)
+      if (result.ok) await stageInstalledSkillFiles(cwd)
+      return result
+    })
+
+    // Run on project open: when the project has the graphify skill but its
+    // .claude/settings.json hooks point at a graphify binary that doesn't
+    // exist on this machine (committed from someone else's), re-run the
+    // install so the hooks point at this machine's binary. Deliberately not
+    // staged, unlike the button above: the rewritten path is machine-local
+    // and the user didn't ask for anything to be committed.
+    ipcMain.handle('graphify:repairHooksIfNeeded', async (_e, cwd: string): Promise<{ repaired: boolean; ok: boolean; output: string }> => {
+      const broken = await findBrokenGraphifyHookPaths(cwd)
+      if (broken.length === 0) return { repaired: false, ok: true, output: '' }
+      const result = await runClaudeSkillInstall(cwd)
+      if (!result.ok) console.error('[graphify] failed to repair Claude Code hooks:', result.output)
+      return { repaired: result.ok, ...result }
     })
 
     // Same marker `graphify install --platform claude --project` writes, so

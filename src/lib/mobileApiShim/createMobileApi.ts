@@ -458,6 +458,7 @@ export function createMobileApi(wsUrl: string) {
     graphifyRun: stubInvoke(undefined as void),
     graphifyReadGraph: stubInvoke(null as unknown as Awaited<ReturnType<Window['api']['graphifyReadGraph']>>),
     graphifyInstallClaudeSkill: stubInvoke({ ok: false, output: 'Not available on mobile.' }),
+    graphifyRepairHooksIfNeeded: stubInvoke({ repaired: false, ok: true, output: '' }),
     graphifyClaudeSkillInstalled: stubInvoke(false),
     graphifyGitignoreStatus: stubInvoke('notRepo' as const),
     graphifyAddToGitignore: stubInvoke({ ok: false, output: 'Not available on mobile.' }),
