@@ -1,4 +1,4 @@
-export type LspServerId = 'typescript' | 'python' | 'go' | 'rust'
+export type LspServerId = 'typescript' | 'python' | 'go' | 'rust' | 'yaml' | 'json'
 
 export interface DetectResult {
   found: boolean

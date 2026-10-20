@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 
-export type LspServerId = 'typescript' | 'python' | 'go' | 'rust'
+export type LspServerId = 'typescript' | 'python' | 'go' | 'rust' | 'yaml' | 'json'
 
-export const LSP_SERVER_IDS: LspServerId[] = ['go', 'python', 'rust', 'typescript']
+export const LSP_SERVER_IDS: LspServerId[] = ['go', 'json', 'python', 'rust', 'typescript', 'yaml']
 
 const KEY_PREFIX = 'vide:lsp:enabled:'
 

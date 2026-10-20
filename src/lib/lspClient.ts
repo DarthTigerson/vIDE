@@ -9,6 +9,8 @@ const SUPPORTED_LANGUAGES: Record<string, LspServerId> = {
   python: 'python',
   go: 'go',
   rust: 'rust',
+  yaml: 'yaml',
+  json: 'json',
 }
 
 let registered = false
