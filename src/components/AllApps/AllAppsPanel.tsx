@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { APP_DRAG_MIME, hasBadge } from '@/components/ActivityBar/ActivityBar'
+import { APP_DRAG_MIME, hasBadge, SettingsIcon } from '@/components/ActivityBar/ActivityBar'
+import { ConfirmActionModal } from '@/components/Git/ConfirmActionModal'
 import { panelDropTargetClass } from '@/components/ui/panelDrop'
 import { notifySettingChanged } from '@/lib/notifySettingChanged'
 
@@ -10,6 +11,13 @@ export interface AllAppsEntry {
   favorite: boolean
   badge?: string | number
   onOpen: (event: React.MouseEvent<HTMLButtonElement>) => void
+  onOpenSettings: () => void
+  // Switched off in its settings: listed under "Disabled" instead of the
+  // bar sections, and clicking it offers to switch it back on.
+  disabled?: boolean
+  // Unset for apps with no enable switch (Open GitLab/GitHub shows whenever
+  // a remote URL is set), which get no power button.
+  onSetEnabled?: (enabled: boolean) => void
 }
 
 type ViewMode = 'list' | 'icons'
@@ -44,6 +52,8 @@ export function AllAppsPanel({ apps, open, onPlace, onUnfavorite }: {
   const [query, setQuery] = useState('')
   const [dropZone, setDropZone] = useState<DropZone | null>(null)
   const [viewMode, setViewModeState] = useState<ViewMode>(loadViewMode)
+  const [disabledOpen, setDisabledOpen] = useState(false)
+  const [confirming, setConfirming] = useState<AllAppsEntry | null>(null)
 
   useEffect(() => {
     if (!open) setQuery('')
@@ -57,9 +67,13 @@ export function AllAppsPanel({ apps, open, onPlace, onUnfavorite }: {
 
   const q = query.trim().toLowerCase()
   const visible = q ? apps.filter((app) => app.title.toLowerCase().includes(q)) : apps
-  const favorites = visible.filter((app) => app.favorite)
-  const others = visible.filter((app) => !app.favorite)
-  const favoriteIds = new Set(apps.filter((app) => app.favorite).map((app) => app.id))
+  const favorites = visible.filter((app) => !app.disabled && app.favorite)
+  const others = visible.filter((app) => !app.disabled && !app.favorite)
+  const disabledApps = visible.filter((app) => app.disabled)
+  const anyDisabled = apps.some((app) => app.disabled)
+  // A search that matches a disabled app shows it without having to expand.
+  const showDisabled = disabledOpen || (q !== '' && disabledApps.length > 0)
+  const favoriteIds = new Set(apps.filter((app) => !app.disabled && app.favorite).map((app) => app.id))
 
   function zoneHandlers(zone: DropZone) {
     return {
@@ -101,38 +115,49 @@ export function AllAppsPanel({ apps, open, onPlace, onUnfavorite }: {
         // or narrower reflows the tiles.
         <div className="px-3 grid grid-cols-[repeat(auto-fill,minmax(4.75rem,1fr))] gap-1">
           {list.map((app) => (
-            <button
-              key={app.id}
-              type="button"
-              draggable
-              onDragStart={(e) => startDrag(e, app.id)}
-              onDragEnd={() => setDropZone(null)}
-              onDrop={favorite ? (e) => dropOnFavorites(e, app.id) : undefined}
-              onClick={app.onOpen}
-              className="min-w-0 h-[4.75rem] px-1 rounded-md flex flex-col items-center justify-center gap-1.5 text-[0.6875rem] text-fg-muted hover:text-fg hover:bg-white/5 transition-colors"
-            >
-              <AppIcon app={app} className={`w-10 h-10 rounded-[10px] [&>svg]:w-5 [&>svg]:h-5 ${tile}`} />
-              <span className="max-w-full truncate">{app.title}</span>
-            </button>
+            <div key={app.id} className={`group relative min-w-0 ${app.disabled ? 'opacity-50 hover:opacity-100 focus-within:opacity-100' : ''}`}>
+              <button
+                type="button"
+                {...rowProps(app, favorite)}
+                className="w-full h-[4.75rem] px-1 rounded-md flex flex-col items-center justify-center gap-1.5 text-[0.6875rem] text-fg-muted hover:text-fg hover:bg-white/5 transition-colors"
+              >
+                <AppIcon app={app} className={`w-10 h-10 rounded-[10px] [&>svg]:w-5 [&>svg]:h-5 ${tile}`} />
+                <span className="max-w-full truncate">{app.title}</span>
+              </button>
+              <RowActions app={app} onToggle={() => setConfirming(app)} className="absolute top-0.5 right-0.5" />
+            </div>
           ))}
         </div>
       )
     }
     return list.map((app) => (
-      <button
-        key={app.id}
-        type="button"
-        draggable
-        onDragStart={(e) => startDrag(e, app.id)}
-        onDragEnd={() => setDropZone(null)}
-        onDrop={favorite ? (e) => dropOnFavorites(e, app.id) : undefined}
-        onClick={app.onOpen}
-        className="w-full h-9 pl-3 pr-2 flex items-center gap-2.5 text-left text-sm text-fg-muted hover:text-fg hover:bg-white/5 transition-colors"
-      >
-        <AppIcon app={app} className={`w-[1.625rem] h-[1.625rem] rounded-md [&>svg]:w-4 [&>svg]:h-4 ${tile}`} />
-        <span className="truncate">{app.title}</span>
-      </button>
+      <div key={app.id} className={`group relative flex items-center hover:bg-white/5 ${app.disabled ? 'opacity-50 hover:opacity-100 focus-within:opacity-100' : ''}`}>
+        <button
+          type="button"
+          {...rowProps(app, favorite)}
+          className="flex-1 min-w-0 h-9 pl-3 pr-2 flex items-center gap-2.5 text-left text-sm text-fg-muted hover:text-fg transition-colors"
+        >
+          <AppIcon app={app} className={`w-[1.625rem] h-[1.625rem] rounded-md [&>svg]:w-4 [&>svg]:h-4 ${tile}`} />
+          <span className="truncate">{app.title}</span>
+        </button>
+        <RowActions app={app} onToggle={() => setConfirming(app)} className="pr-2" />
+      </div>
     ))
+  }
+
+  // A disabled app isn't on the bar, so it can't be dragged there, and
+  // clicking it offers to switch it back on rather than opening it.
+  function rowProps(app: AllAppsEntry, favorite: boolean) {
+    if (app.disabled) {
+      return { onClick: () => (app.onSetEnabled ? setConfirming(app) : app.onOpenSettings()) }
+    }
+    return {
+      draggable: true,
+      onDragStart: (e: React.DragEvent) => startDrag(e, app.id),
+      onDragEnd: () => setDropZone(null),
+      onDrop: favorite ? (e: React.DragEvent) => dropOnFavorites(e, app.id) : undefined,
+      onClick: app.onOpen,
+    }
   }
 
   return (
@@ -203,8 +228,67 @@ export function AllAppsPanel({ apps, open, onPlace, onUnfavorite }: {
             ? renderApps(others, false)
             : q ? <p className="px-3 pb-1.5 text-xs text-fg-subtle">No apps match.</p> : null}
         </section>
+        {anyDisabled && (
+          <section aria-label="Disabled" className="pb-1.5 shrink-0">
+            <div className="mx-3 h-px bg-border" />
+            <button
+              type="button"
+              aria-expanded={showDisabled}
+              onClick={() => setDisabledOpen((v) => !v)}
+              className="w-full text-left hover:bg-white/5"
+            >
+              <SectionHeading title="Disabled" count={disabledApps.length} chevron={showDisabled ? 'open' : 'closed'} />
+            </button>
+            {showDisabled && renderApps(disabledApps, false)}
+          </section>
+        )}
       </div>
+      {confirming && (
+        <ConfirmActionModal
+          title={`${confirming.disabled ? 'Enable' : 'Disable'} ${confirming.title}?`}
+          message={confirming.disabled
+            ? `${confirming.title} will be switched back on${confirming.favorite ? ' and return to the bar' : ''}.`
+            : `${confirming.title} will be switched off and taken off the bar. You can enable it again from the Disabled section here or from its settings.`}
+          confirmLabel={confirming.disabled ? 'Enable' : 'Disable'}
+          danger={!confirming.disabled}
+          onConfirm={() => confirming.onSetEnabled?.(!!confirming.disabled)}
+          onClose={() => setConfirming(null)}
+        />
+      )}
     </div>
+  )
+}
+
+// The settings cog and, for apps that have one, the enable/disable switch.
+// Hidden until the row is hovered or focused, so the list stays quiet.
+function RowActions({ app, onToggle, className }: { app: AllAppsEntry; onToggle: () => void; className: string }) {
+  return (
+    <div className={`flex items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity ${className}`}>
+      {app.onSetEnabled && (
+        <RowActionButton label={`${app.disabled ? 'Enable' : 'Disable'} ${app.title}`} onClick={onToggle}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <path d="M12 3v9M6.3 6.3a8 8 0 1 0 11.4 0" />
+          </svg>
+        </RowActionButton>
+      )}
+      <RowActionButton label={`${app.title} settings`} onClick={app.onOpenSettings}>
+        <span className="[&>svg]:w-3 [&>svg]:h-3 flex"><SettingsIcon /></span>
+      </RowActionButton>
+    </div>
+  )
+}
+
+function RowActionButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={onClick}
+      className="w-5 h-5 rounded flex items-center justify-center text-fg-subtle hover:text-fg hover:bg-white/10"
+    >
+      {children}
+    </button>
   )
 }
 
@@ -213,9 +297,14 @@ function startDrag(e: React.DragEvent, id: string) {
   e.dataTransfer.effectAllowed = 'move'
 }
 
-function SectionHeading({ title, count }: { title: string; count: number }) {
+function SectionHeading({ title, count, chevron }: { title: string; count: number; chevron?: 'open' | 'closed' }) {
   return (
     <div className="px-3 pt-2.5 pb-1.5 flex items-center gap-2 text-[0.6875rem] font-semibold uppercase tracking-wider text-fg-muted">
+      {chevron && (
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true" className={`-mr-1 transition-transform ${chevron === 'open' ? 'rotate-90' : ''}`}>
+          <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
       {title}
       <span className="px-1.5 rounded-full bg-border text-fg-muted font-medium tracking-normal">{count}</span>
     </div>

@@ -43,9 +43,9 @@ import {
 } from './components/ActivityBar/ActivityBar'
 import type { ActivityBarItem } from './components/ActivityBar/ActivityBar'
 import { BatteryPill } from './components/TitleBar/BatteryPill'
-import { AllAppsPanel } from './components/AllApps/AllAppsPanel'
+import { AllAppsPanel, type AllAppsEntry } from './components/AllApps/AllAppsPanel'
 import { useAppFavoritesStore } from './stores/appFavoritesStore'
-import { APPEND_TARGET, MOVABLE_APP_IDS, pickTemporaryApp, splitApps, type MovableAppId } from './lib/appFavorites'
+import { APP_SETTINGS_PATHS, APPEND_TARGET, MOVABLE_APP_IDS, pickTemporaryApp, splitApps, type MovableAppId } from './lib/appFavorites'
 import { SessionIcon } from './components/ActivityBar/SessionIcon'
 import { NewSessionMenu } from './components/ActivityBar/NewSessionMenu'
 import { ClaudeSessionContextMenu } from './components/ActivityBar/ClaudeSessionContextMenu'
@@ -975,73 +975,103 @@ export default function App() {
               onClick: togglePanel('git'),
             }] : []),
           ]
-          const appItems: Record<MovableAppId, ActivityBarItem | null> = {
-            docker: dockerEnabled && projectRoot ? {
+          // Every app's bar item, whether or not it's showing right now — a
+          // disabled one still needs its icon and title for All Apps.
+          const appDefs: Record<MovableAppId, ActivityBarItem> = {
+            docker: {
               id: 'docker',
               icon: <DockerIcon />,
               title: 'Docker',
               active: leftPanel === 'docker',
               badge: dockerBadge,
               onClick: togglePanel('docker'),
-            } : null,
-            llama: llamaEnabled ? {
+            },
+            llama: {
               id: 'llama',
               icon: <LlamaIcon />,
               title: 'Llama',
               active: leftPanel === 'llama',
               badge: runningLlamaCount > 0 ? runningLlamaCount : undefined,
               onClick: togglePanel('llama'),
-            } : null,
-            mobile: mobileEnabled && projectRoot ? {
+            },
+            mobile: {
               id: 'mobile',
               icon: <PhoneIcon />,
               title: 'Mobile Display',
               active: leftPanel === 'mobile',
               badge: mobileBadge,
               onClick: togglePanel('mobile'),
-            } : null,
-            graphify: graphifyEnabled && projectRoot ? {
+            },
+            graphify: {
               id: 'graphify',
               icon: <GraphIcon />,
               title: 'Graphify',
               active: leftPanel === 'graphify',
               onClick: togglePanel('graphify'),
-            } : null,
-            todos: todoEnabled ? {
+            },
+            todos: {
               id: 'todos',
               icon: <TodoIcon />,
               title: 'To Do',
               active: leftPanel === 'todos',
               onClick: togglePanel('todos'),
-            } : null,
-            notes: notesEnabled ? {
+            },
+            notes: {
               id: 'notes',
               icon: <NotesIcon />,
               title: 'Notes',
               active: leftPanel === 'notes',
               onClick: togglePanel('notes'),
-            } : null,
-            scripts: scriptsEnabled ? {
+            },
+            scripts: {
               id: 'scripts',
               icon: <ScriptsIcon />,
               title: 'Scripts',
               active: leftPanel === 'scripts',
               onClick: togglePanel('scripts'),
-            } : null,
-            'git-remote': gitRemoteReady ? {
+            },
+            'git-remote': {
               id: 'git-remote',
               icon: gitRemoteIcon(gitRemoteProvider),
               title: gitRemoteLabel(gitRemoteProvider),
               active: activeTabPath === buildBrowserPath(GIT_REMOTE_BROWSER_ID),
               onClick: openGitRemote,
-            } : null,
-            jira: jiraReady ? {
+            },
+            jira: {
               id: 'jira',
               icon: <JiraIcon />,
               title: 'Jira',
               active: activeTabPath === buildBrowserPath(JIRA_BROWSER_ID),
               onClick: openJira,
-            } : null,
+            },
+          }
+          // Which apps are on (and usable here: Docker, Mobile and Graphify need a
+          // project, Jira and the git remote need a URL).
+          const appShown: Record<MovableAppId, boolean> = {
+            docker: dockerEnabled && !!projectRoot,
+            llama: llamaEnabled,
+            mobile: mobileEnabled && !!projectRoot,
+            graphify: graphifyEnabled && !!projectRoot,
+            todos: todoEnabled,
+            notes: notesEnabled,
+            scripts: scriptsEnabled,
+            'git-remote': gitRemoteReady,
+            jira: jiraReady,
+          }
+          const appItems = Object.fromEntries(
+            MOVABLE_APP_IDS.map((id) => [id, appShown[id] ? appDefs[id] : null])
+          ) as Record<MovableAppId, ActivityBarItem | null>
+          // Each app's own enable switch, the same one its settings page shows.
+          // The git remote has none: it appears whenever a remote URL is set.
+          const appToggles: Partial<Record<MovableAppId, { enabled: boolean; setEnabled: (value: boolean) => void }>> = {
+            docker: { enabled: dockerEnabled, setEnabled: useDockerSettingsStore.getState().setEnabled },
+            llama: { enabled: llamaEnabled, setEnabled: useLlamaSettingsStore.getState().setEnabled },
+            mobile: { enabled: mobileEnabled, setEnabled: useMobileSettingsStore.getState().setEnabled },
+            graphify: { enabled: graphifyEnabled, setEnabled: useGraphifySettingsStore.getState().setEnabled },
+            todos: { enabled: todoEnabled, setEnabled: useTodoSettingsStore.getState().setEnabled },
+            notes: { enabled: notesEnabled, setEnabled: useNotesSettingsStore.getState().setEnabled },
+            scripts: { enabled: scriptsEnabled, setEnabled: useScriptsSettingsStore.getState().setEnabled },
+            jira: { enabled: jiraEnabled, setEnabled: useJiraSettingsStore.getState().setEnabled },
           }
           const enabledApps = (Object.keys(appItems) as MovableAppId[]).filter((id) => appItems[id])
           const { favorites: favoriteIds, others: otherIds } = splitApps(enabledApps, appFavorites)
@@ -1073,15 +1103,22 @@ export default function App() {
               },
             ]] : []),
           ]
-          // Every enabled app, favorites included (the star shows which), with
-          // favorites in their bar order and the rest in the default order.
-          const allAppsEntries = [...favoriteIds, ...MOVABLE_APP_IDS.filter((id) => !favoriteIds.includes(id))].filter((id) => appItems[id]).map((id) => ({
+          // Every enabled app, favorites in their bar order and the rest in the
+          // default order, then the switched-off ones for the Disabled section.
+          const disabledIds = MOVABLE_APP_IDS.filter((id) => appToggles[id]?.enabled === false)
+          const allAppsEntries: AllAppsEntry[] = [
+            ...[...favoriteIds, ...MOVABLE_APP_IDS.filter((id) => !favoriteIds.includes(id))].filter((id) => appItems[id]),
+            ...disabledIds,
+          ].map((id) => ({
             id,
-            title: appItems[id]!.title,
-            icon: appItems[id]!.icon,
-            favorite: favoriteIds.includes(id),
-            badge: appItems[id]!.badge,
-            onOpen: appItems[id]!.onClick,
+            title: appDefs[id].title,
+            icon: appDefs[id].icon,
+            favorite: appFavorites.includes(id),
+            badge: appItems[id]?.badge,
+            onOpen: appDefs[id].onClick,
+            onOpenSettings: () => useEditorStore.getState().openTab({ path: APP_SETTINGS_PATHS[id], content: '', dirty: false }),
+            disabled: disabledIds.includes(id),
+            onSetEnabled: appToggles[id]?.setEnabled,
           }))
           const primaryActivityBar = (
         <ActivityBar

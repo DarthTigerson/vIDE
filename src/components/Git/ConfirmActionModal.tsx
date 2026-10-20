@@ -4,6 +4,9 @@ interface Props {
   title: string
   message: string
   confirmLabel: string
+  // False gives the confirm button the accent colour instead of red, for
+  // actions that aren't destructive (e.g. enabling an app).
+  danger?: boolean
   onConfirm: () => void
   onClose: () => void
 }
@@ -11,7 +14,7 @@ interface Props {
 // Generic confirm for palette-triggered commands that have no existing modal
 // (Discard All, Rebase Onto, Delete Branch). Same layout as the per-feature
 // confirms in this folder.
-export function ConfirmActionModal({ title, message, confirmLabel, onConfirm, onClose }: Props) {
+export function ConfirmActionModal({ title, message, confirmLabel, danger = true, onConfirm, onClose }: Props) {
   return (
     <Modal onClose={onClose}>
       <h2 className="text-sm font-semibold text-fg mb-1">{title}</h2>
@@ -30,7 +33,7 @@ export function ConfirmActionModal({ title, message, confirmLabel, onConfirm, on
             onConfirm()
             onClose()
           }}
-          className="px-4 py-1.5 text-sm rounded-lg bg-red-600/80 hover:bg-red-600 text-white font-semibold transition-colors"
+          className={`px-4 py-1.5 text-sm rounded-lg font-semibold transition-colors ${danger ? 'bg-red-600/80 hover:bg-red-600 text-white' : 'bg-accent hover:bg-accent/90 text-on-accent'}`}
         >
           {confirmLabel}
         </button>

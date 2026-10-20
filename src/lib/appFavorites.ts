@@ -3,7 +3,20 @@
 // File Tree, Search and Git are locked at the top and never appear here.
 // Every other app is listed in the All Apps panel; favorites also sit on the
 // bar, in the user's order. Disabled apps are filtered out by the caller
-// before any of this runs, so they appear nowhere.
+// before any of this runs, so they never reach the bar; All Apps lists them
+// separately so they can be switched back on.
+
+import {
+  DOCKER_SETTINGS_TAB_PATH,
+  GIT_SETTINGS_TAB_PATH,
+  GRAPHIFY_SETTINGS_TAB_PATH,
+  JIRA_SETTINGS_TAB_PATH,
+  LLAMA_SETTINGS_TAB_PATH,
+  MOBILE_SETTINGS_TAB_PATH,
+  NOTES_SETTINGS_TAB_PATH,
+  SCRIPTS_SETTINGS_TAB_PATH,
+  TODO_SETTINGS_TAB_PATH,
+} from '@/components/Settings/paths'
 
 // Apps that can be favorited/unfavorited. Order here is the All Apps panel's
 // order; new apps (e.g. future plugins) get appended and start unfavorited.
@@ -20,6 +33,20 @@ export const MOVABLE_APP_IDS = [
 ] as const
 
 export type MovableAppId = (typeof MOVABLE_APP_IDS)[number]
+
+// Where each app's settings cog in All Apps leads. Open GitLab/GitHub has no
+// page of its own; its remote URL lives under Git.
+export const APP_SETTINGS_PATHS: Record<MovableAppId, string> = {
+  docker: DOCKER_SETTINGS_TAB_PATH,
+  llama: LLAMA_SETTINGS_TAB_PATH,
+  mobile: MOBILE_SETTINGS_TAB_PATH,
+  graphify: GRAPHIFY_SETTINGS_TAB_PATH,
+  todos: TODO_SETTINGS_TAB_PATH,
+  notes: NOTES_SETTINGS_TAB_PATH,
+  scripts: SCRIPTS_SETTINGS_TAB_PATH,
+  'git-remote': GIT_SETTINGS_TAB_PATH,
+  jira: JIRA_SETTINGS_TAB_PATH,
+}
 
 export const DEFAULT_FAVORITES: MovableAppId[] = ['docker', 'llama']
 
