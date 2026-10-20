@@ -3,6 +3,7 @@ import { isAutocompleteEffectivelyEnabled } from './autocompleteEffectiveState'
 import { useAutocompleteRuntimeStore } from '@/stores/autocompleteRuntimeStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { useFileStore } from '@/stores/fileStore'
+import { useAutocompleteSettingsStore } from '@/stores/autocompleteSettingsStore'
 import { pickNeighborSnippets, type NeighborChunk } from './autocompleteNeighbors'
 
 // A local model answers in a few hundred ms, so ghost text can follow a short
@@ -35,7 +36,9 @@ const NEIGHBOR_MATCH_LINES = 20
 // The file being typed in (the focused pane's tab, for the main process's
 // project-graph lookup) and the best-matching snippets of the other open
 // files. Tab content is what the editor holds, unsaved edits included.
+// Only with Settings › Autocomplete › Project context on.
 function editorContext(prefix: string): { filePath?: string; extra: NeighborChunk[] } {
+  if (!useAutocompleteSettingsStore.getState().projectContext) return { extra: [] }
   const { tabs, activeTabPath } = useEditorStore.getState()
   const root = useFileStore.getState().projectRoot
   const filePath = activeTabPath?.startsWith('/') ? activeTabPath : undefined

@@ -12,6 +12,7 @@ import { provideInlineCompletion } from '../monacoAutocomplete'
 import { useAutocompleteRuntimeStore } from '@/stores/autocompleteRuntimeStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { useFileStore } from '@/stores/fileStore'
+import { useAutocompleteSettingsStore } from '@/stores/autocompleteSettingsStore'
 
 function fakeModel() {
   return {
@@ -147,7 +148,8 @@ describe('provideInlineCompletion', () => {
     expect(apiMock).toHaveBeenCalledTimes(1)
   })
 
-  it('sends the file path and snippets from the other open files', async () => {
+  it('sends the file path and snippets from the other open files with project context on', async () => {
+    useAutocompleteSettingsStore.setState({ projectContext: true })
     useFileStore.setState({ projectRoot: '/p' })
     useEditorStore.setState({
       activeTabPath: '/p/src/Panel.tsx',
@@ -191,5 +193,19 @@ describe('provideInlineCompletion', () => {
     await vi.advanceTimersByTimeAsync(150)
     await second
     expect(apiMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('sends only the text around the cursor with project context off', async () => {
+    useAutocompleteSettingsStore.setState({ projectContext: false })
+    useEditorStore.setState({
+      activeTabPath: '/p/src/Panel.tsx',
+      tabs: [{ path: '/p/src/store.ts', content: 'export function openTab(tab: Tab) {\n}', dirty: false }] as never,
+    })
+    const apiMock = vi.fn().mockResolvedValue('x')
+    ;(global as any).window = { api: { autocompleteComplete: apiMock } }
+    const promise = provideInlineCompletion(textModel('openTab(tab'), { lineNumber: 1, column: 12 }, fakeToken())
+    await vi.advanceTimersByTimeAsync(150)
+    await promise
+    expect(apiMock).toHaveBeenCalledWith({ prefix: 'openTab(tab', suffix: '' })
   })
 })

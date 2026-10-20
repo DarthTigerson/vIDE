@@ -31,6 +31,12 @@ describe('autocompleteSettingsStore', () => {
     expect(initial.serverUrl).toBe('http://127.0.0.1:8012')
   })
 
+  it('leaves project context off by default: it adds latency for no measured gain', () => {
+    expect(initial.projectContext).toBe(false)
+    useAutocompleteSettingsStore.getState().setProjectContext(true)
+    expect(store['vide:autocomplete:local:projectContext']).toBe('true')
+  })
+
   it('persists settings under the machine-local key prefix', () => {
     useAutocompleteSettingsStore.getState().setEnabled(true)
     useAutocompleteSettingsStore.getState().setAutoStart(false)

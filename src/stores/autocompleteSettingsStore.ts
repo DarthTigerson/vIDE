@@ -18,6 +18,7 @@ const KEYS = {
   serverUrl: 'vide:autocomplete:local:serverUrl',
   serverApi: 'vide:autocomplete:local:serverApi',
   serverKey: 'vide:autocomplete:local:serverKey',
+  projectContext: 'vide:autocomplete:local:projectContext',
 }
 
 export type AutocompleteModelChoice = ManagedModelId | 'recommended' | 'custom'
@@ -50,6 +51,10 @@ export interface AutocompleteSettings {
   serverUrl: string
   serverApi: 'infill' | 'openai'
   serverKey: string
+  // Send definitions from the project graph and matching parts of open tabs
+  // with each request. Off by default: on vIDE's own code it added ~0.2s per
+  // suggestion without a measurable gain in accuracy.
+  projectContext: boolean
 }
 
 interface AutocompleteSettingsStore extends AutocompleteSettings {
@@ -62,6 +67,7 @@ interface AutocompleteSettingsStore extends AutocompleteSettings {
   setServerUrl: (value: string) => void
   setServerApi: (value: 'infill' | 'openai') => void
   setServerKey: (value: string) => void
+  setProjectContext: (value: boolean) => void
 }
 
 export const useAutocompleteSettingsStore = create<AutocompleteSettingsStore>((set) => {
@@ -79,6 +85,7 @@ export const useAutocompleteSettingsStore = create<AutocompleteSettingsStore>((s
     serverUrl: read(KEYS.serverUrl) ?? 'http://127.0.0.1:8012',
     serverApi: readChoice(KEYS.serverApi, ['infill', 'openai'] as const, 'infill'),
     serverKey: read(KEYS.serverKey) ?? '',
+    projectContext: read(KEYS.projectContext) === 'true',
     setEnabled: setter('enabled'),
     setModel: setter('model'),
     setAutoStart: setter('autoStart'),
@@ -88,6 +95,7 @@ export const useAutocompleteSettingsStore = create<AutocompleteSettingsStore>((s
     setServerUrl: setter('serverUrl'),
     setServerApi: setter('serverApi'),
     setServerKey: setter('serverKey'),
+    setProjectContext: setter('projectContext'),
   }
 })
 

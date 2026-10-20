@@ -241,6 +241,14 @@ export function AutocompleteSection() {
           <Switch label="Start with vIDE" checked={s.autoStart} onChange={s.setAutoStart} />
         </div>
 
+        <div className="mt-3 flex items-center justify-between gap-4 border-t border-border pt-3">
+          <div>
+            <div className="text-sm text-fg">Project context</div>
+            <div className="mt-0.5 text-xs text-fg-muted">Experimental. Also sends definitions from the project's graphify graph and matching parts of open tabs. Adds about 0.2s per suggestion.</div>
+          </div>
+          <Switch label="Project context" checked={s.projectContext} onChange={s.setProjectContext} />
+        </div>
+
         {isCustom && <CustomFields freeBytes={freeBytes} />}
       </div>
     </FeatureBlock>
