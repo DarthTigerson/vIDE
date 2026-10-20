@@ -107,11 +107,12 @@ export function AutocompleteFooter() {
           aria-label={label}
           aria-expanded={open}
           className={[
-            'h-5 px-1 flex items-center justify-center rounded transition-colors',
-            open ? 'bg-white/5' : '',
-            footerState === 'running' && busy ? 'text-accent'
-              : live ? 'text-fg-muted hover:text-fg'
-                : 'text-fg-subtle hover:text-fg-muted',
+            // Same rounded-full bordered pill as the Display chip, bell and sync button beside it.
+            'flex h-5 shrink-0 items-center justify-center rounded-full border bg-bg px-2 transition-colors',
+            open ? 'border-fg-subtle text-fg'
+              : footerState === 'running' && busy ? 'border-border text-accent'
+                : live ? 'border-border text-fg-muted hover:text-fg hover:border-fg-subtle'
+                  : 'border-border text-fg-subtle hover:text-fg-muted hover:border-fg-subtle',
           ].join(' ')}
         >
           <AutocompleteIcon crossedOut={!live} snoozed={snoozed} busy={footerState === 'running' && busy} />
