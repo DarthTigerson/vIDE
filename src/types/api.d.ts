@@ -495,6 +495,10 @@ declare global {
       graphifyRun: (id: string, cwd: string) => Promise<void>
       graphifyReadGraph: (cwd: string) => Promise<GraphifyGraph>
       graphifyInstallClaudeSkill: (cwd: string) => Promise<{ ok: boolean; output: string }>
+      graphifyClaudeSkillInstalled: (cwd: string) => Promise<boolean>
+      graphifyGitignoreStatus: (cwd: string) => Promise<'ignored' | 'notIgnored' | 'notRepo'>
+      graphifyAddToGitignore: (cwd: string) => Promise<{ ok: boolean; output: string }>
+      graphifyRemoveFromGitignore: (cwd: string) => Promise<{ ok: boolean; output: string }>
       onGraphifyData: (cb: (id: string, data: string) => void) => () => void
       onGraphifyExit: (cb: (id: string, code: number) => void) => () => void
 

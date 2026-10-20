@@ -1,9 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent, ReactNode } from 'react'
 import type { FileNode } from '@/types/index'
 import type { RecentProject } from '@/types/api'
 import { useFileStore } from '@/stores/fileStore'
+import { useGraphifySettingsStore } from '@/stores/graphifySettingsStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { useSidebarUiStore } from '@/stores/sidebarUiStore'
 import { isGitDiffTab, parseGitDiffPath, isGitCommitDiffTab, parseGitCommitDiffPath } from '@/components/Git/paths'
@@ -81,6 +82,13 @@ function copyText(text: string): void {
 
 export function Sidebar() {
   const { projectRoot, tree, openFolder, refreshTree, expandDir, collapseAll, selectedPath } = useFileStore()
+  const hideGraphifyOut = useGraphifySettingsStore((s) => s.hideOutputInTree)
+  // graphify only ever writes graphify-out/ at the project root, so only the
+  // top level needs filtering.
+  const visibleTree = useMemo(
+    () => (hideGraphifyOut ? tree.filter((n) => !(n.isDirectory && n.name === 'graphify-out')) : tree),
+    [tree, hideGraphifyOut],
+  )
   const { openTab, activeTabPath } = useEditorStore()
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   useCoverNativeViews(!!menu)
@@ -419,7 +427,7 @@ export function Sidebar() {
             }}
           >
             <FileTree
-              nodes={tree}
+              nodes={visibleTree}
               directoryPath={projectRoot}
               onContextMenu={openContextMenu}
               prompt={prompt}

@@ -7,6 +7,7 @@ import { homedir } from 'os'
 import type { WebContents } from 'electron'
 import type { GraphifyInstaller } from './graphifyInstall'
 import type { GraphifyGraph } from '../src/types/graphify'
+import { getGraphifyGitignoreStatus, addGraphifyOutToGitignore, removeGraphifyOutFromGitignore } from './graphifyGitignore'
 
 const NOT_INSTALLED_MESSAGE =
   "Error: 'graphify' not found in PATH.\r\nInstall it from Settings > Graphify.\r\n"
@@ -222,6 +223,14 @@ export class GraphifyManager {
         })
       })
     })
+
+    // Same marker `graphify install --platform claude --project` writes, so
+    // the settings page can show whether this project is already set up.
+    ipcMain.handle('graphify:claudeSkillInstalled', (_e, cwd: string) =>
+      existsSync(join(cwd, '.claude', 'skills', 'graphify', 'SKILL.md')))
+    ipcMain.handle('graphify:gitignoreStatus', (_e, cwd: string) => getGraphifyGitignoreStatus(cwd))
+    ipcMain.handle('graphify:addToGitignore', (_e, cwd: string) => addGraphifyOutToGitignore(cwd))
+    ipcMain.handle('graphify:removeFromGitignore', (_e, cwd: string) => removeGraphifyOutFromGitignore(cwd))
 
     ipcMain.handle('graphify:readGraph', async (_e, cwd: string): Promise<GraphifyGraph> => {
       const raw = await readFile(join(cwd, 'graphify-out', 'graph.json'), 'utf-8')

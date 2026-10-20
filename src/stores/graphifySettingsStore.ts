@@ -2,6 +2,7 @@ import { create } from 'zustand'
 
 const ENABLED_KEY = 'vide:graphify:enabled'
 const AUTO_BUILD_ON_OPEN_KEY = 'vide:graphify:autoBuildOnOpen'
+const HIDE_OUTPUT_IN_TREE_KEY = 'vide:graphify:hideOutputInTree'
 
 function getBool(key: string, def: boolean): boolean {
   const value = localStorage.getItem(key)
@@ -16,6 +17,10 @@ interface GraphifySettingsStore {
   // background for every repo someone opens unless they've opted in.
   autoBuildOnOpen: boolean
   setAutoBuildOnOpen: (value: boolean) => void
+  // Hides the project-root graphify-out/ folder from the file tree only;
+  // the files stay on disk and in git unless separately gitignored.
+  hideOutputInTree: boolean
+  setHideOutputInTree: (value: boolean) => void
 }
 
 export const useGraphifySettingsStore = create<GraphifySettingsStore>((set) => ({
@@ -31,5 +36,12 @@ export const useGraphifySettingsStore = create<GraphifySettingsStore>((set) => (
   setAutoBuildOnOpen: (value) => {
     localStorage.setItem(AUTO_BUILD_ON_OPEN_KEY, String(value))
     set({ autoBuildOnOpen: value })
+  },
+
+  hideOutputInTree: getBool(HIDE_OUTPUT_IN_TREE_KEY, false),
+
+  setHideOutputInTree: (value) => {
+    localStorage.setItem(HIDE_OUTPUT_IN_TREE_KEY, String(value))
+    set({ hideOutputInTree: value })
   },
 }))
