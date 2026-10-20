@@ -1,7 +1,18 @@
-import { Toggle } from '@/components/ui/Toggle'
+import { Switch } from '@/components/ui/Toggle'
 import { useLspSettingsStore, type LspServerId } from '@/stores/lspSettingsStore'
 import { useLspStatusStore } from '@/stores/lspStatusStore'
 
+// Same two button styles the other settings pages use (LlamaSettingsPage,
+// ToolInstallRow) — accent-filled for the primary install, bordered for the
+// lower-stakes reinstall of an already-present server.
+const primaryButton =
+  'shrink-0 whitespace-nowrap rounded-lg bg-accent px-3 py-1 text-sm font-semibold text-on-accent transition-opacity hover:opacity-90 disabled:opacity-40'
+const secondaryButton =
+  'shrink-0 whitespace-nowrap rounded-lg border border-border px-3 py-1 text-sm text-fg transition-colors hover:border-fg-subtle disabled:opacity-40'
+
+// One language's row in the Go-to-definition table (EditorSettingsPage). The
+// streamed install output, when there is any, drops into a full-width row
+// right under this one so it never squeezes the columns.
 export function LspServerRow({ id }: { id: LspServerId }) {
   const enabled = useLspSettingsStore((s) => s.enabled[id])
   const setEnabled = useLspSettingsStore((s) => s.setEnabled)
@@ -13,35 +24,52 @@ export function LspServerRow({ id }: { id: LspServerId }) {
 
   const label = status?.label ?? id
   const ramEstimate = status?.ramEstimate
+  const found = status?.found ?? false
 
   const statusText = !loaded
     ? 'Checking…'
     : installing
       ? 'Installing…'
-      : status?.found
-        ? `${status.version ?? 'installed'}${ramEstimate ? ` · ${ramEstimate}` : ''}`
+      : found
+        ? (status?.version ?? 'Installed')
         : 'Not installed'
 
   return (
-    <div className="flex flex-col gap-2">
-      <Toggle label={label} description={statusText} checked={enabled ?? false} onChange={(v) => setEnabled(id, v)} />
-
-      {loaded && (
-        <button
-          type="button"
-          className="self-start text-xs font-medium text-accent hover:underline disabled:opacity-40 disabled:pointer-events-none"
-          disabled={installing}
-          onClick={() => install(id)}
-        >
-          {installing ? 'Installing…' : status?.found ? 'Reinstall / update' : 'Install'}
-        </button>
-      )}
+    <>
+      <tr className="border-t border-white/5 [&>td]:align-middle">
+        <td className="py-2.5 pr-4 text-sm text-fg">{label}</td>
+        <td className="py-2.5 pr-4 text-sm text-fg-muted">{statusText}</td>
+        <td className="py-2.5 pr-4 font-mono text-xs text-fg-muted">{ramEstimate ?? '—'}</td>
+        <td className="py-2.5 pr-4">
+          <div className="flex justify-end">
+            <Switch label={label} checked={enabled ?? false} onChange={(v) => setEnabled(id, v)} />
+          </div>
+        </td>
+        <td className="py-2.5">
+          <div className="flex justify-end">
+            {loaded && (
+              <button
+                type="button"
+                className={found ? secondaryButton : primaryButton}
+                disabled={installing}
+                onClick={() => install(id)}
+              >
+                {installing ? 'Installing…' : found ? 'Reinstall' : 'Install'}
+              </button>
+            )}
+          </div>
+        </td>
+      </tr>
 
       {output !== undefined && output.length > 0 && (
-        <div className="text-xs whitespace-pre-wrap border border-border rounded p-2 max-h-40 overflow-y-auto text-fg-muted">
-          {output}
-        </div>
+        <tr>
+          <td colSpan={5} className="pb-3">
+            <div className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded border border-border p-2 text-xs text-fg-muted">
+              {output}
+            </div>
+          </td>
+        </tr>
       )}
-    </div>
+    </>
   )
 }

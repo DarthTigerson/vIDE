@@ -69,13 +69,26 @@ export function EditorSettingsPage() {
 
         <FeatureBlock
           title="Go to definition"
-          description="⌘-click a symbol to jump to where it's defined, backed by each language's own server. Off by default: a running server costs memory, so turn on only the languages you use."
+          description="⌘-click a symbol to jump to where it's defined — plus autocomplete and hover docs — backed by each language's own server. Off by default: a running server costs memory, so turn on only the languages you use."
           preview={<GoToDefinitionPreview />}
         >
-          <div className="flex max-w-[560px] flex-col gap-4 pt-1">
-            {LSP_SERVER_IDS.map((id) => (
-              <LspServerRow key={id} id={id} />
-            ))}
+          <div className="max-w-[600px] pt-1">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="text-left text-[11px] font-medium uppercase tracking-wide text-fg-subtle">
+                  <th className="pb-2 pr-4">Language</th>
+                  <th className="pb-2 pr-4">Status</th>
+                  <th className="pb-2 pr-4">Memory</th>
+                  <th className="pb-2 pr-4 text-right">Enabled</th>
+                  <th className="pb-2 text-right">Install</th>
+                </tr>
+              </thead>
+              <tbody>
+                {LSP_SERVER_IDS.map((id) => (
+                  <LspServerRow key={id} id={id} />
+                ))}
+              </tbody>
+            </table>
           </div>
         </FeatureBlock>
       </div>

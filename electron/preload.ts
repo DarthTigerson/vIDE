@@ -504,6 +504,22 @@ contextBridge.exposeInMainWorld('api', {
     line: number
     column: number
   }) => ipcRenderer.invoke('lsp:getDefinition', params),
+  lspGetCompletion: (params: {
+    language: string
+    projectRoot: string
+    filePath: string
+    content: string
+    line: number
+    column: number
+  }) => ipcRenderer.invoke('lsp:getCompletion', params),
+  lspGetHover: (params: {
+    language: string
+    projectRoot: string
+    filePath: string
+    content: string
+    line: number
+    column: number
+  }) => ipcRenderer.invoke('lsp:getHover', params),
   onLspInstallData: (cb: (id: string, chunk: string) => void) => {
     const handler = (_: Electron.IpcRendererEvent, id: string, chunk: string) => cb(id, chunk)
     ipcRenderer.on('lsp:install:data', handler)

@@ -26,7 +26,7 @@ import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
 import { useClaudeStore } from '@/stores/claudeStore'
 import { registerAutocompleteProvider } from '@/lib/monacoAutocomplete'
 import { registerInlineEditCommands } from '@/lib/inlineEditMonaco'
-import { registerLspDefinitionProvider } from '@/lib/lspClient'
+import { registerLspProviders } from '@/lib/lspClient'
 import { registerModelPath } from '@/lib/lspModelRegistry'
 import { formatSelectionForAssistant, toRelativePath } from '@/lib/sendSelectionToAssistant'
 import { computeDiff } from '@/lib/lineDiff'
@@ -816,7 +816,7 @@ function EditorPane({ paneId }: { paneId: string }) {
                 })
                 registerAutocompleteProvider(monaco)
                 registerInlineEditCommands(editor, monaco)
-                registerLspDefinitionProvider(monaco)
+                registerLspProviders(monaco)
                 const model = editor.getModel()
                 if (model) registerModelPath(model, activeTab.path)
                 editor.onDidFocusEditorWidget(() => {

@@ -66,7 +66,7 @@ export const EXCLUDED_CHANNELS = new Set<string>([
   'update:getRemoteChangelog',  // only feeds the desktop Update page
 
   // Language server management — ambiguous whether these should work from mobile; deferred
-  'lsp:install', 'lsp:setEnabled', 'lsp:detectAll', 'lsp:getDefinition',
+  'lsp:install', 'lsp:setEnabled', 'lsp:detectAll', 'lsp:getDefinition', 'lsp:getCompletion', 'lsp:getHover',
 
   // Peripheral features — long-running processes, lower priority
   'graphify:isAvailable', 'graphify:run', 'graphify:readGraph', 'graphify:installClaudeSkill',

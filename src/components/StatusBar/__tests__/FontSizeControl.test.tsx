@@ -4,11 +4,15 @@ import { FontSizeControl } from '../FontSizeControl'
 import { useFontSizeStore } from '@/stores/fontSizeStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { useBottomTerminalStore } from '@/stores/bottomTerminalStore'
+import { useLspSettingsStore } from '@/stores/lspSettingsStore'
+import { useFooterPopoverStore } from '@/stores/footerPopoverStore'
 import { DISPLAY_TAB_PATH } from '@/components/Settings/paths'
 
 beforeEach(() => {
   act(() => useFontSizeStore.getState().setFontSize(13))
   useEditorStore.setState({ activeTabPath: null })
+  useLspSettingsStore.setState({ hoverEnabled: true, completionEnabled: true })
+  useFooterPopoverStore.setState({ openId: null })
 })
 
 afterEach(() => {
@@ -50,6 +54,20 @@ describe('FontSizeControl', () => {
     fireEvent.click(toggle)
     expect(setEnabled).toHaveBeenCalledWith(true)
     setEnabled.mockRestore()
+  })
+
+  it('toggles language-server hover docs from the panel', () => {
+    render(<FontSizeControl />)
+    fireEvent.click(screen.getByTestId('font-size-chip'))
+    fireEvent.click(screen.getByRole('switch', { name: 'Hover docs' }))
+    expect(useLspSettingsStore.getState().hoverEnabled).toBe(false)
+  })
+
+  it('toggles language-server completion suggestions from the panel', () => {
+    render(<FontSizeControl />)
+    fireEvent.click(screen.getByTestId('font-size-chip'))
+    fireEvent.click(screen.getByRole('switch', { name: 'Completion suggestions' }))
+    expect(useLspSettingsStore.getState().completionEnabled).toBe(false)
   })
 
   it('briefly highlights the chip when the size changes from the menu shortcuts', () => {

@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useFontSizeStore } from '@/stores/fontSizeStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { useBottomTerminalStore } from '@/stores/bottomTerminalStore'
+import { useLspSettingsStore } from '@/stores/lspSettingsStore'
+import { useFooterPopoverStore } from '@/stores/footerPopoverStore'
 import { DISPLAY_TAB_PATH } from '@/components/Settings/paths'
 import { Switch } from '@/components/ui/Toggle'
 import { footerPopupShadow } from '@/components/ui/footerPopup'
@@ -22,8 +24,12 @@ const stepButton = 'flex h-[22px] w-[26px] items-center justify-center text-fg t
 export function FontSizeControl() {
   const fontSize = useFontSizeStore((s) => s.fontSize)
   const bottomTerminal = useBottomTerminalStore((s) => s.enabled)
+  const hoverEnabled = useLspSettingsStore((s) => s.hoverEnabled)
+  const completionEnabled = useLspSettingsStore((s) => s.completionEnabled)
+  const setHoverEnabled = useLspSettingsStore((s) => s.setHoverEnabled)
+  const setCompletionEnabled = useLspSettingsStore((s) => s.setCompletionEnabled)
   const [flashing, setFlashing] = useState(false)
-  const [open, setOpen] = useState(false)
+  const open = useFooterPopoverStore((s) => s.openId === 'display')
   useCoverNativeViews(open)
 
   const prevSize = useRef(fontSize)
@@ -37,7 +43,7 @@ export function FontSizeControl() {
 
   useEffect(() => {
     if (!open) return
-    const close = () => setOpen(false)
+    const close = () => useFooterPopoverStore.getState().close()
     window.addEventListener('click', close)
     return () => window.removeEventListener('click', close)
   }, [open])
@@ -45,7 +51,7 @@ export function FontSizeControl() {
   const fonts = useFontSizeStore.getState()
   const openSettings = () => {
     useEditorStore.getState().openTab({ path: DISPLAY_TAB_PATH, content: '', dirty: false })
-    setOpen(false)
+    useFooterPopoverStore.getState().close()
   }
 
   return (
@@ -54,7 +60,7 @@ export function FontSizeControl() {
         <button
           type="button"
           data-testid="font-size-chip"
-          onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
+          onClick={(e) => { e.stopPropagation(); useFooterPopoverStore.getState().toggle('display') }}
           aria-label={`Font size ${fontSize}, open Display`}
           aria-expanded={open}
           className={[
@@ -97,6 +103,26 @@ export function FontSizeControl() {
               onChange={(on) => useBottomTerminalStore.getState().setEnabled(on)}
             />
           </div>
+          {/* Language-server features (Settings > Editor > Go to definition),
+              global across every enabled language — muting them here never
+              stops a server, it just stops asking it for these. */}
+          <div className="flex flex-col gap-2.5 border-t border-border pt-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex flex-col">
+                <span className="text-fg">Hover docs</span>
+                <span className="text-[0.6875rem] text-fg-muted">Type info and docs on hover, from language servers</span>
+              </span>
+              <Switch label="Hover docs" checked={hoverEnabled} onChange={() => setHoverEnabled(!hoverEnabled)} />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex flex-col">
+                <span className="text-fg">Completion suggestions</span>
+                <span className="text-[0.6875rem] text-fg-muted">Dropdown suggestions from language servers</span>
+              </span>
+              <Switch label="Completion suggestions" checked={completionEnabled} onChange={() => setCompletionEnabled(!completionEnabled)} />
+            </div>
+          </div>
+
           <div className="border-t border-border pt-2">
             <button type="button" className="text-xs text-accent hover:underline" onClick={openSettings}>
               Display settings…

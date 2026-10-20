@@ -5,7 +5,7 @@ import type { LatestUsage, UsageSnapshot } from '../../electron/usagePoller'
 import type { UpdateInfo, UpdateCheckStatus } from '../../electron/updateChecker'
 import type { ChangelogRelease } from '../../electron/changelog'
 import type { GraphifyGraph } from './graphify'
-import type { DefinitionLocation, DetectResult, LspServerId } from '../../electron/lsp/types'
+import type { DefinitionLocation, DetectResult, LspCompletionItem, LspHoverResult, LspServerId } from '../../electron/lsp/types'
 import type { DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats } from '../../electron/docker'
 import type { LlamaLaunchConfig } from '../../electron/llama'
 import type { OnboardingStatus, GitIdentity } from '../../electron/onboarding'
@@ -503,6 +503,22 @@ declare global {
         line: number
         column: number
       }) => Promise<DefinitionLocation[]>
+      lspGetCompletion: (params: {
+        language: string
+        projectRoot: string
+        filePath: string
+        content: string
+        line: number
+        column: number
+      }) => Promise<LspCompletionItem[]>
+      lspGetHover: (params: {
+        language: string
+        projectRoot: string
+        filePath: string
+        content: string
+        line: number
+        column: number
+      }) => Promise<LspHoverResult | null>
       onLspInstallData: (cb: (id: string, chunk: string) => void) => () => void
       onLspInstallExit: (cb: (id: string, code: number) => void) => () => void
 
