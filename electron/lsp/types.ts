@@ -30,3 +30,33 @@ export interface DefinitionLocation {
   line: number
   col: number
 }
+
+// Shared shape for every position-based request (definition, completion,
+// hover) — line/column are 1-based, as Monaco hands them to us; the manager
+// converts to LSP's 0-based positions.
+export interface LspPositionParams {
+  language: string
+  projectRoot: string
+  filePath: string
+  content: string
+  line: number
+  column: number
+}
+
+export interface LspCompletionItem {
+  label: string
+  // Raw LSP CompletionItemKind (1–25); the renderer maps it to Monaco's enum.
+  kind?: number
+  detail?: string
+  // Already flattened to a markdown/plaintext string by the manager.
+  documentation?: string
+  insertText: string
+  isSnippet?: boolean
+  sortText?: string
+  filterText?: string
+}
+
+export interface LspHoverResult {
+  // One or more markdown blocks, ready to drop into a Monaco hover.
+  contents: string[]
+}

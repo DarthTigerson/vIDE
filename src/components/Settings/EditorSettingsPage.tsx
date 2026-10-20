@@ -69,7 +69,7 @@ export function EditorSettingsPage() {
 
         <FeatureBlock
           title="Go to definition"
-          description="⌘-click a symbol to jump to where it's defined, backed by each language's own server. Off by default: a running server costs memory, so turn on only the languages you use."
+          description="⌘-click a symbol to jump to where it's defined — plus autocomplete and hover docs — backed by each language's own server. Off by default: a running server costs memory, so turn on only the languages you use."
           preview={<GoToDefinitionPreview />}
         >
           <div className="max-w-[600px] pt-1">

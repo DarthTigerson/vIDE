@@ -3,7 +3,14 @@ import { BrowserWindow, ipcMain } from 'electron'
 import { fileURLToPath, pathToFileURL } from 'url'
 import { LspConnection } from './protocol'
 import { LSP_SERVERS } from './servers'
-import type { DefinitionLocation, LspServerId, LspServerModule } from './types'
+import type {
+  DefinitionLocation,
+  LspCompletionItem,
+  LspHoverResult,
+  LspPositionParams,
+  LspServerId,
+  LspServerModule,
+} from './types'
 
 interface RunningServer {
   connection: LspConnection
@@ -18,14 +25,9 @@ interface WindowState {
   servers: Map<LspServerId, RunningServer>
 }
 
-export interface GetDefinitionParams {
-  language: string
-  projectRoot: string
-  filePath: string
-  content: string
-  line: number
-  column: number
-}
+// Kept as a named alias so existing importers don't break; the shape now
+// lives in types.ts since completion and hover share it.
+export type GetDefinitionParams = LspPositionParams
 
 // Owns one language-server child process per (window, language) pair —
 // mirrors ClaudeManager's `byWindow` keying (electron/claude.ts) since each
@@ -76,32 +78,50 @@ export class LanguageServerManager {
       }
     })
 
-    ipcMain.handle(
-      'lsp:getDefinition',
-      async (event, params: GetDefinitionParams): Promise<DefinitionLocation[]> => {
-        const win = BrowserWindow.fromWebContents(event.sender)
-        if (!win) return []
-        const server = Object.values(LSP_SERVERS).find((s) => s.monacoLanguageIds.includes(params.language))
-        if (!server) return []
-        const state = this.stateFor(win.id)
-        if (!state.enabled.has(server.id)) return []
+    ipcMain.handle('lsp:getDefinition', async (event, params: LspPositionParams): Promise<DefinitionLocation[]> => {
+      const result = await this.requestAt(event, params, 'textDocument/definition')
+      return result === null ? [] : normalizeLocations(result)
+    })
 
-        try {
-          const running = await this.ensureServer(win.id, server, params.projectRoot)
-          if (!running) return []
-          this.ensureOpen(running, params.filePath, params.language, params.content)
+    ipcMain.handle('lsp:getCompletion', async (event, params: LspPositionParams): Promise<LspCompletionItem[]> => {
+      const result = await this.requestAt(event, params, 'textDocument/completion')
+      return result === null ? [] : normalizeCompletion(result)
+    })
 
-          const result = await running.connection.request('textDocument/definition', {
-            textDocument: { uri: pathToFileURL(params.filePath).toString() },
-            position: { line: params.line - 1, character: params.column - 1 },
-          })
-          return normalizeLocations(result)
-        } catch (err) {
-          console.error(`[lsp] definition request failed for ${server.id}:`, err)
-          return []
-        }
-      }
-    )
+    ipcMain.handle('lsp:getHover', async (event, params: LspPositionParams): Promise<LspHoverResult | null> => {
+      const result = await this.requestAt(event, params, 'textDocument/hover')
+      return result === null ? null : normalizeHover(result)
+    })
+  }
+
+  // The shared preamble for every position request: find the server for this
+  // language, bail unless it's enabled, make sure it's running with the file
+  // opened, then send the request. Returns null (not throwing) for any
+  // miss/failure so callers can fall back to an empty result.
+  private async requestAt(
+    event: Electron.IpcMainInvokeEvent,
+    params: LspPositionParams,
+    method: 'textDocument/definition' | 'textDocument/completion' | 'textDocument/hover'
+  ): Promise<unknown | null> {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return null
+    const server = Object.values(LSP_SERVERS).find((s) => s.monacoLanguageIds.includes(params.language))
+    if (!server) return null
+    const state = this.stateFor(win.id)
+    if (!state.enabled.has(server.id)) return null
+
+    try {
+      const running = await this.ensureServer(win.id, server, params.projectRoot)
+      if (!running) return null
+      this.ensureOpen(running, params.filePath, params.language, params.content)
+      return await running.connection.request(method, {
+        textDocument: { uri: pathToFileURL(params.filePath).toString() },
+        position: { line: params.line - 1, character: params.column - 1 },
+      })
+    } catch (err) {
+      console.error(`[lsp] ${method} failed for ${server.id}:`, err)
+      return null
+    }
   }
 
   private stateFor(winId: number): WindowState {
@@ -149,7 +169,17 @@ export class LanguageServerManager {
       .request('initialize', {
         processId: process.pid,
         rootUri: pathToFileURL(projectRoot).toString(),
-        capabilities: {},
+        // Advertise the three features we actually consume. Some servers
+        // (yaml-language-server in particular) only offer snippet/markdown
+        // completions when the client declares support for them.
+        capabilities: {
+          textDocument: {
+            hover: { contentFormat: ['markdown', 'plaintext'] },
+            completion: {
+              completionItem: { snippetSupport: true, documentationFormat: ['markdown', 'plaintext'] },
+            },
+          },
+        },
       })
       .then(() => {
         connection.notify('initialized', {})
@@ -222,4 +252,53 @@ function normalizeLocations(result: unknown): DefinitionLocation[] {
 
 interface LspRange {
   start: { line: number; character: number }
+}
+
+interface RawCompletionItem {
+  label: string
+  kind?: number
+  detail?: string
+  documentation?: string | { value?: string }
+  insertText?: string
+  insertTextFormat?: number
+  textEdit?: { newText?: string }
+  sortText?: string
+  filterText?: string
+}
+
+function normalizeCompletion(result: unknown): LspCompletionItem[] {
+  const items = Array.isArray(result) ? result : (result as { items?: unknown[] } | null)?.items ?? []
+  return (items as RawCompletionItem[])
+    .map((item): LspCompletionItem => {
+      const documentation = typeof item.documentation === 'string' ? item.documentation : item.documentation?.value
+      const insertText = item.insertText ?? item.textEdit?.newText ?? item.label
+      return {
+        label: typeof item.label === 'string' ? item.label : '',
+        kind: typeof item.kind === 'number' ? item.kind : undefined,
+        detail: item.detail,
+        documentation,
+        insertText: String(insertText ?? ''),
+        isSnippet: item.insertTextFormat === 2,
+        sortText: item.sortText,
+        filterText: item.filterText,
+      }
+    })
+    .filter((item) => item.label.length > 0)
+}
+
+function normalizeHover(result: unknown): LspHoverResult | null {
+  const hover = result as { contents?: unknown } | null
+  if (!hover || hover.contents == null) return null
+  const parts = Array.isArray(hover.contents) ? hover.contents : [hover.contents]
+  const contents = parts
+    .map((part): string => {
+      if (typeof part === 'string') return part
+      const obj = part as { value?: string; language?: string }
+      // A MarkedString {language, value} becomes a fenced code block; a
+      // MarkupContent {kind, value} is already markdown/plaintext.
+      if (obj.language && obj.value) return '```' + obj.language + '\n' + obj.value + '\n```'
+      return obj.value ?? ''
+    })
+    .filter((part) => part.trim().length > 0)
+  return contents.length > 0 ? { contents } : null
 }
