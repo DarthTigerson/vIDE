@@ -9,7 +9,6 @@ import { useGitResetConfirm } from '@/components/Git/useGitResetConfirm'
 import { ConfirmUndoCommitModal } from '@/components/Git/ConfirmUndoCommitModal'
 import { ConfirmHardResetModal } from '@/components/Git/ConfirmHardResetModal'
 import { GitResetPalette } from '@/components/Git/GitResetPalette'
-import { useAutocompleteSettingsStore } from '@/stores/autocompleteSettingsStore'
 import { useConfigRepoStore } from '@/stores/configRepoStore'
 import { FooterMessage } from './FooterMessage'
 import { NotificationPanel } from './NotificationPanel'
@@ -22,7 +21,6 @@ import { AlarmFlash } from '@/components/Alarms/AlarmFlash'
 import { useAlarmTicker } from '@/hooks/useAlarmTicker'
 import { GitActivityBar } from './GitActivityBar'
 import { FooterBlame } from './FooterBlame'
-import { InlineDiffToggle } from './InlineDiffToggle'
 import { AutocompleteFooter } from './AutocompleteFooter'
 import { FooterTooltip } from './FooterTooltip'
 
@@ -59,7 +57,6 @@ export function StatusBar() {
     syncStatus === 'connecting' ? 'Connecting…' :
     'vIDE Sync — click to push now'
   const syncNow = useConfigRepoStore((s) => s.push)
-  const autocompleteEnabled = useAutocompleteSettingsStore((s) => s.enabled)
 
   useEffect(() => {
     if (!gitMenuOpen) return
@@ -184,9 +181,9 @@ export function StatusBar() {
             </FooterTooltip>
           </div>
         )}
-        {/* While autocomplete is on, its panel carries the inline diff switch. */}
+        {/* Its panel carries the inline diff switch, autocomplete on or off. */}
         <div className="ml-1 flex">
-          {autocompleteEnabled ? <AutocompleteFooter /> : <InlineDiffToggle />}
+          <AutocompleteFooter />
         </div>
         <div className="ml-1">
           <FontSizeControl />

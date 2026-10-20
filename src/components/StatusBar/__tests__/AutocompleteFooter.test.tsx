@@ -134,4 +134,16 @@ describe('AutocompleteFooter', () => {
     expect(openTab).toHaveBeenCalledWith({ path: 'settings://Editor', content: '', dirty: false })
     useEditorStore.setState({ openTab: original })
   })
+
+  it('with autocomplete turned off: says so, offers to turn it on, and keeps the inline diff switch', () => {
+    useAutocompleteSettingsStore.setState({ enabled: false })
+    runtime({ phase: 'idle', source: null })
+    openPanel()
+    expect(screen.getByText('Off')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '15 min' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Start/ })).toBeNull()
+    expect(screen.getByRole('switch', { name: 'Inline diff' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Turn on autocomplete' }))
+    expect(useAutocompleteSettingsStore.getState().enabled).toBe(true)
+  })
 })

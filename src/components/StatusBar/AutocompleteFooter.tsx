@@ -3,6 +3,7 @@ import { AutocompleteIcon } from '@/components/ActivityBar/ActivityBar'
 import { Switch } from '@/components/ui/Toggle'
 import { footerPopupShadow } from '@/components/ui/footerPopup'
 import { useAutocompleteRuntimeStore } from '@/stores/autocompleteRuntimeStore'
+import { useAutocompleteSettingsStore } from '@/stores/autocompleteSettingsStore'
 import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useEditorStore } from '@/stores/editorStore'
@@ -12,13 +13,13 @@ import { formatMemory } from '@/lib/memoryBreakdown'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
 import { FooterTooltip } from './FooterTooltip'
 
-type FooterState = 'running' | 'snoozed' | 'starting' | 'stopped' | 'error'
+type FooterState = 'running' | 'snoozed' | 'starting' | 'stopped' | 'error' | 'off'
 
 const WORDS: Record<FooterState, string> = {
-  running: 'Running', snoozed: 'Snoozed', starting: 'Starting…', stopped: 'Stopped', error: 'Error',
+  running: 'Running', snoozed: 'Snoozed', starting: 'Starting…', stopped: 'Stopped', error: 'Error', off: 'Off',
 }
 const DOTS: Record<FooterState, string> = {
-  running: '#8fbf6a', snoozed: 'rgb(var(--color-accent))', starting: 'rgb(var(--color-accent))', stopped: 'var(--color-fg-subtle)', error: '#e0805c',
+  running: '#8fbf6a', snoozed: 'rgb(var(--color-accent))', starting: 'rgb(var(--color-accent))', stopped: 'var(--color-fg-subtle)', error: '#e0805c', off: 'var(--color-fg-subtle)',
 }
 
 const snoozeButton = 'rounded-md border border-border bg-bg py-1.5 text-xs text-fg transition-colors hover:border-fg-subtle'
@@ -26,10 +27,11 @@ const primaryButton = 'flex-1 rounded-md bg-accent py-[7px] text-xs font-semibol
 const secondaryButton = 'flex-1 rounded-md border border-border py-[7px] text-xs text-fg transition-colors hover:border-fg-subtle'
 
 // The footer's autocomplete icon and its panel (mockup "Footer 1"): snooze
-// suggestions, stop or start the model, and — since this panel takes the
-// inline diff button's place while autocomplete is on — the inline diff switch.
+// suggestions, stop or start the model, and the inline diff switch. Always
+// shown, autocomplete on or off, so the footer looks the same either way.
 export function AutocompleteFooter() {
   const state = useAutocompleteRuntimeStore((r) => r.state)
+  const enabled = useAutocompleteSettingsStore((s) => s.enabled)
   const busy = useAutocompleteRuntimeStore((r) => r.busy)
   const snoozedUntil = useAutocompleteRuntimeStore((r) => r.snoozedUntil)
   const isSnoozed = useAutocompleteRuntimeStore((r) => r.isSnoozed)
@@ -50,7 +52,8 @@ export function AutocompleteFooter() {
   void snoozedUntil
   const snoozed = state.phase === 'running' && isSnoozed()
   const footerState: FooterState =
-    snoozed ? 'snoozed'
+    !enabled ? 'off'
+      : snoozed ? 'snoozed'
       : state.phase === 'running' ? 'running'
         : state.phase === 'starting' || state.phase === 'installing' || state.phase === 'downloading' ? 'starting'
           : state.phase === 'error' ? 'error'
@@ -76,6 +79,7 @@ export function AutocompleteFooter() {
       }
       case 'starting': return `Loading ${modelLabel}…`
       case 'error': return state.error?.message ?? 'Something went wrong'
+      case 'off': return 'No suggestions while turned off'
       default:
         if (isServer) return 'Not connected'
         return notDownloaded ? 'Not downloaded yet' : 'Model unloaded, its memory is freed'
@@ -141,7 +145,13 @@ export function AutocompleteFooter() {
             </div>
           )}
 
-          {(snoozed || !isServer) && (
+          {footerState === 'off' && (
+            <div className="flex gap-1.5">
+              <button type="button" className={primaryButton} onClick={() => useAutocompleteSettingsStore.getState().setEnabled(true)}>Turn on autocomplete</button>
+            </div>
+          )}
+
+          {footerState !== 'off' && (snoozed || !isServer) && (
             <div className="flex gap-1.5 empty:hidden">
               {snoozed && <button type="button" className={primaryButton} onClick={() => runtime.resume()}>Resume now</button>}
               {!isServer && footerState === 'stopped' && (notDownloaded

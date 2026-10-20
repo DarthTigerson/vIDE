@@ -31,15 +31,8 @@ describe('StatusBar autocomplete icon', () => {
     useGitReposStore.setState({ repos: ['/repo'], selectedRepo: null })
   })
 
-  it('shows only the inline diff switch while autocomplete is off', () => {
-    useAutocompleteSettingsStore.setState({ enabled: false })
-    render(<StatusBar />)
-    expect(screen.queryByRole('button', { name: /^Autocomplete/ })).toBeNull()
-    expect(screen.getByRole('button', { name: /^Inline diff highlight/ })).toBeInTheDocument()
-  })
-
-  it('folds inline diff into the autocomplete panel while autocomplete is on', () => {
-    useAutocompleteSettingsStore.setState({ enabled: true })
+  it.each([true, false])('keeps the same autocomplete button, with inline diff inside its panel (autocomplete on: %s)', (enabled) => {
+    useAutocompleteSettingsStore.setState({ enabled })
     render(<StatusBar />)
     expect(screen.getByRole('button', { name: /^Autocomplete/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Inline diff highlight/ })).toBeNull()
