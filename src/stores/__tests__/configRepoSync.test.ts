@@ -119,6 +119,15 @@ describe('push now — SYNC-17', () => {
     expect(status).toBe('connected')
   })
 
+  it('never syncs autocomplete settings, which are per machine', async () => {
+    storage.setItem('vide:autocomplete:local:enabled', 'true')
+    storage.setItem('vide:autocomplete:local:autoStart', 'true')
+    storage.setItem('vide:bridge:endpoint', 'http://x')
+    await useConfigRepoStore.getState().push()
+    const pushed = (api.configRepoPush.mock.calls[0] as unknown as [Record<string, Record<string, string>>])[0]
+    expect(pushed.models).toEqual({ 'vide:bridge:endpoint': 'http://x' })
+  })
+
   it('sets status:error and stores the message when push fails', async () => {
     api.configRepoPush.mockRejectedValueOnce(new Error('network timeout'))
     await useConfigRepoStore.getState().push()

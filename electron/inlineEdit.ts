@@ -48,7 +48,7 @@ export function parseStreamJsonLine(line: string): StreamLineEvent | null {
 import { BrowserWindow, ipcMain } from 'electron'
 import { spawn, type ChildProcessByStdio } from 'child_process'
 import type { Readable } from 'stream'
-import { resolveClaudePath } from './autocomplete'
+import { resolveClaudePath } from './claudePath'
 
 const TIMEOUT_MS = 30000
 

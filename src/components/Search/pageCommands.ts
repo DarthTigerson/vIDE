@@ -45,7 +45,7 @@ export const SETTINGS_PAGES: SettingsPage[] = [
   { id: 'settings-display', label: 'Settings: Display', path: DISPLAY_TAB_PATH, description: 'Theme, panel style', keywords: ['theme', 'appearance', 'colour', 'color'] },
   { id: 'settings-file-tree', label: 'Settings: Site Tree', path: FILE_TREE_SETTINGS_TAB_PATH, description: 'Git status letters and colours', keywords: ['file tree', 'explorer', 'git', 'status', 'badge', 'decorations'] },
   { id: 'settings-about', label: 'Settings: About', path: ABOUT_SETTINGS_TAB_PATH, description: 'Version, updates, release notes', keywords: ['version', 'update', 'check', 'changelog', 'release', 'notes'] },
-  { id: 'settings-editor', label: 'Settings: Editor', path: EDITOR_SETTINGS_TAB_PATH, description: 'Font size, auto-save', keywords: ['font', 'autosave', 'editor'] },
+  { id: 'settings-editor', label: 'Settings: Editor', path: EDITOR_SETTINGS_TAB_PATH, description: 'Font size, auto-save, autocomplete', keywords: ['font', 'autosave', 'editor', 'autocomplete'] },
   { id: 'settings-git', label: 'Settings: Git', path: GIT_SETTINGS_TAB_PATH, description: 'Remote, identity', keywords: ['remote', 'origin', 'identity'] },
   { id: 'settings-general', label: 'Settings: General', path: GENERAL_SETTINGS_TAB_PATH, keywords: [] },
   { id: 'settings-browser', label: 'Settings: Browser', path: BROWSER_SETTINGS_TAB_PATH, keywords: ['web', 'url', 'search', 'web search'] },

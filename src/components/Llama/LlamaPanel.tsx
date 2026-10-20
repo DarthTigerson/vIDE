@@ -4,13 +4,11 @@ import { useLlamaStore } from '@/stores/llamaStore'
 import { useLlamaModelsStore, type LlamaModelConfig } from '@/stores/llamaModelsStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { clampToViewport } from '@/components/ui/clampToViewport'
-import { buildLlamaModelPath, buildTerminalPath } from '@/components/Settings/paths'
+import { buildLlamaModelPath, LLAMA_SETTINGS_TAB_PATH } from '@/components/Settings/paths'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
 
 const pillButtonClass =
   'w-full h-7 rounded-full flex items-center justify-center text-[0.625rem] font-bold tracking-tight bg-accent/80 text-on-accent transition-colors hover:bg-accent active:scale-95 disabled:opacity-40 disabled:pointer-events-none'
-
-const INSTALL_COMMAND = 'brew install llama.cpp'
 
 function EditIcon() {
   return (
@@ -237,9 +235,9 @@ export function LlamaPanel() {
     for (const m of models) probeModel(m.id, m.host, m.port)
   }, [models, probeModel])
 
-  function launchInstall() {
-    navigator.clipboard?.writeText(INSTALL_COMMAND).catch(() => {})
-    openTab({ path: buildTerminalPath(`llama-install-${Date.now().toString(36)}`), content: '', dirty: false })
+  // Setup lives in Settings > Llama (one-click install of vIDE's own build).
+  function openSetup() {
+    openTab({ path: LLAMA_SETTINGS_TAB_PATH, content: '', dirty: false })
   }
 
   function openCreateModel() {
@@ -255,9 +253,9 @@ export function LlamaPanel() {
         <div className="flex-1 flex items-center justify-center p-6 text-center">
           <div>
             <p className="text-sm text-fg mb-2">llama.cpp isn't installed.</p>
-            <p className="text-xs text-fg-subtle font-mono mb-3">{INSTALL_COMMAND}</p>
-            <button type="button" className={pillButtonClass} onClick={launchInstall}>
-              Open Terminal &amp; Copy Install Command
+            <p className="text-xs text-fg-subtle mb-3">Install it with one click in Settings. No Homebrew needed.</p>
+            <button type="button" className={pillButtonClass} onClick={openSetup}>
+              Set up in Settings
             </button>
           </div>
         </div>

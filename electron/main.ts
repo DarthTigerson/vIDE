@@ -7,7 +7,9 @@ import { ClaudeManager } from './claude'
 import { BrowserBridge } from './browserBridge'
 import { GitRunner } from './gitRunner'
 import { GraphifyManager } from './graphify'
+import { createGraphifyInstaller } from './graphifyInstall'
 import { LlamaManager } from './llama'
+import { bundledLlamaDir, findInstalledLlamaServer, installLlama } from './autocomplete/llamaInstall'
 import { GitWatcher } from './gitWatcher'
 import { DockerRunner } from './dockerRunner'
 import { DockerWatcher } from './dockerWatcher'
@@ -15,7 +17,7 @@ import { FileWatcher } from './fileWatcher'
 import { MobileServer, MOBILE_RELAY_WINDOW_ID } from './mobile'
 import { UsageManager } from './usageManager'
 import { BridgeManager, getBridgeSettings, setBridgeSettings } from './bridge'
-import { AutocompleteManager } from './autocomplete'
+import { AutocompleteManager } from './autocomplete/manager'
 import { InlineEditManager } from './inlineEdit'
 import { CommitMessageManager } from './commitMessage'
 import { BrowserViewManager } from './browserViews'
@@ -117,6 +119,7 @@ function registerSystemHandlers(): void {
       })),
       terminalsBytes: sumTrees(ptyMgr.listPids()),
       languageServersBytes: sumTrees(lspMgr.listPids()),
+      autocompleteBytes: autocompleteMgr.pid ? treeRssBytes(autocompleteMgr.pid, table, children) : 0,
     }
   })
   ipcMain.handle('system:getBattery', () => getBatteryStatus())
@@ -206,6 +209,12 @@ let quitting = false
 app.on('before-quit', () => {
   quitting = true
   persistOpenWindows()
+})
+// Never leave the multi-GB autocomplete model running after vIDE is gone.
+// will-quit, not before-quit: an unsaved-work prompt can still cancel a quit
+// after before-quit, and that would leave autocomplete dead but "running".
+app.on('will-quit', () => {
+  autocompleteMgr?.dispose()
 })
 // Windows whose renderer has stopped responding, so reloadAllWindows() knows
 // to crash them first — a reload request alone never gets through to a hung
@@ -859,9 +868,12 @@ app.whenReady().then(async () => {
   const dockerRunner = new DockerRunner()
   dockerRunner.registerHandlers()
 
-  const graphifyMgr = new GraphifyManager()
+  const graphifyMgr = new GraphifyManager(createGraphifyInstaller(app.getPath('userData')))
   graphifyMgr.registerHandlers()
-  const llamaMgr = new LlamaManager()
+  const llamaMgr = new LlamaManager(
+    () => (autocompleteMgr?.pid ? [autocompleteMgr.pid] : []),
+    { dir: bundledLlamaDir(app.getPath('userData')), find: findInstalledLlamaServer, install: installLlama },
+  )
   llamaMgr.registerHandlers()
   gitWatcher = new GitWatcher()
   gitWatcher.registerHandlers()

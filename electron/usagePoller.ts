@@ -3,7 +3,7 @@ import { promisify } from 'util'
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
-import { resolveClaudePath } from './autocomplete'
+import { resolveClaudePath } from './claudePath'
 import { SpendTracker } from './spendEstimator'
 
 const execFileAsync = promisify(execFile)

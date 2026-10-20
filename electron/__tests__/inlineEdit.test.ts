@@ -22,7 +22,7 @@ vi.mock('child_process', () => ({
 }))
 
 import { buildEditSystemPrompt, buildEditPrompt, parseStreamJsonLine, InlineEditManager } from '../inlineEdit'
-import { _resetClaudePathCacheForTesting } from '../autocomplete'
+import { _resetClaudePathCacheForTesting } from '../claudePath'
 
 describe('buildEditSystemPrompt', () => {
   it('instructs the model to respond with only the replacement code', () => {

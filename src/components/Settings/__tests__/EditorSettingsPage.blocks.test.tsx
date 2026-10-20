@@ -13,14 +13,15 @@ import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
 
 beforeEach(() => {
   useEditorSettingsStore.setState({ autoSaveEnabled: false, wordWrapEnabled: false, markdownOpenMode: 'editor' })
+  ;(window as any).api = { getSystemMemoryUsage: vi.fn().mockResolvedValue({ totalBytes: 8 * 1024 ** 3, usedBytes: 4 * 1024 ** 3 }) }
 })
 afterEach(cleanup)
 
 describe('EditorSettingsPage — feature blocks', () => {
-  it('lays the page out as four blocks', () => {
+  it('lays the page out as five blocks', () => {
     render(<EditorSettingsPage />)
     expect(screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'))).toEqual([
-      'Auto save', 'Word wrap', 'Markdown files', 'Go to definition',
+      'Auto save', 'Word wrap', 'Markdown files', 'Autocomplete', 'Go to definition',
     ])
   })
 

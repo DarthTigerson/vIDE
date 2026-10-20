@@ -2,6 +2,9 @@ import { ipcMain, BrowserWindow } from 'electron'
 import { spawn, execFile } from 'child_process'
 import { existsSync } from 'fs'
 import { homedir } from 'os'
+import type { WebContents } from 'electron'
+import { llamaAsset } from './autocomplete/catalog'
+import type { findInstalledLlamaServer, installLlama } from './autocomplete/llamaInstall'
 
 // Model paths in the config are written the way the user writes them in a
 // terminal (the instructions note uses `~/models/...`), but llama-server and
@@ -114,8 +117,72 @@ export function _resetLlamaPathCacheForTesting(): void {
   pendingLlamaPathResolution = undefined
 }
 
+// `ps -axo pid=,rss=,comm=` output (rss in KB; comm may be a full path with
+// spaces), summed over llama-server processes not in `excludePids`.
+export function sumLlamaServerRss(stdout: string, excludePids: number[]): number | null {
+  let total = 0
+  let found = false
+  for (const line of stdout.split('\n')) {
+    const match = line.trim().match(/^(\d+)\s+(\d+)\s+(.+)$/)
+    if (!match || !match[3].includes('llama-server')) continue
+    if (excludePids.includes(Number(match[1]))) continue
+    total += Number(match[2])
+    found = true
+  }
+  return found ? total * 1024 : null
+}
+
+// vIDE's own pinned llama.cpp build, the same copy autocomplete runs: what
+// Settings > Llama's install button puts on a Mac without Homebrew's.
+export interface BundledLlama {
+  dir: string
+  find: typeof findInstalledLlamaServer
+  install: typeof installLlama
+}
+
+export interface LlamaInstallInfo {
+  path: string | null
+  source: 'system' | 'vide' | null
+  // The pinned build's download size for this platform (null: none published).
+  downloadBytes: number | null
+}
+
 export class LlamaManager {
   private running = new Map<string, ReturnType<typeof spawn>>()
+  private installing: Promise<{ ok: true; path: string } | { ok: false; error: string }> | null = null
+
+  // vIDE's own autocomplete server is a llama-server too, but it has its own
+  // row in the RAM panel; counting it here as well would show it twice.
+  constructor(private excludedPids: () => number[] = () => [], private bundled: BundledLlama | null = null) {}
+
+  // A llama.cpp the user installed (on PATH) wins; vIDE's own copy otherwise.
+  private async getInstall(): Promise<LlamaInstallInfo> {
+    const downloadBytes = llamaAsset(process.platform)?.bytes ?? null
+    const system = await resolveLlamaPath()
+    if (system) return { path: system, source: 'system', downloadBytes }
+    const own = this.bundled ? await this.bundled.find(this.bundled.dir) : null
+    return { path: own, source: own ? 'vide' : null, downloadBytes }
+  }
+
+  private async resolveBinary(): Promise<string | null> {
+    return (await this.getInstall()).path
+  }
+
+  // One install at a time, however many windows ask; progress goes to the
+  // window whose button started it.
+  private install(sender: WebContents): Promise<{ ok: true; path: string } | { ok: false; error: string }> {
+    if (this.installing) return this.installing
+    const bundled = this.bundled
+    if (!bundled) return Promise.resolve({ ok: false, error: 'Installing llama.cpp is not available here' })
+    const running = bundled.install(bundled.dir, {
+      onProgress: (received, total) => { if (!sender.isDestroyed()) sender.send('llama:installProgress', received, total) },
+    }).then(
+      (path) => ({ ok: true as const, path }),
+      (err: unknown) => ({ ok: false as const, error: err instanceof Error ? err.message : String(err) }),
+    ).finally(() => { this.installing = null })
+    this.installing = running
+    return running
+  }
 
   registerHandlers(): void {
     // Prewarm the login-shell resolution at startup so it's usually already
@@ -123,6 +190,8 @@ export class LlamaManager {
     resolveLlamaPath()
 
     ipcMain.handle('llama:isAvailable', () => this.checkAvailable())
+    ipcMain.handle('llama:getInstall', () => this.getInstall())
+    ipcMain.handle('llama:install', (event) => this.install(event.sender))
     ipcMain.handle('llama:start', async (event, id: string, cfg: LlamaLaunchConfig) => {
       const win = BrowserWindow.fromWebContents(event.sender)
       if (!win) return
@@ -142,23 +211,8 @@ export class LlamaManager {
     // servers started externally or in a prior session, not just ones spawned
     // by this LlamaManager instance.
     return new Promise((resolve) => {
-      execFile('ps', ['-axo', 'rss,comm'], (err, stdout) => {
-        if (err) return resolve(null)
-        const lines = stdout.trim().split('\n').slice(1) // skip header
-        let total = 0
-        let found = false
-        for (const line of lines) {
-          const trimmed = line.trim()
-          const spaceIdx = trimmed.indexOf(' ')
-          if (spaceIdx === -1) continue
-          const rss = parseInt(trimmed.slice(0, spaceIdx), 10)
-          const comm = trimmed.slice(spaceIdx + 1).trim()
-          if (!isNaN(rss) && comm.includes('llama-server')) {
-            total += rss
-            found = true
-          }
-        }
-        resolve(found ? total * 1024 : null)
+      execFile('ps', ['-axo', 'pid=,rss=,comm='], (err, stdout) => {
+        resolve(err ? null : sumLlamaServerRss(stdout, this.excludedPids()))
       })
     })
   }
@@ -190,7 +244,7 @@ export class LlamaManager {
     // command name, which produces a clean ENOENT error message below).
     const bin = cfg.serverExecutable
       ? expandTilde(cfg.serverExecutable)
-      : ((await resolveLlamaPath()) || LLAMA_BINARIES[0])
+      : ((await this.resolveBinary()) || LLAMA_BINARIES[0])
     const proc = spawn(bin, buildLlamaServerArgs(cfg), {
       stdio: ['ignore', 'pipe', 'pipe'],
     })
@@ -212,7 +266,7 @@ export class LlamaManager {
   }
 
   private async checkAvailable(): Promise<boolean> {
-    const bin = (await resolveLlamaPath()) ?? LLAMA_BINARIES[0]
+    const bin = (await this.resolveBinary()) ?? LLAMA_BINARIES[0]
     return new Promise((resolve) => {
       const proc = spawn(bin, ['--help'], { stdio: 'ignore' })
       proc.on('spawn', () => resolve(true))

@@ -27,4 +27,14 @@ describe('AutocompleteIcon', () => {
     const { container } = render(<AutocompleteIcon crossedOut={false} busy={false} />)
     expect(container.querySelector('.autocomplete-busy-arc')).toBeFalsy()
   })
+
+  it('marks a snoozed icon with a "z"', () => {
+    render(<AutocompleteIcon crossedOut={false} snoozed />)
+    expect(screen.getByText('z')).toBeInTheDocument()
+  })
+
+  it('has no "z" when not snoozed', () => {
+    render(<AutocompleteIcon crossedOut={false} />)
+    expect(screen.queryByText('z')).toBeNull()
+  })
 })

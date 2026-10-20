@@ -3,10 +3,13 @@ import { spawn, execFile } from 'child_process'
 import { readFile } from 'fs/promises'
 import { existsSync } from 'fs'
 import { join } from 'path'
+import { homedir } from 'os'
+import type { WebContents } from 'electron'
+import type { GraphifyInstaller } from './graphifyInstall'
 import type { GraphifyGraph } from '../src/types/graphify'
 
 const NOT_INSTALLED_MESSAGE =
-  "Error: 'graphify' not found in PATH.\r\nInstall it with: uv tool install graphifyy && graphify install\r\n"
+  "Error: 'graphify' not found in PATH.\r\nInstall it from Settings > Graphify.\r\n"
 
 // Electron-launched apps (Finder/Dock, not `npm run dev` from a terminal)
 // don't inherit the interactive shell's PATH, so a bare spawn('graphify', ...)
@@ -47,6 +50,15 @@ export function resolveGraphifyPath(): Promise<string | null> {
         return
       }
 
+      // uv puts tools in ~/.local/bin, which a login shell may not have on
+      // PATH (and won't, right after vIDE's own install button ran uv).
+      const uvTool = join(homedir(), '.local', 'bin', 'graphify')
+      if (existsSync(uvTool)) {
+        cachedGraphifyPath = uvTool
+        resolve(uvTool)
+        return
+      }
+
       console.error('[graphify] failed to resolve graphify CLI path via login shell:', err ?? `unexpected output: ${JSON.stringify(stdout)}`)
       resolve(null)
     })
@@ -57,6 +69,11 @@ export function resolveGraphifyPath(): Promise<string | null> {
   })
 
   return pendingGraphifyPathResolution
+}
+
+// Where an install just put graphify, so later spawns find it at once.
+function rememberGraphifyPath(path: string): void {
+  cachedGraphifyPath = path
 }
 
 export function _resetGraphifyPathCacheForTesting(): void {
@@ -80,8 +97,48 @@ function stageInstalledSkillFiles(cwd: string): Promise<void> {
   })
 }
 
+export interface GraphifyInstallInfo {
+  path: string | null
+  source: 'system' | null
+  // graphify's own size isn't known ahead (uv fetches Python and the package).
+  downloadBytes: number | null
+}
+
 export class GraphifyManager {
   private runningByWindow = new Map<number, boolean>()
+  private installing: Promise<{ ok: true; path: string } | { ok: false; error: string }> | null = null
+
+  constructor(private installer: GraphifyInstaller | null = null) {}
+
+  private async getInstall(): Promise<GraphifyInstallInfo> {
+    const path = await resolveGraphifyPath()
+    return { path, source: path ? 'system' : null, downloadBytes: null }
+  }
+
+  // Settings › Graphify's install button: uv (the user's, or vIDE's pinned
+  // copy, downloaded with progress) runs `uv tool install graphifyy`. One
+  // install at a time however many windows ask.
+  private install(sender: WebContents): Promise<{ ok: true; path: string } | { ok: false; error: string }> {
+    if (this.installing) return this.installing
+    const installer = this.installer
+    if (!installer) return Promise.resolve({ ok: false, error: 'Installing graphify is not available here' })
+    const run = async (): Promise<{ ok: true; path: string } | { ok: false; error: string }> => {
+      const uv = (await installer.findUv()) ?? await installer.downloadUv({
+        onProgress: (received, total) => { if (!sender.isDestroyed()) sender.send('graphify:installProgress', received, total) },
+      })
+      const result = await installer.installGraphify(uv)
+      if (!result.ok) return { ok: false, error: result.output.trim() || 'uv could not install graphify' }
+      const binDir = (await installer.toolBinDir(uv)) ?? join(homedir(), '.local', 'bin')
+      const path = join(binDir, 'graphify')
+      rememberGraphifyPath(path)
+      return { ok: true, path }
+    }
+    const running = run()
+      .catch((err: unknown) => ({ ok: false as const, error: err instanceof Error ? err.message : String(err) }))
+      .finally(() => { this.installing = null })
+    this.installing = running
+    return running
+  }
 
   registerHandlers(): void {
     // Prewarm the login-shell resolution at startup so it's usually already
@@ -89,6 +146,8 @@ export class GraphifyManager {
     resolveGraphifyPath()
 
     ipcMain.handle('graphify:isAvailable', () => this.checkAvailable())
+    ipcMain.handle('graphify:getInstall', () => this.getInstall())
+    ipcMain.handle('graphify:install', (event) => this.install(event.sender))
 
     ipcMain.handle('graphify:run', async (event, id: string, cwd: string) => {
       const win = BrowserWindow.fromWebContents(event.sender)

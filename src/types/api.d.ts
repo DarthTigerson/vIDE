@@ -28,6 +28,23 @@ export interface MemoryBreakdown {
   sessions: { instanceId: string; projectRoot: string | null; hue?: string; name?: string; bytes: number }[]
   terminalsBytes: number
   languageServersBytes: number
+  autocompleteBytes: number
+}
+
+// Mirrors electron/autocomplete/types.ts: keep the two in step.
+export type ManagedModelId = 'qwen-1.5b' | 'qwen-3b' | 'mellum-4b'
+export type AutocompleteSource =
+  | { kind: 'managed'; modelId: ManagedModelId }
+  | { kind: 'gguf'; path: string; extraArgs: string }
+  | { kind: 'server'; baseUrl: string; api: 'infill' | 'openai'; apiKey: string }
+export type AutocompletePhase = 'idle' | 'installing' | 'downloading' | 'starting' | 'running' | 'stopped' | 'error'
+export interface AutocompleteRuntimeState {
+  phase: AutocompletePhase
+  source: AutocompleteSource | null
+  modelOnDisk: boolean
+  progress: { received: number; total: number } | null
+  ramBytes: number | null
+  error: { kind: 'no-fit' | 'failed'; message: string } | null
 }
 
 // Each writer saves only its own slice; main merges it into the file on disk
@@ -423,7 +440,12 @@ declare global {
 
       setWindowTitle: (root: string) => void
 
-      autocompleteComplete: (prefix: string, suffix: string, language: string, model: string) => Promise<string | null>
+      autocompleteComplete: (req: { prefix: string; suffix: string; filePath?: string; extra?: { filename: string; text: string }[] }) => Promise<string | null>
+      autocompleteConfigure: (source: AutocompleteSource | null) => Promise<AutocompleteRuntimeState>
+      autocompleteStart: (force?: boolean) => Promise<void>
+      autocompleteStop: () => Promise<void>
+      autocompleteGetState: () => Promise<AutocompleteRuntimeState>
+      onAutocompleteState: (cb: (state: AutocompleteRuntimeState) => void) => () => void
 
       commitMessageGenerate: (diff: string, model: string, customPrompt: string) => Promise<string | null>
 
@@ -447,10 +469,17 @@ declare global {
       onGraphifyData: (cb: (id: string, data: string) => void) => () => void
       onGraphifyExit: (cb: (id: string, code: number) => void) => () => void
 
+      graphifyGetInstall: () => Promise<{ path: string | null; source: 'system' | null; downloadBytes: number | null }>
+      graphifyInstall: () => Promise<{ ok: true; path: string } | { ok: false; error: string }>
+      onGraphifyInstallProgress: (cb: (received: number, total: number) => void) => () => void
+
       llamaIsAvailable: () => Promise<boolean>
       llamaStart: (id: string, cfg: LlamaLaunchConfig) => Promise<void>
       llamaStop: (id: string) => Promise<void>
       llamaGetMemoryUsage: () => Promise<number | null>
+      llamaGetInstall: () => Promise<{ path: string | null; source: 'system' | 'vide' | null; downloadBytes: number | null }>
+      llamaInstall: () => Promise<{ ok: true; path: string } | { ok: false; error: string }>
+      onLlamaInstallProgress: (cb: (received: number, total: number) => void) => () => void
       onLlamaData: (cb: (id: string, data: string) => void) => () => void
       onLlamaExit: (cb: (id: string, code: number) => void) => () => void
 

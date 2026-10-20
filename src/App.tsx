@@ -106,6 +106,7 @@ import { useLlamaStore } from './stores/llamaStore'
 import { availableAgents, agentLabel, isClaudeLike, isLlamaKind, isTerminalKind, llamaModelId } from './lib/agentKinds'
 import { useRunningLlamaCount } from './hooks/useRunningLlamaCount'
 import { useLlamaAvailability } from './hooks/useLlamaAvailability'
+import { AutocompleteLifecycle } from './hooks/useAutocompleteLifecycle'
 import { usePanelRequests } from './hooks/usePanelRequests'
 import { useGraphifySettingsStore } from './stores/graphifySettingsStore'
 import { useGraphifyAutoBuild } from './hooks/useGraphifyAutoBuild'
@@ -1344,6 +1345,7 @@ export default function App() {
         <BranchPalette projectRoot={selectedRepo} onClose={() => useSearchStore.getState().closeBranchPalette()} />
       )}
       <GitPromptHost />
+      <AutocompleteLifecycle />
       <DiscardScratchPromptHost />
       {newSessionMenu && (
         <NewSessionMenu
@@ -1442,7 +1444,7 @@ function MemoryPill({ usage }: { usage: { usedBytes: number; totalBytes: number;
 
   const ownHues = Object.fromEntries(instances.map((inst) => [inst.id, inst.hue]))
   const { totalBytes: videBytes, rows: videRows } = memoryRows(
-    breakdown ?? { appBytes: usage.appBytes, sessions: [], terminalsBytes: 0, languageServersBytes: 0 },
+    breakdown ?? { appBytes: usage.appBytes, sessions: [], terminalsBytes: 0, languageServersBytes: 0, autocompleteBytes: 0 },
     ownHues
   )
 

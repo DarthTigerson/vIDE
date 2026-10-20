@@ -3,7 +3,7 @@ import { useGraphifyStore } from '@/stores/graphifyStore'
 import { useFileStore } from '@/stores/fileStore'
 import { useGitReposStore, useActiveRepo } from '@/stores/gitReposStore'
 import { useEditorStore } from '@/stores/editorStore'
-import { GRAPHIFY_GRAPH_TAB_PATH, buildTerminalPath } from '@/components/Settings/paths'
+import { GRAPHIFY_GRAPH_TAB_PATH, GRAPHIFY_SETTINGS_TAB_PATH } from '@/components/Settings/paths'
 import { buildMarkdownPreviewPath } from '@/components/Viewer/paths'
 
 // Matches GitPanel's pill button styling so Graphify's controls read as part
@@ -51,14 +51,10 @@ export function GraphifyPanel() {
     wasRunningRef.current = running
   }, [running, error, graph, openTab])
 
-  const INSTALL_COMMAND = 'uv tool install graphifyy && graphify install'
-
-  // VIDE-10: one click gets a terminal open with the install command already
-  // on the clipboard, ready to paste — instead of leaving the user to copy
-  // it by hand and go find a terminal themselves.
-  function launchInstall() {
-    navigator.clipboard?.writeText(INSTALL_COMMAND).catch(() => {})
-    openTab({ path: buildTerminalPath(`graphify-install-${Date.now().toString(36)}`), content: '', dirty: false })
+  // The install lives in Settings > Graphify (one click, like llama.cpp's),
+  // so nobody has to paste a command into a terminal.
+  function openSetup() {
+    openTab({ path: GRAPHIFY_SETTINGS_TAB_PATH, content: '', dirty: false })
   }
 
   if (available === false) {
@@ -66,9 +62,9 @@ export function GraphifyPanel() {
       <div className="h-full flex items-center justify-center p-6 text-center bg-sidebar border-r border-border">
         <div>
           <p className="text-sm text-fg mb-2">graphify isn't installed.</p>
-          <p className="text-xs text-fg-subtle font-mono mb-3">{INSTALL_COMMAND}</p>
-          <button type="button" className={pillButtonClass} onClick={launchInstall}>
-            Open Terminal & Copy Install Command
+          <p className="text-xs text-fg-subtle mb-3">Install it with one click in Settings. No terminal needed.</p>
+          <button type="button" className={pillButtonClass} onClick={openSetup}>
+            Set up in Settings
           </button>
         </div>
       </div>

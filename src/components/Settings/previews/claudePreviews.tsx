@@ -4,21 +4,6 @@ import { PreviewFrame, MiniCode } from './primitives'
 
 // Live pictures for Settings › Claude (VIDE-145).
 
-export function AutocompletePreview() {
-  return (
-    <PreviewFrame testId="autocomplete-preview">
-      <MiniCode lines={[
-        {
-          n: 8,
-          current: true,
-          segments: [{ text: 'const', token: 'keyword' }, { text: ' names = users.map((u) => u.name)' }],
-          trailing: <span className="italic text-fg-subtle">.filter(Boolean)</span>,
-        },
-      ]} />
-    </PreviewFrame>
-  )
-}
-
 export function InlineEditPreview() {
   const enabled = useInlineEditSettingsStore((s) => s.enabled)
   return (

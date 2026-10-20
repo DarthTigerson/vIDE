@@ -536,7 +536,7 @@ export function BellIcon({ className }: { className?: string } = {}) {
 // box (not a fixed viewBox), so it stays corner-to-corner regardless of how
 // "Abc" happens to measure — color is left as inherited currentColor (the
 // button's own dim/hover treatment already carries that signal).
-export function AutocompleteIcon({ crossedOut, busy, className }: { crossedOut: boolean; busy?: boolean; className?: string }) {
+export function AutocompleteIcon({ crossedOut, busy, snoozed, className }: { crossedOut: boolean; busy?: boolean; snoozed?: boolean; className?: string }) {
   return (
     <span className={['relative inline-flex flex-col items-center leading-none', className].filter(Boolean).join(' ')}>
 
@@ -562,6 +562,9 @@ export function AutocompleteIcon({ crossedOut, busy, className }: { crossedOut: 
         >
           <line x1="1" y1="1" x2="21" y2="19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
+      )}
+      {snoozed && (
+        <span className="absolute -right-[7px] -top-[5px] text-[0.5625rem] font-bold text-accent">z</span>
       )}
     </span>
   )

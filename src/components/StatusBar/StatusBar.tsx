@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useGitStore, useRepoGitState } from '@/stores/gitStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
-import { GitIcon, AutocompleteIcon } from '@/components/ActivityBar/ActivityBar'
+import { GitIcon } from '@/components/ActivityBar/ActivityBar'
 import { GitActionsMenu } from '@/components/Git/GitActionsMenu'
 import { ConfirmForcePushModal } from '@/components/Git/ConfirmForcePushModal'
 import { useForcePushConfirm } from '@/components/Git/useForcePushConfirm'
@@ -9,10 +9,6 @@ import { useGitResetConfirm } from '@/components/Git/useGitResetConfirm'
 import { ConfirmUndoCommitModal } from '@/components/Git/ConfirmUndoCommitModal'
 import { ConfirmHardResetModal } from '@/components/Git/ConfirmHardResetModal'
 import { GitResetPalette } from '@/components/Git/GitResetPalette'
-import { useAutocompleteSettingsStore } from '@/stores/autocompleteSettingsStore'
-import { useAutocompleteSessionStore } from '@/stores/autocompleteSessionStore'
-import { useAutocompleteStatusStore } from '@/stores/autocompleteStatusStore'
-import { AUTOCOMPLETE_FORCE_DISABLED } from '@/lib/autocompleteEffectiveState'
 import { useConfigRepoStore } from '@/stores/configRepoStore'
 import { FooterMessage } from './FooterMessage'
 import { NotificationPanel } from './NotificationPanel'
@@ -25,9 +21,8 @@ import { AlarmFlash } from '@/components/Alarms/AlarmFlash'
 import { useAlarmTicker } from '@/hooks/useAlarmTicker'
 import { GitActivityBar } from './GitActivityBar'
 import { FooterBlame } from './FooterBlame'
-import { InlineDiffToggle } from './InlineDiffToggle'
+import { AutocompleteFooter } from './AutocompleteFooter'
 import { FooterTooltip } from './FooterTooltip'
-import { useCoverNativeViews } from '@/lib/nativeViewCover'
 
 export function StatusBar() {
   useAlarmTicker()
@@ -62,14 +57,6 @@ export function StatusBar() {
     syncStatus === 'connecting' ? 'Connecting…' :
     'vIDE Sync — click to push now'
   const syncNow = useConfigRepoStore((s) => s.push)
-  const autocompleteEnabled = useAutocompleteSettingsStore((s) => s.enabled)
-  const autocompletePaused = useAutocompleteSessionStore((s) => s.paused)
-  const togglePaused = useAutocompleteSessionStore((s) => s.togglePaused)
-  const autocompleteBusy = useAutocompleteStatusStore((s) => s.busy)
-  const autocompleteActive = autocompleteEnabled && !autocompletePaused
-  const autocompleteVisible = !AUTOCOMPLETE_FORCE_DISABLED && autocompleteEnabled
-  const [autocompleteMenuOpen, setAutocompleteMenuOpen] = useState(false)
-  useCoverNativeViews(autocompleteMenuOpen)
 
   useEffect(() => {
     if (!gitMenuOpen) return
@@ -77,13 +64,6 @@ export function StatusBar() {
     window.addEventListener('click', close)
     return () => window.removeEventListener('click', close)
   }, [gitMenuOpen])
-
-  useEffect(() => {
-    if (!autocompleteMenuOpen) return
-    const close = () => setAutocompleteMenuOpen(false)
-    window.addEventListener('click', close)
-    return () => window.removeEventListener('click', close)
-  }, [autocompleteMenuOpen])
 
   useEffect(() => {
     refreshBranch(selectedRepo)
@@ -178,46 +158,6 @@ export function StatusBar() {
       )}
       <div className="flex items-center gap-1 text-fg-muted text-xs">
         <FooterCursor />
-        {autocompleteVisible && (
-          <div className="relative">
-            <FooterTooltip
-              label={autocompleteActive ? (autocompleteBusy ? 'Autocomplete: working…' : 'Autocomplete: on') : 'Autocomplete: off'}
-              hidden={autocompleteMenuOpen}
-            >
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setAutocompleteMenuOpen((o) => !o) }}
-                onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setAutocompleteMenuOpen((o) => !o) }}
-                className={[
-                  'h-5 px-1 flex items-center justify-center transition-colors',
-                  autocompleteActive && autocompleteBusy
-                    ? 'text-accent'
-                    : autocompleteActive
-                      ? 'text-fg-muted hover:text-fg'
-                      : 'text-fg-subtle hover:text-fg-muted',
-                ].join(' ')}
-                aria-label={autocompleteActive ? 'Autocomplete on' : 'Autocomplete off'}
-              >
-                <AutocompleteIcon
-                  crossedOut={!autocompleteActive}
-                  busy={autocompleteActive && autocompleteBusy}
-                />
-              </button>
-            </FooterTooltip>
-            {autocompleteMenuOpen && (
-              <div className="absolute bottom-full right-0 mb-1 w-56 rounded border border-border bg-popover shadow-lg shadow-black/40 py-1 z-50">
-                <button
-                  type="button"
-                  onClick={() => { togglePaused(); setAutocompleteMenuOpen(false) }}
-                  className="w-full text-left px-3 py-1.5 text-xs text-fg hover:bg-white/5 transition-colors"
-                >
-                  {autocompletePaused ? 'Resume' : 'Pause for this session'}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-        <InlineDiffToggle />
         {(syncEnabled || syncRepoUrl) && (
           <div className="ml-1">
             <FooterTooltip label={syncLabel}>
@@ -241,6 +181,10 @@ export function StatusBar() {
             </FooterTooltip>
           </div>
         )}
+        {/* Its panel carries the inline diff switch, autocomplete on or off. */}
+        <div className="ml-1 flex">
+          <AutocompleteFooter />
+        </div>
         <div className="ml-1">
           <FontSizeControl />
         </div>

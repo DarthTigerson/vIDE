@@ -27,7 +27,7 @@ import {
   DEFAULT_COMMIT_PROMPT,
   CommitMessageManager,
 } from '../commitMessage'
-import { _resetClaudePathCacheForTesting } from '../autocomplete'
+import { _resetClaudePathCacheForTesting } from '../claudePath'
 
 describe('buildCommitMessagePrompt', () => {
   it('uses the default prompt when no custom instruction is given', () => {

@@ -38,7 +38,7 @@ import {
   ALLOWED_INTERVALS_MS,
   type UsageSnapshot,
 } from '../usagePoller'
-import { _resetClaudePathCacheForTesting } from '../autocomplete'
+import { _resetClaudePathCacheForTesting } from '../claudePath'
 import { SpendTracker } from '../spendEstimator'
 
 const SAMPLE_RESULT = `You are currently using your subscription to power your Claude Code usage
@@ -296,7 +296,7 @@ describe('UsagePoller.poll', () => {
     // A bare non-interactive `-lc` login shell doesn't source ~/.zshrc, so it
     // can miss PATH entries added by nvm/etc — the exact bug this regression
     // test guards against. Every other claude-CLI call site in this codebase
-    // (autocomplete, commitMessage, graphify) resolves via the interactive
+    // (inline edit, commitMessage, graphify) resolves via the interactive
     // `-lic` form for this reason; the poller must match.
     execFileMock.mockImplementation((...call: unknown[]) => {
       const [file, args] = call as [string, unknown]

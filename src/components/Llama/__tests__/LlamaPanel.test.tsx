@@ -17,23 +17,13 @@ describe('LlamaPanel', () => {
     useEditorStore.setState({ openTab: openTabMock })
   })
 
-  it('shows install instructions when llama.cpp is not available', () => {
+  it('points to Settings > Llama when llama.cpp is not available', () => {
     useLlamaStore.setState({ available: false })
     render(<LlamaPanel />)
-    expect(screen.getByText(/brew install llama.cpp/)).toBeInTheDocument()
-  })
-
-  it('the quick-launch button opens a terminal tab and copies the install command', () => {
-    const writeTextMock = vi.fn().mockResolvedValue(undefined)
-    Object.assign(navigator, { clipboard: { writeText: writeTextMock } })
-    useLlamaStore.setState({ available: false })
-    render(<LlamaPanel />)
-
-    fireEvent.click(screen.getByRole('button', { name: /open terminal.*copy install command/i }))
-
-    expect(writeTextMock).toHaveBeenCalledWith('brew install llama.cpp')
-    expect(openTabMock).toHaveBeenCalledTimes(1)
-    expect(openTabMock.mock.calls[0][0].path).toMatch(/^terminal:\/\//)
+    expect(screen.getByText("llama.cpp isn't installed.")).toBeInTheDocument()
+    expect(screen.queryByText(/brew install/)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Set up in Settings' }))
+    expect(openTabMock).toHaveBeenCalledWith({ path: 'settings://Llama', content: '', dirty: false })
   })
 
   it('shows the checking state while availability is still being probed', () => {
