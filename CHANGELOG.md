@@ -1,4 +1,13 @@
 # vIDE
+## v0.2.28 (2026-10-22)
+- **Redesigned Bridge and Llama chat**: each turn now plays out as an activity rail, with a step for the model's reasoning, each tool call and each file edit. Reasoning streams in live and folds into "Reasoned for Ns" when it's done (click to read it again), tool steps show what they read, searched or ran and how long it took, and edits show their diff inline. Models that put their thinking in `<think>` tags get the same reasoning step
+- **Reasoning effort for Llama sessions**: a chip in the composer sets how hard the model thinks — Off, Low, Medium, High or Max — per session, and you can change it in the middle of a turn. The change is marked on the rail
+- **New chat header**: shows the model, whether its llama.cpp server is running, and live tokens per second. The context meter moved up here from the composer
+- **Faster long Llama sessions**: llama.cpp no longer has to re-read the whole conversation partway through a turn. Llama sessions stop trimming old tool results, and the system prompt stays the same for the whole conversation instead of changing with every message
+- Auto-optimize Llama models now compact at 64k tokens, or 80% of the context if that comes first, so a huge context no longer means huge re-reads
+- New Llama models default to a batch size of 2048, matching llama.cpp. Models you already have keep their setting
+
+
 ## v0.2.27 (2026-10-21)
 - **vIDE Compacting for Bridge and Llama**: long chats now compact themselves at 80% of the model's context, or when the server rejects the prompt as too long. Compact by hand from the activity bar or a session's right-click menu. A divider in the chat marks where the summary starts, and a meter shows how much of the context is in use
 - **vIDE tools for Bridge and Llama**: Bridge and Llama sessions now get the same vIDE tools Claude has, including To Do, Notes, Scripts, the browser and web search. The To Do progress-comment rule applies to them too, and their comments and tickets show Bridge or Llama badges on the board
