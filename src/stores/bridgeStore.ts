@@ -42,7 +42,7 @@ export interface BridgeConversation {
   draftInput: string
 }
 
-type ConnectionOverride = { endpoint: string; apiKey: string; modelId: string }
+type ConnectionOverride = { endpoint: string; apiKey: string; modelId: string; toolCallLimit?: number }
 
 function newHistoryId(): string {
   return `vide-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
@@ -183,6 +183,7 @@ export const useBridgeStore = create<BridgeStore>((set, get) => {
       apiKey: s.apiKey,
       modelId: s.modelId,
       sessionId: conv.historyId,
+      toolCallLimit: s.toolCallLimit,
     }, sessionId)
   }
 

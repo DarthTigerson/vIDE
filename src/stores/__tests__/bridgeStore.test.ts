@@ -22,6 +22,7 @@ const { store, apiMock } = vi.hoisted(() => {
 })
 
 import { useBridgeStore } from '../bridgeStore'
+import { useBridgeSettingsStore } from '../bridgeSettingsStore'
 
 let emit: (e: any) => void = () => {}
 
@@ -71,6 +72,14 @@ describe('bridgeStore conversations', () => {
       '/p', [{ role: 'user', content: 'hello' }], false,
       expect.objectContaining({ sessionId: conv('A').historyId }), 'A',
     )
+  })
+
+  it('sends the Bridge tool call limit, or the connection override\'s limit for llama models', () => {
+    useBridgeSettingsStore.setState({ toolCallLimit: 25 })
+    useBridgeStore.getState().sendMessage('A', '/p', 'bridge')
+    expect(apiMock.bridgeSend).toHaveBeenLastCalledWith('/p', expect.any(Array), false, expect.objectContaining({ toolCallLimit: 25 }), 'A')
+    useBridgeStore.getState().sendMessage('B', '/p', 'llama', { endpoint: 'http://127.0.0.1:8899/v1', apiKey: 'local', modelId: 'm', toolCallLimit: 0 })
+    expect(apiMock.bridgeSend).toHaveBeenLastCalledWith('/p', expect.any(Array), true, expect.objectContaining({ toolCallLimit: 0 }), 'B')
   })
 
   it('routes events by sessionId', () => {

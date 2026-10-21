@@ -29,6 +29,8 @@ export interface BridgeSettings {
   apiKey: string
   modelId: string
   sessionId?: string
+  // Max tool-call rounds per turn; 0 or missing = unlimited
+  toolCallLimit?: number
 }
 
 export interface BridgeSendPayload {
@@ -266,8 +268,6 @@ export const BRIDGE_TOOLS = [
     },
   },
 ] as const
-
-const MAX_TOOL_ROUNDS = 40
 
 // Fallback: some models emit tool calls as plain text JSON rather than via the
 // OpenAI tool_calls streaming field. This extracts them and strips them from
@@ -546,7 +546,8 @@ export class BridgeManager {
     agentMode: boolean,
     cwd: string
   ): Promise<void> {
-    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    const limit = settings.toolCallLimit && settings.toolCallLimit > 0 ? settings.toolCallLimit : Infinity
+    for (let round = 0; round < limit; round++) {
       if (!live()) return
       if (round > 0) emit({ type: 'new-turn' })
       const streamResult = await this.streamOneCompletion(key, live, emit, messages, settings)
@@ -585,7 +586,7 @@ export class BridgeManager {
       }
     }
 
-    emit({ type: 'error', message: `Bridge hit the ${MAX_TOOL_ROUNDS} tool-call round limit for this turn` })
+    emit({ type: 'error', message: `Bridge hit the ${limit} tool-call round limit for this turn` })
   }
 
   private awaitApproval(

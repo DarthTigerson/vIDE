@@ -293,16 +293,30 @@ describe('BridgeManager tool calls', () => {
     expect(result.result).toContain('hello-bridge')
   })
 
-  it('stops and emits an error after 40 tool-call rounds', async () => {
+  it('stops and emits an error after toolCallLimit tool-call rounds', async () => {
     const { win, sendHandler } = setup()
     const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(toolCallStream('run_command', { command: 'echo loop' })))
     vi.stubGlobal('fetch', fetchMock)
 
-    await sendHandler({ sender: win }, { cwd: root, messages: [{ role: 'user', content: 'loop forever' }], agentMode: true, settings: SETTINGS })
+    await sendHandler({ sender: win }, { cwd: root, messages: [{ role: 'user', content: 'loop forever' }], agentMode: true, settings: { ...SETTINGS, toolCallLimit: 3 } })
 
-    expect(fetchMock).toHaveBeenCalledTimes(40)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
     const events = win.webContents.send.mock.calls.filter((c: any[]) => c[0] === 'bridge:event').map((c: any[]) => c[1])
-    expect(events[events.length - 1]).toEqual({ type: 'error', message: 'Bridge hit the 40 tool-call round limit for this turn' })
+    expect(events[events.length - 1]).toEqual({ type: 'error', message: 'Bridge hit the 3 tool-call round limit for this turn' })
+  })
+
+  it('runs past 40 tool-call rounds when toolCallLimit is 0 (unlimited)', async () => {
+    const { win, sendHandler } = setup()
+    const fetchMock = vi.fn()
+    for (let i = 0; i < 45; i++) fetchMock.mockResolvedValueOnce(toolCallStream('run_command', { command: 'echo loop' }))
+    fetchMock.mockResolvedValueOnce(finalTextStream('finally done'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await sendHandler({ sender: win }, { cwd: root, messages: [{ role: 'user', content: 'loop a while' }], agentMode: true, settings: { ...SETTINGS, toolCallLimit: 0 } })
+
+    expect(fetchMock).toHaveBeenCalledTimes(46)
+    const events = win.webContents.send.mock.calls.filter((c: any[]) => c[0] === 'bridge:event').map((c: any[]) => c[1])
+    expect(events[events.length - 1]).toEqual({ type: 'done' })
   })
 
   it('edit_file replaces a unique old_string with new_string', async () => {

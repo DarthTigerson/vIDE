@@ -118,6 +118,8 @@ export interface BridgeSettings {
   modelId: string
   // X-Bridge-Session-ID header value (the conversation's historyId)
   sessionId?: string
+  // Max tool-call rounds per turn; 0 or missing = unlimited
+  toolCallLimit?: number
 }
 
 export interface RecentProject {

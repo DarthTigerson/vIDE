@@ -104,7 +104,7 @@ export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSe
   sessionId: string
   cwd: string
   label: string
-  connectionOverride?: { endpoint: string; apiKey: string; modelId: string }
+  connectionOverride?: { endpoint: string; apiKey: string; modelId: string; toolCallLimit?: number }
   beforeSend?: () => Promise<void>
 }) {
   useBridgeAgentModeShortcut(sessionId)
