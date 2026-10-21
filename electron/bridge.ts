@@ -4,7 +4,10 @@ import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { join, relative } from 'path'
 import { listAllFiles, searchText, buildTree } from './fsOps'
-import { webSearch, formatSearchResults } from './webSearch'
+import { ALL_VIDE_TOOL_GROUPS, ALWAYS_ON_VIDE_TOOL_GROUPS, buildVideTools, toOpenAiTool, toolResultText, type BridgeAgentKind, type VideToolContext, type VideToolGroup, type VideToolSet } from './bridgeVideTools'
+import { decideStopAction } from './mcp/todoEnforcerHook'
+import { trimToolPayloads } from './bridgeTrim'
+import { AUTO_COMPACT_RATIO, compactMessages, fetchContextWindow, isContextOverflow, summarize, wrapSummary } from './bridgeCompact'
 import { minimatch } from 'minimatch'
 
 const execFileAsync = promisify(execFile)
@@ -29,6 +32,13 @@ export interface BridgeSettings {
   apiKey: string
   modelId: string
   sessionId?: string
+  // Max tool-call rounds per turn; 0 or missing = unlimited
+  toolCallLimit?: number
+  // vIDE tool groups to expose, mirroring the per-feature MCP toggles that
+  // gate the same tools for Claude; missing = all. Search and docs are always on.
+  videTools?: VideToolGroup[]
+  // Which agent this is (todo authorship); missing = 'bridge'.
+  agentKind?: BridgeAgentKind
 }
 
 export interface BridgeSendPayload {
@@ -39,6 +49,13 @@ export interface BridgeSendPayload {
   // The renderer's agent-session id. Omitted = '' (one default conversation
   // per window) — what the pre-multi-session callers and tests send.
   sessionId?: string
+}
+
+export interface BridgeCompactPayload {
+  messages: BridgeMessage[]
+  settings: BridgeSettings
+  // Optional "focus on…" instruction for the summary.
+  focus?: string
 }
 
 export interface BridgeStoredSettings {
@@ -80,6 +97,12 @@ export type BridgeEvent =
   | { type: 'new-turn' }
   | { type: 'done' }
   | { type: 'error'; message: string }
+  // vIDE Compacting: a summary is being written / replaced the transcript.
+  | { type: 'compacting' }
+  // `content` is the summary as the user message the transcript now starts with.
+  | { type: 'compacted'; summary: string; content: string }
+  // Tokens the last request used, and the context window when known.
+  | { type: 'usage'; usedTokens: number; contextWindow: number | null }
 
 export type BridgeSessionEvent = BridgeEvent & { sessionId?: string }
 
@@ -99,7 +122,16 @@ interface StreamChunkDelta {
 }
 
 interface StreamChunk {
-  choices: Array<{ delta: StreamChunkDelta; finish_reason: string | null }>
+  // OpenAI sends the usage chunk with an empty choices array; be lenient.
+  choices?: Array<{ delta: StreamChunkDelta; finish_reason: string | null }>
+  usage?: { prompt_tokens?: number; completion_tokens?: number }
+}
+
+interface StreamResult {
+  content: string
+  toolCalls: PendingToolCall[]
+  // prompt + completion tokens of this request, when the server reports usage.
+  usedTokens?: number
 }
 
 function parseSSEChunk(raw: string): StreamChunk | null {
@@ -247,27 +279,7 @@ export const BRIDGE_TOOLS = [
       },
     },
   },
-  {
-    type: 'function',
-    function: {
-      name: 'web_search',
-      description:
-        'Search the web and get back a ranked list of results (title, URL, snippet). Use this to look up ' +
-        'documentation, error messages, library APIs, or any current information not in the project. ' +
-        'To read a full result page afterward, fetch its URL with run_command (e.g. curl).',
-      parameters: {
-        type: 'object',
-        properties: {
-          query: { type: 'string' },
-          maxResults: { type: 'number', description: 'How many results to return (default 8, max 15).' },
-        },
-        required: ['query'],
-      },
-    },
-  },
 ] as const
-
-const MAX_TOOL_ROUNDS = 40
 
 // Fallback: some models emit tool calls as plain text JSON rather than via the
 // OpenAI tool_calls streaming field. This extracts them and strips them from
@@ -316,12 +328,15 @@ function extractTextToolCalls(content: string): { toolCalls: PendingToolCall[]; 
   return { toolCalls, cleanedContent: cleaned.trim() }
 }
 
+// Whole-file read_file results stop here; ranged reads aren't capped.
+const READ_FILE_LINE_CAP = 500
+
 const FILE_TOOL_GUIDANCE =
   'When modifying an existing file, prefer edit_file over write_file. Full-file rewrites waste tokens, fail on large files, and risk changing untouched code. ' +
   'Use this priority order: (1) edit_file for any change to an existing file, (2) write_file only for complete rewrites explicitly requested by the user, ' +
   "(3) create_file only for files that don't exist yet."
 
-async function buildSystemPrompt(cwd: string): Promise<string> {
+async function buildSystemPrompt(cwd: string, videInstructions: string[] = []): Promise<string> {
   let branch = ''
   let lastCommit = ''
   try {
@@ -338,7 +353,7 @@ Project directory: ${cwd}${branch ? `\nCurrent branch: ${branch}` : ''}${lastCom
 == TOOLS ==
 You have the following tools. Use them — do not explain how the user could run commands themselves.
 
-- read_file(path, startLine?, endLine?) — read a file. path must be the FULL absolute path returned by a previous search. For files under ~400 lines, read the whole file first (no startLine/endLine) to understand the full structure before editing. Only use startLine/endLine on large files you've already read once, and always read at least 80 lines of context — narrow ranges miss the surrounding structure needed for correct edits.
+- read_file(path, startLine?, endLine?) — read a file. path must be the FULL absolute path returned by a previous search. For files under ~400 lines, read the whole file first (no startLine/endLine) to understand the full structure before editing. Whole-file reads stop after 500 lines and tell you the total; read further with startLine/endLine, always taking at least 80 lines of context — narrow ranges miss the surrounding structure needed for correct edits. For large Markdown docs (specs, design docs), use doc_outline and read_doc_section instead of reading the whole file.
 - write_file(path, content) — overwrite a file
 - edit_file(path, old_string, new_string) — patch a file. path must be the FULL absolute path.
 - create_file(path, content) — create a new file
@@ -348,7 +363,9 @@ You have the following tools. Use them — do not explain how the user could run
 - grep_search(root, query, caseSensitive?) — search for text in files. caseSensitive defaults to false.
 - glob_search(pattern, root) — find files by glob pattern (e.g. "**/*.tsx", "**/*Git*")
 - run_command(command) — execute any shell command in the project directory
-- web_search(query, maxResults?) — search the web, returns a ranked list of {title, URL, snippet}. Use for docs, error messages, library APIs, or current info. Fetch a result's URL with run_command (curl) to read the full page.
+
+You also have vIDE's own tools (todos, notes, scripts, browser, web search — whichever are listed in your tool definitions). Their usage notes:
+${videInstructions.map((i) => `- ${i}`).join('\n')}
 
 == FINDING FILES ==
 Before editing or reading any file, you MUST know its full absolute path. Follow this workflow:
@@ -410,6 +427,17 @@ export class BridgeManager {
   // into the next run's transcript just because the key was reused.
   private runByConv = new Map<string, symbol>()
 
+  // Without a context (tests, or before main.ts wires one in) only the
+  // self-contained groups (search, docs) are available.
+  constructor(private videCtx?: VideToolContext) {}
+
+  private videToolsFor(settings: BridgeSettings, windowId: number): VideToolSet {
+    const requested = settings.videTools ?? ALL_VIDE_TOOL_GROUPS
+    const groups = [...new Set<VideToolGroup>([...requested, ...ALWAYS_ON_VIDE_TOOL_GROUPS])]
+    if (!this.videCtx) return buildVideTools(ALWAYS_ON_VIDE_TOOL_GROUPS, { dataDir: '' }, windowId)
+    return buildVideTools(groups, this.videCtx, windowId, settings.agentKind)
+  }
+
   registerHandlers(): void {
     ipcMain.on('bridge:send', (event, payload: BridgeSendPayload) => {
       const win = BrowserWindow.fromWebContents(event.sender)
@@ -439,6 +467,7 @@ export class BridgeManager {
     })
 
     ipcMain.handle('bridge:testConnection', (_event, settings: BridgeSettings) => this.testConnection(settings))
+    ipcMain.handle('bridge:compact', (_event, payload: BridgeCompactPayload) => this.compact(payload))
   }
 
   // The following are the same bodies that used to live directly inside the
@@ -521,14 +550,15 @@ export class BridgeManager {
       if (live()) this.emit(win, sessionId, event)
     }
 
+    const vide = this.videToolsFor(settings, win.id)
     const messages = [...payload.messages]
     if (messages[0]?.role !== 'system') {
-      messages.unshift({ role: 'system', content: await buildSystemPrompt(cwd) })
+      messages.unshift({ role: 'system', content: await buildSystemPrompt(cwd, vide.instructions) })
     }
     if (!live()) return
 
     try {
-      await this.runRounds(key, live, emit, messages, settings, agentMode, cwd)
+      await this.runRounds(key, live, emit, messages, settings, agentMode, cwd, vide)
     } finally {
       if (live()) {
         this.runByConv.delete(key)
@@ -544,17 +574,60 @@ export class BridgeManager {
     messages: BridgeMessage[],
     settings: BridgeSettings,
     agentMode: boolean,
-    cwd: string
+    cwd: string,
+    vide: VideToolSet
   ): Promise<void> {
-    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    const limit = settings.toolCallLimit && settings.toolCallLimit > 0 ? settings.toolCallLimit : Infinity
+    const tools = [...BRIDGE_TOOLS, ...vide.tools.map(toOpenAiTool)]
+    // Same rule Claude's vide-todo-enforcer Stop hook applies: a run that
+    // started a ticket can't finish until it has commented on it. Only
+    // enforced for tickets this run started, and at most once per run.
+    let startedTodo = false
+    let stopBlocked = false
+    // vIDE Compacting. The window is probed lazily, the first time the server
+    // reports usage (servers that never do skip the probe entirely).
+    let contextWindow: number | null | undefined
+    let usedTokens = 0
+    let overflowRetried = false
+    for (let round = 0; round < limit; round++) {
       if (!live()) return
       if (round > 0) emit({ type: 'new-turn' })
-      const streamResult = await this.streamOneCompletion(key, live, emit, messages, settings)
+      const trimmed = trimToolPayloads(messages)
+      if (trimmed) messages.splice(0, messages.length, ...trimmed)
+      const streamResult = await this.streamOneCompletion(key, live, emit, messages, settings, tools)
+      if (streamResult === 'overflow') {
+        // The server refused the prompt as too long: compact and retry once.
+        if (overflowRetried) {
+          emit({ type: 'error', message: "Bridge request is larger than the model's context, even after compacting" })
+          return
+        }
+        overflowRetried = true
+        if (contextWindow === undefined) contextWindow = await fetchContextWindow(settings.endpoint, settings.apiKey)
+        if (!(await this.compactInTurn(key, live, emit, messages, settings, contextWindow))) return
+        continue
+      }
       if (streamResult === null || !live()) return // error/abort already emitted (or run superseded)
+      overflowRetried = false
+      if (streamResult.usedTokens !== undefined) {
+        usedTokens = streamResult.usedTokens
+        if (contextWindow === undefined) contextWindow = await fetchContextWindow(settings.endpoint, settings.apiKey)
+        if (!live()) return
+        emit({ type: 'usage', usedTokens, contextWindow })
+      }
 
       if (streamResult.toolCalls.length === 0) {
-        emit({ type: 'done' })
-        return
+        const block = startedTodo && this.videCtx
+          ? await decideStopAction(this.videCtx.dataDir, { stop_hook_active: stopBlocked })
+          : null
+        if (!live()) return
+        if (!block) {
+          emit({ type: 'done' })
+          return
+        }
+        stopBlocked = true
+        messages.push({ role: 'assistant', content: streamResult.content || null })
+        messages.push({ role: 'user', content: block.reason })
+        continue
       }
 
       messages.push({
@@ -574,18 +647,66 @@ export class BridgeManager {
         // Cancelled (or superseded) while awaiting approval: run no tool and
         // report nothing — the renderer settles its own pending tool calls on Stop.
         if (!live()) return
+        if (call.name === 'start_todo') startedTodo = true
         const execResult = approved
-          ? await this.executeTool(call.name, call.args, cwd)
+          ? await this.executeTool(call.name, call.args, cwd, vide)
           : { result: 'Rejected by user.', isError: true }
 
         emit({ type: 'tool-result', id: call.id, result: execResult.result, isError: execResult.isError })
         messages.push({ role: 'tool', tool_call_id: call.id, content: execResult.result })
+        // Rough token estimate for what the next request adds on top of the
+        // last reported usage (~3 chars per token).
+        usedTokens += Math.ceil(execResult.result.length / 3)
 
         if (!live()) return
       }
+
+      if (contextWindow && usedTokens >= contextWindow * AUTO_COMPACT_RATIO) {
+        if (!(await this.compactInTurn(key, live, emit, messages, settings, contextWindow))) return
+        usedTokens = 0
+      }
     }
 
-    emit({ type: 'error', message: `Bridge hit the ${MAX_TOOL_ROUNDS} tool-call round limit for this turn` })
+    emit({ type: 'error', message: `Bridge hit the ${limit} tool-call round limit for this turn` })
+  }
+
+  // Replaces `messages` in place with summary + recent rounds. Returns false
+  // (with an error already emitted, unless cancelled) when it couldn't.
+  private async compactInTurn(
+    key: string,
+    live: () => boolean,
+    emit: (event: BridgeEvent) => void,
+    messages: BridgeMessage[],
+    settings: BridgeSettings,
+    contextWindow: number | null
+  ): Promise<boolean> {
+    if (!live()) return false
+    emit({ type: 'compacting' })
+    const controller = new AbortController()
+    this.controllerByConv.set(key, controller)
+    let summary: string
+    try {
+      summary = await summarize(settings, messages, contextWindow, controller.signal)
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') emit({ type: 'error', message: `Compaction failed: ${(err as Error).message}` })
+      return false
+    }
+    if (!live()) return false
+    messages.splice(0, messages.length, ...compactMessages(messages, summary))
+    emit({ type: 'compacted', summary, content: wrapSummary(summary) })
+    return true
+  }
+
+  // Manual Compact (activity bar / session menu) between turns: summarises
+  // the wire transcript the renderer sends and returns the summary.
+  async compact(payload: BridgeCompactPayload): Promise<{ ok: true; summary: string; content: string } | { ok: false; error: string }> {
+    try {
+      const contextWindow = await fetchContextWindow(payload.settings.endpoint, payload.settings.apiKey)
+      const summary = await summarize(payload.settings, payload.messages, contextWindow, undefined, payload.focus)
+      return { ok: true, summary, content: wrapSummary(summary) }
+    } catch (err) {
+      return { ok: false, error: (err as Error).message }
+    }
   }
 
   private awaitApproval(
@@ -601,19 +722,31 @@ export class BridgeManager {
     })
   }
 
-  private async executeTool(name: string, args: Record<string, unknown>, cwd: string): Promise<ToolExecutionResult> {
+  private async executeTool(name: string, args: Record<string, unknown>, cwd: string, vide: VideToolSet): Promise<ToolExecutionResult> {
     try {
+      const videTool = vide.tools.find((t) => t.name === name)
+      if (videTool) return { result: toolResultText(await videTool.handler(args)), isError: false }
       switch (name) {
         case 'read_file': {
-          const content = await readFile(args.path as string, 'utf-8')
+          const path = args.path as string
+          const content = await readFile(path, 'utf-8')
           const { startLine, endLine } = args as { startLine?: number; endLine?: number }
-          if (startLine === undefined && endLine === undefined) {
-            return { result: content, isError: false }
-          }
           const lines = content.split('\n')
+          if (startLine === undefined && endLine === undefined) {
+            if (lines.length <= READ_FILE_LINE_CAP) return { result: content, isError: false }
+            // A whole-file read of a big file would flood a small model's
+            // context; return the head plus how to get the rest.
+            const hint = /\.(md|markdown|mdx)$/i.test(path)
+              ? 'Use doc_outline + read_doc_section to read the section you need, or read_file with startLine/endLine.'
+              : 'Use read_file with startLine/endLine to read further.'
+            return {
+              result: `${lines.slice(0, READ_FILE_LINE_CAP).join('\n')}\n[showing lines 1-${READ_FILE_LINE_CAP} of ${lines.length}. ${hint}]`,
+              isError: false,
+            }
+          }
           const start = Math.max(1, startLine ?? 1)
           const end = Math.min(lines.length, endLine ?? lines.length)
-          return { result: lines.slice(start - 1, end).join('\n'), isError: false }
+          return { result: `[${path} lines ${start}-${end} of ${lines.length}]\n${lines.slice(start - 1, end).join('\n')}`, isError: false }
         }
         case 'write_file': {
           await writeFile(args.path as string, args.content as string, 'utf-8')
@@ -720,11 +853,6 @@ export class BridgeManager {
           await rename(from, to)
           return { result: `Moved ${from} to ${to}`, isError: false }
         }
-        case 'web_search': {
-          const query = args.query as string
-          const results = await webSearch(query, args.maxResults as number | undefined)
-          return { result: formatSearchResults(results, query), isError: false }
-        }
         default:
           return { result: `Unknown tool: ${name}`, isError: true }
       }
@@ -738,8 +866,9 @@ export class BridgeManager {
     live: () => boolean,
     emit: (event: BridgeEvent) => void,
     messages: BridgeMessage[],
-    settings: BridgeSettings
-  ): Promise<{ content: string; toolCalls: PendingToolCall[] } | null> {
+    settings: BridgeSettings,
+    tools: unknown[]
+  ): Promise<StreamResult | 'overflow' | null> {
     if (!live()) return null
     const controller = new AbortController()
     this.controllerByConv.set(key, controller)
@@ -754,7 +883,7 @@ export class BridgeManager {
       response = await fetch(`${settings.endpoint}/chat/completions`, {
         method: 'POST',
         headers: reqHeaders,
-        body: JSON.stringify({ model: settings.modelId, messages, tools: BRIDGE_TOOLS, stream: true }),
+        body: JSON.stringify({ model: settings.modelId, messages, tools, stream: true, stream_options: { include_usage: true } }),
         signal: controller.signal,
       })
     } catch (err) {
@@ -767,6 +896,8 @@ export class BridgeManager {
     }
 
     if (!response.ok) {
+      const body = await response.text().catch(() => '')
+      if (isContextOverflow(response.status, body)) return 'overflow'
       emit({ type: 'error', message: `Bridge request failed: ${response.status}` })
       return null
     }
@@ -780,6 +911,7 @@ export class BridgeManager {
     const decoder = new TextDecoder()
     let buffer = ''
     let content = ''
+    let usedTokens: number | undefined
     const toolCallAccs: Record<number, { id: string; name: string; args: string }> = {}
 
     try {
@@ -794,7 +926,10 @@ export class BridgeManager {
         for (const line of lines) {
           const chunk = parseSSEChunk(line)
           if (!chunk) continue
-          const delta = chunk.choices[0]?.delta
+          if (chunk.usage?.prompt_tokens !== undefined) {
+            usedTokens = chunk.usage.prompt_tokens + (chunk.usage.completion_tokens ?? 0)
+          }
+          const delta = chunk.choices?.[0]?.delta
           if (delta?.content) {
             content += delta.content
             emit({ type: 'text-delta', delta: delta.content })
@@ -839,11 +974,11 @@ export class BridgeManager {
       const { toolCalls: textCalls, cleanedContent } = extractTextToolCalls(content)
       if (textCalls.length > 0) {
         emit({ type: 'content-replace', content: cleanedContent })
-        return { content: cleanedContent, toolCalls: textCalls }
+        return { content: cleanedContent, toolCalls: textCalls, usedTokens }
       }
     }
 
-    return { content, toolCalls }
+    return { content, toolCalls, usedTokens }
   }
 
   disposeWindow(winId: number): void {

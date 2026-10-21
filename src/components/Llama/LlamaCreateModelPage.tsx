@@ -17,6 +17,7 @@ import {
   CONTEXT_SIZE_OPTIONS,
   REASONING_EFFORTS,
   defaultLlamaModelConfig,
+  toLaunchConfig,
   useLlamaModelsStore,
   type LlamaModelConfig,
   type ReasoningEffort,
@@ -43,6 +44,23 @@ function NumberField({ id, label, value, onChange, step = 1 }: {
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         className="h-8 px-2 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
+      />
+    </div>
+  )
+}
+
+// Stands in for a field llama.cpp sizes itself while Auto-optimize is on.
+function AutoField({ id, label }: { id: string; label: string }) {
+  return (
+    <div className="flex flex-col gap-1.5 w-40 shrink-0">
+      <label htmlFor={id} className="text-sm text-fg">{label}</label>
+      <input
+        id={id}
+        type="text"
+        value="auto"
+        readOnly
+        disabled
+        className="h-8 px-2 text-sm text-fg-muted bg-bg border border-border rounded-lg opacity-60"
       />
     </div>
   )
@@ -226,19 +244,7 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
   }
 
   async function handleLaunch() {
-    await startModel(form.id, {
-      modelPath: form.modelPath,
-      serverExecutable: form.serverExecutable,
-      host: form.host,
-      port: form.port,
-      apiKey: form.apiKey,
-      contextSize: form.contextSize,
-      batchSize: form.batchSize,
-      gpuLayers: form.gpuLayers,
-      parallelRequests: form.parallelRequests,
-      reasoningEffort: form.reasoningEffort,
-      alias: form.alias,
-    })
+    await startModel(form.id, toLaunchConfig(form))
   }
 
   const running = run?.running ?? false
@@ -361,16 +367,30 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
               className="h-8 px-2 text-sm font-mono text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
             />
           </div>
-          <SelectField<number>
-            id="llama-contextSize"
-            label="Context Size (-c)"
-            value={form.contextSize}
-            options={CONTEXT_SIZE_OPTIONS}
-            onChange={(v) => patch({ contextSize: v })}
-            parse={Number}
+          <ToggleField
+            label="Auto-optimize"
+            description="Fit context size and GPU layers to free memory, with a compact KV cache"
+            checked={form.autoOptimize ?? false}
+            onChange={(v) => patch({ autoOptimize: v })}
           />
+          {form.autoOptimize ? (
+            <AutoField id="llama-contextSize" label="Context Size (-c)" />
+          ) : (
+            <SelectField<number>
+              id="llama-contextSize"
+              label="Context Size (-c)"
+              value={form.contextSize}
+              options={CONTEXT_SIZE_OPTIONS}
+              onChange={(v) => patch({ contextSize: v })}
+              parse={Number}
+            />
+          )}
           <NumberField id="llama-batchSize" label="Batch Size" value={form.batchSize} onChange={(v) => patch({ batchSize: v })} />
-          <NumberField id="llama-gpuLayers" label="GPU Layers (-ngl)" value={form.gpuLayers} onChange={(v) => patch({ gpuLayers: v })} />
+          {form.autoOptimize ? (
+            <AutoField id="llama-gpuLayers" label="GPU Layers (-ngl)" />
+          ) : (
+            <NumberField id="llama-gpuLayers" label="GPU Layers (-ngl)" value={form.gpuLayers} onChange={(v) => patch({ gpuLayers: v })} />
+          )}
           <NumberField id="llama-parallelRequests" label="Parallel (-np)" value={form.parallelRequests} onChange={(v) => patch({ parallelRequests: v })} />
           <SelectField
             id="llama-reasoningEffort"

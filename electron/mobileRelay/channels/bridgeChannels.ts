@@ -1,6 +1,6 @@
 import type { BrowserWindow } from 'electron'
 import { registerChannel } from '../dispatch'
-import type { BridgeManager, BridgeMessage, BridgeSettings } from '../../bridge'
+import type { BridgeCompactPayload, BridgeManager, BridgeMessage, BridgeSettings } from '../../bridge'
 import { getBridgeSettings, setBridgeSettings } from '../../bridge'
 import type { BridgeStoredSettings } from '../../bridge'
 
@@ -33,6 +33,7 @@ export function registerBridgeRelayChannels(bridgeManager: BridgeManager, win: B
   registerChannel('bridge:cancel', (sessionId?: string) => bridgeManager.cancel(win, sessionId))
 
   registerChannel('bridge:testConnection', (settings: BridgeSettings) => bridgeManager.testConnection(settings))
+  registerChannel('bridge:compact', (payload: BridgeCompactPayload) => bridgeManager.compact(payload))
 
   registerChannel('bridge:getSettings', () => getBridgeSettings())
   registerChannel('bridge:setSettings', (settings: BridgeStoredSettings) => setBridgeSettings(settings))

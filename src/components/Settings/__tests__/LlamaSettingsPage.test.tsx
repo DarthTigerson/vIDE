@@ -19,7 +19,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
-  useLlamaSettingsStore.setState({ enabled: true })
+  useLlamaSettingsStore.setState({ enabled: true, toolCallLimit: 0 })
 })
 
 describe('LlamaSettingsPage', () => {
@@ -33,6 +33,12 @@ describe('LlamaSettingsPage', () => {
     render(<LlamaSettingsPage />)
     fireEvent.click(screen.getByRole('switch', { name: 'Enable Llama' }))
     expect(useLlamaSettingsStore.getState().enabled).toBe(false)
+  })
+
+  it('sets the Llama tool call limit from the Agent block', () => {
+    render(<LlamaSettingsPage />)
+    fireEvent.change(screen.getByLabelText('Tool call limit'), { target: { value: '12' } })
+    expect(useLlamaSettingsStore.getState().toolCallLimit).toBe(12)
   })
 
   it('shows where llama.cpp was found', async () => {

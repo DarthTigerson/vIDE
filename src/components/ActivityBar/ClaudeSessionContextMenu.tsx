@@ -111,7 +111,7 @@ export function ClaudeSessionContextMenu({
         </button>
       )}
       {!isTerminal && <div className="my-1 h-px bg-border" />}
-      {isClaude && (
+      {!isTerminal && (
         <button
           type="button"
           onClick={() => { onCompact(); onClose() }}

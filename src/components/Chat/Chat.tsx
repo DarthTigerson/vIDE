@@ -11,9 +11,10 @@ import { useFontSizeStore } from '@/stores/fontSizeStore'
 import { useInstanceFontSizeStore } from '@/stores/instanceFontSizeStore'
 import { useDisplayStore, type PanelStyle } from '@/stores/displayStore'
 import { BridgeChat } from './BridgeChat'
-import { useLlamaModelsStore } from '@/stores/llamaModelsStore'
+import { toLaunchConfig, useLlamaModelsStore } from '@/stores/llamaModelsStore'
 import { useLlamaStore } from '@/stores/llamaStore'
-import { agentLabel, isBridgeLike, isClaudeLike, isLlamaKind, isTerminalKind, llamaModelId } from '@/lib/agentKinds'
+import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
+import { agentLabel, isBridgeLike, isClaudeLike, isLlamaKind, isTerminalKind, llamaConnectionFor, llamaModelId } from '@/lib/agentKinds'
 import type { AssistantKind } from '@/types/api'
 import { TerminalTab } from '@/components/Terminal/TerminalTab'
 import { liveTerminals } from '@/lib/liveTerminals'
@@ -65,9 +66,8 @@ export function Chat() {
   const llamaModel = isLlama
     ? llamaModels.find((m) => m.id === llamaModelId(activeKind) && m.enabled)
     : undefined
-  const llamaConnection = llamaModel
-    ? { endpoint: `http://${llamaModel.host}:${llamaModel.port}/v1`, apiKey: llamaModel.apiKey, modelId: llamaModel.alias || llamaModel.displayName || llamaModel.id }
-    : undefined
+  const llamaToolCallLimit = useLlamaSettingsStore((s) => s.toolCallLimit)
+  const llamaConnection = llamaConnectionFor(activeKind, llamaModels, llamaToolCallLimit)
   // Claude sessions own an xterm/PTY here; Bridge/llama render BridgeChat;
   // terminal sessions render a plain TerminalTab each.
   const claudeInstances = instances.filter((inst) => isClaudeLike(inst.kind))
@@ -100,19 +100,7 @@ export function Chat() {
     } catch {}
 
     // Server not reachable — launch it, then poll until ready (up to 60 s).
-    useLlamaStore.getState().startModel(modelId, {
-      modelPath: model.modelPath,
-      serverExecutable: model.serverExecutable,
-      host: model.host,
-      port: model.port,
-      apiKey: model.apiKey,
-      contextSize: model.contextSize,
-      batchSize: model.batchSize,
-      gpuLayers: model.gpuLayers,
-      parallelRequests: model.parallelRequests,
-      reasoningEffort: model.reasoningEffort,
-      alias: model.alias,
-    })
+    useLlamaStore.getState().startModel(modelId, toLaunchConfig(model))
 
     for (let i = 0; i < 120; i++) {
       await new Promise((r) => setTimeout(r, 500))
@@ -445,8 +433,8 @@ export function Chat() {
           </p>
         </div>
       )}
-      {isClaudeLike(activeKind) && usageOpen && <UsagePanel />}
-      {isClaudeLike(activeKind) && costOpen && <CostPanel />}
+      {usageOpen && <UsagePanel />}
+      {costOpen && <CostPanel />}
     </div>
   )
 }

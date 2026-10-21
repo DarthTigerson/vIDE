@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { AssistantKind } from '@/types/api'
 import { hueForInstanceIndex, nextHueForInstances } from '@/lib/claudeInstanceHues'
 import { cleanSessionTitle } from '@/lib/claudeSessionName'
-import { agentModeOnLaunchFor, isBridgeLike, isClaudeLike, isTerminalKind } from '@/lib/agentKinds'
+import { agentModeOnLaunchFor, isBridgeLike, isClaudeLike, isTerminalKind, llamaConnectionFor } from '@/lib/agentKinds'
 import { clearLiveTerminal } from '@/lib/liveTerminals'
 import { useBridgeStore } from './bridgeStore'
 
@@ -111,11 +111,16 @@ export function selectActiveSession(s: Pick<ClaudeState, 'instances' | 'activeIn
   return s.instances.find((inst) => inst.id === s.activeInstanceId)
 }
 
-// Usage/Cost render inside the chat panel against the Claude CLI, so they
-// close whenever the session that ends up active isn't Claude (or there is
-// none). Shared by setActiveInstance and closeInstance.
+// Usage/Cost show account-wide Claude usage at the bottom of the chat panel,
+// under any agent session (Claude, Bridge, llama). A plain terminal isn't an
+// agent, so switching to one — or to no session — closes them.
+// Shared by newSession, setActiveInstance and closeInstance.
 function usagePanelsFor(next: AgentSession | undefined): Partial<Pick<ClaudeState, 'usageOpen' | 'costOpen'>> {
-  return isClaudeLike(next?.kind) ? {} : { usageOpen: false, costOpen: false }
+  return next && !isTerminalKind(next.kind) ? {} : { usageOpen: false, costOpen: false }
+}
+
+function canShowUsage(active: AgentSession | undefined): boolean {
+  return !!active && !isTerminalKind(active.kind)
 }
 
 // Tears down one session's backing process/conversation: Claude and terminal
@@ -199,7 +204,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
     const instance = createInstance(kind, nextHueForInstances(instances))
     openIfBridgeLike(instance)
     const nextInstances = [...instances, instance]
-    set({ instances: nextInstances, activeInstanceId: instance.id, ...(isClaudeLike(kind) ? {} : { usageOpen: false, costOpen: false }) })
+    set({ instances: nextInstances, activeInstanceId: instance.id, ...usagePanelsFor(instance) })
     persist(cwd, nextInstances)
     return instance.id
   },
@@ -276,7 +281,11 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
   },
 
   compact: () => {
-    if (isClaudeLike(selectActiveSession(get())?.kind)) window.api.claudeWrite(get().activeInstanceId, '/compact\r')
+    const active = selectActiveSession(get())
+    if (!active) return
+    if (isClaudeLike(active.kind)) window.api.claudeWrite(active.id, '/compact\r')
+    // Bridge/llama: vIDE Compacting (summary written by the session's own model).
+    else if (isBridgeLike(active.kind)) void useBridgeStore.getState().compact(active.id, llamaConnectionFor(active.kind))
   },
   clearContext: () => {
     const active = selectActiveSession(get())
@@ -286,7 +295,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
     else useBridgeStore.getState().clearConversation(active.id)
   },
   usage: () => {
-    if (!isClaudeLike(selectActiveSession(get())?.kind)) return
+    if (!canShowUsage(selectActiveSession(get()))) return
     // Usage and Cost are mutually exclusive — opening one closes the other,
     // so at most one of these bottom panels is ever showing at a time.
     set((s) => {
@@ -295,7 +304,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
     })
   },
   cost: () => {
-    if (!isClaudeLike(selectActiveSession(get())?.kind)) return
+    if (!canShowUsage(selectActiveSession(get()))) return
     set((s) => {
       const costOpen = !s.costOpen
       return { costOpen, usageOpen: costOpen ? false : s.usageOpen }

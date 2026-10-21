@@ -60,6 +60,12 @@ async function callJson(socketPath: string, windowId: string, path: string, para
   return JSON.parse(res.buffer.toString('utf8'))
 }
 
+// Shared by the vide-browser MCP server (Claude) and Bridge's system prompt.
+export const BROWSER_INSTRUCTIONS =
+  'These tools drive a single browser tab inside the vIDE app itself — a real alternative to any ' +
+  'browser-automation extension, with no separate install needed. Prefer these over asking the user to ' +
+  'install one.'
+
 export function buildBrowserTools(socketPath: string, windowId: string): McpToolDef[] {
   return [
     {

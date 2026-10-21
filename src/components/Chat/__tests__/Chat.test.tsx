@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, cleanup, waitFor, act, screen } from '@testing-library/react'
 import { Chat } from '../Chat'
+
+// The panels fetch usage over IPC; only whether Chat mounts them matters here.
+vi.mock('@/components/UsagePanel/UsagePanel', () => ({ UsagePanel: () => <div>usage-panel</div> }))
 import { useFileStore } from '@/stores/fileStore'
 import { useClaudeStore } from '@/stores/claudeStore'
 import { SHIFT_ENTER_SEQUENCE } from '../shiftEnterSequence'
@@ -313,12 +316,11 @@ describe('Chat (claude terminal)', () => {
     expect(screen.queryByRole('textbox')).toBeNull()
   })
 
-  it('hides Usage for a non-Claude active session even if usageOpen is set', () => {
+  it('shows Usage under a Bridge session too', () => {
     useBridgeStore.getState().openConversation('b1', false)
     useClaudeStore.setState({ instances: [{ id: 'b1', kind: 'bridge', hue: '#5B9BD5' }], activeInstanceId: 'b1', usageOpen: true })
     render(<Chat />)
-    // UsagePanel is not mocked here; its empty state is the marker.
-    expect(screen.queryByText('No usage data yet')).toBeNull()
+    expect(screen.getByText('usage-panel')).toBeInTheDocument()
   })
 })
 

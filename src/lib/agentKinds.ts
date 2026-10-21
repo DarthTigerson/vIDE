@@ -77,3 +77,22 @@ export function agentModeOnLaunchFor(kind: AssistantKind): boolean {
   if (kind === 'bridge') return useBridgeSettingsStore.getState().agentModeOnLaunch
   return false
 }
+
+// The connection a llama session's chat talks to — Bridge sessions use the
+// Bridge settings instead (undefined). A removed or disabled model has none:
+// the session is kept, but nothing is sent or launched for it.
+export function llamaConnectionFor(
+  kind: AssistantKind,
+  models: LlamaModelConfig[] = useLlamaModelsStore.getState().models,
+  toolCallLimit: number = useLlamaSettingsStore.getState().toolCallLimit,
+): { endpoint: string; apiKey: string; modelId: string; toolCallLimit: number } | undefined {
+  if (!isLlamaKind(kind)) return undefined
+  const model = models.find((m) => m.id === llamaModelId(kind) && m.enabled)
+  if (!model) return undefined
+  return {
+    endpoint: `http://${model.host}:${model.port}/v1`,
+    apiKey: model.apiKey,
+    modelId: model.alias || model.displayName || model.id,
+    toolCallLimit,
+  }
+}

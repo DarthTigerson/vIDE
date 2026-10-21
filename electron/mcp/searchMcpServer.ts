@@ -1,5 +1,5 @@
 import { McpStdioServer } from './protocol'
-import { buildSearchTools } from './searchTools'
+import { buildSearchTools, SEARCH_INSTRUCTIONS } from './searchTools'
 
 // Unlike vide-browser (per-window socket) and vide-todos/vide-notes (a data
 // dir fixed at registration), web search is fully self-contained: it just
@@ -9,10 +9,7 @@ import { buildSearchTools } from './searchTools'
 new McpStdioServer({
   name: 'vide-search',
   version: '1.0.0',
-  instructions:
-    'Use web_search to look things up online — docs, error messages, library APIs, current information. ' +
-    'It returns a ranked list of {title, URL, snippet}; fetch a result page with browser_navigate if you ' +
-    'need its full contents.',
+  instructions: SEARCH_INSTRUCTIONS,
   tools: buildSearchTools(),
   input: process.stdin,
   output: process.stdout,

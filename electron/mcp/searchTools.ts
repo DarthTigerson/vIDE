@@ -1,6 +1,12 @@
 import type { McpToolDef } from './protocol'
 import { webSearch, formatSearchResults } from '../webSearch'
 
+// Shared by the vide-search MCP server (Claude) and Bridge's system prompt.
+export const SEARCH_INSTRUCTIONS =
+  'Use web_search to look things up online — docs, error messages, library APIs, current information. ' +
+  'It returns a ranked list of {title, URL, snippet}; fetch a result page with browser_navigate if you ' +
+  'need its full contents.'
+
 export function buildSearchTools(): McpToolDef[] {
   return [
     {

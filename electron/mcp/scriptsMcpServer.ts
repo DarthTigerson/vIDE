@@ -1,5 +1,5 @@
 import { McpStdioServer } from './protocol'
-import { buildScriptsTools, socketRunner } from './scriptsTools'
+import { buildScriptsTools, socketRunner, SCRIPTS_INSTRUCTIONS } from './scriptsTools'
 
 const dataDir = process.env.VIDE_SCRIPTS_DATA_DIR
 if (!dataDir) {
@@ -18,10 +18,7 @@ const run = windowId && socketPath ? socketRunner(socketPath, windowId) : undefi
 new McpStdioServer({
   name: 'vide-scripts',
   version: '1.0.0',
-  instructions:
-    "These are the user's saved routines (shell scripts with a title and a description of when to use them). " +
-    'When the user asks for something a script describes, offer or use run_script instead of retyping its commands. ' +
-    'When asked to write or fix a routine, use create_script / update_script. You cannot delete scripts.',
+  instructions: SCRIPTS_INSTRUCTIONS,
   tools: buildScriptsTools(dataDir, run),
   input: process.stdin,
   output: process.stdout,

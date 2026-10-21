@@ -1,6 +1,10 @@
 import { create } from 'zustand'
 import { useBridgeSettingsStore } from './bridgeSettingsStore'
-import type { BridgeMessage, BridgeSessionEvent } from '@/types/api'
+import { useTodoMcpStore } from './todoMcpStore'
+import { useNotesMcpStore } from './notesMcpStore'
+import { useScriptsMcpStore } from './scriptsMcpStore'
+import { useBrowserMcpStore } from './browserMcpStore'
+import type { BridgeCompactResult, BridgeMessage, BridgeSessionEvent, BridgeSettings, VideToolGroup } from '@/types/api'
 
 // Pre-multi-session key: one global conversation. Migrated into history once
 // at import (see migrateLegacyCurrent) and then deleted.
@@ -21,6 +25,11 @@ export interface BridgeChatMessage {
   role: 'user' | 'assistant'
   content: string
   toolCalls?: BridgeToolCallBlock[]
+  // vIDE Compacting marker: `content` is the summary as the user message the
+  // model sees (what the transcript is sent from), `summary` the text shown
+  // in the divider. Everything before the latest marker stays on screen but
+  // is no longer sent.
+  compaction?: { summary: string }
 }
 
 export interface StoredSession {
@@ -40,9 +49,13 @@ export interface BridgeConversation {
   agentMode: boolean
   streaming: boolean
   draftInput: string
+  // A compaction summary is being written.
+  compacting?: boolean
+  // Tokens the last request used, against the model's context when known.
+  contextUsage?: { usedTokens: number; contextWindow: number | null }
 }
 
-type ConnectionOverride = { endpoint: string; apiKey: string; modelId: string }
+type ConnectionOverride = { endpoint: string; apiKey: string; modelId: string; toolCallLimit?: number }
 
 function newHistoryId(): string {
   return `vide-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
@@ -120,8 +133,32 @@ function settleOpenToolCalls(messages: BridgeChatMessage[]): BridgeChatMessage[]
   )
 }
 
+// Bridge/llama get the same vIDE tools Claude does, gated by the same
+// per-feature MCP toggles (web search is always on main-side).
+function enabledVideTools(): VideToolGroup[] {
+  const groups: VideToolGroup[] = []
+  if (useTodoMcpStore.getState().enabled) groups.push('todos')
+  if (useNotesMcpStore.getState().enabled) groups.push('notes')
+  if (useScriptsMcpStore.getState().enabled) groups.push('scripts')
+  if (useBrowserMcpStore.getState().enabled) groups.push('browser')
+  return groups
+}
+
+// What the model is sent: from the latest compaction marker on (as its
+// summary user message). A user message right after it is merged into it, so
+// templates that require strictly alternating roles still accept it.
 function toWireMessages(messages: BridgeChatMessage[]): BridgeMessage[] {
-  return messages.map((m) => ({ role: m.role, content: m.content }))
+  let start = 0
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].compaction) { start = i; break }
+  }
+  const wire: BridgeMessage[] = []
+  for (const m of messages.slice(start)) {
+    const prev = wire[wire.length - 1]
+    if (prev && prev.role === 'user' && m.role === 'user') prev.content = `${prev.content}\n\n${m.content}`
+    else wire.push({ role: m.role, content: m.content })
+  }
+  return wire
 }
 
 function ensureAssistantMessage(messages: BridgeChatMessage[]): BridgeChatMessage[] {
@@ -146,6 +183,8 @@ interface BridgeStore {
   clearConversation: (sessionId: string) => void
   restorePrevious: (sessionId: string) => boolean
   sendMessage: (sessionId: string, cwd: string, text: string, override?: ConnectionOverride) => void
+  // Manual vIDE Compacting between turns (the activity-bar Compact button).
+  compact: (sessionId: string, override?: ConnectionOverride, focus?: string) => Promise<void>
   regenerate: (sessionId: string, cwd: string, messageIndex: number, override?: ConnectionOverride) => void
   toggleAgentMode: (sessionId: string) => void
   approveToolCall: (sessionId: string, toolCallId: string) => void
@@ -173,17 +212,25 @@ export const useBridgeStore = create<BridgeStore>((set, get) => {
     set({ history })
   }
 
-  const startTurn = (sessionId: string, cwd: string, wire: BridgeChatMessage[], override?: ConnectionOverride) => {
-    const conv = get().conversations[sessionId]
-    if (!conv) return
-    patch(sessionId, () => ({ messages: [...wire, { role: 'assistant', content: '' }], streaming: true }))
+  const wireSettings = (conv: BridgeConversation, override?: ConnectionOverride): BridgeSettings => {
     const s = override ?? useBridgeSettingsStore.getState()
-    window.api.bridgeSend(cwd, toWireMessages(wire), conv.agentMode, {
+    return {
       endpoint: s.endpoint,
       apiKey: s.apiKey,
       modelId: s.modelId,
       sessionId: conv.historyId,
-    }, sessionId)
+      toolCallLimit: s.toolCallLimit,
+      videTools: enabledVideTools(),
+      // Only llama sessions pass a connection override.
+      agentKind: override ? 'llama' : 'bridge',
+    }
+  }
+
+  const startTurn = (sessionId: string, cwd: string, wire: BridgeChatMessage[], override?: ConnectionOverride) => {
+    const conv = get().conversations[sessionId]
+    if (!conv) return
+    patch(sessionId, () => ({ messages: [...wire, { role: 'assistant', content: '' }], streaming: true }))
+    window.api.bridgeSend(cwd, toWireMessages(wire), conv.agentMode, wireSettings(conv, override), sessionId)
   }
 
   return {
@@ -250,6 +297,27 @@ export const useBridgeStore = create<BridgeStore>((set, get) => {
       startTurn(sessionId, cwd, [...conv.messages.slice(0, messageIndex), { role: 'user', content: target.content }], override)
     },
 
+    compact: async (sessionId, override, focus) => {
+      const conv = get().conversations[sessionId]
+      if (!conv || conv.streaming || conv.compacting || conv.messages.length === 0) return
+      patch(sessionId, () => ({ compacting: true }))
+      let result: BridgeCompactResult
+      try {
+        result = await window.api.bridgeCompact({ messages: toWireMessages(conv.messages), settings: wireSettings(conv, override), focus })
+      } catch (err) {
+        result = { ok: false, error: err instanceof Error ? err.message : String(err) }
+      }
+      if (!get().conversations[sessionId]) return
+      patch(sessionId, (c) => ({
+        compacting: false,
+        messages: result.ok
+          ? [...c.messages, { role: 'user', content: result.content, compaction: { summary: result.summary } }]
+          : [...c.messages, { role: 'assistant', content: `**Compaction failed:** ${result.error}` }],
+        ...(result.ok ? { contextUsage: undefined } : {}),
+      }))
+      persist(sessionId, get().conversations[sessionId])
+    },
+
     toggleAgentMode: (sessionId) => patch(sessionId, (c) => ({ agentMode: !c.agentMode })),
 
     approveToolCall: (sessionId, toolCallId) => window.api.bridgeApprove(toolCallId, sessionId),
@@ -257,7 +325,7 @@ export const useBridgeStore = create<BridgeStore>((set, get) => {
 
     cancel: (sessionId) => {
       window.api.bridgeCancel(sessionId)
-      patch(sessionId, (c) => ({ messages: settleOpenToolCalls(dropTrailingEmptyAssistant(c.messages)), streaming: false }))
+      patch(sessionId, (c) => ({ messages: settleOpenToolCalls(dropTrailingEmptyAssistant(c.messages)), streaming: false, compacting: false }))
     },
 
     setDraftInput: (sessionId, text) => patch(sessionId, () => ({ draftInput: text })),
@@ -322,15 +390,33 @@ function handleEvent(
         ),
       }))
       return
+    case 'compacting':
+      patch(sessionId, () => ({ compacting: true }))
+      return
+    case 'compacted':
+      // Mid-turn: the summary covers everything before the in-flight
+      // assistant message, so the marker goes just ahead of it.
+      patch(sessionId, (c) => {
+        const marker: BridgeChatMessage = { role: 'user', content: event.content, compaction: { summary: event.summary } }
+        const last = c.messages[c.messages.length - 1]
+        const messages = last?.role === 'assistant'
+          ? [...c.messages.slice(0, -1), marker, last]
+          : [...c.messages, marker]
+        return { messages, compacting: false, contextUsage: undefined }
+      })
+      return
+    case 'usage':
+      patch(sessionId, () => ({ contextUsage: { usedTokens: event.usedTokens, contextWindow: event.contextWindow } }))
+      return
     case 'done':
       // If the model returned nothing, drop the empty placeholder so it doesn't
       // linger in the transcript as a ghost bubble.
-      patch(sessionId, (c) => ({ messages: dropTrailingEmptyAssistant(c.messages), streaming: false }))
+      patch(sessionId, (c) => ({ messages: dropTrailingEmptyAssistant(c.messages), streaming: false, compacting: false }))
       persist(sessionId, get().conversations[sessionId])
       return
     case 'error':
       updateLast((last) => ({ ...last, content: `${last.content}\n\n**Error:** ${event.message}` }))
-      patch(sessionId, () => ({ streaming: false }))
+      patch(sessionId, () => ({ streaming: false, compacting: false }))
       return
   }
 }

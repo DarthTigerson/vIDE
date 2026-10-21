@@ -19,11 +19,11 @@ describe('ClaudeSessionContextMenu', () => {
     expect(screen.queryByText('Restore Previous Conversation')).toBeNull()
   })
 
-  it('Bridge/llama sessions get Restore Previous Conversation and no Compact', () => {
+  it('Bridge/llama sessions get Restore Previous Conversation and vIDE Compact', () => {
     render(<ClaudeSessionContextMenu {...props} kind="llama:q1" />)
     expect(screen.getByText('Restore Previous Conversation')).toBeInTheDocument()
     expect(screen.queryByText('Continue Previous Session')).toBeNull()
-    expect(screen.queryByText('Compact')).toBeNull()
+    expect(screen.getByText('Compact')).toBeInTheDocument()
     expect(screen.getByText('Clear')).toBeInTheDocument()
   })
 

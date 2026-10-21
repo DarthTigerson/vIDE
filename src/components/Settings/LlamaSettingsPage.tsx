@@ -15,6 +15,8 @@ export function LlamaSettingsPage() {
   const setEnabled = useLlamaSettingsStore((s) => s.setEnabled)
   const agentModeOnLaunch = useLlamaSettingsStore((s) => s.agentModeOnLaunch)
   const setAgentModeOnLaunch = useLlamaSettingsStore((s) => s.setAgentModeOnLaunch)
+  const toolCallLimit = useLlamaSettingsStore((s) => s.toolCallLimit)
+  const setToolCallLimit = useLlamaSettingsStore((s) => s.setToolCallLimit)
 
   return (
     <div className="h-full overflow-auto bg-panel p-6">
@@ -35,9 +37,25 @@ export function LlamaSettingsPage() {
             onProgress={onProgress}
             onInstalled={onInstalled}
           />
-          <SettingRow label="Agent mode on launch" description="Start in agent mode when switching to a Llama model.">
-            <Switch label="Agent Mode on Launch" checked={agentModeOnLaunch} onChange={setAgentModeOnLaunch} />
-          </SettingRow>
+        </FeatureBlock>
+
+        <FeatureBlock title="Agent" description="How Llama models behave as an agent.">
+          <fieldset disabled={!enabled} className={['m-0 min-w-0 border-0 p-0', enabled ? '' : 'opacity-50'].join(' ')}>
+            <SettingRow label="Tool call limit" htmlFor="llama-toolCallLimit" description="0 = unlimited.">
+              <input
+                id="llama-toolCallLimit"
+                type="number"
+                min={0}
+                step={1}
+                value={toolCallLimit}
+                onChange={(e) => setToolCallLimit(Math.max(0, Number(e.target.value)))}
+                className="w-20 rounded-lg border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent/60 focus:outline-none"
+              />
+            </SettingRow>
+            <SettingRow label="Agent mode on launch" description="Start in agent mode when switching to a Llama model.">
+              <Switch label="Agent Mode on Launch" checked={agentModeOnLaunch} onChange={setAgentModeOnLaunch} />
+            </SettingRow>
+          </fieldset>
         </FeatureBlock>
       </div>
     </div>

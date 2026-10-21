@@ -16,7 +16,7 @@ vi.mock('fs/promises', () => ({
 let uuidCounter = 0
 vi.stubGlobal('crypto', { randomUUID: () => `uuid-${++uuidCounter}` })
 
-import { createProject, createTodo, trashProject } from '../../todosStore'
+import { createProject, createTodo, trashProject, readTodosData, updateTodo } from '../../todosStore'
 import { buildTodoTools } from '../todoTools'
 
 const DATA_DIR = '/fake/userData'
@@ -325,5 +325,57 @@ describe('buildTodoTools', () => {
   it('archive_todo throws for an unknown id', async () => {
     const tools = buildTodoTools(DATA_DIR)
     await expect(findTool(tools, 'archive_todo').handler({ id: 'NOPE-1' })).rejects.toThrow(/no such todo/i)
+  })
+
+  describe('task breakdown', () => {
+    it('create_todo_project makes a board with an upper-cased key and rejects bad keys', async () => {
+      const tools = buildTodoTools(DATA_DIR)
+      expect(await findTool(tools, 'create_todo_project').handler({ name: 'Service Recall', key: 'recall' }))
+        .toBe('Created project RECALL — Service Recall')
+      await expect(findTool(tools, 'create_todo_project').handler({ name: 'x', key: 'a b' })).rejects.toThrow('2-10')
+    })
+
+    it('create_todos files a whole breakdown in order, attributed to the calling agent', async () => {
+      await createProject(DATA_DIR, 'Recall', 'RC')
+      const tools = buildTodoTools(DATA_DIR, 'llama')
+      const out = await findTool(tools, 'create_todos').handler({
+        projectKey: 'RC',
+        todos: [{ title: 'M0 scaffold', description: 'Section 20 M0' }, { title: 'M1 accounts' }],
+      })
+      expect(out).toBe('Created 2 tickets in RC:\nRC-1 M0 scaffold\nRC-2 M1 accounts')
+      const { todos } = await readTodosData(DATA_DIR)
+      expect(todos.map((t) => [t.id, t.status, t.author, t.description])).toEqual([
+        ['RC-1', 'backlog', 'llama', 'Section 20 M0'],
+        ['RC-2', 'backlog', 'llama', ''],
+      ])
+    })
+
+    it('next_todo hands out todo before backlog, in board order, and says when the board is finished', async () => {
+      const project = await createProject(DATA_DIR, 'Recall', 'RC')
+      await createTodo(DATA_DIR, project.id, 'first backlog')
+      await createTodo(DATA_DIR, project.id, 'second backlog')
+      const tools = buildTodoTools(DATA_DIR)
+      const next = findTool(tools, 'next_todo')
+
+      expect(await next.handler({ projectKey: 'RC' })).toContain('RC-1: first backlog')
+      await updateTodo(DATA_DIR, 'RC-2', { status: 'todo' })
+      expect(await next.handler({ projectKey: 'RC' })).toContain('RC-2: second backlog')
+
+      await updateTodo(DATA_DIR, 'RC-1', { status: 'done' })
+      await updateTodo(DATA_DIR, 'RC-2', { status: 'in_progress' })
+      expect(await next.handler({ projectKey: 'RC' })).toBe('Still in progress: RC-2\n\nNo tickets left in todo or backlog for RC.')
+    })
+
+    it('list_project_todos groups by status and only counts done tickets by default', async () => {
+      const project = await createProject(DATA_DIR, 'Recall', 'RC')
+      await createTodo(DATA_DIR, project.id, 'a')
+      await createTodo(DATA_DIR, project.id, 'b')
+      await createTodo(DATA_DIR, project.id, 'c')
+      await updateTodo(DATA_DIR, 'RC-1', { status: 'done' })
+      await updateTodo(DATA_DIR, 'RC-2', { status: 'in_progress' })
+
+      const out = await findTool(buildTodoTools(DATA_DIR), 'list_project_todos').handler({ projectKey: 'RC' })
+      expect(out).toBe('RC — Recall\nin_progress:\n  RC-2 b\nbacklog:\n  RC-3 c\ndone: 1')
+    })
   })
 })

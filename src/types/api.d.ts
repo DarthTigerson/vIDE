@@ -118,7 +118,15 @@ export interface BridgeSettings {
   modelId: string
   // X-Bridge-Session-ID header value (the conversation's historyId)
   sessionId?: string
+  // Max tool-call rounds per turn; 0 or missing = unlimited
+  toolCallLimit?: number
+  // vIDE tool groups to expose (the enabled MCP toggles); missing = all
+  videTools?: VideToolGroup[]
+  // Which agent this is (todo authorship); missing = 'bridge'
+  agentKind?: 'bridge' | 'llama'
 }
+
+export type VideToolGroup = 'todos' | 'notes' | 'scripts' | 'browser' | 'search' | 'docs'
 
 export interface RecentProject {
   path: string
@@ -127,7 +135,7 @@ export interface RecentProject {
 
 export type TodoStatus = 'backlog' | 'todo' | 'in_progress' | 'done'
 export type TodoLabel = 'bug' | 'feature' | 'nice-to-have'
-export type TodoAuthor = 'developer' | 'claude'
+export type TodoAuthor = 'developer' | 'claude' | 'bridge' | 'llama'
 
 export interface TodoProject {
   id: string
@@ -193,6 +201,11 @@ export type BridgeEvent =
   | { type: 'new-turn' }
   | { type: 'done' }
   | { type: 'error'; message: string }
+  | { type: 'compacting' }
+  | { type: 'compacted'; summary: string; content: string }
+  | { type: 'usage'; usedTokens: number; contextWindow: number | null }
+
+export type BridgeCompactResult = { ok: true; summary: string; content: string } | { ok: false; error: string }
 
 export type BridgeSessionEvent = BridgeEvent & { sessionId?: string }
 
@@ -368,6 +381,7 @@ declare global {
       bridgeTestConnection: (settings: BridgeSettings) => Promise<{ ok: boolean; error?: string }>
       bridgeGetSettings: () => Promise<BridgeSettings | null>
       bridgeSetSettings: (settings: BridgeSettings) => Promise<void>
+      bridgeCompact: (payload: { messages: BridgeMessage[]; settings: BridgeSettings; focus?: string }) => Promise<BridgeCompactResult>
       onBridgeEvent: (cb: (event: BridgeSessionEvent) => void) => () => void
 
       devtoolsAttach: (targetId: number, hostId: number) => Promise<void>

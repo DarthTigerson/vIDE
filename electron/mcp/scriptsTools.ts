@@ -27,6 +27,12 @@ async function findLive(dataDir: string, id: string): Promise<Script> {
 // per-window unix socket vide-browser uses) to run a script in a new
 // terminal tab, and waits for the formatted result. No request timeout here:
 // the main process gives up after 10 minutes itself.
+// Shared by the vide-scripts MCP server (Claude) and Bridge's system prompt.
+export const SCRIPTS_INSTRUCTIONS =
+  "These are the user's saved routines (shell scripts with a title and a description of when to use them). " +
+  'When the user asks for something a script describes, offer or use run_script instead of retyping its commands. ' +
+  'When asked to write or fix a routine, use create_script / update_script. You cannot delete scripts.'
+
 export function socketRunner(socketPath: string, windowId: string): (scriptId: string) => Promise<string> {
   return (scriptId) =>
     new Promise((resolve, reject) => {

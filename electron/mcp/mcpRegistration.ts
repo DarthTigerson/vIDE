@@ -8,6 +8,7 @@ export const NOTES_MCP_SERVER_NAME = 'vide-notes'
 export const BROWSER_MCP_SERVER_NAME = 'vide-browser'
 export const SCRIPTS_MCP_SERVER_NAME = 'vide-scripts'
 export const SEARCH_MCP_SERVER_NAME = 'vide-search'
+export const DOCS_MCP_SERVER_NAME = 'vide-docs'
 
 function run(command: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
@@ -363,4 +364,33 @@ export async function disableSearchMcp(): Promise<void> {
 export function registerSearchMcpHandlers(): void {
   ipcMain.handle('search:mcp:enable', () => enableSearchMcp())
   ipcMain.handle('search:mcp:disable', () => disableSearchMcp())
+}
+
+function docsMcpScriptPath(): string {
+  return join(__dirname, 'docsMcpServer.js')
+}
+
+// No toggle: doc_outline/read_doc_section are part of every agent's base
+// toolset (Bridge/llama get them in-process), so this is registered on every
+// launch, which also keeps the script path current across dev/packaged runs.
+export async function enableDocsMcp(): Promise<void> {
+  const claudeBin = await resolveClaudeBinary()
+  try { await run(claudeBin, ['mcp', 'remove', DOCS_MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
+  try {
+    await run(claudeBin, [
+      'mcp',
+      'add',
+      DOCS_MCP_SERVER_NAME,
+      '--scope',
+      'user',
+      '-e',
+      'ELECTRON_RUN_AS_NODE=1',
+      '--',
+      process.execPath,
+      docsMcpScriptPath(),
+    ])
+  } catch (err) {
+    const msg = ((err as { stderr?: string }).stderr ?? '') + ((err as Error).message ?? '')
+    if (!msg.includes('already exists')) throw err
+  }
 }
