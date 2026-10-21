@@ -3,6 +3,7 @@ import { useEditorStore } from '@/stores/editorStore'
 import { useBrowserStore } from '@/stores/browserStore'
 import { useFileStore } from '@/stores/fileStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
+import { useStatusMessageStore } from '@/stores/statusMessageStore'
 import { toRelativePath } from '@/lib/sendSelectionToAssistant'
 import { openFileAtLocation } from '@/lib/openFileLocation'
 import { buildBrowserPath } from '@/components/Settings/paths'
@@ -42,6 +43,23 @@ export function resolveFileLinkPath(rawPath: string, projectRoot: string, homeDi
   if (rawPath.startsWith('/')) return rawPath
   if (rawPath.startsWith('~/') && homeDir) return `${homeDir.replace(/\/$/, '')}${rawPath.slice(1)}`
   return `${projectRoot.replace(/\/$/, '')}/${rawPath}`
+}
+
+// Multi-repo projects: Claude's tool headers print paths relative to the repo
+// it ran in (e.g. "helm-charts/x.yaml" for a file inside "kustomize-bases/"),
+// not the project root, so the plain project-root join misses them. Tries
+// every known repo in parallel, preferring the selected one, then the rest in
+// discovery order. Only for project-relative paths: absolute and ~/ paths
+// already resolve unambiguously.
+export async function resolveInKnownRepos(rawPath: string): Promise<string | null> {
+  if (rawPath.startsWith('/') || rawPath.startsWith('~/')) return null
+  const { repos, selectedRepo } = useGitReposStore.getState()
+  const ordered = selectedRepo && repos.includes(selectedRepo)
+    ? [selectedRepo, ...repos.filter((r) => r !== selectedRepo)]
+    : repos
+  const candidates = ordered.map((repo) => resolveFileLinkPath(rawPath, repo, null))
+  const exists = await Promise.all(candidates.map((c) => window.api.pathExists(c)))
+  return candidates.find((_, i) => exists[i]) ?? null
 }
 
 // Only meaningful for files inside the open project that actually have
@@ -90,10 +108,16 @@ export function createFilePathActivateHandler() {
 
     const { path: rawPath, line, col } = parseFileLink(matchedText)
     const homeDir = rawPath.startsWith('~/') ? await window.api.getHomeDir() : null
-    const absPath = resolveFileLinkPath(rawPath, projectRoot, homeDir)
+    let absPath = resolveFileLinkPath(rawPath, projectRoot, homeDir)
     if (!(await window.api.pathExists(absPath))) {
-      if (looksLikeBareDomain(rawPath)) openUrlInBrowserTab(`https://${rawPath}`)
-      return
+      const repoPath = await resolveInKnownRepos(rawPath)
+      if (!repoPath) {
+        // Previously a silent no-op, which read as "links are broken".
+        if (looksLikeBareDomain(rawPath)) openUrlInBrowserTab(`https://${rawPath}`)
+        else useStatusMessageStore.getState().show(`File not found: ${rawPath}`)
+        return
+      }
+      absPath = repoPath
     }
 
     if (event.metaKey || event.ctrlKey) {
