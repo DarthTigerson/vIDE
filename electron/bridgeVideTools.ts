@@ -4,14 +4,18 @@ import { buildNotesTools } from './mcp/notesTools'
 import { buildScriptsTools, socketRunner, SCRIPTS_INSTRUCTIONS } from './mcp/scriptsTools'
 import { buildBrowserTools, BROWSER_INSTRUCTIONS } from './mcp/browserTools'
 import { buildSearchTools, SEARCH_INSTRUCTIONS } from './mcp/searchTools'
+import { buildDocsTools, DOCS_INSTRUCTIONS } from './mcp/docsTools'
 
 // The vIDE tool groups Claude reaches over MCP (electron/mcp/*McpServer.ts).
 // Bridge/llama sessions get the exact same McpToolDef objects, called
 // in-process, so every agent has the same tools — a new vIDE tool is written
 // once in electron/mcp/ and shows up everywhere.
-export type VideToolGroup = 'todos' | 'notes' | 'scripts' | 'browser' | 'search'
+export type VideToolGroup = 'todos' | 'notes' | 'scripts' | 'browser' | 'search' | 'docs'
 
-export const ALL_VIDE_TOOL_GROUPS: VideToolGroup[] = ['todos', 'notes', 'scripts', 'browser', 'search']
+export const ALL_VIDE_TOOL_GROUPS: VideToolGroup[] = ['todos', 'notes', 'scripts', 'browser', 'search', 'docs']
+
+// Groups with no per-feature toggle: always on for every agent.
+export const ALWAYS_ON_VIDE_TOOL_GROUPS: VideToolGroup[] = ['search', 'docs']
 
 export interface VideToolContext {
   dataDir: string
@@ -51,6 +55,10 @@ export function buildVideTools(groups: VideToolGroup[], ctx: VideToolContext, wi
       case 'search':
         tools.push(...buildSearchTools())
         instructions.push(SEARCH_INSTRUCTIONS)
+        break
+      case 'docs':
+        tools.push(...buildDocsTools())
+        instructions.push(DOCS_INSTRUCTIONS)
         break
     }
   }

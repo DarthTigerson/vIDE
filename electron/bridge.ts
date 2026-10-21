@@ -4,7 +4,7 @@ import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { join, relative } from 'path'
 import { listAllFiles, searchText, buildTree } from './fsOps'
-import { ALL_VIDE_TOOL_GROUPS, buildVideTools, toOpenAiTool, toolResultText, type VideToolContext, type VideToolGroup, type VideToolSet } from './bridgeVideTools'
+import { ALL_VIDE_TOOL_GROUPS, ALWAYS_ON_VIDE_TOOL_GROUPS, buildVideTools, toOpenAiTool, toolResultText, type VideToolContext, type VideToolGroup, type VideToolSet } from './bridgeVideTools'
 import { decideStopAction } from './mcp/todoEnforcerHook'
 import { trimToolPayloads } from './bridgeTrim'
 import { minimatch } from 'minimatch'
@@ -34,7 +34,7 @@ export interface BridgeSettings {
   // Max tool-call rounds per turn; 0 or missing = unlimited
   toolCallLimit?: number
   // vIDE tool groups to expose, mirroring the per-feature MCP toggles that
-  // gate the same tools for Claude; missing = all. Web search is always on.
+  // gate the same tools for Claude; missing = all. Search and docs are always on.
   videTools?: VideToolGroup[]
 }
 
@@ -303,6 +303,9 @@ function extractTextToolCalls(content: string): { toolCalls: PendingToolCall[]; 
   return { toolCalls, cleanedContent: cleaned.trim() }
 }
 
+// Whole-file read_file results stop here; ranged reads aren't capped.
+const READ_FILE_LINE_CAP = 500
+
 const FILE_TOOL_GUIDANCE =
   'When modifying an existing file, prefer edit_file over write_file. Full-file rewrites waste tokens, fail on large files, and risk changing untouched code. ' +
   'Use this priority order: (1) edit_file for any change to an existing file, (2) write_file only for complete rewrites explicitly requested by the user, ' +
@@ -325,7 +328,7 @@ Project directory: ${cwd}${branch ? `\nCurrent branch: ${branch}` : ''}${lastCom
 == TOOLS ==
 You have the following tools. Use them — do not explain how the user could run commands themselves.
 
-- read_file(path, startLine?, endLine?) — read a file. path must be the FULL absolute path returned by a previous search. For files under ~400 lines, read the whole file first (no startLine/endLine) to understand the full structure before editing. Only use startLine/endLine on large files you've already read once, and always read at least 80 lines of context — narrow ranges miss the surrounding structure needed for correct edits.
+- read_file(path, startLine?, endLine?) — read a file. path must be the FULL absolute path returned by a previous search. For files under ~400 lines, read the whole file first (no startLine/endLine) to understand the full structure before editing. Whole-file reads stop after 500 lines and tell you the total; read further with startLine/endLine, always taking at least 80 lines of context — narrow ranges miss the surrounding structure needed for correct edits. For large Markdown docs (specs, design docs), use doc_outline and read_doc_section instead of reading the whole file.
 - write_file(path, content) — overwrite a file
 - edit_file(path, old_string, new_string) — patch a file. path must be the FULL absolute path.
 - create_file(path, content) — create a new file
@@ -400,13 +403,13 @@ export class BridgeManager {
   private runByConv = new Map<string, symbol>()
 
   // Without a context (tests, or before main.ts wires one in) only the
-  // self-contained web search group is available.
+  // self-contained groups (search, docs) are available.
   constructor(private videCtx?: VideToolContext) {}
 
   private videToolsFor(settings: BridgeSettings, windowId: number): VideToolSet {
     const requested = settings.videTools ?? ALL_VIDE_TOOL_GROUPS
-    const groups = [...new Set<VideToolGroup>([...requested, 'search'])]
-    if (!this.videCtx) return buildVideTools(['search'], { dataDir: '' }, windowId)
+    const groups = [...new Set<VideToolGroup>([...requested, ...ALWAYS_ON_VIDE_TOOL_GROUPS])]
+    if (!this.videCtx) return buildVideTools(ALWAYS_ON_VIDE_TOOL_GROUPS, { dataDir: '' }, windowId)
     return buildVideTools(groups, this.videCtx, windowId)
   }
 
@@ -629,15 +632,25 @@ export class BridgeManager {
       if (videTool) return { result: toolResultText(await videTool.handler(args)), isError: false }
       switch (name) {
         case 'read_file': {
-          const content = await readFile(args.path as string, 'utf-8')
+          const path = args.path as string
+          const content = await readFile(path, 'utf-8')
           const { startLine, endLine } = args as { startLine?: number; endLine?: number }
-          if (startLine === undefined && endLine === undefined) {
-            return { result: content, isError: false }
-          }
           const lines = content.split('\n')
+          if (startLine === undefined && endLine === undefined) {
+            if (lines.length <= READ_FILE_LINE_CAP) return { result: content, isError: false }
+            // A whole-file read of a big file would flood a small model's
+            // context; return the head plus how to get the rest.
+            const hint = /\.(md|markdown|mdx)$/i.test(path)
+              ? 'Use doc_outline + read_doc_section to read the section you need, or read_file with startLine/endLine.'
+              : 'Use read_file with startLine/endLine to read further.'
+            return {
+              result: `${lines.slice(0, READ_FILE_LINE_CAP).join('\n')}\n[showing lines 1-${READ_FILE_LINE_CAP} of ${lines.length}. ${hint}]`,
+              isError: false,
+            }
+          }
           const start = Math.max(1, startLine ?? 1)
           const end = Math.min(lines.length, endLine ?? lines.length)
-          return { result: lines.slice(start - 1, end).join('\n'), isError: false }
+          return { result: `[${path} lines ${start}-${end} of ${lines.length}]\n${lines.slice(start - 1, end).join('\n')}`, isError: false }
         }
         case 'write_file': {
           await writeFile(args.path as string, args.content as string, 'utf-8')

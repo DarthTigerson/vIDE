@@ -308,7 +308,7 @@ describe('BridgeManager tool calls', () => {
   it('trims old tool payloads from later requests in a long turn', async () => {
     const { win, sendHandler } = setup()
     const big = join(root, 'big.md')
-    await writeFileFs(big, 'line\n'.repeat(10_000))
+    await writeFileFs(big, `${'x'.repeat(200)}\n`.repeat(400))
     const fetchMock = vi.fn()
     for (let i = 0; i < 6; i++) fetchMock.mockResolvedValueOnce(toolCallStream('read_file', { path: big }))
     fetchMock.mockResolvedValueOnce(finalTextStream('read it all'))
@@ -319,7 +319,7 @@ describe('BridgeManager tool calls', () => {
     const lastMessages = JSON.parse(fetchMock.mock.calls[6][1].body).messages
     const toolContents = lastMessages.filter((m: any) => m.role === 'tool').map((m: any) => m.content)
     expect(toolContents[0]).toMatch(/^\[vIDE trimmed/)
-    expect(toolContents.at(-1)).toBe('line\n'.repeat(10_000))
+    expect(toolContents.at(-1)).toBe(`${'x'.repeat(200)}\n`.repeat(400))
   })
 
   it('runs past 40 tool-call rounds when toolCallLimit is 0 (unlimited)', async () => {
@@ -456,7 +456,24 @@ describe('BridgeManager tool calls', () => {
     await sendHandler({ sender: win }, { cwd: root, messages: [{ role: 'user', content: 'read it' }], agentMode: true, settings: SETTINGS })
 
     const events = win.webContents.send.mock.calls.filter((c: any[]) => c[0] === 'bridge:event').map((c: any[]) => c[1])
-    expect(events).toContainEqual({ type: 'tool-result', id: 'call_1', result: 'line2\nline3', isError: false })
+    expect(events).toContainEqual({ type: 'tool-result', id: 'call_1', result: `[${target} lines 2-3 of 5]\nline2\nline3`, isError: false })
+  })
+
+  it('read_file caps whole-file reads of big files and points Markdown at the doc tools', async () => {
+    const { win, sendHandler } = setup()
+    const target = join(root, 'spec.md')
+    await writeFileFs(target, Array.from({ length: 900 }, (_, i) => `row ${i + 1}`).join('\n'))
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(toolCallStream('read_file', { path: target }))
+      .mockResolvedValueOnce(finalTextStream('done')))
+
+    await sendHandler({ sender: win }, { cwd: root, messages: [{ role: 'user', content: 'read it' }], agentMode: true, settings: SETTINGS })
+
+    const events = win.webContents.send.mock.calls.filter((c: any[]) => c[0] === 'bridge:event').map((c: any[]) => c[1])
+    const result = events.find((e: any) => e.type === 'tool-result').result as string
+    expect(result).toContain('row 500\n[showing lines 1-500 of 900.')
+    expect(result).not.toContain('row 501')
+    expect(result).toContain('doc_outline')
   })
 
   it('grep_search finds text matches under a root path', async () => {

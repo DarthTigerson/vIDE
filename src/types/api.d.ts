@@ -124,7 +124,7 @@ export interface BridgeSettings {
   videTools?: VideToolGroup[]
 }
 
-export type VideToolGroup = 'todos' | 'notes' | 'scripts' | 'browser' | 'search'
+export type VideToolGroup = 'todos' | 'notes' | 'scripts' | 'browser' | 'search' | 'docs'
 
 export interface RecentProject {
   path: string
