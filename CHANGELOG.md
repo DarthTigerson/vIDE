@@ -1,4 +1,16 @@
 # vIDE
+## v0.2.27 (2026-10-21)
+- **vIDE Compacting for Bridge and Llama**: long chats now compact themselves at 80% of the model's context, or when the server rejects the prompt as too long. Compact by hand from the activity bar or a session's right-click menu. A divider in the chat marks where the summary starts, and a meter shows how much of the context is in use
+- **vIDE tools for Bridge and Llama**: Bridge and Llama sessions now get the same vIDE tools Claude has, including To Do, Notes, Scripts, the browser and web search. The To Do progress-comment rule applies to them too, and their comments and tickets show Bridge or Llama badges on the board
+- **Plan big tasks on the To Do board**: new To Do tools let any agent break a large task into a project of small tickets, then work through them one at a time
+- **Read big documents in sections**: every agent can now list a Markdown document's headings and read just the section it needs, instead of the whole file
+- **Auto-optimize for Llama models**: a new per-model switch lets llama.cpp fit the context size and GPU layers to the memory you have free, with a smaller KV cache and a 2 GB cap on the prompt cache
+- **Usage, Cost and Usage Graph from any session**: open them from Bridge and Llama sessions too, not just Claude. Usage and Cost only close when you switch to a terminal, and the "(Claude only)" button labels are gone
+- The tool-call round limit is now set per Llama model instead of being fixed at 40
+- Bridge now reads at most 500 lines of a file at once, and ranged reads say which lines they show
+- Long Bridge turns now trim old tool results and file contents in batches, keeping the last 4 rounds whole, so llama.cpp can reuse its prompt cache instead of starting over each round
+
+
 ## v0.2.26 (2026-10-20)
 - **Bottom terminal**: a new per-project switch locks every terminal into a panel under the editor. Terminals you already have open move down there, and new ones (⌘T, the Action Palette, running a script) open there too. The panel has one or two sides, left and right, each with its own tabs. Drag tabs to reorder them, drop one on the other side to move it there, or drop it on a side's left or right edge to split. Right-click a tab to close it, close the others, split, move it to the other side, clear it or run a script in it. Turn it off and each terminal goes back to the pane it came from, or to wherever new tabs open if that pane is gone. Shells keep running through the move, and each project remembers the switch, its tabs and the panel height. Switch it from the footer's display chip, Settings > Display, or "Show/Hide Bottom Terminal" in the Action Palette. Agent sessions in the session bar stay where they are
 - **Display popover**: the footer's display chip now opens a small panel with a font size stepper, the Bottom terminal switch and a link to Settings > Display, instead of opening the settings tab straight away
