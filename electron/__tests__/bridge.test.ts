@@ -387,6 +387,37 @@ describe('BridgeManager tool calls', () => {
     expect(toolContents.at(-1)).toBe(`${'x'.repeat(200)}\n`.repeat(400))
   })
 
+  it('never trims a llama session: rewriting history breaks its prompt cache', async () => {
+    const { win, sendHandler } = setup()
+    const big = join(root, 'big.md')
+    await writeFileFs(big, `${'x'.repeat(200)}\n`.repeat(400))
+    const fetchMock = vi.fn()
+    for (let i = 0; i < 6; i++) fetchMock.mockResolvedValueOnce(toolCallStream('read_file', { path: big }))
+    fetchMock.mockResolvedValueOnce(finalTextStream('read it all'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await sendHandler({ sender: win }, { cwd: root, messages: [{ role: 'user', content: 'read' }], agentMode: true, settings: { ...SETTINGS, agentKind: 'llama' } })
+
+    const lastMessages = JSON.parse(fetchMock.mock.calls[6][1].body).messages
+    const toolContents = lastMessages.filter((m: any) => m.role === 'tool').map((m: any) => m.content)
+    expect(toolContents.every((c: string) => !c.startsWith('[vIDE trimmed'))).toBe(true)
+  })
+
+  it('reuses one system prompt for every message of a conversation, and rebuilds it for a new transcript', async () => {
+    const { win, sendHandler } = setup()
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(finalTextStream('ok')))
+    vi.stubGlobal('fetch', fetchMock)
+    const system = (call: number) => JSON.parse(fetchMock.mock.calls[call][1].body).messages[0].content as string
+
+    await sendHandler({ sender: win }, { cwd: '/first', messages: [{ role: 'user', content: 'a' }], agentMode: true, settings: { ...SETTINGS, sessionId: 'h1' }, sessionId: 's' })
+    await sendHandler({ sender: win }, { cwd: '/second', messages: [{ role: 'user', content: 'b' }], agentMode: true, settings: { ...SETTINGS, sessionId: 'h1' }, sessionId: 's' })
+    await sendHandler({ sender: win }, { cwd: '/third', messages: [{ role: 'user', content: 'c' }], agentMode: true, settings: { ...SETTINGS, sessionId: 'h2' }, sessionId: 's' })
+
+    expect(system(1)).toBe(system(0))
+    expect(system(0)).toContain('/first')
+    expect(system(2)).toContain('/third')
+  })
+
   it('runs past 40 tool-call rounds when toolCallLimit is 0 (unlimited)', async () => {
     const { win, sendHandler } = setup()
     const fetchMock = vi.fn()

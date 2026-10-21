@@ -40,12 +40,24 @@ export interface BridgeSettings {
   videTools?: VideToolGroup[]
   // Which agent this is (todo authorship); missing = 'bridge'.
   agentKind?: BridgeAgentKind
+  // Compact once the prompt reaches this many tokens, even when 80% of the
+  // context window is further off. Set for llama models whose context
+  // llama.cpp sizes itself (Auto-optimize), which can be 200k+ tokens.
+  compactAtTokens?: number
   // Per-request reasoning_effort (llama.cpp; 'none' turns thinking off).
   // Missing = the server's own default. Can change mid-run: see setReasoningEffort.
   reasoningEffort?: ReasoningEffort
 }
 
 export type ReasoningEffort = 'none' | 'low' | 'medium' | 'high' | 'xhigh'
+
+// Tokens at which a turn compacts: 80% of the window, or a fixed cap if lower.
+// null = neither is known, so never.
+export function compactThreshold(contextWindow: number | null, cap?: number): number | null {
+  const byWindow = contextWindow ? contextWindow * AUTO_COMPACT_RATIO : null
+  if (cap && cap > 0) return byWindow === null ? cap : Math.min(byWindow, cap)
+  return byWindow
+}
 
 export interface BridgeSendPayload {
   cwd: string
@@ -357,7 +369,9 @@ async function buildSystemPrompt(cwd: string, videInstructions: string[] = []): 
   try {
     const branchResult = await execFileAsync('git', ['branch', '--show-current'], { cwd, timeout: 5000 })
     branch = branchResult.stdout.trim()
-    const logResult = await execFileAsync('git', ['log', '-1', '--pretty=format:%h %s (%ar)'], { cwd, timeout: 5000 })
+    // No relative date ("5 minutes ago"): it would change the prompt's first
+    // lines over time and force llama.cpp to re-read the whole conversation.
+    const logResult = await execFileAsync('git', ['log', '-1', '--pretty=format:%h %s'], { cwd, timeout: 5000 })
     lastCommit = logResult.stdout.trim()
   } catch {}
 
@@ -444,6 +458,10 @@ export class BridgeManager {
   // Current reasoning effort per conversation, read at the start of every
   // round so a change made mid-turn applies from the next request.
   private effortByConv = new Map<string, ReasoningEffort>()
+  // System prompt per conversation, reused for every message of the same
+  // transcript (historyId) so the prompt's start never changes and the
+  // server's prompt cache stays valid across turns.
+  private systemPromptByConv = new Map<string, { historyId: string; prompt: string }>()
 
   // Without a context (tests, or before main.ts wires one in) only the
   // self-contained groups (search, docs) are available.
@@ -506,6 +524,14 @@ export class BridgeManager {
 
   cancel(win: BrowserWindow, sessionId?: string): void {
     this.cancelConv(convKey(win.id, sessionId))
+  }
+
+  private async systemPromptFor(key: string, historyId: string | undefined, cwd: string, videInstructions: string[]): Promise<string> {
+    const cached = this.systemPromptByConv.get(key)
+    if (historyId && cached?.historyId === historyId) return cached.prompt
+    const prompt = await buildSystemPrompt(cwd, videInstructions)
+    if (historyId) this.systemPromptByConv.set(key, { historyId, prompt })
+    return prompt
   }
 
   setReasoningEffort(win: BrowserWindow, effort: ReasoningEffort, sessionId?: string): void {
@@ -583,7 +609,7 @@ export class BridgeManager {
     const vide = this.videToolsFor(settings, win.id)
     const messages = [...payload.messages]
     if (messages[0]?.role !== 'system') {
-      messages.unshift({ role: 'system', content: await buildSystemPrompt(cwd, vide.instructions) })
+      messages.unshift({ role: 'system', content: await this.systemPromptFor(key, settings.sessionId, cwd, vide.instructions) })
     }
     if (!live()) return
 
@@ -622,8 +648,15 @@ export class BridgeManager {
     for (let round = 0; round < limit; round++) {
       if (!live()) return
       if (round > 0) emit({ type: 'new-turn' })
-      const trimmed = trimToolPayloads(messages)
-      if (trimmed) messages.splice(0, messages.length, ...trimmed)
+      // Trimming rewrites earlier messages. Hybrid models (Qwen3.5/3.6 and
+      // other Gated DeltaNet / Mamba layers) can't reuse a prompt cache past a
+      // change, so on llama.cpp every trim re-reads most of the turn — far
+      // more time than the freed tokens save. Llama sessions rely on
+      // compaction alone.
+      if (settings.agentKind !== 'llama') {
+        const trimmed = trimToolPayloads(messages)
+        if (trimmed) messages.splice(0, messages.length, ...trimmed)
+      }
       const streamResult = await this.streamOneCompletion(key, live, emit, messages, settings, tools)
       if (streamResult === 'overflow') {
         // The server refused the prompt as too long: compact and retry once.
@@ -691,7 +724,8 @@ export class BridgeManager {
         if (!live()) return
       }
 
-      if (contextWindow && usedTokens >= contextWindow * AUTO_COMPACT_RATIO) {
+      const compactAt = compactThreshold(contextWindow ?? null, settings.compactAtTokens)
+      if (compactAt !== null && usedTokens >= compactAt) {
         if (!(await this.compactInTurn(key, live, emit, messages, settings, contextWindow))) return
         usedTokens = 0
       }
@@ -1057,6 +1091,7 @@ export class BridgeManager {
       this.controllerByConv.delete(key)
       this.pendingApprovalsByConv.delete(key)
       this.effortByConv.delete(key)
+      this.systemPromptByConv.delete(key)
     }
   }
 }

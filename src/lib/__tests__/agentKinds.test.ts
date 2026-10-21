@@ -9,7 +9,7 @@ vi.hoisted(() => {
   }
 })
 
-import { agentLabel, availableAgents, isBridgeLike, isClaudeLike, isLlamaKind, llamaModelId, agentModeOnLaunchFor } from '../agentKinds'
+import { agentLabel, availableAgents, isBridgeLike, isClaudeLike, isLlamaKind, llamaModelId, agentModeOnLaunchFor, llamaConnectionFor, AUTO_OPTIMIZE_COMPACT_AT } from '../agentKinds'
 import { defaultLlamaModelConfig, useLlamaModelsStore } from '@/stores/llamaModelsStore'
 import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
 import { useBridgeSettingsStore } from '@/stores/bridgeSettingsStore'
@@ -19,6 +19,13 @@ const off = { ...defaultLlamaModelConfig(), id: 'o1', displayName: 'Off', enable
 const unnamed = { ...defaultLlamaModelConfig(), id: 'u1', displayName: '', alias: '', enabled: true }
 
 describe('agentKinds', () => {
+  it('caps compaction for Auto-optimize models only, and passes the model reasoning effort', () => {
+    const auto = { ...qwen, autoOptimize: true }
+    const fixed = { ...qwen, autoOptimize: false }
+    expect(llamaConnectionFor('llama:q1', [auto], 40)).toMatchObject({ compactAtTokens: AUTO_OPTIMIZE_COMPACT_AT, reasoningEffort: 'medium' })
+    expect(llamaConnectionFor('llama:q1', [fixed], 40)?.compactAtTokens).toBeUndefined()
+  })
+
   it('classifies kinds', () => {
     expect(isLlamaKind('llama:q1')).toBe(true)
     expect(isLlamaKind('bridge')).toBe(false)

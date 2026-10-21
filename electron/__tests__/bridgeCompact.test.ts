@@ -10,7 +10,7 @@ vi.mock('electron', () => ({
   BrowserWindow: { fromWebContents: (sender: any) => sender },
 }))
 
-import { BridgeManager, type BridgeMessage } from '../bridge'
+import { BridgeManager, compactThreshold, type BridgeMessage } from '../bridge'
 import { compactMessages, isContextOverflow, renderTranscript, SUMMARY_PREFIX } from '../bridgeCompact'
 
 function sseStream(chunks: string[]): Response {
@@ -138,6 +138,24 @@ describe('BridgeManager compaction', () => {
     const after = bodies[3].messages
     expect(after[1]).toEqual({ role: 'user', content: `${SUMMARY_PREFIX}\n\nSUMMARY` })
     expect(after.slice(2).map((m: any) => m.tool_calls?.[0]?.id ?? m.role)).toEqual(['a', 'tool', 'b', 'tool'])
+  })
+
+  it('compacts at compactAtTokens when that comes before 80% of a huge window', async () => {
+    const { win, send } = setup()
+    const chat = [toolCallStream('a', 100), toolCallStream('b', 850), json({ choices: [{ message: { content: 'SUMMARY' } }] }), finalTextStream('done')]
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => (url.endsWith('/props') ? json({ default_generation_settings: { n_ctx: 262144 } }) : chat.shift()!)))
+
+    await send({ sender: win }, { cwd: '/tmp', messages: [{ role: 'user', content: 'go' }], agentMode: true, settings: { ...SETTINGS, compactAtTokens: 500 } })
+
+    expect(events(win)).toContainEqual(expect.objectContaining({ type: 'compacted', summary: 'SUMMARY' }))
+  })
+
+  it('compactThreshold takes the lower of 80% of the window and the cap', () => {
+    expect(compactThreshold(262144, 65536)).toBe(65536)
+    expect(compactThreshold(32768, 65536)).toBe(32768 * 0.8)
+    expect(compactThreshold(null, 65536)).toBe(65536)
+    expect(compactThreshold(1000)).toBe(800)
+    expect(compactThreshold(null)).toBeNull()
   })
 
   it('compacts and retries once when the server rejects the prompt as too long', async () => {

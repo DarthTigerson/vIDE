@@ -71,7 +71,7 @@ export interface BridgeConversation {
   reasoningEffort?: ReasoningEffort
 }
 
-type ConnectionOverride = { endpoint: string; apiKey: string; modelId: string; toolCallLimit?: number; reasoningEffort?: ReasoningEffort }
+type ConnectionOverride = { endpoint: string; apiKey: string; modelId: string; toolCallLimit?: number; reasoningEffort?: ReasoningEffort; compactAtTokens?: number }
 
 function newHistoryId(): string {
   return `vide-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
@@ -257,6 +257,7 @@ export const useBridgeStore = create<BridgeStore>((set, get) => {
       // Only llama sessions pass a connection override.
       agentKind: override ? 'llama' : 'bridge',
       reasoningEffort: conv.reasoningEffort,
+      compactAtTokens: override?.compactAtTokens,
     }
   }
 

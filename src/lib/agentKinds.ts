@@ -81,11 +81,13 @@ export function agentModeOnLaunchFor(kind: AssistantKind): boolean {
 // The connection a llama session's chat talks to — Bridge sessions use the
 // Bridge settings instead (undefined). A removed or disabled model has none:
 // the session is kept, but nothing is sent or launched for it.
+export const AUTO_OPTIMIZE_COMPACT_AT = 65_536
+
 export function llamaConnectionFor(
   kind: AssistantKind,
   models: LlamaModelConfig[] = useLlamaModelsStore.getState().models,
   toolCallLimit: number = useLlamaSettingsStore.getState().toolCallLimit,
-): { endpoint: string; apiKey: string; modelId: string; toolCallLimit: number; reasoningEffort: ReasoningEffort } | undefined {
+): { endpoint: string; apiKey: string; modelId: string; toolCallLimit: number; reasoningEffort: ReasoningEffort; compactAtTokens?: number } | undefined {
   if (!isLlamaKind(kind)) return undefined
   const model = models.find((m) => m.id === llamaModelId(kind) && m.enabled)
   if (!model) return undefined
@@ -96,5 +98,8 @@ export function llamaConnectionFor(
     toolCallLimit,
     // The server was launched with this; a session's own choice overrides it per request.
     reasoningEffort: model.reasoningEffort,
+    // Auto-optimize lets llama.cpp pick the context, often 200k+; at local
+    // prompt-reading speeds a cache miss that deep costs tens of minutes.
+    compactAtTokens: model.autoOptimize ? AUTO_OPTIMIZE_COMPACT_AT : undefined,
   }
 }

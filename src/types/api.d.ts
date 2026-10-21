@@ -124,6 +124,8 @@ export interface BridgeSettings {
   videTools?: VideToolGroup[]
   // Which agent this is (todo authorship); missing = 'bridge'
   agentKind?: 'bridge' | 'llama'
+  // Compact at this many tokens if lower than 80% of the window (llama Auto-optimize)
+  compactAtTokens?: number
   // Per-request reasoning_effort; missing = the server's default
   reasoningEffort?: 'none' | 'low' | 'medium' | 'high' | 'xhigh'
 }

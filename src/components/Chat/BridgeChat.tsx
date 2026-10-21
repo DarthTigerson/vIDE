@@ -504,7 +504,7 @@ function formatTokens(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k` : String(n)
 }
 
-function ContextRing({ usage }: { usage: { usedTokens: number; contextWindow: number | null } }) {
+function ContextRing({ usage, compactAt }: { usage: { usedTokens: number; contextWindow: number | null }; compactAt?: number }) {
   const { usedTokens, contextWindow } = usage
   const pct = contextWindow ? Math.min(100, Math.round((usedTokens / contextWindow) * 100)) : null
   const r = 14
@@ -512,7 +512,9 @@ function ContextRing({ usage }: { usage: { usedTokens: number; contextWindow: nu
   return (
     <div
       className="ml-auto flex shrink-0 items-center gap-2"
-      title={`Context used by the last request${pct !== null ? ` (${pct}%)` : ''}; vIDE compacts at 80%`}
+      title={`Context used by the last request${pct !== null ? ` (${pct}%)` : ''}; vIDE compacts at ${
+        compactAt && (!contextWindow || compactAt < contextWindow * 0.8) ? formatTokens(compactAt) : '80%'
+      }`}
     >
       {pct !== null && (
         <svg width="24" height="24" viewBox="0 0 36 36" role="img" aria-label={`${pct}% of context used`}>
@@ -538,12 +540,13 @@ function hostOf(endpoint: string): string {
 }
 
 // Who this session talks to, how fast it generates, and how full its context is.
-function ChatHeader({ title, subtitle, serverRunning, tokensPerSecond, usage }: {
+function ChatHeader({ title, subtitle, serverRunning, tokensPerSecond, usage, compactAt }: {
   title: string
   subtitle: string
   serverRunning?: boolean
   tokensPerSecond?: number
   usage?: { usedTokens: number; contextWindow: number | null }
+  compactAt?: number
 }) {
   return (
     <div className="flex items-center gap-2.5 border-b border-border px-3 py-2">
@@ -564,7 +567,7 @@ function ChatHeader({ title, subtitle, serverRunning, tokensPerSecond, usage }: 
           </span>
         </span>
       </div>
-      {usage && <ContextRing usage={usage} />}
+      {usage && <ContextRing usage={usage} compactAt={compactAt} />}
     </div>
   )
 }
@@ -592,7 +595,7 @@ export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSe
   sessionId: string
   cwd: string
   label: string
-  connectionOverride?: { endpoint: string; apiKey: string; modelId: string; toolCallLimit?: number; reasoningEffort?: ReasoningEffort }
+  connectionOverride?: { endpoint: string; apiKey: string; modelId: string; toolCallLimit?: number; reasoningEffort?: ReasoningEffort; compactAtTokens?: number }
   beforeSend?: () => Promise<void>
   // Llama sessions only: whether the model's llama-server is up.
   serverRunning?: boolean
@@ -670,6 +673,7 @@ export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSe
         serverRunning={connectionOverride ? serverRunning : undefined}
         tokensPerSecond={contextUsage?.tokensPerSecond}
         usage={compacting ? undefined : contextUsage}
+        compactAt={connectionOverride?.compactAtTokens}
       />
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-4">
         {items.map((item, n) => {

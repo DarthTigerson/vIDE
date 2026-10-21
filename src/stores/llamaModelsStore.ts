@@ -53,7 +53,9 @@ export function defaultLlamaModelConfig(): LlamaModelConfig {
     apiKey: 'local',
 
     contextSize: 131072,
-    batchSize: 256,
+    // llama.cpp's own default. -b also caps the micro-batch (-ub, 512), so
+    // the old 256 read prompts in half-size chunks.
+    batchSize: 2048,
     gpuLayers: 99,
     parallelRequests: 1,
     reasoningEffort: 'medium',
