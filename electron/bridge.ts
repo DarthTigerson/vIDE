@@ -7,6 +7,7 @@ import { listAllFiles, searchText, buildTree } from './fsOps'
 import { ALL_VIDE_TOOL_GROUPS, ALWAYS_ON_VIDE_TOOL_GROUPS, buildVideTools, toOpenAiTool, toolResultText, type BridgeAgentKind, type VideToolContext, type VideToolGroup, type VideToolSet } from './bridgeVideTools'
 import { decideStopAction } from './mcp/todoEnforcerHook'
 import { trimToolPayloads } from './bridgeTrim'
+import { ThinkTagSplitter } from './bridgeReasoning'
 import { AUTO_COMPACT_RATIO, compactMessages, fetchContextWindow, isContextOverflow, summarize, wrapSummary } from './bridgeCompact'
 import { minimatch } from 'minimatch'
 
@@ -90,6 +91,8 @@ export async function setBridgeSettings(settings: BridgeStoredSettings): Promise
 
 export type BridgeEvent =
   | { type: 'text-delta'; delta: string }
+  // The model's reasoning, shown in the chat but never sent back to it.
+  | { type: 'reasoning-delta'; delta: string }
   | { type: 'content-replace'; content: string }
   | { type: 'tool-call'; id: string; name: string; args: Record<string, unknown> }
   | { type: 'need-approval'; id: string; name: string; args: Record<string, unknown> }
@@ -114,6 +117,9 @@ function convKey(winId: number, sessionId: string | undefined): string {
 
 interface StreamChunkDelta {
   content?: string
+  // llama.cpp / DeepSeek name it reasoning_content; vLLM and OpenRouter use reasoning.
+  reasoning_content?: string
+  reasoning?: string
   tool_calls?: Array<{
     index: number
     id?: string
@@ -913,6 +919,14 @@ export class BridgeManager {
     let content = ''
     let usedTokens: number | undefined
     const toolCallAccs: Record<number, { id: string; name: string; args: string }> = {}
+    const thinkSplitter = new ThinkTagSplitter()
+    const emitSplit = ({ text, reasoning }: { text: string; reasoning: string }) => {
+      if (reasoning) emit({ type: 'reasoning-delta', delta: reasoning })
+      if (text) {
+        content += text
+        emit({ type: 'text-delta', delta: text })
+      }
+    }
 
     try {
       while (true) {
@@ -930,10 +944,9 @@ export class BridgeManager {
             usedTokens = chunk.usage.prompt_tokens + (chunk.usage.completion_tokens ?? 0)
           }
           const delta = chunk.choices?.[0]?.delta
-          if (delta?.content) {
-            content += delta.content
-            emit({ type: 'text-delta', delta: delta.content })
-          }
+          const reasoningDelta = delta?.reasoning_content ?? delta?.reasoning
+          if (reasoningDelta) emit({ type: 'reasoning-delta', delta: reasoningDelta })
+          if (delta?.content) emitSplit(thinkSplitter.push(delta.content))
           if (delta?.tool_calls) {
             for (const tc of delta.tool_calls) {
               const acc = toolCallAccs[tc.index] ?? { id: '', name: '', args: '' }
@@ -945,6 +958,7 @@ export class BridgeManager {
           }
         }
       }
+      emitSplit(thinkSplitter.flush())
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
         emit({ type: 'error', message: `Bridge stream error: ${(err as Error).message}` })

@@ -194,6 +194,7 @@ export interface TodoUpdatePatch {
 
 export type BridgeEvent =
   | { type: 'text-delta'; delta: string }
+  | { type: 'reasoning-delta'; delta: string }
   | { type: 'content-replace'; content: string }
   | { type: 'tool-call'; id: string; name: string; args: Record<string, unknown> }
   | { type: 'need-approval'; id: string; name: string; args: Record<string, unknown> }

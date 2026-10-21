@@ -917,32 +917,65 @@ body {
   pointer-events: none;
 }
 
-/* Bridge chat "thinking" indicator — pulsing dots rendered in the assistant
-   bubble while the model waits for its first token. Dots use currentColor so
-   they inherit the bubble's text-fg and adapt to whatever theme is active. */
-.bridge-thinking-dots {
-  display: inline-flex;
+/* Bridge chat activity rail (BridgeChat.tsx): each step is a square node
+   plus content, joined to the next step by a vertical line. */
+.bridge-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  column-gap: 10px;
+  padding-bottom: 12px;
+}
+.bridge-step:last-child { padding-bottom: 0; }
+.bridge-step::before {
+  content: "";
+  position: absolute;
+  left: 10.5px;
+  top: 25px;
+  bottom: 3px;
+  width: 1px;
+  background: var(--color-border);
+}
+.bridge-step:last-child::before { display: none; }
+.bridge-node {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  box-sizing: border-box;
+  display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 0;
+  justify-content: center;
 }
-.bridge-thinking-dot {
+.bridge-shimmer {
+  background: linear-gradient(90deg, rgb(var(--color-accent)) 0%, var(--color-fg) 45%, rgb(var(--color-accent)) 60%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: bridge-shimmer 2.2s linear infinite;
+}
+@keyframes bridge-shimmer {
+  0% { background-position: 120% 0; }
+  100% { background-position: -20% 0; }
+}
+.bridge-caret {
+  display: inline-block;
   width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.35;
-  animation: bridge-thinking-pulse 1.2s infinite ease-in-out;
+  height: 12px;
+  margin-left: 2px;
+  vertical-align: -2px;
+  background: rgb(var(--color-accent));
+  animation: bridge-caret-blink 1s steps(1) infinite;
 }
-.bridge-thinking-dot:nth-child(2) { animation-delay: 0.2s; }
-.bridge-thinking-dot:nth-child(3) { animation-delay: 0.4s; }
-@keyframes bridge-thinking-pulse {
-  0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
-  30% { opacity: 1; transform: translateY(-3px); }
+@keyframes bridge-caret-blink { 50% { opacity: 0; } }
+.bridge-pulse { animation: bridge-pulse 1.8s ease-out infinite; }
+@keyframes bridge-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--git-modified) 45%, transparent); }
+  60% { box-shadow: 0 0 0 6px transparent; }
 }
-
-/* Respect users who've asked the OS not to animate: freeze the dots at a
-   legible static state so the "Bridge is active" signal survives without motion. */
+.bridge-spin { transform-origin: center; animation: bridge-spin 1s linear infinite; }
+@keyframes bridge-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
-  .bridge-thinking-dot { animation: none; opacity: 0.7; }
+  .bridge-shimmer { animation: none; background: none; color: rgb(var(--color-accent)); }
+  .bridge-caret, .bridge-pulse, .bridge-spin { animation: none; }
 }

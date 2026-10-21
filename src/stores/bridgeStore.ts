@@ -19,6 +19,8 @@ export interface BridgeToolCallBlock {
   args: Record<string, unknown>
   status: 'pending-approval' | 'running' | 'done' | 'error'
   result?: string
+  startedAt?: number
+  durationMs?: number
 }
 
 export interface BridgeChatMessage {
@@ -30,6 +32,14 @@ export interface BridgeChatMessage {
   // in the divider. Everything before the latest marker stays on screen but
   // is no longer sent.
   compaction?: { summary: string }
+  // The model's reasoning for this round. Shown in the chat, never sent back.
+  reasoning?: string
+  reasoningStartedAt?: number
+  // Set once text or a tool call follows the reasoning (or the round ends).
+  reasoningMs?: number
+  // When this assistant round started and finished, for "Worked 14s".
+  startedAt?: number
+  endedAt?: number
 }
 
 export interface StoredSession {
@@ -164,14 +174,29 @@ function toWireMessages(messages: BridgeChatMessage[]): BridgeMessage[] {
 function ensureAssistantMessage(messages: BridgeChatMessage[]): BridgeChatMessage[] {
   const last = messages[messages.length - 1]
   if (last && last.role === 'assistant') return messages
-  return [...messages, { role: 'assistant', content: '' }]
+  return [...messages, { role: 'assistant', content: '', startedAt: Date.now() }]
+}
+
+function isEmptyAssistant(m: BridgeChatMessage | undefined): boolean {
+  return m?.role === 'assistant' && !m.content && !m.toolCalls?.length && !m.reasoning
+}
+
+// Closes a round: stamps endedAt, and the reasoning time if nothing followed it.
+function endRound(m: BridgeChatMessage, now = Date.now()): BridgeChatMessage {
+  if (m.role !== 'assistant' || m.endedAt) return m
+  const reasoningMs = m.reasoningMs ?? (m.reasoningStartedAt ? now - m.reasoningStartedAt : undefined)
+  return { ...m, endedAt: now, reasoningMs }
+}
+
+// Text or a tool call ends the reasoning phase.
+function endReasoning(m: BridgeChatMessage): BridgeChatMessage {
+  if (m.reasoningStartedAt === undefined || m.reasoningMs !== undefined) return m
+  return { ...m, reasoningMs: Date.now() - m.reasoningStartedAt }
 }
 
 function dropTrailingEmptyAssistant(messages: BridgeChatMessage[]): BridgeChatMessage[] {
   const last = messages[messages.length - 1]
-  if (last && last.role === 'assistant' && !last.content && !last.toolCalls?.length) {
-    return messages.slice(0, -1)
-  }
+  if (isEmptyAssistant(last)) return messages.slice(0, -1)
   return messages
 }
 
@@ -229,7 +254,7 @@ export const useBridgeStore = create<BridgeStore>((set, get) => {
   const startTurn = (sessionId: string, cwd: string, wire: BridgeChatMessage[], override?: ConnectionOverride) => {
     const conv = get().conversations[sessionId]
     if (!conv) return
-    patch(sessionId, () => ({ messages: [...wire, { role: 'assistant', content: '' }], streaming: true }))
+    patch(sessionId, () => ({ messages: [...wire, { role: 'assistant', content: '', startedAt: Date.now() }], streaming: true }))
     window.api.bridgeSend(cwd, toWireMessages(wire), conv.agentMode, wireSettings(conv, override), sessionId)
   }
 
@@ -360,20 +385,29 @@ function handleEvent(
       patch(sessionId, (c) => {
         const tail = c.messages[c.messages.length - 1]
         // Don't push if there's already an empty assistant placeholder
-        if (tail?.role === 'assistant' && !tail.content && !tail.toolCalls?.length) return {}
-        return { messages: [...c.messages, { role: 'assistant', content: '' }] }
+        if (isEmptyAssistant(tail)) return {}
+        const now = Date.now()
+        const closed = tail ? [...c.messages.slice(0, -1), endRound(tail, now)] : c.messages
+        return { messages: [...closed, { role: 'assistant', content: '', startedAt: now }] }
       })
       return
     case 'text-delta':
-      updateLast((last) => ({ ...last, content: last.content + event.delta }))
+      updateLast((last) => ({ ...endReasoning(last), content: last.content + event.delta }))
+      return
+    case 'reasoning-delta':
+      updateLast((last) => ({
+        ...last,
+        reasoning: (last.reasoning ?? '') + event.delta,
+        reasoningStartedAt: last.reasoningStartedAt ?? Date.now(),
+      }))
       return
     case 'content-replace':
       updateLast((last) => ({ ...last, content: event.content }))
       return
     case 'tool-call':
       updateLast((last) => ({
-        ...last,
-        toolCalls: [...(last.toolCalls ?? []), { id: event.id, name: event.name, args: event.args, status: 'running' }],
+        ...endReasoning(last),
+        toolCalls: [...(last.toolCalls ?? []), { id: event.id, name: event.name, args: event.args, status: 'running', startedAt: Date.now() }],
       }))
       return
     case 'need-approval':
@@ -386,7 +420,14 @@ function handleEvent(
       updateLast((last) => ({
         ...last,
         toolCalls: (last.toolCalls ?? []).map((tc) =>
-          tc.id === event.id ? { ...tc, status: event.isError ? ('error' as const) : ('done' as const), result: event.result } : tc
+          tc.id === event.id
+            ? {
+                ...tc,
+                status: event.isError ? ('error' as const) : ('done' as const),
+                result: event.result,
+                durationMs: tc.startedAt ? Date.now() - tc.startedAt : undefined,
+              }
+            : tc
         ),
       }))
       return
@@ -411,11 +452,19 @@ function handleEvent(
     case 'done':
       // If the model returned nothing, drop the empty placeholder so it doesn't
       // linger in the transcript as a ghost bubble.
-      patch(sessionId, (c) => ({ messages: dropTrailingEmptyAssistant(c.messages), streaming: false, compacting: false }))
+      patch(sessionId, (c) => {
+        const messages = dropTrailingEmptyAssistant(c.messages)
+        const last = messages[messages.length - 1]
+        return {
+          messages: last ? [...messages.slice(0, -1), endRound(last)] : messages,
+          streaming: false,
+          compacting: false,
+        }
+      })
       persist(sessionId, get().conversations[sessionId])
       return
     case 'error':
-      updateLast((last) => ({ ...last, content: `${last.content}\n\n**Error:** ${event.message}` }))
+      updateLast((last) => endRound({ ...last, content: `${last.content}\n\n**Error:** ${event.message}` }))
       patch(sessionId, () => ({ streaming: false, compacting: false }))
       return
   }

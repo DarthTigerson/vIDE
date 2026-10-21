@@ -37,7 +37,7 @@ describe('BridgeChat', () => {
     expect(screen.getByText('hi there')).toBeTruthy()
   })
 
-  it('renders a pending-approval tool-call block with Approve/Reject buttons', () => {
+  it('renders a pending-approval tool-call step with Allow/Deny buttons', () => {
     setConv({
       messages: [
         {
@@ -49,12 +49,12 @@ describe('BridgeChat', () => {
     })
     render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
-    expect(screen.getByText('write_file')).toBeTruthy()
-    expect(screen.getByText('Approve')).toBeTruthy()
-    expect(screen.getByText('Reject')).toBeTruthy()
+    expect(screen.getByText('Wants to write')).toBeTruthy()
+    expect(screen.getByText('Allow')).toBeTruthy()
+    expect(screen.getByText('Deny')).toBeTruthy()
   })
 
-  it('calls approveToolCall when Approve is clicked', () => {
+  it('calls approveToolCall when Allow is clicked', () => {
     setConv({
       messages: [
         {
@@ -66,7 +66,7 @@ describe('BridgeChat', () => {
     })
     render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
-    fireEvent.click(screen.getByText('Approve'))
+    fireEvent.click(screen.getByText('Allow'))
     expect((global as any).window.api.bridgeApprove).toHaveBeenCalledWith('call_1', 's1')
   })
 
@@ -81,41 +81,45 @@ describe('BridgeChat', () => {
     expect(input.value).toBe('')
   })
 
-  it('shows an Agent Mode: On indicator when agentMode is true', () => {
+  it('marks Agent as pressed when agentMode is true', () => {
     setConv({ agentMode: true })
     render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
-    expect(screen.getByText('Agent Mode: On')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Agent' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Ask' }).getAttribute('aria-pressed')).toBe('false')
   })
 
-  it('shows an Agent Mode: Off indicator when agentMode is false', () => {
+  it('marks Ask as pressed when agentMode is false', () => {
     setConv({ agentMode: false })
     render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
-    expect(screen.getByText('Agent Mode: Off')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Ask' }).getAttribute('aria-pressed')).toBe('true')
   })
 
-  it('toggles agentMode when the indicator is clicked', () => {
+  it('switches to agent mode when Agent is clicked, and clicking it again keeps it on', () => {
     setConv({ agentMode: false })
     render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
-    fireEvent.click(screen.getByText('Agent Mode: Off'))
-
+    fireEvent.click(screen.getByRole('button', { name: 'Agent' }))
     expect(useBridgeStore.getState().conversations.s1.agentMode).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Agent' }))
+    expect(useBridgeStore.getState().conversations.s1.agentMode).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Ask' }))
+    expect(useBridgeStore.getState().conversations.s1.agentMode).toBe(false)
   })
 
   it('does not show a Stop button when not streaming', () => {
     setConv({ streaming: false })
     render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
-    expect(screen.queryByText('Stop')).toBeNull()
+    expect(screen.queryByLabelText('Stop')).toBeNull()
   })
 
   it('shows a Stop button while streaming that calls cancel()', () => {
     setConv({ streaming: true })
     render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
 
-    fireEvent.click(screen.getByText('Stop'))
+    fireEvent.click(screen.getByLabelText('Stop'))
 
     expect((global as any).window.api.bridgeCancel).toHaveBeenCalled()
     expect(useBridgeStore.getState().conversations.s1.streaming).toBe(false)
@@ -237,6 +241,60 @@ describe('BridgeChat', () => {
     const textarea = screen.getByPlaceholderText('Message Bridge…') as HTMLTextAreaElement
     expect(textarea.value).toBe('')
     expect(document.activeElement).not.toBe(textarea)
+  })
+
+  it('shows finished reasoning collapsed with its duration, and expands it on click', () => {
+    setConv({
+      messages: [
+        { role: 'user', content: 'hi' },
+        { role: 'assistant', content: 'answer', reasoning: 'first line\nsecond line', reasoningStartedAt: 1000, reasoningMs: 6100 },
+      ],
+    })
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
+
+    expect(screen.getByText('for 6.1s')).toBeTruthy()
+    expect(screen.queryByText(/second line/)).toBeNull()
+    fireEvent.click(screen.getByText('Reasoned'))
+    expect(screen.getByText(/second line/)).toBeTruthy()
+  })
+
+  it('streams live reasoning instead of the thinking placeholder', () => {
+    setConv({
+      streaming: true,
+      messages: [
+        { role: 'user', content: 'hi' },
+        { role: 'assistant', content: '', reasoning: 'working it out', reasoningStartedAt: Date.now() },
+      ],
+    })
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
+
+    expect(screen.getByText('Reasoning')).toBeTruthy()
+    expect(screen.getByText(/working it out/)).toBeTruthy()
+    expect(screen.queryByRole('status', { name: /thinking/i })).toBeNull()
+  })
+
+  it('shows an edit_file diff and a turn summary once the turn is done', () => {
+    setConv({
+      messages: [
+        { role: 'user', content: 'fix it' },
+        {
+          role: 'assistant',
+          content: '',
+          startedAt: 0,
+          endedAt: 2000,
+          toolCalls: [{ id: 'c1', name: 'edit_file', args: { path: '/project/a.ts', old_string: 'x = 1', new_string: 'x = 2' }, status: 'done', result: 'ok' }],
+        },
+        { role: 'assistant', content: 'Fixed.', startedAt: 2000, endedAt: 3000 },
+      ],
+    })
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
+
+    expect(screen.getByText('Edited')).toBeTruthy()
+    expect(screen.getByText('a.ts')).toBeTruthy()
+    expect(screen.getByText('x = 2')).toBeTruthy()
+    expect(screen.getByText('Fixed.')).toBeTruthy()
+    expect(screen.getByText('Worked 3.0s')).toBeTruthy()
+    expect(screen.getByText('1 file changed')).toBeTruthy()
   })
 
   it('placeholder names the agent', () => {

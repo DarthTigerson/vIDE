@@ -68,7 +68,7 @@ describe('bridgeStore conversations', () => {
 
   it('sendMessage only touches its own conversation and passes the session id over IPC', () => {
     useBridgeStore.getState().sendMessage('A', '/p', 'hello')
-    expect(conv('A').messages).toEqual([{ role: 'user', content: 'hello' }, { role: 'assistant', content: '' }])
+    expect(conv('A').messages).toEqual([{ role: 'user', content: 'hello' }, { role: 'assistant', content: '', startedAt: expect.any(Number) }])
     expect(conv('A').streaming).toBe(true)
     expect(conv('B').messages).toEqual([])
     expect(apiMock.bridgeSend).toHaveBeenCalledWith(
@@ -111,6 +111,35 @@ describe('bridgeStore conversations', () => {
       { role: 'assistant', content: 'working' },
       { role: 'user', content: 'next' },
     ])
+  })
+
+  it('keeps reasoning on the message, times it, and never sends it back to the model', () => {
+    useBridgeStore.getState().sendMessage('A', '/p', 'q1')
+    emit({ type: 'reasoning-delta', delta: 'think ', sessionId: 'A' })
+    emit({ type: 'reasoning-delta', delta: 'more', sessionId: 'A' })
+    const live = conv('A').messages[1]
+    expect(live.reasoning).toBe('think more')
+    expect(live.reasoningMs).toBeUndefined()
+
+    emit({ type: 'text-delta', delta: 'a1', sessionId: 'A' })
+    expect(conv('A').messages[1].reasoningMs).toEqual(expect.any(Number))
+    emit({ type: 'done', sessionId: 'A' })
+    expect(conv('A').messages[1].endedAt).toEqual(expect.any(Number))
+
+    useBridgeStore.getState().sendMessage('A', '/p', 'q2')
+    const wire = apiMock.bridgeSend.mock.calls[apiMock.bridgeSend.mock.calls.length - 1][1]
+    expect(wire).toEqual([
+      { role: 'user', content: 'q1' },
+      { role: 'assistant', content: 'a1' },
+      { role: 'user', content: 'q2' },
+    ])
+  })
+
+  it('keeps a round that only reasoned instead of dropping it as empty', () => {
+    useBridgeStore.getState().sendMessage('A', '/p', 'q1')
+    emit({ type: 'reasoning-delta', delta: 'hmm', sessionId: 'A' })
+    emit({ type: 'done', sessionId: 'A' })
+    expect(conv('A').messages[1]).toMatchObject({ role: 'assistant', reasoning: 'hmm', reasoningMs: expect.any(Number) })
   })
 
   it('manual compact appends a marker, and the next message merges into it so roles still alternate', async () => {
@@ -302,7 +331,7 @@ describe('bridgeStore conversations', () => {
     emit({ type: 'text-delta', delta: 'a1', sessionId: 'A' })
     emit({ type: 'done', sessionId: 'A' })
     useBridgeStore.getState().regenerate('A', '/p', 0)
-    expect(conv('A').messages).toEqual([{ role: 'user', content: 'q1' }, { role: 'assistant', content: '' }])
+    expect(conv('A').messages).toEqual([{ role: 'user', content: 'q1' }, { role: 'assistant', content: '', startedAt: expect.any(Number) }])
     expect(apiMock.bridgeSend).toHaveBeenLastCalledWith('/p', [{ role: 'user', content: 'q1' }], false, expect.any(Object), 'A')
   })
 })
