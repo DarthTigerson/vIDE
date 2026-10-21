@@ -305,6 +305,23 @@ describe('BridgeManager tool calls', () => {
     expect(events[events.length - 1]).toEqual({ type: 'error', message: 'Bridge hit the 3 tool-call round limit for this turn' })
   })
 
+  it('trims old tool payloads from later requests in a long turn', async () => {
+    const { win, sendHandler } = setup()
+    const big = join(root, 'big.md')
+    await writeFileFs(big, 'line\n'.repeat(10_000))
+    const fetchMock = vi.fn()
+    for (let i = 0; i < 6; i++) fetchMock.mockResolvedValueOnce(toolCallStream('read_file', { path: big }))
+    fetchMock.mockResolvedValueOnce(finalTextStream('read it all'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await sendHandler({ sender: win }, { cwd: root, messages: [{ role: 'user', content: 'read' }], agentMode: true, settings: SETTINGS })
+
+    const lastMessages = JSON.parse(fetchMock.mock.calls[6][1].body).messages
+    const toolContents = lastMessages.filter((m: any) => m.role === 'tool').map((m: any) => m.content)
+    expect(toolContents[0]).toMatch(/^\[vIDE trimmed/)
+    expect(toolContents.at(-1)).toBe('line\n'.repeat(10_000))
+  })
+
   it('runs past 40 tool-call rounds when toolCallLimit is 0 (unlimited)', async () => {
     const { win, sendHandler } = setup()
     const fetchMock = vi.fn()

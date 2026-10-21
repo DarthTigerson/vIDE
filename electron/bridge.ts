@@ -6,6 +6,7 @@ import { join, relative } from 'path'
 import { listAllFiles, searchText, buildTree } from './fsOps'
 import { ALL_VIDE_TOOL_GROUPS, buildVideTools, toOpenAiTool, toolResultText, type VideToolContext, type VideToolGroup, type VideToolSet } from './bridgeVideTools'
 import { decideStopAction } from './mcp/todoEnforcerHook'
+import { trimToolPayloads } from './bridgeTrim'
 import { minimatch } from 'minimatch'
 
 const execFileAsync = promisify(execFile)
@@ -557,6 +558,8 @@ export class BridgeManager {
     for (let round = 0; round < limit; round++) {
       if (!live()) return
       if (round > 0) emit({ type: 'new-turn' })
+      const trimmed = trimToolPayloads(messages)
+      if (trimmed) messages.splice(0, messages.length, ...trimmed)
       const streamResult = await this.streamOneCompletion(key, live, emit, messages, settings, tools)
       if (streamResult === null || !live()) return // error/abort already emitted (or run superseded)
 
