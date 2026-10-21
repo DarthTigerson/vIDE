@@ -40,7 +40,12 @@ export interface BridgeSettings {
   videTools?: VideToolGroup[]
   // Which agent this is (todo authorship); missing = 'bridge'.
   agentKind?: BridgeAgentKind
+  // Per-request reasoning_effort (llama.cpp; 'none' turns thinking off).
+  // Missing = the server's own default. Can change mid-run: see setReasoningEffort.
+  reasoningEffort?: ReasoningEffort
 }
+
+export type ReasoningEffort = 'none' | 'low' | 'medium' | 'high' | 'xhigh'
 
 export interface BridgeSendPayload {
   cwd: string
@@ -432,6 +437,9 @@ export class BridgeManager {
   // stale run suspended at an await (slow tool, fetch, approval) can't resurrect
   // into the next run's transcript just because the key was reused.
   private runByConv = new Map<string, symbol>()
+  // Current reasoning effort per conversation, read at the start of every
+  // round so a change made mid-turn applies from the next request.
+  private effortByConv = new Map<string, ReasoningEffort>()
 
   // Without a context (tests, or before main.ts wires one in) only the
   // self-contained groups (search, docs) are available.
@@ -458,6 +466,12 @@ export class BridgeManager {
       const win = BrowserWindow.fromWebContents(event.sender)
       if (!win) return
       this.cancel(win, sessionId)
+    })
+
+    ipcMain.on('bridge:setReasoningEffort', (event, effort: ReasoningEffort, sessionId?: string) => {
+      const win = BrowserWindow.fromWebContents(event.sender)
+      if (!win) return
+      this.setReasoningEffort(win, effort, sessionId)
     })
 
     ipcMain.on('bridge:approve', (event, toolCallId: string, sessionId?: string) => {
@@ -488,6 +502,10 @@ export class BridgeManager {
 
   cancel(win: BrowserWindow, sessionId?: string): void {
     this.cancelConv(convKey(win.id, sessionId))
+  }
+
+  setReasoningEffort(win: BrowserWindow, effort: ReasoningEffort, sessionId?: string): void {
+    this.effortByConv.set(convKey(win.id, sessionId), effort)
   }
 
   approve(win: BrowserWindow, toolCallId: string, sessionId?: string): void {
@@ -549,6 +567,8 @@ export class BridgeManager {
     const key = convKey(win.id, sessionId)
     // A new send supersedes any stale run still suspended on this key.
     this.cancelConv(key)
+    if (settings.reasoningEffort) this.effortByConv.set(key, settings.reasoningEffort)
+    else this.effortByConv.delete(key)
     const run = Symbol('bridge-run')
     this.runByConv.set(key, run)
     const live = () => this.runByConv.get(key) === run
@@ -886,10 +906,18 @@ export class BridgeManager {
         Authorization: `Bearer ${settings.apiKey}`,
       }
       if (settings.sessionId) reqHeaders['X-Bridge-Session-ID'] = settings.sessionId
+      const effort = this.effortByConv.get(key)
       response = await fetch(`${settings.endpoint}/chat/completions`, {
         method: 'POST',
         headers: reqHeaders,
-        body: JSON.stringify({ model: settings.modelId, messages, tools, stream: true, stream_options: { include_usage: true } }),
+        body: JSON.stringify({
+          model: settings.modelId,
+          messages,
+          tools,
+          stream: true,
+          stream_options: { include_usage: true },
+          ...(effort ? { reasoning_effort: effort } : {}),
+        }),
         signal: controller.signal,
       })
     } catch (err) {
@@ -1009,6 +1037,7 @@ export class BridgeManager {
       this.cancelConv(key)
       this.controllerByConv.delete(key)
       this.pendingApprovalsByConv.delete(key)
+      this.effortByConv.delete(key)
     }
   }
 }

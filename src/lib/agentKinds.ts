@@ -1,5 +1,5 @@
 import type { AssistantKind } from '@/types/api'
-import type { LlamaModelConfig } from '@/stores/llamaModelsStore'
+import type { LlamaModelConfig, ReasoningEffort } from '@/stores/llamaModelsStore'
 import { useLlamaModelsStore } from '@/stores/llamaModelsStore'
 import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
 import { useBridgeSettingsStore } from '@/stores/bridgeSettingsStore'
@@ -85,7 +85,7 @@ export function llamaConnectionFor(
   kind: AssistantKind,
   models: LlamaModelConfig[] = useLlamaModelsStore.getState().models,
   toolCallLimit: number = useLlamaSettingsStore.getState().toolCallLimit,
-): { endpoint: string; apiKey: string; modelId: string; toolCallLimit: number } | undefined {
+): { endpoint: string; apiKey: string; modelId: string; toolCallLimit: number; reasoningEffort: ReasoningEffort } | undefined {
   if (!isLlamaKind(kind)) return undefined
   const model = models.find((m) => m.id === llamaModelId(kind) && m.enabled)
   if (!model) return undefined
@@ -94,5 +94,7 @@ export function llamaConnectionFor(
     apiKey: model.apiKey,
     modelId: model.alias || model.displayName || model.id,
     toolCallLimit,
+    // The server was launched with this; a session's own choice overrides it per request.
+    reasoningEffort: model.reasoningEffort,
   }
 }

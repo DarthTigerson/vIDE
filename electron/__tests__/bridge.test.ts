@@ -123,6 +123,37 @@ describe('BridgeManager bridge:send (text-only, no tool calls)', () => {
     const body = JSON.parse(fetchMock.mock.calls[0][1].body)
     expect(body.model).toBe('test-model')
     expect(body.stream).toBe(true)
+    expect(body).not.toHaveProperty('reasoning_effort')
+  })
+
+  it('streams reasoning_content and inline <think> blocks as reasoning, keeping them out of the text', async () => {
+    const { win, sendHandler } = setup()
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sseStream([
+      'data: {"choices":[{"delta":{"reasoning_content":"plan"},"finish_reason":null}]}\n\n',
+      'data: {"choices":[{"delta":{"content":"<think>more</th"},"finish_reason":null}]}\n\n',
+      'data: {"choices":[{"delta":{"content":"ink>Answer"},"finish_reason":null}]}\n\n',
+      'data: [DONE]\n\n',
+    ])))
+
+    await sendHandler({ sender: win }, { cwd: '/project', messages: [{ role: 'user', content: 'hi' }], agentMode: false, settings: SETTINGS })
+
+    const events = win.webContents.send.mock.calls.filter((c: any[]) => c[0] === 'bridge:event').map((c: any[]) => c[1])
+    expect(events).toEqual([
+      { type: 'reasoning-delta', delta: 'plan' },
+      { type: 'reasoning-delta', delta: 'more' },
+      { type: 'text-delta', delta: 'Answer' },
+      { type: 'done' },
+    ])
+  })
+
+  it('sends the session reasoning effort as reasoning_effort', async () => {
+    const { win, sendHandler } = setup()
+    const fetchMock = vi.fn().mockResolvedValue(sseStream(['data: [DONE]\n\n']))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await sendHandler({ sender: win }, { cwd: '/project', messages: [{ role: 'user', content: 'hi' }], agentMode: false, settings: { ...SETTINGS, reasoningEffort: 'none' } })
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).reasoning_effort).toBe('none')
   })
 })
 
@@ -184,6 +215,23 @@ describe('BridgeManager tool calls', () => {
     expect(events).toContainEqual({ type: 'text-delta', delta: 'done' })
     expect(events).toContainEqual({ type: 'done' })
     expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('a reasoning effort change mid-turn applies from the next round', async () => {
+    const { win, sendHandler } = setup()
+    const fetchMock = vi.fn()
+      .mockImplementationOnce(async () => {
+        handlers['bridge:setReasoningEffort']({ sender: win }, 'high', undefined)
+        return toolCallStream('list_dir', { path: root })
+      })
+      .mockResolvedValueOnce(finalTextStream('done'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await sendHandler({ sender: win }, { cwd: root, messages: [{ role: 'user', content: 'look' }], agentMode: true, settings: { ...SETTINGS, reasoningEffort: 'low' } })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).reasoning_effort).toBe('low')
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).reasoning_effort).toBe('high')
   })
 
   it('agent mode: web_search calls webSearch with the query and streams the formatted results', async () => {

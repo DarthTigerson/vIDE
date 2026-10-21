@@ -1,9 +1,13 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import ReactMarkdown from 'react-markdown'
 import { useBridgeStore, type BridgeToolCallBlock, type BridgeChatMessage } from '@/stores/bridgeStore'
 import { useClaudeStore } from '@/stores/claudeStore'
 import { useBridgeAgentModeShortcut } from './useBridgeAgentModeShortcut'
 import { changedPaths, describeTool, editDiff, formatDuration, type ToolIcon } from './bridgeToolView'
+import type { ReasoningEffort } from '@/stores/llamaModelsStore'
+import { clampToViewport } from '@/components/ui/clampToViewport'
+import { useCoverNativeViews } from '@/lib/nativeViewCover'
 
 // Activity rail: each assistant turn is a column of steps (reasoning, tool
 // calls, commentary) joined by a line, with the final answer below it.
@@ -25,7 +29,7 @@ const TONE: Record<Tone, CSSProperties> = {
   err: mix('--git-deleted'),
 }
 
-function Icon({ name }: { name: ToolIcon | 'spark' | 'dot' | 'x' }) {
+function Icon({ name }: { name: ToolIcon | 'spark' | 'dot' | 'x' | 'sliders' }) {
   const p = { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true }
   switch (name) {
     case 'spark': return <svg {...p}><path d="M12 2l2.4 5.6L20 10l-5.6 2.4L12 18l-2.4-5.6L4 10l5.6-2.4z" /></svg>
@@ -37,6 +41,7 @@ function Icon({ name }: { name: ToolIcon | 'spark' | 'dot' | 'x' }) {
     case 'delete': return <svg {...p}><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>
     case 'move': return <svg {...p}><path d="M5 12h14M13 6l6 6-6 6" /></svg>
     case 'x': return <svg {...p}><path d="M7 7l10 10M17 7 7 17" /></svg>
+    case 'sliders': return <svg {...p}><path d="M4 18h4M4 12h10M4 6h16" /></svg>
     case 'dot': return <svg {...p}><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" /></svg>
     default: return <svg {...p}><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z" /></svg>
   }
@@ -360,6 +365,16 @@ function Turn({ sessionId, cwd, rounds, live }: { sessionId: string; cwd: string
       )
     }
     for (const tc of m.toolCalls ?? []) steps.push(<ToolStep key={tc.id} sessionId={sessionId} block={tc} cwd={cwd} />)
+    if (m.effortChange) {
+      steps.push(
+        <Step key={`e${ri}`} tone="muted" node={<Icon name="sliders" />}>
+          <div className="flex min-h-[22px] items-center gap-1.5 text-xs text-fg-muted">
+            Effort {EFFORT_LABEL[m.effortChange.from]} → <span className="font-medium text-fg">{EFFORT_LABEL[m.effortChange.to]}</span>
+            {live && isLast && <span>· from the next step</span>}
+          </div>
+        </Step>
+      )
+    }
   })
   if (live && !last.reasoning && !last.content && !last.toolCalls?.length) steps.push(<WorkingStep key="working" />)
 
@@ -386,6 +401,101 @@ function Turn({ sessionId, cwd, rounds, live }: { sessionId: string; cwd: string
         </div>
       )}
     </div>
+  )
+}
+
+const EFFORTS: { value: ReasoningEffort; label: string; hint: string }[] = [
+  { value: 'none', label: 'Off', hint: 'No reasoning. Fastest' },
+  { value: 'low', label: 'Low', hint: 'Short reasoning' },
+  { value: 'medium', label: 'Medium', hint: 'Balanced' },
+  { value: 'high', label: 'High', hint: 'Thorough. Slower' },
+  { value: 'xhigh', label: 'Max', hint: 'Longest reasoning. Slowest' },
+]
+const EFFORT_LABEL = Object.fromEntries(EFFORTS.map((e) => [e.value, e.label])) as Record<ReasoningEffort, string>
+
+// Reasoning effort for a llama session. Sent with every request, so a change
+// mid-turn applies from the next round. Models whose template has no effort
+// levels still honour Off.
+function EffortChip({ value, onChange }: { value: ReasoningEffort; onChange: (v: ReasoningEffort) => void }) {
+  const [open, setOpen] = useState(false)
+  useCoverNativeViews(open)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState({ left: 0, top: 0 })
+
+  useEffect(() => {
+    if (!open) return
+    const close = () => setOpen(false)
+    const closeOnEscape = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('click', close)
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      window.removeEventListener('click', close)
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [open])
+
+  // Opens upward: the chip sits at the bottom of the panel.
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    const menu = menuRef.current?.getBoundingClientRect()
+    const c = clampToViewport(rect.left, rect.top - (menu?.height ?? 0) - 6, menu?.width ?? 0, menu?.height ?? 0)
+    setPos({ left: c.x, top: c.y })
+  }, [open])
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Reasoning effort: ${EFFORT_LABEL[value]}`}
+        title="Reasoning effort"
+        onClick={(e) => {
+          e.stopPropagation()
+          setOpen((o) => !o)
+        }}
+        className={`flex h-7 items-center gap-1 rounded-md border border-border px-2 text-xs transition-colors hover:text-fg ${open ? 'bg-accent/10 text-fg' : 'text-fg-muted'}`}
+      >
+        <span style={{ color: 'rgb(var(--color-accent))' }}><Icon name="spark" /></span>
+        {EFFORT_LABEL[value]}
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" aria-hidden><path d="m6 9 6 6 6-6" /></svg>
+      </button>
+      {open && createPortal(
+        <div
+          ref={menuRef}
+          role="menu"
+          aria-label="Reasoning effort"
+          className="fixed z-[200] w-56 rounded-lg border border-border bg-popover p-1 shadow-2xl shadow-black/50"
+          style={{ left: pos.left, top: pos.top }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-2 pb-1 pt-1.5 text-[11px] text-fg-muted">Reasoning effort</div>
+          {EFFORTS.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              role="menuitemradio"
+              aria-checked={o.value === value}
+              onClick={() => {
+                if (o.value !== value) onChange(o.value)
+                setOpen(false)
+              }}
+              className={`flex w-full flex-col rounded px-2 py-1.5 text-left transition-colors ${o.value === value ? 'bg-accent/10' : 'hover:bg-white/5'}`}
+            >
+              <span className="text-xs font-medium text-fg">{o.label}</span>
+              <span className="text-[11px] text-fg-muted">{o.hint}</span>
+            </button>
+          ))}
+          <div className="mx-1 mt-1 border-t border-border px-1 pb-1 pt-1.5 text-[10.5px] leading-snug text-fg-muted">
+            Applies from the next step. Off works on any model; levels need one that supports them, like gpt-oss.
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   )
 }
 
@@ -442,7 +552,7 @@ export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSe
   sessionId: string
   cwd: string
   label: string
-  connectionOverride?: { endpoint: string; apiKey: string; modelId: string; toolCallLimit?: number }
+  connectionOverride?: { endpoint: string; apiKey: string; modelId: string; toolCallLimit?: number; reasoningEffort?: ReasoningEffort }
   beforeSend?: () => Promise<void>
 }) {
   useBridgeAgentModeShortcut(sessionId)
@@ -452,7 +562,11 @@ export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSe
   const input = useBridgeStore((s) => s.conversations[sessionId]?.draftInput ?? '')
   const compacting = useBridgeStore((s) => s.conversations[sessionId]?.compacting ?? false)
   const contextUsage = useBridgeStore((s) => s.conversations[sessionId]?.contextUsage)
-  const { sendMessage, regenerate, toggleAgentMode, cancel, setDraftInput, appendDraftInput } = useBridgeStore.getState()
+  const sessionEffort = useBridgeStore((s) => s.conversations[sessionId]?.reasoningEffort)
+  // Only llama sessions have a known effort (the model's launch setting).
+  const modelEffort = connectionOverride?.reasoningEffort
+  const effort = sessionEffort ?? modelEffort
+  const { sendMessage, regenerate, toggleAgentMode, setReasoningEffort, cancel, setDraftInput, appendDraftInput } = useBridgeStore.getState()
   const setInput = (text: string) => setDraftInput(sessionId, text)
   const focusToken = useClaudeStore((s) => s.focusToken)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -581,6 +695,9 @@ export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSe
                 Agent
               </button>
             </div>
+            {effort && (
+              <EffortChip value={effort} onChange={(v) => setReasoningEffort(sessionId, v, effort)} />
+            )}
             <div className="ml-auto flex items-center gap-2">
               {compacting && <span className="text-xs text-fg-muted animate-pulse">Compacting context…</span>}
               {!compacting && contextUsage && <ContextMeter usage={contextUsage} />}

@@ -1,6 +1,6 @@
 import type { BrowserWindow } from 'electron'
 import { registerChannel } from '../dispatch'
-import type { BridgeCompactPayload, BridgeManager, BridgeMessage, BridgeSettings } from '../../bridge'
+import type { BridgeCompactPayload, BridgeManager, BridgeMessage, BridgeSettings, ReasoningEffort } from '../../bridge'
 import { getBridgeSettings, setBridgeSettings } from '../../bridge'
 import type { BridgeStoredSettings } from '../../bridge'
 
@@ -31,6 +31,7 @@ export function registerBridgeRelayChannels(bridgeManager: BridgeManager, win: B
   registerChannel('bridge:approve', (toolCallId: string, sessionId?: string) => bridgeManager.approve(win, toolCallId, sessionId))
   registerChannel('bridge:reject', (toolCallId: string, sessionId?: string) => bridgeManager.reject(win, toolCallId, sessionId))
   registerChannel('bridge:cancel', (sessionId?: string) => bridgeManager.cancel(win, sessionId))
+  registerChannel('bridge:setReasoningEffort', (effort: ReasoningEffort, sessionId?: string) => bridgeManager.setReasoningEffort(win, effort, sessionId))
 
   registerChannel('bridge:testConnection', (settings: BridgeSettings) => bridgeManager.testConnection(settings))
   registerChannel('bridge:compact', (payload: BridgeCompactPayload) => bridgeManager.compact(payload))

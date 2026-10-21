@@ -15,6 +15,7 @@ const { store, apiMock } = vi.hoisted(() => {
     bridgeApprove: vi.fn(),
     bridgeReject: vi.fn(),
     bridgeCancel: vi.fn(),
+    bridgeSetReasoningEffort: vi.fn(),
     bridgeCompact: vi.fn(),
     onBridgeEvent: vi.fn((_cb: (event: any) => void) => () => {}),
   }
@@ -133,6 +134,26 @@ describe('bridgeStore conversations', () => {
       { role: 'assistant', content: 'a1' },
       { role: 'user', content: 'q2' },
     ])
+  })
+
+  it('sends a chosen reasoning effort with the next message', () => {
+    useBridgeStore.getState().setReasoningEffort('A', 'high', 'medium')
+    useBridgeStore.getState().sendMessage('A', '/p', 'q1')
+    const settings = apiMock.bridgeSend.mock.calls[apiMock.bridgeSend.mock.calls.length - 1][3]
+    expect(settings.reasoningEffort).toBe('high')
+    expect(apiMock.bridgeSetReasoningEffort).not.toHaveBeenCalled()
+  })
+
+  it('mid-turn, pushes the effort to the running conversation and marks the round', () => {
+    useBridgeStore.getState().sendMessage('A', '/p', 'q1')
+    useBridgeStore.getState().setReasoningEffort('A', 'low', 'medium')
+    useBridgeStore.getState().setReasoningEffort('A', 'high', 'low')
+    expect(apiMock.bridgeSetReasoningEffort).toHaveBeenLastCalledWith('high', 'A')
+    expect(conv('A').messages[1].effortChange).toEqual({ from: 'medium', to: 'high' })
+
+    // Changing back to where the round started clears the marker.
+    useBridgeStore.getState().setReasoningEffort('A', 'medium', 'high')
+    expect(conv('A').messages[1].effortChange).toBeUndefined()
   })
 
   it('keeps a round that only reasoned instead of dropping it as empty', () => {

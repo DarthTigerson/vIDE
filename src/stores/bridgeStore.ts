@@ -5,6 +5,7 @@ import { useNotesMcpStore } from './notesMcpStore'
 import { useScriptsMcpStore } from './scriptsMcpStore'
 import { useBrowserMcpStore } from './browserMcpStore'
 import type { BridgeCompactResult, BridgeMessage, BridgeSessionEvent, BridgeSettings, VideToolGroup } from '@/types/api'
+import type { ReasoningEffort } from './llamaModelsStore'
 
 // Pre-multi-session key: one global conversation. Migrated into history once
 // at import (see migrateLegacyCurrent) and then deleted.
@@ -40,6 +41,8 @@ export interface BridgeChatMessage {
   // When this assistant round started and finished, for "Worked 14s".
   startedAt?: number
   endedAt?: number
+  // Effort changed while this round ran; the next round uses `to`.
+  effortChange?: { from: ReasoningEffort; to: ReasoningEffort }
 }
 
 export interface StoredSession {
@@ -63,9 +66,12 @@ export interface BridgeConversation {
   compacting?: boolean
   // Tokens the last request used, against the model's context when known.
   contextUsage?: { usedTokens: number; contextWindow: number | null }
+  // This session's reasoning effort, sent per request. Missing = the model's
+  // launch setting (Settings > Llama), which the server already applies.
+  reasoningEffort?: ReasoningEffort
 }
 
-type ConnectionOverride = { endpoint: string; apiKey: string; modelId: string; toolCallLimit?: number }
+type ConnectionOverride = { endpoint: string; apiKey: string; modelId: string; toolCallLimit?: number; reasoningEffort?: ReasoningEffort }
 
 function newHistoryId(): string {
   return `vide-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
@@ -212,6 +218,8 @@ interface BridgeStore {
   compact: (sessionId: string, override?: ConnectionOverride, focus?: string) => Promise<void>
   regenerate: (sessionId: string, cwd: string, messageIndex: number, override?: ConnectionOverride) => void
   toggleAgentMode: (sessionId: string) => void
+  // `current` is the effort shown before the change (the session's, else the model's).
+  setReasoningEffort: (sessionId: string, effort: ReasoningEffort, current: ReasoningEffort) => void
   approveToolCall: (sessionId: string, toolCallId: string) => void
   rejectToolCall: (sessionId: string, toolCallId: string) => void
   cancel: (sessionId: string) => void
@@ -248,6 +256,7 @@ export const useBridgeStore = create<BridgeStore>((set, get) => {
       videTools: enabledVideTools(),
       // Only llama sessions pass a connection override.
       agentKind: override ? 'llama' : 'bridge',
+      reasoningEffort: conv.reasoningEffort,
     }
   }
 
@@ -344,6 +353,25 @@ export const useBridgeStore = create<BridgeStore>((set, get) => {
     },
 
     toggleAgentMode: (sessionId) => patch(sessionId, (c) => ({ agentMode: !c.agentMode })),
+
+    setReasoningEffort: (sessionId, effort, current) => {
+      const conv = get().conversations[sessionId]
+      if (!conv) return
+      const last = conv.messages[conv.messages.length - 1]
+      if (!conv.streaming || last?.role !== 'assistant') {
+        patch(sessionId, () => ({ reasoningEffort: effort }))
+        return
+      }
+      // Mid-turn: the running round keeps its effort, so mark it on that
+      // round for the rail. Several changes in one round collapse to one.
+      const from = last.effortChange?.from ?? current
+      const effortChange = from === effort ? undefined : { from, to: effort }
+      patch(sessionId, (c) => ({
+        reasoningEffort: effort,
+        messages: [...c.messages.slice(0, -1), { ...c.messages[c.messages.length - 1], effortChange }],
+      }))
+      window.api.bridgeSetReasoningEffort(effort, sessionId)
+    },
 
     approveToolCall: (sessionId, toolCallId) => window.api.bridgeApprove(toolCallId, sessionId),
     rejectToolCall: (sessionId, toolCallId) => window.api.bridgeReject(toolCallId, sessionId),

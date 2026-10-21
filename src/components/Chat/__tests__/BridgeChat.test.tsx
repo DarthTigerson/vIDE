@@ -15,6 +15,7 @@ beforeEach(() => {
     bridgeApprove: vi.fn(),
     bridgeReject: vi.fn(),
     bridgeCancel: vi.fn(),
+    bridgeSetReasoningEffort: vi.fn(),
   }
   useBridgeStore.setState({ conversations: {} })
   useBridgeStore.getState().openConversation('s1', false)
@@ -295,6 +296,36 @@ describe('BridgeChat', () => {
     expect(screen.getByText('Fixed.')).toBeTruthy()
     expect(screen.getByText('Worked 3.0s')).toBeTruthy()
     expect(screen.getByText('1 file changed')).toBeTruthy()
+  })
+
+  it('shows no reasoning effort chip without a llama connection', () => {
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
+    expect(screen.queryByRole('button', { name: /Reasoning effort/ })).toBeNull()
+  })
+
+  it('shows the model effort on a llama session and switches it from the menu', () => {
+    const conn = { endpoint: 'http://h/v1', apiKey: 'k', modelId: 'm', reasoningEffort: 'medium' as const }
+    render(<BridgeChat sessionId="s1" label="Llama" cwd="/project" connectionOverride={conn} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reasoning effort: Medium' }))
+    fireEvent.click(screen.getByRole('menuitemradio', { name: /High/ }))
+
+    expect(useBridgeStore.getState().conversations.s1.reasoningEffort).toBe('high')
+    expect(screen.getByRole('button', { name: 'Reasoning effort: High' })).toBeTruthy()
+  })
+
+  it('marks a mid-turn effort change on the rail', () => {
+    setConv({
+      streaming: true,
+      messages: [
+        { role: 'user', content: 'hi' },
+        { role: 'assistant', content: '', effortChange: { from: 'low', to: 'high' }, toolCalls: [{ id: 'c1', name: 'list_dir', args: { path: '/project' }, status: 'running' }] },
+      ],
+    })
+    render(<BridgeChat sessionId="s1" label="Llama" cwd="/project" />)
+
+    expect(screen.getByText(/Effort Low →/)).toBeTruthy()
+    expect(screen.getByText('· from the next step')).toBeTruthy()
   })
 
   it('placeholder names the agent', () => {

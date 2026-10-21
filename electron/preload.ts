@@ -251,6 +251,7 @@ contextBridge.exposeInMainWorld('api', {
   bridgeApprove: (toolCallId: string, sessionId: string) => ipcRenderer.send('bridge:approve', toolCallId, sessionId),
   bridgeReject: (toolCallId: string, sessionId: string) => ipcRenderer.send('bridge:reject', toolCallId, sessionId),
   bridgeCancel: (sessionId: string) => ipcRenderer.send('bridge:cancel', sessionId),
+  bridgeSetReasoningEffort: (effort: string, sessionId: string) => ipcRenderer.send('bridge:setReasoningEffort', effort, sessionId),
   bridgeTestConnection: (settings: unknown) => ipcRenderer.invoke('bridge:testConnection', settings),
   bridgeCompact: (payload: unknown) => ipcRenderer.invoke('bridge:compact', payload),
   bridgeGetSettings: () => ipcRenderer.invoke('bridge:getSettings'),

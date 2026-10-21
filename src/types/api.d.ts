@@ -124,6 +124,8 @@ export interface BridgeSettings {
   videTools?: VideToolGroup[]
   // Which agent this is (todo authorship); missing = 'bridge'
   agentKind?: 'bridge' | 'llama'
+  // Per-request reasoning_effort; missing = the server's default
+  reasoningEffort?: 'none' | 'low' | 'medium' | 'high' | 'xhigh'
 }
 
 export type VideToolGroup = 'todos' | 'notes' | 'scripts' | 'browser' | 'search' | 'docs'
@@ -379,6 +381,7 @@ declare global {
       bridgeApprove: (toolCallId: string, sessionId: string) => void
       bridgeReject: (toolCallId: string, sessionId: string) => void
       bridgeCancel: (sessionId: string) => void
+      bridgeSetReasoningEffort: (effort: 'none' | 'low' | 'medium' | 'high' | 'xhigh', sessionId: string) => void
       bridgeTestConnection: (settings: BridgeSettings) => Promise<{ ok: boolean; error?: string }>
       bridgeGetSettings: () => Promise<BridgeSettings | null>
       bridgeSetSettings: (settings: BridgeSettings) => Promise<void>
