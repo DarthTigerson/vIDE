@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { LlamaLaunchConfig } from '../../electron/llama'
 
 // Types mirror the "Recommended Internal Structure" in
 // notes/vIDE/Bridge/create-model-instructions.md — llama-server launch args
@@ -30,6 +31,9 @@ export interface LlamaModelConfig {
 
   autoStart: boolean
   agentModeOnLaunch: boolean
+  // Fit context size and GPU layers to free memory (llama.cpp --fit) instead
+  // of the fixed contextSize/gpuLayers. Off for models saved before it existed.
+  autoOptimize: boolean
 }
 
 // Defaults come from the "Current Cosmos Configuration" in the instructions
@@ -56,6 +60,25 @@ export function defaultLlamaModelConfig(): LlamaModelConfig {
 
     autoStart: true,
     agentModeOnLaunch: false,
+    autoOptimize: true,
+  }
+}
+
+// The launch fields of a saved model, as llama:start expects them.
+export function toLaunchConfig(model: LlamaModelConfig): LlamaLaunchConfig {
+  return {
+    modelPath: model.modelPath,
+    serverExecutable: model.serverExecutable,
+    host: model.host,
+    port: model.port,
+    apiKey: model.apiKey,
+    contextSize: model.contextSize,
+    batchSize: model.batchSize,
+    gpuLayers: model.gpuLayers,
+    parallelRequests: model.parallelRequests,
+    reasoningEffort: model.reasoningEffort,
+    alias: model.alias,
+    autoOptimize: model.autoOptimize ?? false,
   }
 }
 

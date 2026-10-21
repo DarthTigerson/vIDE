@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useLlamaStore } from '@/stores/llamaStore'
-import { useLlamaModelsStore, type LlamaModelConfig } from '@/stores/llamaModelsStore'
+import { toLaunchConfig, useLlamaModelsStore, type LlamaModelConfig } from '@/stores/llamaModelsStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { clampToViewport } from '@/components/ui/clampToViewport'
 import { buildLlamaModelPath, LLAMA_SETTINGS_TAB_PATH } from '@/components/Settings/paths'
@@ -140,19 +140,7 @@ function ModelRow({ model }: { model: LlamaModelConfig }) {
     openTab({ path: buildLlamaModelPath(model.id), content: '', dirty: false })
   }
 
-  const launchCfg = {
-    modelPath: model.modelPath,
-    serverExecutable: model.serverExecutable,
-    host: model.host,
-    port: model.port,
-    apiKey: model.apiKey,
-    contextSize: model.contextSize,
-    batchSize: model.batchSize,
-    gpuLayers: model.gpuLayers,
-    parallelRequests: model.parallelRequests,
-    reasoningEffort: model.reasoningEffort,
-    alias: model.alias,
-  }
+  const launchCfg = toLaunchConfig(model)
 
   async function handleLaunch() {
     setLaunching(true)

@@ -29,7 +29,7 @@ vi.mock('child_process', async (importOriginal) => {
 })
 
 import { homedir } from 'os'
-import { LlamaManager, resolveLlamaPath, _resetLlamaPathCacheForTesting, sumLlamaServerRss } from '../llama'
+import { LlamaManager, resolveLlamaPath, _resetLlamaPathCacheForTesting, sumLlamaServerRss, buildLlamaServerArgs, AUTO_OPTIMIZE_ARGS } from '../llama'
 
 class FakeChildProcess extends EventEmitter {
   stdout = new EventEmitter()
@@ -375,6 +375,27 @@ describe('LlamaManager', () => {
       const resolved = await resolveLlamaPath()
       expect(resolved).toBe('/usr/local/bin/llama-cli')
     })
+  })
+})
+
+describe('buildLlamaServerArgs', () => {
+  const base = {
+    modelPath: '/m.gguf', serverExecutable: '', host: '127.0.0.1', port: 8899, apiKey: 'local',
+    contextSize: 131072, batchSize: 256, gpuLayers: 99, parallelRequests: 1, reasoningEffort: 'medium' as const, alias: '',
+  }
+
+  it('auto-optimize leaves context and GPU layers to llama.cpp --fit and adds the memory-saving flags', () => {
+    const args = buildLlamaServerArgs({ ...base, autoOptimize: true })
+    expect(args).not.toContain('-c')
+    expect(args).not.toContain('-ngl')
+    expect(args).toEqual(expect.arrayContaining(AUTO_OPTIMIZE_ARGS))
+    expect(args.join(' ')).toContain('--cache-type-k q8_0 --cache-type-v q8_0 --cache-ram 2048')
+  })
+
+  it('without auto-optimize passes the configured context and GPU layers', () => {
+    const args = buildLlamaServerArgs(base)
+    expect(args.join(' ')).toContain('-c 131072 --batch-size 256 -ngl 99')
+    expect(args).not.toContain('--fit')
   })
 })
 

@@ -11,7 +11,7 @@ import { useFontSizeStore } from '@/stores/fontSizeStore'
 import { useInstanceFontSizeStore } from '@/stores/instanceFontSizeStore'
 import { useDisplayStore, type PanelStyle } from '@/stores/displayStore'
 import { BridgeChat } from './BridgeChat'
-import { useLlamaModelsStore } from '@/stores/llamaModelsStore'
+import { toLaunchConfig, useLlamaModelsStore } from '@/stores/llamaModelsStore'
 import { useLlamaStore } from '@/stores/llamaStore'
 import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
 import { agentLabel, isBridgeLike, isClaudeLike, isLlamaKind, isTerminalKind, llamaModelId } from '@/lib/agentKinds'
@@ -102,19 +102,7 @@ export function Chat() {
     } catch {}
 
     // Server not reachable — launch it, then poll until ready (up to 60 s).
-    useLlamaStore.getState().startModel(modelId, {
-      modelPath: model.modelPath,
-      serverExecutable: model.serverExecutable,
-      host: model.host,
-      port: model.port,
-      apiKey: model.apiKey,
-      contextSize: model.contextSize,
-      batchSize: model.batchSize,
-      gpuLayers: model.gpuLayers,
-      parallelRequests: model.parallelRequests,
-      reasoningEffort: model.reasoningEffort,
-      alias: model.alias,
-    })
+    useLlamaStore.getState().startModel(modelId, toLaunchConfig(model))
 
     for (let i = 0; i < 120; i++) {
       await new Promise((r) => setTimeout(r, 500))

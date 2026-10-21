@@ -31,14 +31,32 @@ export interface LlamaLaunchConfig {
   parallelRequests: number
   reasoningEffort: 'none' | 'low' | 'medium' | 'high' | 'xhigh'
   alias: string
+  // Let llama.cpp size the context and GPU offload to free memory instead of
+  // using contextSize/gpuLayers. Missing = off (configs saved before this).
+  autoOptimize?: boolean
 }
 
+// llama.cpp's --fit only adjusts arguments that were *not* passed, so auto
+// mode leaves out -c/-ngl and gives it a floor and a margin instead. KV cache
+// at q8_0 holds about twice the context of the f16 default in the same
+// memory, and --cache-ram (8 GiB by default) is the idle-slot prompt cache —
+// on a 32 GB machine that alone can push a 27B model into swap.
+export const AUTO_OPTIMIZE_ARGS = [
+  '--fit', 'on',
+  '--fit-ctx', '16384',
+  '--fit-target', '2048',
+  '--cache-type-k', 'q8_0',
+  '--cache-type-v', 'q8_0',
+  '--cache-ram', '2048',
+]
+
 export function buildLlamaServerArgs(cfg: LlamaLaunchConfig): string[] {
+  const auto = cfg.autoOptimize === true
   const args = [
     '-m', expandTilde(cfg.modelPath),
-    '-c', String(cfg.contextSize),
+    ...(auto ? AUTO_OPTIMIZE_ARGS : ['-c', String(cfg.contextSize)]),
     '--batch-size', String(cfg.batchSize),
-    '-ngl', String(cfg.gpuLayers),
+    ...(auto ? [] : ['-ngl', String(cfg.gpuLayers)]),
     '-np', String(cfg.parallelRequests),
     '--reasoning-effort', cfg.reasoningEffort,
     '--host', cfg.host,
