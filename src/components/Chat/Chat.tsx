@@ -433,8 +433,8 @@ export function Chat() {
           </p>
         </div>
       )}
-      {isClaudeLike(activeKind) && usageOpen && <UsagePanel />}
-      {isClaudeLike(activeKind) && costOpen && <CostPanel />}
+      {usageOpen && <UsagePanel />}
+      {costOpen && <CostPanel />}
     </div>
   )
 }

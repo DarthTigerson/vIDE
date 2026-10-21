@@ -111,11 +111,11 @@ export function selectActiveSession(s: Pick<ClaudeState, 'instances' | 'activeIn
   return s.instances.find((inst) => inst.id === s.activeInstanceId)
 }
 
-// Usage/Cost render inside the chat panel against the Claude CLI, so they
-// close whenever the session that ends up active isn't Claude (or there is
-// none). Shared by setActiveInstance and closeInstance.
+// Usage/Cost show account-wide Claude usage at the bottom of the chat panel,
+// whichever session is active — they only close once no session is left.
+// Shared by setActiveInstance and closeInstance.
 function usagePanelsFor(next: AgentSession | undefined): Partial<Pick<ClaudeState, 'usageOpen' | 'costOpen'>> {
-  return isClaudeLike(next?.kind) ? {} : { usageOpen: false, costOpen: false }
+  return next ? {} : { usageOpen: false, costOpen: false }
 }
 
 // Tears down one session's backing process/conversation: Claude and terminal
@@ -199,7 +199,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
     const instance = createInstance(kind, nextHueForInstances(instances))
     openIfBridgeLike(instance)
     const nextInstances = [...instances, instance]
-    set({ instances: nextInstances, activeInstanceId: instance.id, ...(isClaudeLike(kind) ? {} : { usageOpen: false, costOpen: false }) })
+    set({ instances: nextInstances, activeInstanceId: instance.id })
     persist(cwd, nextInstances)
     return instance.id
   },
@@ -290,7 +290,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
     else useBridgeStore.getState().clearConversation(active.id)
   },
   usage: () => {
-    if (!isClaudeLike(selectActiveSession(get())?.kind)) return
+    if (!selectActiveSession(get())) return
     // Usage and Cost are mutually exclusive — opening one closes the other,
     // so at most one of these bottom panels is ever showing at a time.
     set((s) => {
@@ -299,7 +299,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
     })
   },
   cost: () => {
-    if (!isClaudeLike(selectActiveSession(get())?.kind)) return
+    if (!selectActiveSession(get())) return
     set((s) => {
       const costOpen = !s.costOpen
       return { costOpen, usageOpen: costOpen ? false : s.usageOpen }

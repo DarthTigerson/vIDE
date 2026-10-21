@@ -190,7 +190,6 @@ export default function App() {
   const llamaRuns = useLlamaStore((s) => s.runs)
   const activeSession = useClaudeStore(selectActiveSession)
   const hasClaudeSession = instances.some((inst) => isClaudeLike(inst.kind))
-  const activeIsClaude = isClaudeLike(activeSession?.kind)
   const [newSessionMenu, setNewSessionMenu] = useState<DOMRect | null>(null)
   // Stable identity: NewSessionMenu's window listeners depend on onClose, so an
   // inline arrow would tear down and re-add them on every App render.
@@ -1276,13 +1275,14 @@ export default function App() {
             // Previous/Resume Session live in the right-click menu on each
             // session icon (see ClaudeSessionContextMenu) — a toolbar button
             // can only act on "the" active session. Compact runs the CLI's
-            // /compact for Claude and vIDE Compacting for Bridge/llama;
-            // Usage/Cost are Claude CLI commands, so they only enable on Claude.
+            // /compact for Claude and vIDE Compacting for Bridge/llama.
+            // Usage/Cost/Usage Graph show account-wide Claude usage, so they
+            // open from any session.
             [
               {
                 id: 'compact',
                 icon: <CompactIcon />,
-                title: activeSession && isTerminalKind(activeSession.kind) ? 'Compact (agent sessions only)' : 'Compact',
+                title: 'Compact',
                 active: false,
                 disabled: !projectRoot || !activeSession || isTerminalKind(activeSession.kind),
                 onClick: () => useClaudeStore.getState().compact(),
@@ -1310,17 +1310,17 @@ export default function App() {
               {
                 id: 'usage',
                 icon: <UsageIcon />,
-                title: activeSession && !activeIsClaude ? 'Usage (Claude only)' : 'Usage',
+                title: 'Usage',
                 active: usageOpen,
-                disabled: !projectRoot || !activeIsClaude,
+                disabled: !projectRoot || !activeSession,
                 onClick: () => useClaudeStore.getState().usage(),
               },
               {
                 id: 'cost',
                 icon: <CostIcon />,
-                title: activeSession && !activeIsClaude ? 'Cost (Claude only)' : 'Cost',
+                title: 'Cost',
                 active: costOpen,
-                disabled: !projectRoot || !activeIsClaude,
+                disabled: !projectRoot || !activeSession,
                 onClick: () => useClaudeStore.getState().cost(),
               },
               {
@@ -1328,7 +1328,7 @@ export default function App() {
                 icon: <UsageGraphIcon />,
                 title: 'Usage Graph',
                 active: activeTabPath === USAGE_GRAPH_TAB_PATH,
-                disabled: !projectRoot || !hasClaudeSession,
+                disabled: !projectRoot,
                 onClick: () => useEditorStore.getState().openTab({ path: USAGE_GRAPH_TAB_PATH, content: '', dirty: false }),
               },
             ],

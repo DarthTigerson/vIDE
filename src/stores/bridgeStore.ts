@@ -4,7 +4,7 @@ import { useTodoMcpStore } from './todoMcpStore'
 import { useNotesMcpStore } from './notesMcpStore'
 import { useScriptsMcpStore } from './scriptsMcpStore'
 import { useBrowserMcpStore } from './browserMcpStore'
-import type { BridgeMessage, BridgeSessionEvent, BridgeSettings, VideToolGroup } from '@/types/api'
+import type { BridgeCompactResult, BridgeMessage, BridgeSessionEvent, BridgeSettings, VideToolGroup } from '@/types/api'
 
 // Pre-multi-session key: one global conversation. Migrated into history once
 // at import (see migrateLegacyCurrent) and then deleted.
@@ -301,7 +301,12 @@ export const useBridgeStore = create<BridgeStore>((set, get) => {
       const conv = get().conversations[sessionId]
       if (!conv || conv.streaming || conv.compacting || conv.messages.length === 0) return
       patch(sessionId, () => ({ compacting: true }))
-      const result = await window.api.bridgeCompact({ messages: toWireMessages(conv.messages), settings: wireSettings(conv, override), focus })
+      let result: BridgeCompactResult
+      try {
+        result = await window.api.bridgeCompact({ messages: toWireMessages(conv.messages), settings: wireSettings(conv, override), focus })
+      } catch (err) {
+        result = { ok: false, error: err instanceof Error ? err.message : String(err) }
+      }
       if (!get().conversations[sessionId]) return
       patch(sessionId, (c) => ({
         compacting: false,

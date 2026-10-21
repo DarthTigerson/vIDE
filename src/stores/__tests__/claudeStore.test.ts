@@ -261,7 +261,7 @@ describe('claudeStore.closeInstance', () => {
     expect(state.activeInstanceId).toBe('b')
   })
 
-  it('closes Usage/Cost when closing hands the active slot to a non-Claude session', () => {
+  it('keeps Usage/Cost open when another session takes the active slot, closing them only when none is left', () => {
     useClaudeStore.getState().loadInstancesFromSession({ agentSessions: [
       { id: 'a', kind: 'claude', hue: '#111111' },
       { id: 'br', kind: 'bridge', hue: '#222222' },
@@ -269,7 +269,7 @@ describe('claudeStore.closeInstance', () => {
     useClaudeStore.setState({ activeInstanceId: 'a', usageOpen: true, costOpen: false })
     useClaudeStore.getState().closeInstance('/project', 'a')
     expect(useClaudeStore.getState().activeInstanceId).toBe('br')
-    expect(useClaudeStore.getState().usageOpen).toBe(false)
+    expect(useClaudeStore.getState().usageOpen).toBe(true)
 
     useClaudeStore.setState({ costOpen: true })
     useClaudeStore.getState().closeInstance('/project', 'br')
@@ -343,10 +343,10 @@ describe('claudeStore.closeOtherInstances', () => {
     expect(saveMock).toHaveBeenCalledWith('/project', { agentSessions: [{ id: 'c', kind: 'claude', hue: '#333333' }] })
   })
 
-  it('closes Usage/Cost when the kept session is not Claude', () => {
+  it('keeps Usage/Cost open when the kept session is not Claude', () => {
     useClaudeStore.setState({ activeInstanceId: 'a', usageOpen: true })
     useClaudeStore.getState().closeOtherInstances('/project', 'b')
-    expect(useClaudeStore.getState().usageOpen).toBe(false)
+    expect(useClaudeStore.getState().usageOpen).toBe(true)
     expect(useBridgeStore.getState().conversations.b).toBeDefined()
   })
 
@@ -480,25 +480,26 @@ describe('claudeStore mixed sessions', () => {
     expect(useBridgeStore.getState().conversations[id].messages).toEqual([])
   })
 
-  it('usage/cost do nothing while the active session is not Claude', () => {
+  it('usage/cost open from a Bridge session too (they show account-wide Claude usage)', () => {
     useClaudeStore.getState().newSession('/p', 'bridge')
     useClaudeStore.getState().usage()
+    expect(useClaudeStore.getState().usageOpen).toBe(true)
     useClaudeStore.getState().cost()
+    expect(useClaudeStore.getState().costOpen).toBe(true)
     expect(useClaudeStore.getState().usageOpen).toBe(false)
-    expect(useClaudeStore.getState().costOpen).toBe(false)
   })
 
-  it('setActiveInstance closes usage/cost when switching to a non-Claude session', () => {
+  it('setActiveInstance keeps usage/cost open when switching to a non-Claude session', () => {
     useClaudeStore.getState().newSession('/p', 'claude')
     const claudeId = useClaudeStore.getState().instances[0].id
     useClaudeStore.getState().usage()
     useClaudeStore.getState().newSession('/p', 'bridge')
     const bridgeId = useClaudeStore.getState().instances[1].id
+    expect(useClaudeStore.getState().usageOpen).toBe(true)
     useClaudeStore.getState().setActiveInstance(claudeId)
-    useClaudeStore.getState().usage()
     expect(useClaudeStore.getState().usageOpen).toBe(true)
     useClaudeStore.getState().setActiveInstance(bridgeId)
-    expect(useClaudeStore.getState().usageOpen).toBe(false)
+    expect(useClaudeStore.getState().usageOpen).toBe(true)
   })
 
   it('previousSession/resumeSession only act on Claude sessions', () => {
@@ -570,11 +571,11 @@ describe('claudeStore terminal sessions', () => {
     expect(window.api.claudeKill).not.toHaveBeenCalled()
   })
 
-  it('Usage/Cost stay closed and Compact sends nothing', () => {
+  it('Usage opens, and Compact sends nothing', () => {
     useClaudeStore.getState().newSession('/p', 'terminal')
     useClaudeStore.getState().usage()
     useClaudeStore.getState().compact()
-    expect(useClaudeStore.getState().usageOpen).toBe(false)
+    expect(useClaudeStore.getState().usageOpen).toBe(true)
     expect(window.api.claudeWrite).not.toHaveBeenCalled()
   })
 })
