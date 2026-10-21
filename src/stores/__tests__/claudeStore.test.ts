@@ -489,6 +489,19 @@ describe('claudeStore mixed sessions', () => {
     expect(useClaudeStore.getState().usageOpen).toBe(false)
   })
 
+  it('switching to a terminal closes usage/cost', () => {
+    useClaudeStore.getState().newSession('/p', 'claude')
+    const claudeId = useClaudeStore.getState().instances[0].id
+    useClaudeStore.getState().cost()
+    useClaudeStore.getState().newSession('/p', 'terminal')
+    expect(useClaudeStore.getState().costOpen).toBe(false)
+    useClaudeStore.getState().setActiveInstance(claudeId)
+    useClaudeStore.getState().usage()
+    const termId = useClaudeStore.getState().instances[1].id
+    useClaudeStore.getState().setActiveInstance(termId)
+    expect(useClaudeStore.getState().usageOpen).toBe(false)
+  })
+
   it('setActiveInstance keeps usage/cost open when switching to a non-Claude session', () => {
     useClaudeStore.getState().newSession('/p', 'claude')
     const claudeId = useClaudeStore.getState().instances[0].id
@@ -571,11 +584,11 @@ describe('claudeStore terminal sessions', () => {
     expect(window.api.claudeKill).not.toHaveBeenCalled()
   })
 
-  it('Usage opens, and Compact sends nothing', () => {
+  it('Usage/Cost stay closed and Compact sends nothing', () => {
     useClaudeStore.getState().newSession('/p', 'terminal')
     useClaudeStore.getState().usage()
     useClaudeStore.getState().compact()
-    expect(useClaudeStore.getState().usageOpen).toBe(true)
+    expect(useClaudeStore.getState().usageOpen).toBe(false)
     expect(window.api.claudeWrite).not.toHaveBeenCalled()
   })
 })

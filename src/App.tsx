@@ -1277,7 +1277,7 @@ export default function App() {
             // can only act on "the" active session. Compact runs the CLI's
             // /compact for Claude and vIDE Compacting for Bridge/llama.
             // Usage/Cost/Usage Graph show account-wide Claude usage, so they
-            // open from any session.
+            // open from any agent session (not a plain terminal).
             [
               {
                 id: 'compact',
@@ -1312,7 +1312,7 @@ export default function App() {
                 icon: <UsageIcon />,
                 title: 'Usage',
                 active: usageOpen,
-                disabled: !projectRoot || !activeSession,
+                disabled: !projectRoot || !activeSession || isTerminalKind(activeSession.kind),
                 onClick: () => useClaudeStore.getState().usage(),
               },
               {
@@ -1320,7 +1320,7 @@ export default function App() {
                 icon: <CostIcon />,
                 title: 'Cost',
                 active: costOpen,
-                disabled: !projectRoot || !activeSession,
+                disabled: !projectRoot || !activeSession || isTerminalKind(activeSession.kind),
                 onClick: () => useClaudeStore.getState().cost(),
               },
               {

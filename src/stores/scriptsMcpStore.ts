@@ -37,7 +37,7 @@ export const useScriptsMcpStore = create<ScriptsMcpStore>((set) => ({
 // toggle is off (e.g. after a crash or first-run before the user ever toggled).
 Promise.resolve().then(() => {
   // Imported (via bridgeStore) by node-env tests too, where there's no preload API.
-  if (typeof window === 'undefined' || !window.api) return
+  if (typeof window === 'undefined' || !window.api?.scriptsMcpEnable) return
   const { enabled } = useScriptsMcpStore.getState()
   if (enabled) window.api.scriptsMcpEnable().catch(() => {})
   else window.api.scriptsMcpDisable().catch(() => {})
