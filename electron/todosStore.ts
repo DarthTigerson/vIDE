@@ -5,7 +5,7 @@ export type TodoStatus = 'backlog' | 'todo' | 'in_progress' | 'done'
 export type TodoLabel = 'bug' | 'feature' | 'nice-to-have'
 // Who created this todo/comment — stamped structurally by the path that
 // created it (UI vs. the MCP server), never a free-text/self-reported value.
-export type TodoAuthor = 'developer' | 'claude'
+export type TodoAuthor = 'developer' | 'claude' | 'bridge' | 'llama'
 
 export interface TodoProject {
   id: string

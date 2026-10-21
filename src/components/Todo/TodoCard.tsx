@@ -1,5 +1,5 @@
 import { TODO_LABEL_META } from './labels'
-import { TODO_AUTHOR_META } from './authors'
+import { todoAuthorMeta } from './authors'
 import type { Todo } from '@/types/api'
 
 export function TodoCard({
@@ -46,9 +46,9 @@ export function TodoCard({
       <div className="flex items-center gap-1.5">
         <span className="text-[0.65rem] font-mono text-fg-subtle">{todo.id}</span>
         <span
-          className={`text-[0.6rem] px-1 py-0.5 rounded border leading-none ${TODO_AUTHOR_META[todo.author].className}`}
+          className={`text-[0.6rem] px-1 py-0.5 rounded border leading-none ${todoAuthorMeta(todo.author).className}`}
         >
-          {TODO_AUTHOR_META[todo.author].text}
+          {todoAuthorMeta(todo.author).text}
         </span>
       </div>
       <p className="text-sm text-fg">{todo.title}</p>

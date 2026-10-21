@@ -6,7 +6,7 @@ import { TODO_COLUMNS } from '@/lib/todoBoard'
 import { buildTodoDetailPath } from '@/components/Settings/paths'
 import { ArchiveIcon } from './ArchiveIcon'
 import { AttachmentThumbnails } from './AttachmentThumbnails'
-import { TODO_AUTHOR_META } from './authors'
+import { todoAuthorMeta } from './authors'
 import { TODO_LABELS, TODO_LABEL_META } from './labels'
 import { TodoTagInput } from './TodoTagInput'
 import { Select } from '@/components/ui/Select'
@@ -82,9 +82,9 @@ export function TodoDetailPage({ projectId, todoId }: { projectId: string; todoI
             {todo.archived && <span className="text-fg-subtle/50"> (Archived)</span>}
           </span>
           <span
-            className={`text-[0.65rem] px-1.5 py-0.5 rounded border leading-none ${TODO_AUTHOR_META[todo.author].className}`}
+            className={`text-[0.65rem] px-1.5 py-0.5 rounded border leading-none ${todoAuthorMeta(todo.author).className}`}
           >
-            {TODO_AUTHOR_META[todo.author].text}
+            {todoAuthorMeta(todo.author).text}
           </span>
         </div>
 
@@ -129,9 +129,9 @@ export function TodoDetailPage({ projectId, todoId }: { projectId: string; todoI
               {todo.comments.map((comment) => (
                 <div key={comment.id} className="flex flex-col gap-1 rounded border border-border/60 p-2">
                   <span
-                    className={`self-start text-[0.6rem] px-1 py-0.5 rounded border leading-none ${TODO_AUTHOR_META[comment.author].className}`}
+                    className={`self-start text-[0.6rem] px-1 py-0.5 rounded border leading-none ${todoAuthorMeta(comment.author).className}`}
                   >
-                    {TODO_AUTHOR_META[comment.author].text}
+                    {todoAuthorMeta(comment.author).text}
                   </span>
                   <p className="text-sm text-fg whitespace-pre-wrap">{comment.body}</p>
                   <AttachmentThumbnails attachments={comment.attachments} />

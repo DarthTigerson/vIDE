@@ -122,6 +122,8 @@ export interface BridgeSettings {
   toolCallLimit?: number
   // vIDE tool groups to expose (the enabled MCP toggles); missing = all
   videTools?: VideToolGroup[]
+  // Which agent this is (todo authorship); missing = 'bridge'
+  agentKind?: 'bridge' | 'llama'
 }
 
 export type VideToolGroup = 'todos' | 'notes' | 'scripts' | 'browser' | 'search' | 'docs'
@@ -133,7 +135,7 @@ export interface RecentProject {
 
 export type TodoStatus = 'backlog' | 'todo' | 'in_progress' | 'done'
 export type TodoLabel = 'bug' | 'feature' | 'nice-to-have'
-export type TodoAuthor = 'developer' | 'claude'
+export type TodoAuthor = 'developer' | 'claude' | 'bridge' | 'llama'
 
 export interface TodoProject {
   id: string

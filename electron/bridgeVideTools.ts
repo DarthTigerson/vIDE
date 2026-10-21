@@ -25,19 +25,22 @@ export interface VideToolContext {
   socketPath?: string
 }
 
+// Who a Bridge session's todo tickets and comments are attributed to.
+export type BridgeAgentKind = 'bridge' | 'llama'
+
 export interface VideToolSet {
   tools: McpToolDef[]
   instructions: string[]
 }
 
-export function buildVideTools(groups: VideToolGroup[], ctx: VideToolContext, windowId: number): VideToolSet {
+export function buildVideTools(groups: VideToolGroup[], ctx: VideToolContext, windowId: number, agent: BridgeAgentKind = 'bridge'): VideToolSet {
   const tools: McpToolDef[] = []
   const instructions: string[] = []
   const win = String(windowId)
   for (const group of groups) {
     switch (group) {
       case 'todos':
-        tools.push(...buildTodoTools(ctx.dataDir))
+        tools.push(...buildTodoTools(ctx.dataDir, agent))
         instructions.push(TODO_WORKFLOW_INSTRUCTIONS)
         break
       case 'notes':

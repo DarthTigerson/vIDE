@@ -4,7 +4,7 @@ import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { join, relative } from 'path'
 import { listAllFiles, searchText, buildTree } from './fsOps'
-import { ALL_VIDE_TOOL_GROUPS, ALWAYS_ON_VIDE_TOOL_GROUPS, buildVideTools, toOpenAiTool, toolResultText, type VideToolContext, type VideToolGroup, type VideToolSet } from './bridgeVideTools'
+import { ALL_VIDE_TOOL_GROUPS, ALWAYS_ON_VIDE_TOOL_GROUPS, buildVideTools, toOpenAiTool, toolResultText, type BridgeAgentKind, type VideToolContext, type VideToolGroup, type VideToolSet } from './bridgeVideTools'
 import { decideStopAction } from './mcp/todoEnforcerHook'
 import { trimToolPayloads } from './bridgeTrim'
 import { minimatch } from 'minimatch'
@@ -36,6 +36,8 @@ export interface BridgeSettings {
   // vIDE tool groups to expose, mirroring the per-feature MCP toggles that
   // gate the same tools for Claude; missing = all. Search and docs are always on.
   videTools?: VideToolGroup[]
+  // Which agent this is (todo authorship); missing = 'bridge'.
+  agentKind?: BridgeAgentKind
 }
 
 export interface BridgeSendPayload {
@@ -410,7 +412,7 @@ export class BridgeManager {
     const requested = settings.videTools ?? ALL_VIDE_TOOL_GROUPS
     const groups = [...new Set<VideToolGroup>([...requested, ...ALWAYS_ON_VIDE_TOOL_GROUPS])]
     if (!this.videCtx) return buildVideTools(ALWAYS_ON_VIDE_TOOL_GROUPS, { dataDir: '' }, windowId)
-    return buildVideTools(groups, this.videCtx, windowId)
+    return buildVideTools(groups, this.videCtx, windowId, settings.agentKind)
   }
 
   registerHandlers(): void {

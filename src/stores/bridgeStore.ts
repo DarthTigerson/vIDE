@@ -200,6 +200,8 @@ export const useBridgeStore = create<BridgeStore>((set, get) => {
       sessionId: conv.historyId,
       toolCallLimit: s.toolCallLimit,
       videTools: enabledVideTools(),
+      // Only llama sessions pass a connection override.
+      agentKind: override ? 'llama' : 'bridge',
     }, sessionId)
   }
 
