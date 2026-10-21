@@ -881,7 +881,7 @@ app.whenReady().then(async () => {
   dockerWatcher.registerHandlers()
   fileWatcher = new FileWatcher()
   fileWatcher.registerHandlers()
-  bridgeMgr = new BridgeManager()
+  bridgeMgr = new BridgeManager({ dataDir: app.getPath('userData'), socketPath: browserBridge.socketPath })
   bridgeMgr.registerHandlers()
   autocompleteMgr = new AutocompleteManager()
   autocompleteMgr.registerHandlers()

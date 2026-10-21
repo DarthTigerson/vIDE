@@ -4,7 +4,8 @@ import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { join, relative } from 'path'
 import { listAllFiles, searchText, buildTree } from './fsOps'
-import { webSearch, formatSearchResults } from './webSearch'
+import { ALL_VIDE_TOOL_GROUPS, buildVideTools, toOpenAiTool, toolResultText, type VideToolContext, type VideToolGroup, type VideToolSet } from './bridgeVideTools'
+import { decideStopAction } from './mcp/todoEnforcerHook'
 import { minimatch } from 'minimatch'
 
 const execFileAsync = promisify(execFile)
@@ -31,6 +32,9 @@ export interface BridgeSettings {
   sessionId?: string
   // Max tool-call rounds per turn; 0 or missing = unlimited
   toolCallLimit?: number
+  // vIDE tool groups to expose, mirroring the per-feature MCP toggles that
+  // gate the same tools for Claude; missing = all. Web search is always on.
+  videTools?: VideToolGroup[]
 }
 
 export interface BridgeSendPayload {
@@ -249,24 +253,6 @@ export const BRIDGE_TOOLS = [
       },
     },
   },
-  {
-    type: 'function',
-    function: {
-      name: 'web_search',
-      description:
-        'Search the web and get back a ranked list of results (title, URL, snippet). Use this to look up ' +
-        'documentation, error messages, library APIs, or any current information not in the project. ' +
-        'To read a full result page afterward, fetch its URL with run_command (e.g. curl).',
-      parameters: {
-        type: 'object',
-        properties: {
-          query: { type: 'string' },
-          maxResults: { type: 'number', description: 'How many results to return (default 8, max 15).' },
-        },
-        required: ['query'],
-      },
-    },
-  },
 ] as const
 
 // Fallback: some models emit tool calls as plain text JSON rather than via the
@@ -321,7 +307,7 @@ const FILE_TOOL_GUIDANCE =
   'Use this priority order: (1) edit_file for any change to an existing file, (2) write_file only for complete rewrites explicitly requested by the user, ' +
   "(3) create_file only for files that don't exist yet."
 
-async function buildSystemPrompt(cwd: string): Promise<string> {
+async function buildSystemPrompt(cwd: string, videInstructions: string[] = []): Promise<string> {
   let branch = ''
   let lastCommit = ''
   try {
@@ -348,7 +334,9 @@ You have the following tools. Use them — do not explain how the user could run
 - grep_search(root, query, caseSensitive?) — search for text in files. caseSensitive defaults to false.
 - glob_search(pattern, root) — find files by glob pattern (e.g. "**/*.tsx", "**/*Git*")
 - run_command(command) — execute any shell command in the project directory
-- web_search(query, maxResults?) — search the web, returns a ranked list of {title, URL, snippet}. Use for docs, error messages, library APIs, or current info. Fetch a result's URL with run_command (curl) to read the full page.
+
+You also have vIDE's own tools (todos, notes, scripts, browser, web search — whichever are listed in your tool definitions). Their usage notes:
+${videInstructions.map((i) => `- ${i}`).join('\n')}
 
 == FINDING FILES ==
 Before editing or reading any file, you MUST know its full absolute path. Follow this workflow:
@@ -409,6 +397,17 @@ export class BridgeManager {
   // stale run suspended at an await (slow tool, fetch, approval) can't resurrect
   // into the next run's transcript just because the key was reused.
   private runByConv = new Map<string, symbol>()
+
+  // Without a context (tests, or before main.ts wires one in) only the
+  // self-contained web search group is available.
+  constructor(private videCtx?: VideToolContext) {}
+
+  private videToolsFor(settings: BridgeSettings, windowId: number): VideToolSet {
+    const requested = settings.videTools ?? ALL_VIDE_TOOL_GROUPS
+    const groups = [...new Set<VideToolGroup>([...requested, 'search'])]
+    if (!this.videCtx) return buildVideTools(['search'], { dataDir: '' }, windowId)
+    return buildVideTools(groups, this.videCtx, windowId)
+  }
 
   registerHandlers(): void {
     ipcMain.on('bridge:send', (event, payload: BridgeSendPayload) => {
@@ -521,14 +520,15 @@ export class BridgeManager {
       if (live()) this.emit(win, sessionId, event)
     }
 
+    const vide = this.videToolsFor(settings, win.id)
     const messages = [...payload.messages]
     if (messages[0]?.role !== 'system') {
-      messages.unshift({ role: 'system', content: await buildSystemPrompt(cwd) })
+      messages.unshift({ role: 'system', content: await buildSystemPrompt(cwd, vide.instructions) })
     }
     if (!live()) return
 
     try {
-      await this.runRounds(key, live, emit, messages, settings, agentMode, cwd)
+      await this.runRounds(key, live, emit, messages, settings, agentMode, cwd, vide)
     } finally {
       if (live()) {
         this.runByConv.delete(key)
@@ -544,18 +544,35 @@ export class BridgeManager {
     messages: BridgeMessage[],
     settings: BridgeSettings,
     agentMode: boolean,
-    cwd: string
+    cwd: string,
+    vide: VideToolSet
   ): Promise<void> {
     const limit = settings.toolCallLimit && settings.toolCallLimit > 0 ? settings.toolCallLimit : Infinity
+    const tools = [...BRIDGE_TOOLS, ...vide.tools.map(toOpenAiTool)]
+    // Same rule Claude's vide-todo-enforcer Stop hook applies: a run that
+    // started a ticket can't finish until it has commented on it. Only
+    // enforced for tickets this run started, and at most once per run.
+    let startedTodo = false
+    let stopBlocked = false
     for (let round = 0; round < limit; round++) {
       if (!live()) return
       if (round > 0) emit({ type: 'new-turn' })
-      const streamResult = await this.streamOneCompletion(key, live, emit, messages, settings)
+      const streamResult = await this.streamOneCompletion(key, live, emit, messages, settings, tools)
       if (streamResult === null || !live()) return // error/abort already emitted (or run superseded)
 
       if (streamResult.toolCalls.length === 0) {
-        emit({ type: 'done' })
-        return
+        const block = startedTodo && this.videCtx
+          ? await decideStopAction(this.videCtx.dataDir, { stop_hook_active: stopBlocked })
+          : null
+        if (!live()) return
+        if (!block) {
+          emit({ type: 'done' })
+          return
+        }
+        stopBlocked = true
+        messages.push({ role: 'assistant', content: streamResult.content || null })
+        messages.push({ role: 'user', content: block.reason })
+        continue
       }
 
       messages.push({
@@ -575,8 +592,9 @@ export class BridgeManager {
         // Cancelled (or superseded) while awaiting approval: run no tool and
         // report nothing — the renderer settles its own pending tool calls on Stop.
         if (!live()) return
+        if (call.name === 'start_todo') startedTodo = true
         const execResult = approved
-          ? await this.executeTool(call.name, call.args, cwd)
+          ? await this.executeTool(call.name, call.args, cwd, vide)
           : { result: 'Rejected by user.', isError: true }
 
         emit({ type: 'tool-result', id: call.id, result: execResult.result, isError: execResult.isError })
@@ -602,8 +620,10 @@ export class BridgeManager {
     })
   }
 
-  private async executeTool(name: string, args: Record<string, unknown>, cwd: string): Promise<ToolExecutionResult> {
+  private async executeTool(name: string, args: Record<string, unknown>, cwd: string, vide: VideToolSet): Promise<ToolExecutionResult> {
     try {
+      const videTool = vide.tools.find((t) => t.name === name)
+      if (videTool) return { result: toolResultText(await videTool.handler(args)), isError: false }
       switch (name) {
         case 'read_file': {
           const content = await readFile(args.path as string, 'utf-8')
@@ -721,11 +741,6 @@ export class BridgeManager {
           await rename(from, to)
           return { result: `Moved ${from} to ${to}`, isError: false }
         }
-        case 'web_search': {
-          const query = args.query as string
-          const results = await webSearch(query, args.maxResults as number | undefined)
-          return { result: formatSearchResults(results, query), isError: false }
-        }
         default:
           return { result: `Unknown tool: ${name}`, isError: true }
       }
@@ -739,7 +754,8 @@ export class BridgeManager {
     live: () => boolean,
     emit: (event: BridgeEvent) => void,
     messages: BridgeMessage[],
-    settings: BridgeSettings
+    settings: BridgeSettings,
+    tools: unknown[]
   ): Promise<{ content: string; toolCalls: PendingToolCall[] } | null> {
     if (!live()) return null
     const controller = new AbortController()
@@ -755,7 +771,7 @@ export class BridgeManager {
       response = await fetch(`${settings.endpoint}/chat/completions`, {
         method: 'POST',
         headers: reqHeaders,
-        body: JSON.stringify({ model: settings.modelId, messages, tools: BRIDGE_TOOLS, stream: true }),
+        body: JSON.stringify({ model: settings.modelId, messages, tools, stream: true }),
         signal: controller.signal,
       })
     } catch (err) {

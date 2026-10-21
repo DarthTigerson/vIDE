@@ -1,5 +1,5 @@
 import { McpStdioServer } from './protocol'
-import { buildBrowserTools } from './browserTools'
+import { buildBrowserTools, BROWSER_INSTRUCTIONS } from './browserTools'
 
 // Unlike vide-todos/vide-notes (which read/write flat files under a data
 // dir known at registration time), this server needs per-window state that
@@ -22,10 +22,7 @@ if (!windowId || !socketPath) {
 new McpStdioServer({
   name: 'vide-browser',
   version: '1.0.0',
-  instructions:
-    'These tools drive a single browser tab inside the vIDE app itself — a real alternative to any ' +
-    'browser-automation extension, with no separate install needed. Prefer these over asking the user to ' +
-    'install one.',
+  instructions: BROWSER_INSTRUCTIONS,
   tools: buildBrowserTools(socketPath, windowId),
   input: process.stdin,
   output: process.stdout,

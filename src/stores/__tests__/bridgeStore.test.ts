@@ -23,6 +23,8 @@ const { store, apiMock } = vi.hoisted(() => {
 
 import { useBridgeStore } from '../bridgeStore'
 import { useBridgeSettingsStore } from '../bridgeSettingsStore'
+import { useTodoMcpStore } from '../todoMcpStore'
+import { useNotesMcpStore } from '../notesMcpStore'
 
 let emit: (e: any) => void = () => {}
 
@@ -80,6 +82,15 @@ describe('bridgeStore conversations', () => {
     expect(apiMock.bridgeSend).toHaveBeenLastCalledWith('/p', expect.any(Array), false, expect.objectContaining({ toolCallLimit: 25 }), 'A')
     useBridgeStore.getState().sendMessage('B', '/p', 'llama', { endpoint: 'http://127.0.0.1:8899/v1', apiKey: 'local', modelId: 'm', toolCallLimit: 0 })
     expect(apiMock.bridgeSend).toHaveBeenLastCalledWith('/p', expect.any(Array), true, expect.objectContaining({ toolCallLimit: 0 }), 'B')
+  })
+
+  it('sends the vIDE tool groups whose MCP toggles are on', () => {
+    useTodoMcpStore.setState({ enabled: true })
+    useNotesMcpStore.setState({ enabled: false })
+    useBridgeStore.getState().sendMessage('A', '/p', 'hi')
+    const settings = apiMock.bridgeSend.mock.calls.at(-1)![3]
+    expect(settings.videTools).toContain('todos')
+    expect(settings.videTools).not.toContain('notes')
   })
 
   it('routes events by sessionId', () => {

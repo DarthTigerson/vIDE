@@ -120,7 +120,11 @@ export interface BridgeSettings {
   sessionId?: string
   // Max tool-call rounds per turn; 0 or missing = unlimited
   toolCallLimit?: number
+  // vIDE tool groups to expose (the enabled MCP toggles); missing = all
+  videTools?: VideToolGroup[]
 }
+
+export type VideToolGroup = 'todos' | 'notes' | 'scripts' | 'browser' | 'search'
 
 export interface RecentProject {
   path: string

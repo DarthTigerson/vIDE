@@ -1,6 +1,10 @@
 import { create } from 'zustand'
 import { useBridgeSettingsStore } from './bridgeSettingsStore'
-import type { BridgeMessage, BridgeSessionEvent } from '@/types/api'
+import { useTodoMcpStore } from './todoMcpStore'
+import { useNotesMcpStore } from './notesMcpStore'
+import { useScriptsMcpStore } from './scriptsMcpStore'
+import { useBrowserMcpStore } from './browserMcpStore'
+import type { BridgeMessage, BridgeSessionEvent, VideToolGroup } from '@/types/api'
 
 // Pre-multi-session key: one global conversation. Migrated into history once
 // at import (see migrateLegacyCurrent) and then deleted.
@@ -120,6 +124,17 @@ function settleOpenToolCalls(messages: BridgeChatMessage[]): BridgeChatMessage[]
   )
 }
 
+// Bridge/llama get the same vIDE tools Claude does, gated by the same
+// per-feature MCP toggles (web search is always on main-side).
+function enabledVideTools(): VideToolGroup[] {
+  const groups: VideToolGroup[] = []
+  if (useTodoMcpStore.getState().enabled) groups.push('todos')
+  if (useNotesMcpStore.getState().enabled) groups.push('notes')
+  if (useScriptsMcpStore.getState().enabled) groups.push('scripts')
+  if (useBrowserMcpStore.getState().enabled) groups.push('browser')
+  return groups
+}
+
 function toWireMessages(messages: BridgeChatMessage[]): BridgeMessage[] {
   return messages.map((m) => ({ role: m.role, content: m.content }))
 }
@@ -184,6 +199,7 @@ export const useBridgeStore = create<BridgeStore>((set, get) => {
       modelId: s.modelId,
       sessionId: conv.historyId,
       toolCallLimit: s.toolCallLimit,
+      videTools: enabledVideTools(),
     }, sessionId)
   }
 
