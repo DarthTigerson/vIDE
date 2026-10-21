@@ -68,6 +68,7 @@ export function Chat() {
     : undefined
   const llamaToolCallLimit = useLlamaSettingsStore((s) => s.toolCallLimit)
   const llamaConnection = llamaConnectionFor(activeKind, llamaModels, llamaToolCallLimit)
+  const llamaServerRunning = useLlamaStore((s) => (isLlama ? s.runs[llamaModelId(activeKind)]?.running ?? false : false))
   // Claude sessions own an xterm/PTY here; Bridge/llama render BridgeChat;
   // terminal sessions render a plain TerminalTab each.
   const claudeInstances = instances.filter((inst) => isClaudeLike(inst.kind))
@@ -421,6 +422,7 @@ export function Chat() {
                   cwd={projectRoot}
                   connectionOverride={llamaConnection}
                   beforeSend={isLlama ? llamaBeforeSend : undefined}
+                  serverRunning={isLlama ? llamaServerRunning : undefined}
                 />
               )}
             </div>

@@ -65,7 +65,7 @@ export interface BridgeConversation {
   // A compaction summary is being written.
   compacting?: boolean
   // Tokens the last request used, against the model's context when known.
-  contextUsage?: { usedTokens: number; contextWindow: number | null }
+  contextUsage?: { usedTokens: number; contextWindow: number | null; tokensPerSecond?: number }
   // This session's reasoning effort, sent per request. Missing = the model's
   // launch setting (Settings > Llama), which the server already applies.
   reasoningEffort?: ReasoningEffort
@@ -475,7 +475,9 @@ function handleEvent(
       })
       return
     case 'usage':
-      patch(sessionId, () => ({ contextUsage: { usedTokens: event.usedTokens, contextWindow: event.contextWindow } }))
+      patch(sessionId, () => ({
+        contextUsage: { usedTokens: event.usedTokens, contextWindow: event.contextWindow, tokensPerSecond: event.tokensPerSecond },
+      }))
       return
     case 'done':
       // If the model returned nothing, drop the empty placeholder so it doesn't

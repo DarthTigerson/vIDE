@@ -206,7 +206,7 @@ export type BridgeEvent =
   | { type: 'error'; message: string }
   | { type: 'compacting' }
   | { type: 'compacted'; summary: string; content: string }
-  | { type: 'usage'; usedTokens: number; contextWindow: number | null }
+  | { type: 'usage'; usedTokens: number; contextWindow: number | null; tokensPerSecond?: number }
 
 export type BridgeCompactResult = { ok: true; summary: string; content: string } | { ok: false; error: string }
 

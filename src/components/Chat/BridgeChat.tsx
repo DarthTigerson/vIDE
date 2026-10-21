@@ -8,6 +8,7 @@ import { changedPaths, describeTool, editDiff, formatDuration, type ToolIcon } f
 import type { ReasoningEffort } from '@/stores/llamaModelsStore'
 import { clampToViewport } from '@/components/ui/clampToViewport'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
+import { useBridgeSettingsStore } from '@/stores/bridgeSettingsStore'
 
 // Activity rail: each assistant turn is a column of steps (reasoning, tool
 // calls, commentary) joined by a line, with the final answer below it.
@@ -503,29 +504,68 @@ function formatTokens(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k` : String(n)
 }
 
-function ContextMeter({ usage }: { usage: { usedTokens: number; contextWindow: number | null } }) {
+function ContextRing({ usage }: { usage: { usedTokens: number; contextWindow: number | null } }) {
   const { usedTokens, contextWindow } = usage
   const pct = contextWindow ? Math.min(100, Math.round((usedTokens / contextWindow) * 100)) : null
-  const r = 7
+  const r = 14
   const circ = 2 * Math.PI * r
   return (
-    <span
-      className="flex items-center gap-1.5 font-mono text-[10.5px] text-fg-muted tabular-nums"
+    <div
+      className="ml-auto flex shrink-0 items-center gap-2"
       title={`Context used by the last request${pct !== null ? ` (${pct}%)` : ''}; vIDE compacts at 80%`}
     >
       {pct !== null && (
-        <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden>
-          <circle cx="9" cy="9" r={r} fill="none" stroke="var(--color-border)" strokeWidth="2.5" />
+        <svg width="24" height="24" viewBox="0 0 36 36" role="img" aria-label={`${pct}% of context used`}>
+          <circle cx="18" cy="18" r={r} fill="none" stroke="var(--color-border)" strokeWidth="4" />
           <circle
-            cx="9" cy="9" r={r} fill="none" strokeWidth="2.5" strokeLinecap="round"
+            cx="18" cy="18" r={r} fill="none" strokeWidth="4" strokeLinecap="round"
             stroke={pct >= 70 ? 'var(--git-modified)' : 'rgb(var(--color-accent))'}
             strokeDasharray={`${(pct / 100) * circ} ${circ}`}
-            transform="rotate(-90 9 9)"
+            transform="rotate(-90 18 18)"
           />
         </svg>
       )}
-      {formatTokens(usedTokens)}{contextWindow ? ` / ${formatTokens(contextWindow)}` : ' tokens'}
-    </span>
+      <div className="flex flex-col font-mono leading-tight tabular-nums">
+        <span className="text-[11px] text-fg">{formatTokens(usedTokens)}</span>
+        <span className="text-[10px] text-fg-muted">{contextWindow ? `of ${formatTokens(contextWindow)}` : 'tokens'}</span>
+      </div>
+    </div>
+  )
+}
+
+function hostOf(endpoint: string): string {
+  try { return new URL(endpoint).host } catch { return endpoint }
+}
+
+// Who this session talks to, how fast it generates, and how full its context is.
+function ChatHeader({ title, subtitle, serverRunning, tokensPerSecond, usage }: {
+  title: string
+  subtitle: string
+  serverRunning?: boolean
+  tokensPerSecond?: number
+  usage?: { usedTokens: number; contextWindow: number | null }
+}) {
+  return (
+    <div className="flex items-center gap-2.5 border-b border-border px-3 py-2">
+      <div className="bridge-node shrink-0" style={{ ...TONE.accent, width: 28, height: 28, borderRadius: 8 }}><Icon name="spark" /></div>
+      <div className="flex min-w-0 flex-col">
+        <span className="truncate text-[13px] font-semibold text-fg">{title}</span>
+        <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-fg-muted">
+          {serverRunning !== undefined && (
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ background: serverRunning ? 'var(--git-added)' : 'var(--color-fg-subtle)' }}
+              title={serverRunning ? 'Server running' : 'Server stopped'}
+            />
+          )}
+          <span className="truncate">
+            {subtitle}
+            {tokensPerSecond ? ` · ${Math.round(tokensPerSecond)} tok/s` : ''}
+          </span>
+        </span>
+      </div>
+      {usage && <ContextRing usage={usage} />}
+    </div>
   )
 }
 
@@ -548,12 +588,14 @@ function groupItems(messages: BridgeChatMessage[]): Item[] {
   return items
 }
 
-export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSend }: {
+export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSend, serverRunning }: {
   sessionId: string
   cwd: string
   label: string
   connectionOverride?: { endpoint: string; apiKey: string; modelId: string; toolCallLimit?: number; reasoningEffort?: ReasoningEffort }
   beforeSend?: () => Promise<void>
+  // Llama sessions only: whether the model's llama-server is up.
+  serverRunning?: boolean
 }) {
   useBridgeAgentModeShortcut(sessionId)
   const messages = useBridgeStore((s) => s.conversations[sessionId]?.messages ?? EMPTY)
@@ -566,6 +608,12 @@ export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSe
   // Only llama sessions have a known effort (the model's launch setting).
   const modelEffort = connectionOverride?.reasoningEffort
   const effort = sessionEffort ?? modelEffort
+  const bridgeModelId = useBridgeSettingsStore((s) => s.modelId)
+  const bridgeEndpoint = useBridgeSettingsStore((s) => s.endpoint)
+  const headerTitle = connectionOverride?.modelId ?? (bridgeModelId || label)
+  const headerSubtitle = connectionOverride
+    ? 'llama.cpp · local'
+    : bridgeEndpoint ? `Bridge · ${hostOf(bridgeEndpoint)}` : 'Bridge'
   const { sendMessage, regenerate, toggleAgentMode, setReasoningEffort, cancel, setDraftInput, appendDraftInput } = useBridgeStore.getState()
   const setInput = (text: string) => setDraftInput(sessionId, text)
   const focusToken = useClaudeStore((s) => s.focusToken)
@@ -616,6 +664,13 @@ export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSe
 
   return (
     <div className="h-full flex flex-col">
+      <ChatHeader
+        title={headerTitle}
+        subtitle={headerSubtitle}
+        serverRunning={connectionOverride ? serverRunning : undefined}
+        tokensPerSecond={contextUsage?.tokensPerSecond}
+        usage={compacting ? undefined : contextUsage}
+      />
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-4">
         {items.map((item, n) => {
           if (item.kind === 'compaction') return <CompactionDivider key={item.index} summary={item.summary} />
@@ -700,7 +755,6 @@ export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSe
             )}
             <div className="ml-auto flex items-center gap-2">
               {compacting && <span className="text-xs text-fg-muted animate-pulse">Compacting context…</span>}
-              {!compacting && contextUsage && <ContextMeter usage={contextUsage} />}
               {starting && <span className="text-xs text-fg-muted animate-pulse">Starting server…</span>}
               {!starting && streaming ? (
                 <button

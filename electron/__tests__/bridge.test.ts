@@ -146,6 +146,23 @@ describe('BridgeManager bridge:send (text-only, no tool calls)', () => {
     ])
   })
 
+  it('reports llama.cpp timings as tokens per second on the usage event', async () => {
+    const { win, sendHandler } = setup()
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+      if (url.endsWith('/props')) return Promise.resolve(new Response(JSON.stringify({ default_generation_settings: { n_ctx: 8192 } })))
+      return Promise.resolve(sseStream([
+        'data: {"choices":[{"delta":{"content":"Hi"},"finish_reason":null}]}\n\n',
+        'data: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5},"timings":{"predicted_per_second":37.5}}\n\n',
+        'data: [DONE]\n\n',
+      ]))
+    }))
+
+    await sendHandler({ sender: win }, { cwd: '/project', messages: [{ role: 'user', content: 'hi' }], agentMode: false, settings: SETTINGS })
+
+    const events = win.webContents.send.mock.calls.filter((c: any[]) => c[0] === 'bridge:event').map((c: any[]) => c[1])
+    expect(events).toContainEqual(expect.objectContaining({ type: 'usage', usedTokens: 15, tokensPerSecond: 37.5 }))
+  })
+
   it('sends the session reasoning effort as reasoning_effort', async () => {
     const { win, sendHandler } = setup()
     const fetchMock = vi.fn().mockResolvedValue(sseStream(['data: [DONE]\n\n']))

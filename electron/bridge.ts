@@ -110,7 +110,8 @@ export type BridgeEvent =
   // `content` is the summary as the user message the transcript now starts with.
   | { type: 'compacted'; summary: string; content: string }
   // Tokens the last request used, and the context window when known.
-  | { type: 'usage'; usedTokens: number; contextWindow: number | null }
+  // tokensPerSecond: generation speed of that request, when it can be told.
+  | { type: 'usage'; usedTokens: number; contextWindow: number | null; tokensPerSecond?: number }
 
 export type BridgeSessionEvent = BridgeEvent & { sessionId?: string }
 
@@ -136,6 +137,8 @@ interface StreamChunk {
   // OpenAI sends the usage chunk with an empty choices array; be lenient.
   choices?: Array<{ delta: StreamChunkDelta; finish_reason: string | null }>
   usage?: { prompt_tokens?: number; completion_tokens?: number }
+  // llama.cpp's own measurement, on the last chunk.
+  timings?: { predicted_per_second?: number }
 }
 
 interface StreamResult {
@@ -143,6 +146,7 @@ interface StreamResult {
   toolCalls: PendingToolCall[]
   // prompt + completion tokens of this request, when the server reports usage.
   usedTokens?: number
+  tokensPerSecond?: number
 }
 
 function parseSSEChunk(raw: string): StreamChunk | null {
@@ -638,7 +642,7 @@ export class BridgeManager {
         usedTokens = streamResult.usedTokens
         if (contextWindow === undefined) contextWindow = await fetchContextWindow(settings.endpoint, settings.apiKey)
         if (!live()) return
-        emit({ type: 'usage', usedTokens, contextWindow })
+        emit({ type: 'usage', usedTokens, contextWindow, tokensPerSecond: streamResult.tokensPerSecond })
       }
 
       if (streamResult.toolCalls.length === 0) {
@@ -946,6 +950,11 @@ export class BridgeManager {
     let buffer = ''
     let content = ''
     let usedTokens: number | undefined
+    let completionTokens: number | undefined
+    let serverTokensPerSecond: number | undefined
+    // First and last streamed token, for tokens/s when the server has no timings.
+    let firstTokenAt: number | undefined
+    let lastTokenAt = 0
     const toolCallAccs: Record<number, { id: string; name: string; args: string }> = {}
     const thinkSplitter = new ThinkTagSplitter()
     const emitSplit = ({ text, reasoning }: { text: string; reasoning: string }) => {
@@ -970,8 +979,14 @@ export class BridgeManager {
           if (!chunk) continue
           if (chunk.usage?.prompt_tokens !== undefined) {
             usedTokens = chunk.usage.prompt_tokens + (chunk.usage.completion_tokens ?? 0)
+            completionTokens = chunk.usage.completion_tokens
           }
+          if (chunk.timings?.predicted_per_second) serverTokensPerSecond = chunk.timings.predicted_per_second
           const delta = chunk.choices?.[0]?.delta
+          if (delta && (delta.content || delta.reasoning_content || delta.reasoning || delta.tool_calls)) {
+            lastTokenAt = Date.now()
+            firstTokenAt ??= lastTokenAt
+          }
           const reasoningDelta = delta?.reasoning_content ?? delta?.reasoning
           if (reasoningDelta) emit({ type: 'reasoning-delta', delta: reasoningDelta })
           if (delta?.content) emitSplit(thinkSplitter.push(delta.content))
@@ -993,6 +1008,10 @@ export class BridgeManager {
       }
       return null
     }
+
+    const elapsedMs = firstTokenAt !== undefined ? lastTokenAt - firstTokenAt : 0
+    const tokensPerSecond = serverTokensPerSecond
+      ?? (completionTokens && elapsedMs > 0 ? completionTokens / (elapsedMs / 1000) : undefined)
 
     const toolCalls: PendingToolCall[] = Object.values(toolCallAccs).map((acc) => {
       let args: Record<string, unknown> = {}
@@ -1016,11 +1035,11 @@ export class BridgeManager {
       const { toolCalls: textCalls, cleanedContent } = extractTextToolCalls(content)
       if (textCalls.length > 0) {
         emit({ type: 'content-replace', content: cleanedContent })
-        return { content: cleanedContent, toolCalls: textCalls, usedTokens }
+        return { content: cleanedContent, toolCalls: textCalls, usedTokens, tokensPerSecond }
       }
     }
 
-    return { content, toolCalls, usedTokens }
+    return { content, toolCalls, usedTokens, tokensPerSecond }
   }
 
   disposeWindow(winId: number): void {

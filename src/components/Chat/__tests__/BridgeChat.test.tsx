@@ -3,6 +3,7 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { BridgeChat } from '../BridgeChat'
 import { useBridgeStore, type BridgeConversation } from '@/stores/bridgeStore'
 import { useClaudeStore } from '@/stores/claudeStore'
+import { useBridgeSettingsStore } from '@/stores/bridgeSettingsStore'
 
 const setConv = (patch: Partial<BridgeConversation>) =>
   useBridgeStore.setState((s) => ({ conversations: { ...s.conversations, s1: { ...s.conversations.s1, ...patch } } }))
@@ -326,6 +327,27 @@ describe('BridgeChat', () => {
 
     expect(screen.getByText(/Effort Low →/)).toBeTruthy()
     expect(screen.getByText('· from the next step')).toBeTruthy()
+  })
+
+  it('header shows the llama model, server status, speed and context use', () => {
+    setConv({ contextUsage: { usedTokens: 12400, contextWindow: 32768, tokensPerSecond: 41.6 } })
+    const conn = { endpoint: 'http://h/v1', apiKey: 'k', modelId: 'qwen3-coder-30b', reasoningEffort: 'medium' as const }
+    render(<BridgeChat sessionId="s1" label="Llama" cwd="/project" connectionOverride={conn} serverRunning />)
+
+    expect(screen.getByText('qwen3-coder-30b')).toBeTruthy()
+    expect(screen.getByText('llama.cpp · local · 42 tok/s')).toBeTruthy()
+    expect(screen.getByTitle('Server running')).toBeTruthy()
+    expect(screen.getByText('12k')).toBeTruthy()
+    expect(screen.getByText('of 33k')).toBeTruthy()
+    expect(screen.getByRole('img', { name: '38% of context used' })).toBeTruthy()
+  })
+
+  it('header on a Bridge session names the endpoint host and has no server dot', () => {
+    useBridgeSettingsStore.setState({ endpoint: 'http://localhost:8002/v1', modelId: 'gpt-oss-20b' })
+    render(<BridgeChat sessionId="s1" label="Bridge" cwd="/project" />)
+    expect(screen.getByText('gpt-oss-20b')).toBeTruthy()
+    expect(screen.getByText('Bridge · localhost:8002')).toBeTruthy()
+    expect(screen.queryByTitle(/Server (running|stopped)/)).toBeNull()
   })
 
   it('placeholder names the agent', () => {
