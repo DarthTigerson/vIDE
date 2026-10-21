@@ -15,6 +15,7 @@ const { store, apiMock } = vi.hoisted(() => {
     bridgeApprove: vi.fn(),
     bridgeReject: vi.fn(),
     bridgeCancel: vi.fn(),
+    bridgeCompact: vi.fn(),
     onBridgeEvent: vi.fn((_cb: (event: any) => void) => () => {}),
   }
   ;(global as any).window = { api: apiMock }
@@ -91,6 +92,59 @@ describe('bridgeStore conversations', () => {
     const settings = apiMock.bridgeSend.mock.calls.at(-1)![3]
     expect(settings.videTools).toContain('todos')
     expect(settings.videTools).not.toContain('notes')
+  })
+
+  it('a mid-turn compaction puts the marker before the in-flight reply, and later turns are sent from it', () => {
+    useBridgeStore.getState().sendMessage('A', '/p', 'build the spec')
+    emit({ type: 'text-delta', delta: 'working', sessionId: 'A' })
+    emit({ type: 'compacting', sessionId: 'A' })
+    expect(conv('A').compacting).toBe(true)
+    emit({ type: 'compacted', summary: 'S', content: '[sum]\n\nS', sessionId: 'A' })
+    emit({ type: 'done', sessionId: 'A' })
+
+    expect(conv('A').compacting).toBe(false)
+    expect(conv('A').messages.map((m) => m.compaction ? 'marker' : m.role)).toEqual(['user', 'marker', 'assistant'])
+
+    useBridgeStore.getState().sendMessage('A', '/p', 'next')
+    expect(apiMock.bridgeSend.mock.calls.at(-1)![1]).toEqual([
+      { role: 'user', content: '[sum]\n\nS' },
+      { role: 'assistant', content: 'working' },
+      { role: 'user', content: 'next' },
+    ])
+  })
+
+  it('manual compact appends a marker, and the next message merges into it so roles still alternate', async () => {
+    useBridgeStore.getState().sendMessage('A', '/p', 'q1')
+    emit({ type: 'text-delta', delta: 'a1', sessionId: 'A' })
+    emit({ type: 'done', sessionId: 'A' })
+    apiMock.bridgeCompact.mockResolvedValue({ ok: true, summary: 'S', content: '[sum]\n\nS' })
+
+    await useBridgeStore.getState().compact('A', undefined, 'the API')
+
+    expect(apiMock.bridgeCompact).toHaveBeenCalledWith(expect.objectContaining({
+      messages: [{ role: 'user', content: 'q1' }, { role: 'assistant', content: 'a1' }],
+      focus: 'the API',
+    }))
+    expect(conv('A').messages.at(-1)).toEqual({ role: 'user', content: '[sum]\n\nS', compaction: { summary: 'S' } })
+    useBridgeStore.getState().sendMessage('A', '/p', 'q2')
+    expect(apiMock.bridgeSend.mock.calls.at(-1)![1]).toEqual([{ role: 'user', content: '[sum]\n\nS\n\nq2' }])
+  })
+
+  it('a failed manual compact leaves the transcript sendable and says why', async () => {
+    useBridgeStore.getState().sendMessage('A', '/p', 'q1')
+    emit({ type: 'done', sessionId: 'A' })
+    apiMock.bridgeCompact.mockResolvedValue({ ok: false, error: 'HTTP 500' })
+
+    await useBridgeStore.getState().compact('A')
+
+    expect(conv('A').compacting).toBe(false)
+    expect(conv('A').messages.at(-1)).toEqual({ role: 'assistant', content: '**Compaction failed:** HTTP 500' })
+  })
+
+  it('records context usage from the main process', () => {
+    useBridgeStore.getState().sendMessage('A', '/p', 'q')
+    emit({ type: 'usage', usedTokens: 41000, contextWindow: 65536, sessionId: 'A' })
+    expect(conv('A').contextUsage).toEqual({ usedTokens: 41000, contextWindow: 65536 })
   })
 
   it('routes events by sessionId', () => {

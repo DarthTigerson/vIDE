@@ -201,6 +201,11 @@ export type BridgeEvent =
   | { type: 'new-turn' }
   | { type: 'done' }
   | { type: 'error'; message: string }
+  | { type: 'compacting' }
+  | { type: 'compacted'; summary: string; content: string }
+  | { type: 'usage'; usedTokens: number; contextWindow: number | null }
+
+export type BridgeCompactResult = { ok: true; summary: string; content: string } | { ok: false; error: string }
 
 export type BridgeSessionEvent = BridgeEvent & { sessionId?: string }
 
@@ -376,6 +381,7 @@ declare global {
       bridgeTestConnection: (settings: BridgeSettings) => Promise<{ ok: boolean; error?: string }>
       bridgeGetSettings: () => Promise<BridgeSettings | null>
       bridgeSetSettings: (settings: BridgeSettings) => Promise<void>
+      bridgeCompact: (payload: { messages: BridgeMessage[]; settings: BridgeSettings; focus?: string }) => Promise<BridgeCompactResult>
       onBridgeEvent: (cb: (event: BridgeSessionEvent) => void) => () => void
 
       devtoolsAttach: (targetId: number, hostId: number) => Promise<void>

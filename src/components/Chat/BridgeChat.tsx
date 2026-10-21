@@ -100,6 +100,37 @@ function CopyButton({ text }: { text: string }) {
 
 const EMPTY: BridgeChatMessage[] = []
 
+// Where vIDE Compacting cut the transcript: everything above stays readable
+// but is no longer sent; the model continues from this summary.
+function CompactionDivider({ summary }: { summary: string }) {
+  return (
+    <details className="self-stretch text-xs text-fg-muted">
+      <summary className="flex cursor-pointer list-none items-center gap-2 select-none hover:text-fg">
+        <span className="h-px flex-1 bg-border" />
+        Context compacted — show summary
+        <span className="h-px flex-1 bg-border" />
+      </summary>
+      <div className="mt-2 rounded-lg bg-white/5 px-3 py-2 text-sm text-fg">
+        <ReactMarkdown>{summary}</ReactMarkdown>
+      </div>
+    </details>
+  )
+}
+
+function formatTokens(n: number): string {
+  return n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k` : String(n)
+}
+
+function ContextMeter({ usage }: { usage: { usedTokens: number; contextWindow: number | null } }) {
+  const { usedTokens, contextWindow } = usage
+  const pct = contextWindow ? Math.round((usedTokens / contextWindow) * 100) : null
+  return (
+    <span className="text-xs text-fg-muted tabular-nums" title="Context used by the last request; vIDE compacts at 80%">
+      {formatTokens(usedTokens)}{contextWindow ? ` / ${formatTokens(contextWindow)} (${pct}%)` : ' tokens'}
+    </span>
+  )
+}
+
 export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSend }: {
   sessionId: string
   cwd: string
@@ -112,6 +143,8 @@ export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSe
   const agentMode = useBridgeStore((s) => s.conversations[sessionId]?.agentMode ?? false)
   const streaming = useBridgeStore((s) => s.conversations[sessionId]?.streaming ?? false)
   const input = useBridgeStore((s) => s.conversations[sessionId]?.draftInput ?? '')
+  const compacting = useBridgeStore((s) => s.conversations[sessionId]?.compacting ?? false)
+  const contextUsage = useBridgeStore((s) => s.conversations[sessionId]?.contextUsage)
   const { sendMessage, regenerate, toggleAgentMode, cancel, setDraftInput, appendDraftInput } = useBridgeStore.getState()
   const setInput = (text: string) => setDraftInput(sessionId, text)
   const focusToken = useClaudeStore((s) => s.focusToken)
@@ -169,7 +202,9 @@ export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSe
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-        {messages.map((m, i) => (
+        {messages.map((m, i) => m.compaction ? (
+          <CompactionDivider key={i} summary={m.compaction.summary} />
+        ) : (
           <div key={i} className={m.role === 'user' ? 'self-end max-w-[85%]' : 'self-start max-w-[90%]'}>
             {m.toolCalls && m.toolCalls.length > 0 && (
               <div className="mb-1.5 flex flex-col gap-1.5">
@@ -251,6 +286,10 @@ export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSe
           >
             Agent Mode: {agentMode ? 'On' : 'Off'}
           </button>
+          {compacting && (
+            <span className="text-xs text-fg-muted animate-pulse">Compacting context…</span>
+          )}
+          {!compacting && contextUsage && <ContextMeter usage={contextUsage} />}
           {starting && (
             <span className="text-xs text-fg-muted animate-pulse">Starting server…</span>
           )}

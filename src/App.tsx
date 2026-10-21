@@ -1275,15 +1275,16 @@ export default function App() {
             [], // empty leading group so ItemGroups renders a divider above Compact
             // Previous/Resume Session live in the right-click menu on each
             // session icon (see ClaudeSessionContextMenu) — a toolbar button
-            // can only act on "the" active session. Compact/Usage/Cost are
-            // Claude CLI commands, so they only enable on a Claude session.
+            // can only act on "the" active session. Compact runs the CLI's
+            // /compact for Claude and vIDE Compacting for Bridge/llama;
+            // Usage/Cost are Claude CLI commands, so they only enable on Claude.
             [
               {
                 id: 'compact',
                 icon: <CompactIcon />,
-                title: activeSession && !activeIsClaude ? 'Compact (Claude only)' : 'Compact',
+                title: activeSession && isTerminalKind(activeSession.kind) ? 'Compact (agent sessions only)' : 'Compact',
                 active: false,
-                disabled: !projectRoot || !activeIsClaude,
+                disabled: !projectRoot || !activeSession || isTerminalKind(activeSession.kind),
                 onClick: () => useClaudeStore.getState().compact(),
               },
               {

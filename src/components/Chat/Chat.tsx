@@ -14,7 +14,7 @@ import { BridgeChat } from './BridgeChat'
 import { toLaunchConfig, useLlamaModelsStore } from '@/stores/llamaModelsStore'
 import { useLlamaStore } from '@/stores/llamaStore'
 import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
-import { agentLabel, isBridgeLike, isClaudeLike, isLlamaKind, isTerminalKind, llamaModelId } from '@/lib/agentKinds'
+import { agentLabel, isBridgeLike, isClaudeLike, isLlamaKind, isTerminalKind, llamaConnectionFor, llamaModelId } from '@/lib/agentKinds'
 import type { AssistantKind } from '@/types/api'
 import { TerminalTab } from '@/components/Terminal/TerminalTab'
 import { liveTerminals } from '@/lib/liveTerminals'
@@ -67,9 +67,7 @@ export function Chat() {
     ? llamaModels.find((m) => m.id === llamaModelId(activeKind) && m.enabled)
     : undefined
   const llamaToolCallLimit = useLlamaSettingsStore((s) => s.toolCallLimit)
-  const llamaConnection = llamaModel
-    ? { endpoint: `http://${llamaModel.host}:${llamaModel.port}/v1`, apiKey: llamaModel.apiKey, modelId: llamaModel.alias || llamaModel.displayName || llamaModel.id, toolCallLimit: llamaToolCallLimit }
-    : undefined
+  const llamaConnection = llamaConnectionFor(activeKind, llamaModels, llamaToolCallLimit)
   // Claude sessions own an xterm/PTY here; Bridge/llama render BridgeChat;
   // terminal sessions render a plain TerminalTab each.
   const claudeInstances = instances.filter((inst) => isClaudeLike(inst.kind))

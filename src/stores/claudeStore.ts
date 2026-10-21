@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { AssistantKind } from '@/types/api'
 import { hueForInstanceIndex, nextHueForInstances } from '@/lib/claudeInstanceHues'
 import { cleanSessionTitle } from '@/lib/claudeSessionName'
-import { agentModeOnLaunchFor, isBridgeLike, isClaudeLike, isTerminalKind } from '@/lib/agentKinds'
+import { agentModeOnLaunchFor, isBridgeLike, isClaudeLike, isTerminalKind, llamaConnectionFor } from '@/lib/agentKinds'
 import { clearLiveTerminal } from '@/lib/liveTerminals'
 import { useBridgeStore } from './bridgeStore'
 
@@ -276,7 +276,11 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
   },
 
   compact: () => {
-    if (isClaudeLike(selectActiveSession(get())?.kind)) window.api.claudeWrite(get().activeInstanceId, '/compact\r')
+    const active = selectActiveSession(get())
+    if (!active) return
+    if (isClaudeLike(active.kind)) window.api.claudeWrite(active.id, '/compact\r')
+    // Bridge/llama: vIDE Compacting (summary written by the session's own model).
+    else if (isBridgeLike(active.kind)) void useBridgeStore.getState().compact(active.id, llamaConnectionFor(active.kind))
   },
   clearContext: () => {
     const active = selectActiveSession(get())

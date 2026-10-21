@@ -269,6 +269,7 @@ export function createMobileApi(wsUrl: string) {
     bridgeReject: doSend('bridge:reject'),
     bridgeCancel: doSend('bridge:cancel'),
     bridgeTestConnection: invoke('bridge:testConnection'),
+    bridgeCompact: invoke('bridge:compact'),
     bridgeGetSettings: invoke('bridge:getSettings'),
     bridgeSetSettings: invoke('bridge:setSettings'),
 

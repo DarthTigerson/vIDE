@@ -7,6 +7,7 @@ import { listAllFiles, searchText, buildTree } from './fsOps'
 import { ALL_VIDE_TOOL_GROUPS, ALWAYS_ON_VIDE_TOOL_GROUPS, buildVideTools, toOpenAiTool, toolResultText, type BridgeAgentKind, type VideToolContext, type VideToolGroup, type VideToolSet } from './bridgeVideTools'
 import { decideStopAction } from './mcp/todoEnforcerHook'
 import { trimToolPayloads } from './bridgeTrim'
+import { AUTO_COMPACT_RATIO, compactMessages, fetchContextWindow, isContextOverflow, summarize, wrapSummary } from './bridgeCompact'
 import { minimatch } from 'minimatch'
 
 const execFileAsync = promisify(execFile)
@@ -50,6 +51,13 @@ export interface BridgeSendPayload {
   sessionId?: string
 }
 
+export interface BridgeCompactPayload {
+  messages: BridgeMessage[]
+  settings: BridgeSettings
+  // Optional "focus on…" instruction for the summary.
+  focus?: string
+}
+
 export interface BridgeStoredSettings {
   endpoint: string
   apiKey: string
@@ -89,6 +97,12 @@ export type BridgeEvent =
   | { type: 'new-turn' }
   | { type: 'done' }
   | { type: 'error'; message: string }
+  // vIDE Compacting: a summary is being written / replaced the transcript.
+  | { type: 'compacting' }
+  // `content` is the summary as the user message the transcript now starts with.
+  | { type: 'compacted'; summary: string; content: string }
+  // Tokens the last request used, and the context window when known.
+  | { type: 'usage'; usedTokens: number; contextWindow: number | null }
 
 export type BridgeSessionEvent = BridgeEvent & { sessionId?: string }
 
@@ -108,7 +122,16 @@ interface StreamChunkDelta {
 }
 
 interface StreamChunk {
-  choices: Array<{ delta: StreamChunkDelta; finish_reason: string | null }>
+  // OpenAI sends the usage chunk with an empty choices array; be lenient.
+  choices?: Array<{ delta: StreamChunkDelta; finish_reason: string | null }>
+  usage?: { prompt_tokens?: number; completion_tokens?: number }
+}
+
+interface StreamResult {
+  content: string
+  toolCalls: PendingToolCall[]
+  // prompt + completion tokens of this request, when the server reports usage.
+  usedTokens?: number
 }
 
 function parseSSEChunk(raw: string): StreamChunk | null {
@@ -444,6 +467,7 @@ export class BridgeManager {
     })
 
     ipcMain.handle('bridge:testConnection', (_event, settings: BridgeSettings) => this.testConnection(settings))
+    ipcMain.handle('bridge:compact', (_event, payload: BridgeCompactPayload) => this.compact(payload))
   }
 
   // The following are the same bodies that used to live directly inside the
@@ -560,13 +584,36 @@ export class BridgeManager {
     // enforced for tickets this run started, and at most once per run.
     let startedTodo = false
     let stopBlocked = false
+    // vIDE Compacting. The window is probed lazily, the first time the server
+    // reports usage (servers that never do skip the probe entirely).
+    let contextWindow: number | null | undefined
+    let usedTokens = 0
+    let overflowRetried = false
     for (let round = 0; round < limit; round++) {
       if (!live()) return
       if (round > 0) emit({ type: 'new-turn' })
       const trimmed = trimToolPayloads(messages)
       if (trimmed) messages.splice(0, messages.length, ...trimmed)
       const streamResult = await this.streamOneCompletion(key, live, emit, messages, settings, tools)
+      if (streamResult === 'overflow') {
+        // The server refused the prompt as too long: compact and retry once.
+        if (overflowRetried) {
+          emit({ type: 'error', message: "Bridge request is larger than the model's context, even after compacting" })
+          return
+        }
+        overflowRetried = true
+        if (contextWindow === undefined) contextWindow = await fetchContextWindow(settings.endpoint, settings.apiKey)
+        if (!(await this.compactInTurn(key, live, emit, messages, settings, contextWindow))) return
+        continue
+      }
       if (streamResult === null || !live()) return // error/abort already emitted (or run superseded)
+      overflowRetried = false
+      if (streamResult.usedTokens !== undefined) {
+        usedTokens = streamResult.usedTokens
+        if (contextWindow === undefined) contextWindow = await fetchContextWindow(settings.endpoint, settings.apiKey)
+        if (!live()) return
+        emit({ type: 'usage', usedTokens, contextWindow })
+      }
 
       if (streamResult.toolCalls.length === 0) {
         const block = startedTodo && this.videCtx
@@ -607,12 +654,59 @@ export class BridgeManager {
 
         emit({ type: 'tool-result', id: call.id, result: execResult.result, isError: execResult.isError })
         messages.push({ role: 'tool', tool_call_id: call.id, content: execResult.result })
+        // Rough token estimate for what the next request adds on top of the
+        // last reported usage (~3 chars per token).
+        usedTokens += Math.ceil(execResult.result.length / 3)
 
         if (!live()) return
+      }
+
+      if (contextWindow && usedTokens >= contextWindow * AUTO_COMPACT_RATIO) {
+        if (!(await this.compactInTurn(key, live, emit, messages, settings, contextWindow))) return
+        usedTokens = 0
       }
     }
 
     emit({ type: 'error', message: `Bridge hit the ${limit} tool-call round limit for this turn` })
+  }
+
+  // Replaces `messages` in place with summary + recent rounds. Returns false
+  // (with an error already emitted, unless cancelled) when it couldn't.
+  private async compactInTurn(
+    key: string,
+    live: () => boolean,
+    emit: (event: BridgeEvent) => void,
+    messages: BridgeMessage[],
+    settings: BridgeSettings,
+    contextWindow: number | null
+  ): Promise<boolean> {
+    if (!live()) return false
+    emit({ type: 'compacting' })
+    const controller = new AbortController()
+    this.controllerByConv.set(key, controller)
+    let summary: string
+    try {
+      summary = await summarize(settings, messages, contextWindow, controller.signal)
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') emit({ type: 'error', message: `Compaction failed: ${(err as Error).message}` })
+      return false
+    }
+    if (!live()) return false
+    messages.splice(0, messages.length, ...compactMessages(messages, summary))
+    emit({ type: 'compacted', summary, content: wrapSummary(summary) })
+    return true
+  }
+
+  // Manual Compact (activity bar / session menu) between turns: summarises
+  // the wire transcript the renderer sends and returns the summary.
+  async compact(payload: BridgeCompactPayload): Promise<{ ok: true; summary: string; content: string } | { ok: false; error: string }> {
+    try {
+      const contextWindow = await fetchContextWindow(payload.settings.endpoint, payload.settings.apiKey)
+      const summary = await summarize(payload.settings, payload.messages, contextWindow, undefined, payload.focus)
+      return { ok: true, summary, content: wrapSummary(summary) }
+    } catch (err) {
+      return { ok: false, error: (err as Error).message }
+    }
   }
 
   private awaitApproval(
@@ -774,7 +868,7 @@ export class BridgeManager {
     messages: BridgeMessage[],
     settings: BridgeSettings,
     tools: unknown[]
-  ): Promise<{ content: string; toolCalls: PendingToolCall[] } | null> {
+  ): Promise<StreamResult | 'overflow' | null> {
     if (!live()) return null
     const controller = new AbortController()
     this.controllerByConv.set(key, controller)
@@ -789,7 +883,7 @@ export class BridgeManager {
       response = await fetch(`${settings.endpoint}/chat/completions`, {
         method: 'POST',
         headers: reqHeaders,
-        body: JSON.stringify({ model: settings.modelId, messages, tools, stream: true }),
+        body: JSON.stringify({ model: settings.modelId, messages, tools, stream: true, stream_options: { include_usage: true } }),
         signal: controller.signal,
       })
     } catch (err) {
@@ -802,6 +896,8 @@ export class BridgeManager {
     }
 
     if (!response.ok) {
+      const body = await response.text().catch(() => '')
+      if (isContextOverflow(response.status, body)) return 'overflow'
       emit({ type: 'error', message: `Bridge request failed: ${response.status}` })
       return null
     }
@@ -815,6 +911,7 @@ export class BridgeManager {
     const decoder = new TextDecoder()
     let buffer = ''
     let content = ''
+    let usedTokens: number | undefined
     const toolCallAccs: Record<number, { id: string; name: string; args: string }> = {}
 
     try {
@@ -829,7 +926,10 @@ export class BridgeManager {
         for (const line of lines) {
           const chunk = parseSSEChunk(line)
           if (!chunk) continue
-          const delta = chunk.choices[0]?.delta
+          if (chunk.usage?.prompt_tokens !== undefined) {
+            usedTokens = chunk.usage.prompt_tokens + (chunk.usage.completion_tokens ?? 0)
+          }
+          const delta = chunk.choices?.[0]?.delta
           if (delta?.content) {
             content += delta.content
             emit({ type: 'text-delta', delta: delta.content })
@@ -874,11 +974,11 @@ export class BridgeManager {
       const { toolCalls: textCalls, cleanedContent } = extractTextToolCalls(content)
       if (textCalls.length > 0) {
         emit({ type: 'content-replace', content: cleanedContent })
-        return { content: cleanedContent, toolCalls: textCalls }
+        return { content: cleanedContent, toolCalls: textCalls, usedTokens }
       }
     }
 
-    return { content, toolCalls }
+    return { content, toolCalls, usedTokens }
   }
 
   disposeWindow(winId: number): void {
