@@ -149,8 +149,8 @@ export function createUrlActivateHandler() {
 // wide characters — CJK text, emoji, xterm's own box-drawing/bullet prefixes
 // in Claude's UI — don't throw off the column count. Mirrors the position-
 // mapping @xterm/addon-web-links does internally (see the note on
-// FILE_PATH_LINK_PROVIDER below for why we can't just reuse that addon).
-function columnForStringIndex(terminal: Terminal, line: NonNullable<ReturnType<Terminal['buffer']['active']['getLine']>>, strIndex: number): number {
+// createWrappedLinkProvider below for why we can't just reuse that addon).
+function columnForStringIndex(terminal: Terminal, line: BufferLine, strIndex: number): number {
   const cell = terminal.buffer.active.getNullCell()
   let consumed = 0
   for (let col = 0; col < line.length; col++) {
@@ -163,40 +163,120 @@ function columnForStringIndex(terminal: Terminal, line: NonNullable<ReturnType<T
   return line.length + 1
 }
 
-// A hand-rolled ILinkProvider for file paths — @xterm/addon-web-links can't
-// be reused here despite its `urlRegex` option looking pluggable: its
-// internal match filter unconditionally does `new URL(matchedText)` and
-// discards anything that doesn't parse as one, which no file path ever does.
-// (Confirmed by reading its bundled source — this is why file paths never
-// even got a hover-underline, regardless of how the regex was tuned.) Only
-// looks within a single buffer line — a path that happens to visually wrap
-// across two terminal rows won't be detected, an accepted trade-off for
-// staying simple and correct rather than reimplementing the addon's
-// wrapped-line joining too.
-export function createFilePathLinkProvider(terminal: Terminal, activate: (event: MouseEvent, text: string) => void): ILinkProvider {
+type BufferLine = NonNullable<ReturnType<Terminal['buffer']['active']['getLine']>>
+
+// Same pattern @xterm/addon-web-links uses by default.
+export const URL_REGEX = /(https?|HTTPS?):[/]{2}[^\s"'!*(){}|\\\^<>`]*[^\s"':,.!?{}|\\\^~\[\]`()<>]/
+
+// Claude Code wraps its own output with real newlines (not xterm soft
+// wraps), so a long URL/path becomes several unrelated buffer rows. A row is
+// treated as continuing onto the next when its text runs to (nearly) the
+// right edge with no trailing space, i.e. a token was cut mid-way.
+const HARD_WRAP_EDGE_SLACK = 2
+const MAX_JOINED_ROWS = 12
+
+interface RowSegment {
+  y: number // 0-based buffer row
+  line: BufferLine
+  offset: number // start index within the joined text
+  lead: number // leading chars dropped from this row (continuation indent)
+  length: number
+}
+
+function rowContinuesOnto(terminal: Terminal, row: BufferLine, next: BufferLine): boolean {
+  if (next.isWrapped) return true
+  const text = row.translateToString(true)
+  if (!text) return false
+  if (columnForStringIndex(terminal, row, text.length) - 1 < terminal.cols - HARD_WRAP_EDGE_SLACK) return false
+  return /\S/.test(next.translateToString(true))
+}
+
+// Joins the logical line containing `y` across soft and hard wraps.
+function joinWrappedRows(terminal: Terminal, y: number): { text: string; segments: RowSegment[] } | null {
+  const buffer = terminal.buffer.active
+  if (!buffer.getLine(y)) return null
+
+  let first = y
+  while (first > 0 && y - first < MAX_JOINED_ROWS) {
+    const prev = buffer.getLine(first - 1)
+    if (!prev || !rowContinuesOnto(terminal, prev, buffer.getLine(first)!)) break
+    first--
+  }
+
+  const segments: RowSegment[] = []
+  let text = ''
+  for (let row = first; segments.length < MAX_JOINED_ROWS * 2; row++) {
+    const line = buffer.getLine(row)
+    if (!line) break
+    const raw = line.translateToString(true)
+    // Soft wraps keep every cell; hard-wrapped continuations drop their indent.
+    const lead = row === first || line.isWrapped ? 0 : raw.length - raw.trimStart().length
+    const part = raw.slice(lead)
+    segments.push({ y: row, line, offset: text.length, lead, length: part.length })
+    text += part
+    const next = buffer.getLine(row + 1)
+    if (!next || !rowContinuesOnto(terminal, line, next)) break
+  }
+  return { text, segments }
+}
+
+// Maps an index in the joined text to a 1-based buffer position. `isEnd`
+// keeps an exclusive end index on the row that holds its last character.
+function positionForIndex(terminal: Terminal, segments: RowSegment[], index: number, isEnd: boolean): { x: number; y: number } {
+  const seg = segments.find((s) => (isEnd ? index <= s.offset + s.length : index < s.offset + s.length)) ?? segments[segments.length - 1]
+  const x = columnForStringIndex(terminal, seg.line, index - seg.offset + seg.lead)
+  return { x, y: seg.y + 1 }
+}
+
+// A hand-rolled ILinkProvider, used for both URLs and file paths, that
+// matches across wrapped rows. @xterm/addon-web-links only follows xterm's
+// own soft wraps, so a URL Claude Code hard-wrapped opened truncated; it
+// also can't serve file paths: its internal match filter unconditionally
+// does `new URL(matchedText)` and discards anything that doesn't parse as
+// one, which no file path ever does.
+export function createWrappedLinkProvider(
+  terminal: Terminal,
+  regex: RegExp,
+  activate: (event: MouseEvent, text: string) => void,
+  accept: (text: string) => boolean = () => true
+): ILinkProvider {
   return {
     provideLinks(bufferLineNumber, callback) {
-      const line = terminal.buffer.active.getLine(bufferLineNumber - 1)
-      if (!line) {
+      const joined = joinWrappedRows(terminal, bufferLineNumber - 1)
+      if (!joined) {
         callback(undefined)
         return
       }
 
-      const text = line.translateToString(true)
-      const re = new RegExp(FILE_PATH_REGEX.source, 'g')
+      const re = new RegExp(regex.source, 'g')
       const links: ILink[] = []
       let match: RegExpExecArray | null
-      while ((match = re.exec(text))) {
+      while ((match = re.exec(joined.text))) {
         const matchedText = match[0]
-        const startCol = columnForStringIndex(terminal, line, match.index)
-        const endCol = columnForStringIndex(terminal, line, match.index + matchedText.length)
-        links.push({
-          text: matchedText,
-          range: { start: { x: startCol, y: bufferLineNumber }, end: { x: endCol, y: bufferLineNumber } },
-          activate,
-        })
+        if (!accept(matchedText)) continue
+        const start = positionForIndex(terminal, joined.segments, match.index, false)
+        const end = positionForIndex(terminal, joined.segments, match.index + matchedText.length, true)
+        if (start.y > bufferLineNumber || end.y < bufferLineNumber) continue
+        links.push({ text: matchedText, range: { start, end }, activate })
       }
       callback(links.length ? links : undefined)
     },
   }
+}
+
+function isParsableUrl(text: string): boolean {
+  try {
+    new URL(text)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function createUrlLinkProvider(terminal: Terminal, activate: (event: MouseEvent, uri: string) => void): ILinkProvider {
+  return createWrappedLinkProvider(terminal, URL_REGEX, activate, isParsableUrl)
+}
+
+export function createFilePathLinkProvider(terminal: Terminal, activate: (event: MouseEvent, text: string) => void): ILinkProvider {
+  return createWrappedLinkProvider(terminal, FILE_PATH_REGEX, activate)
 }

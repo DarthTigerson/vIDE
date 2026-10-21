@@ -82,8 +82,48 @@ describe('Chat terminal link provider (integration)', () => {
       filePathProvider.provideLinks(1, (result: any[] | undefined) => resolve(result ?? []))
     })
 
-    return { links, spy }
+    return { links, spy, registered }
   }
+
+  function linksOn(provider: any, bufferLineNumber: number): Promise<any[]> {
+    return new Promise((resolve) => provider.provideLinks(bufferLineNumber, (result: any[] | undefined) => resolve(result ?? [])))
+  }
+
+  // Claude Code wraps long lines itself (real newlines plus a continuation
+  // indent), so a URL wider than the terminal lands on separate rows.
+  // Reported bug: clicking one opened only the first row's part.
+  it('joins a URL hard-wrapped across rows into one link, clickable from either row', async () => {
+    const url = 'https://gitlab.com/g2m-gentoo/kustomize-apps/-/merge_requests/1353/diffs?commit_id=abcdef0123456789abcdef'
+    const firstRow = `See ${url}`.slice(0, 80)
+    const rest = `See ${url}`.slice(80)
+    const { spy, registered } = await setupAndWriteLine(`${firstRow}\r\n  ${rest} for details`)
+    const urlProvider = registered[0]
+
+    for (const row of [1, 2]) {
+      const links = await linksOn(urlProvider, row)
+      expect(links.map((l) => l.text)).toEqual([url])
+      expect(links[0].range.start).toEqual({ x: 5, y: 1 })
+      expect(links[0].range.end.y).toBe(2)
+    }
+
+    spy.mockRestore()
+  })
+
+  it('does not join a URL onto the next row when its row stops short of the edge', async () => {
+    const { spy, registered } = await setupAndWriteLine('See https://example.com/a\r\nnext line')
+    const links = await linksOn(registered[0], 1)
+    expect(links.map((l) => l.text)).toEqual(['https://example.com/a'])
+    spy.mockRestore()
+  })
+
+  it('joins a file path hard-wrapped across rows', async () => {
+    const path = 'kubernetes/wiki/monitoring/federation/very/long/nested/directory/structure/README.md'
+    const text = `Edited ${path}`
+    const { spy, registered } = await setupAndWriteLine(`${text.slice(0, 80)}\r\n    ${text.slice(80)}`)
+    const links = await linksOn(registered[1], 2)
+    expect(links.map((l) => l.text)).toContain(path)
+    spy.mockRestore()
+  })
 
   it('registers a link provider that detects an extensionless SSH-key path in real terminal buffer content', async () => {
     const { links, spy } = await setupAndWriteLine('~/.ssh/id_ed25519_github_personal')
