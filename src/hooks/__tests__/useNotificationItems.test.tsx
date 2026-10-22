@@ -12,6 +12,8 @@ import { useGitPanelOpenAlertStore } from '@/stores/gitPanelOpenAlertStore'
 import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
 import { useLlamaStore } from '@/stores/llamaStore'
 import { usePanelRequestStore } from '@/stores/panelRequestStore'
+import { useGraphifySettingsStore } from '@/stores/graphifySettingsStore'
+import { useGraphifyStore } from '@/stores/graphifyStore'
 
 beforeEach(() => {
   useUsageAlertStore.setState({ alerts: [] })
@@ -25,6 +27,8 @@ beforeEach(() => {
   useLlamaSettingsStore.setState({ enabled: false })
   useLlamaStore.setState({ available: null })
   usePanelRequestStore.setState({ request: null })
+  useGraphifySettingsStore.setState({ enabled: false, gitignorePrompt: true, claudeSkillPrompt: true })
+  useGraphifyStore.setState({ gitignorePrompts: {}, claudeSkillPrompts: {}, installingSkill: null })
 })
 
 afterEach(() => {
@@ -250,5 +254,58 @@ describe('useNotificationItems', () => {
     useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com' }, status: 'idle' })
     const { result } = renderHook(() => useNotificationItems())
     expect(result.current.map((i) => i.id)).toEqual(['usage-session', 'docker', 'update'])
+  })
+  it('prompts to gitignore graphify-out, adding it on click', () => {
+    const addToGitignore = vi.fn()
+    useGraphifySettingsStore.setState({ enabled: true })
+    useGraphifyStore.setState({ gitignorePrompts: { '/code/app': null }, addToGitignore })
+    const { result } = renderHook(() => useNotificationItems())
+    const item = result.current.find((i) => i.id === 'graphify-gitignore-/code/app')
+    expect(item?.text).toBe("graphify-out/ isn't in app's .gitignore — click to add it")
+    act(() => item!.onClick!())
+    expect(addToGitignore).toHaveBeenCalledWith('/code/app')
+  })
+
+  it('shows why adding graphify-out to .gitignore failed', () => {
+    useGraphifySettingsStore.setState({ enabled: true })
+    useGraphifyStore.setState({ gitignorePrompts: { '/code/app': 'EACCES' } })
+    const { result } = renderHook(() => useNotificationItems())
+    expect(result.current[0].text).toBe("Couldn't add graphify-out/ to .gitignore in app: EACCES")
+  })
+
+  it('stays silent about graphify-out when Graphify is switched off', () => {
+    useGraphifyStore.setState({ gitignorePrompts: { '/code/app': null } })
+    const { result } = renderHook(() => useNotificationItems())
+    expect(result.current).toEqual([])
+  })
+  it('stays silent about graphify-out when the gitignore reminder is switched off', () => {
+    useGraphifySettingsStore.setState({ enabled: true, gitignorePrompt: false })
+    useGraphifyStore.setState({ gitignorePrompts: { '/code/app': null } })
+    const { result } = renderHook(() => useNotificationItems())
+    expect(result.current).toEqual([])
+  })
+  it('prompts to set up graphify for Claude Code, installing the skill on click', () => {
+    const installClaudeSkill = vi.fn()
+    useGraphifySettingsStore.setState({ enabled: true })
+    useGraphifyStore.setState({ claudeSkillPrompts: { '/code/app': null }, installClaudeSkill })
+    const { result } = renderHook(() => useNotificationItems())
+    const item = result.current.find((i) => i.id === 'graphify-claude-skill-/code/app')
+    expect(item?.text).toBe("Claude Code isn't using graphify in app — click to set it up")
+    act(() => item!.onClick!())
+    expect(installClaudeSkill).toHaveBeenCalledWith('/code/app')
+  })
+
+  it('disables the Claude Code setup row while its install runs', () => {
+    useGraphifySettingsStore.setState({ enabled: true })
+    useGraphifyStore.setState({ claudeSkillPrompts: { '/code/app': null }, installingSkill: '/code/app' })
+    const { result } = renderHook(() => useNotificationItems())
+    expect(result.current[0]).toMatchObject({ text: 'Setting up graphify for Claude Code in app…', disabled: true })
+  })
+
+  it('stays silent about Claude Code setup when its reminder is switched off', () => {
+    useGraphifySettingsStore.setState({ enabled: true, claudeSkillPrompt: false })
+    useGraphifyStore.setState({ claudeSkillPrompts: { '/code/app': null } })
+    const { result } = renderHook(() => useNotificationItems())
+    expect(result.current).toEqual([])
   })
 })

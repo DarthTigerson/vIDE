@@ -26,6 +26,9 @@ vi.stubGlobal('window', {
     graphifyRun: vi.fn().mockResolvedValue(undefined),
     graphifyReadGraph: vi.fn().mockResolvedValue(sampleGraph),
     graphifyInstallClaudeSkill: vi.fn().mockResolvedValue({ ok: true, output: 'skill installed' }),
+    graphifyNeedsGitignore: vi.fn().mockResolvedValue(false),
+    graphifyNeedsClaudeSkill: vi.fn().mockResolvedValue(false),
+    graphifyAddToGitignore: vi.fn().mockResolvedValue({ ok: true, output: '' }),
     onGraphifyData: vi.fn((cb) => {
       dataHandler = cb
       return onGraphifyDataCleanup
@@ -47,7 +50,8 @@ describe('graphifyStore', () => {
     onGraphifyExitCleanup = vi.fn()
     useGraphifyStore.setState({
       available: null, checking: false, running: false, progress: '', error: null,
-      graph: null, loadingGraph: false, installingSkill: false, skillInstallResult: null,
+      graph: null, loadingGraph: false, installingSkill: null,
+      gitignorePrompts: {}, claudeSkillPrompts: {},
     })
   })
 
@@ -70,6 +74,8 @@ describe('graphifyStore', () => {
     expect(useGraphifyStore.getState().running).toBe(false)
     expect(window.api.graphifyReadGraph).toHaveBeenCalledWith('/project')
     expect(useGraphifyStore.getState().graph).toEqual(sampleGraph)
+    expect(window.api.graphifyNeedsGitignore).toHaveBeenCalledWith('/project')
+    expect(window.api.graphifyNeedsClaudeSkill).toHaveBeenCalledWith('/project')
   })
 
   it('run sets an error and does not load the graph on a non-zero exit', async () => {
@@ -156,24 +162,61 @@ describe('graphifyStore', () => {
     expect(useGraphifyStore.getState().loadingGraph).toBe(false)
   })
 
-  it('installClaudeSkill stores the ok result and clears installingSkill', async () => {
+  it('installClaudeSkill installs, marks the repo while in flight, and clears its prompt', async () => {
+    useGraphifyStore.setState({ claudeSkillPrompts: { '/project': null } })
     const installPromise = useGraphifyStore.getState().installClaudeSkill('/project')
-    expect(useGraphifyStore.getState().installingSkill).toBe(true)
-    expect(useGraphifyStore.getState().skillInstallResult).toBeNull()
+    expect(useGraphifyStore.getState().installingSkill).toBe('/project')
 
     await installPromise
 
     expect(window.api.graphifyInstallClaudeSkill).toHaveBeenCalledWith('/project')
-    expect(useGraphifyStore.getState().installingSkill).toBe(false)
-    expect(useGraphifyStore.getState().skillInstallResult).toEqual({ ok: true, output: 'skill installed' })
+    expect(useGraphifyStore.getState().installingSkill).toBeNull()
+    expect(useGraphifyStore.getState().claudeSkillPrompts).toEqual({})
   })
 
-  it('installClaudeSkill stores a failure result rather than throwing when the IPC call rejects', async () => {
+  it('installClaudeSkill keeps the prompt with the error rather than throwing when the IPC call rejects', async () => {
     ;(window.api.graphifyInstallClaudeSkill as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('spawn failed'))
+    useGraphifyStore.setState({ claudeSkillPrompts: { '/project': null } })
 
     await useGraphifyStore.getState().installClaudeSkill('/project')
 
-    expect(useGraphifyStore.getState().installingSkill).toBe(false)
-    expect(useGraphifyStore.getState().skillInstallResult).toEqual({ ok: false, output: 'spawn failed' })
+    expect(useGraphifyStore.getState().installingSkill).toBeNull()
+    expect(useGraphifyStore.getState().claudeSkillPrompts).toEqual({ '/project': 'spawn failed' })
+  })
+
+  it('checkClaudeSkill raises a prompt while the skill is missing and clears it once installed', async () => {
+    const needs = window.api.graphifyNeedsClaudeSkill as ReturnType<typeof vi.fn>
+    needs.mockResolvedValueOnce(true)
+    await useGraphifyStore.getState().checkClaudeSkill('/project')
+    expect(useGraphifyStore.getState().claudeSkillPrompts).toEqual({ '/project': null })
+
+    needs.mockResolvedValueOnce(false)
+    await useGraphifyStore.getState().checkClaudeSkill('/project')
+    expect(useGraphifyStore.getState().claudeSkillPrompts).toEqual({})
+  })
+
+  it('checkGitignore raises a prompt for a repo whose graphify-out needs ignoring, and clears it once it does not', async () => {
+    const needs = window.api.graphifyNeedsGitignore as ReturnType<typeof vi.fn>
+    needs.mockResolvedValueOnce(true)
+    await useGraphifyStore.getState().checkGitignore('/project')
+    expect(useGraphifyStore.getState().gitignorePrompts).toEqual({ '/project': null })
+
+    needs.mockResolvedValueOnce(false)
+    await useGraphifyStore.getState().checkGitignore('/project')
+    expect(useGraphifyStore.getState().gitignorePrompts).toEqual({})
+  })
+
+  it('addToGitignore adds the entry and clears the prompt', async () => {
+    useGraphifyStore.setState({ gitignorePrompts: { '/project': null } })
+    await useGraphifyStore.getState().addToGitignore('/project')
+    expect(window.api.graphifyAddToGitignore).toHaveBeenCalledWith('/project')
+    expect(useGraphifyStore.getState().gitignorePrompts).toEqual({})
+  })
+
+  it('addToGitignore keeps the prompt with the error when adding fails', async () => {
+    ;(window.api.graphifyAddToGitignore as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: false, output: 'EACCES' })
+    useGraphifyStore.setState({ gitignorePrompts: { '/project': null } })
+    await useGraphifyStore.getState().addToGitignore('/project')
+    expect(useGraphifyStore.getState().gitignorePrompts).toEqual({ '/project': 'EACCES' })
   })
 })

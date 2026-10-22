@@ -1,6 +1,5 @@
 import { useGraphifyStore } from '@/stores/graphifyStore'
 import { useGraphifySettingsStore } from '@/stores/graphifySettingsStore'
-import { useFileStore } from '@/stores/fileStore'
 import { Switch } from '@/components/ui/Toggle'
 import { FeatureBlock, SettingRow } from './FeatureBlock'
 import { ToolInstallRow } from './ToolInstallRow'
@@ -12,12 +11,14 @@ const onProgress = (cb: (received: number, total: number) => void) => window.api
 const onInstalled = () => useGraphifyStore.setState({ available: true })
 
 export function GraphifySettingsPage() {
-  const projectRoot = useFileStore((s) => s.projectRoot)
-  const { installingSkill, skillInstallResult, installClaudeSkill } = useGraphifyStore()
   const enabled = useGraphifySettingsStore((s) => s.enabled)
   const setEnabled = useGraphifySettingsStore((s) => s.setEnabled)
   const autoBuildOnOpen = useGraphifySettingsStore((s) => s.autoBuildOnOpen)
   const setAutoBuildOnOpen = useGraphifySettingsStore((s) => s.setAutoBuildOnOpen)
+  const gitignorePrompt = useGraphifySettingsStore((s) => s.gitignorePrompt)
+  const setGitignorePrompt = useGraphifySettingsStore((s) => s.setGitignorePrompt)
+  const claudeSkillPrompt = useGraphifySettingsStore((s) => s.claudeSkillPrompt)
+  const setClaudeSkillPrompt = useGraphifySettingsStore((s) => s.setClaudeSkillPrompt)
 
   return (
     <div className="h-full overflow-auto bg-panel p-6">
@@ -48,39 +49,12 @@ export function GraphifySettingsPage() {
               from the Graphify panel.
             </p>
           )}
-        </FeatureBlock>
-
-        <FeatureBlock
-          title="Claude Code"
-          description={
-            <>
-              Registers graphify as a Claude Code skill for the current project
-              (<code className="rounded bg-white/10 px-1 py-0.5 text-[0.95em]">.claude/skills/graphify</code>, plus a
-              CLAUDE.md section), so Claude can query the graph instead of grepping raw files, saving tokens on
-              codebase questions.
-            </>
-          }
-        >
-          <button
-            type="button"
-            className="h-8 rounded-full bg-accent/80 px-4 text-xs font-bold tracking-tight text-on-accent transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
-            disabled={!projectRoot || installingSkill}
-            onClick={() => projectRoot && installClaudeSkill(projectRoot)}
-          >
-            {installingSkill ? 'Enabling…' : 'Enable for Claude Code'}
-          </button>
-
-          {skillInstallResult && (
-            <div
-              className={`mt-3 max-h-64 max-w-[560px] overflow-y-auto whitespace-pre-wrap rounded border p-2 text-xs ${
-                skillInstallResult.ok ? 'border-border text-fg-muted' : 'border-red-400/30 text-red-400'
-              }`}
-            >
-              {skillInstallResult.ok
-                ? 'Claude Code can now use graphify on this project (skill + CLAUDE.md added under .claude/ and staged — review and commit to share with your team).'
-                : `Failed to enable graphify for Claude Code:\n${skillInstallResult.output}`}
-            </div>
-          )}
+          <SettingRow label="Remind to gitignore graphify-out/" description="Shows a notification when a repo's graphify-out/ isn't in its .gitignore. Click it to add the entry.">
+            <Switch label="Remind to gitignore graphify-out" checked={gitignorePrompt} onChange={setGitignorePrompt} />
+          </SettingRow>
+          <SettingRow label="Remind to set up Claude Code" description="Shows a notification when a repo has a graph but Claude Code can't query it yet. Click it to add graphify's skill (.claude/skills/graphify plus a CLAUDE.md section).">
+            <Switch label="Remind to set up graphify for Claude Code" checked={claudeSkillPrompt} onChange={setClaudeSkillPrompt} />
+          </SettingRow>
         </FeatureBlock>
       </div>
     </div>

@@ -76,6 +76,19 @@ describe('GraphifyManager', () => {
     existsSyncMock.mockImplementation((p: string) => !String(p).endsWith('/.local/bin/graphify'))
   })
 
+  it('needsClaudeSkill is true only once a graph is built and the project skill is missing', () => {
+    const manager = new GraphifyManager()
+    manager.registerHandlers()
+    const needs = (existing: string[]) => {
+      existsSyncMock.mockImplementation((p: string) => existing.includes(p))
+      return ipcHandlers['graphify:needsClaudeSkill']({}, '/proj')
+    }
+
+    expect(needs(['/proj/graphify-out'])).toBe(true)
+    expect(needs(['/proj/graphify-out', '/proj/.claude/skills/graphify/SKILL.md'])).toBe(false)
+    expect(needs([])).toBe(false)
+  })
+
   it('isAvailable resolves true when the process spawns successfully', async () => {
     const manager = new GraphifyManager()
     manager.registerHandlers()
@@ -282,6 +295,45 @@ describe('GraphifyManager', () => {
         expect.any(Function)
       )
       expect(result).toEqual({ ok: true, output: 'skill installed  ->  .claude/skills/graphify/SKILL.md' })
+    })
+
+    it('repairHooksIfNeeded re-runs the install without staging when a hook path is dead', async () => {
+      stubExecFile({ stdout: 'skill installed' })
+      const installStub = execFileMock.getMockImplementation()!
+      // `git ls-files -- graphify-out` prints nothing: built locally, not from the repo.
+      execFileMock.mockImplementation((...args: unknown[]) => {
+        if (args[0] === 'git' && (args[1] as string[])[0] === 'ls-files') {
+          (args[args.length - 1] as (err: Error | null, stdout: string) => void)(null, '')
+          return
+        }
+        installStub(...args)
+      })
+      existsSyncMock.mockImplementation((p: string) => p !== '/gone/graphify' && !String(p).endsWith('/.local/bin/graphify'))
+      readFileMock.mockResolvedValue(JSON.stringify({
+        hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: '/gone/graphify hook-guard search' }] }] },
+      }))
+      const manager = new GraphifyManager()
+      manager.registerHandlers()
+
+      const result = await ipcHandlers['graphify:repairHooksIfNeeded']({}, '/project')
+
+      expect(result).toEqual({ repaired: true, ok: true, output: 'skill installed' })
+      expect(execFileMock).toHaveBeenCalledWith('graphify', ['install', '--platform', 'claude', '--project'], { cwd: '/project' }, expect.any(Function))
+      expect(execFileMock).not.toHaveBeenCalledWith('git', expect.arrayContaining(['add']), expect.anything(), expect.anything())
+    })
+
+    it('repairHooksIfNeeded does nothing when no hook path is dead', async () => {
+      stubExecFile({ stdout: 'skill installed' })
+      readFileMock.mockResolvedValue(JSON.stringify({
+        hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'graphify hook-guard search' }] }] },
+      }))
+      const manager = new GraphifyManager()
+      manager.registerHandlers()
+
+      const result = await ipcHandlers['graphify:repairHooksIfNeeded']({}, '/project')
+
+      expect(result).toEqual({ repaired: false, ok: true, output: '' })
+      expect(execFileMock).not.toHaveBeenCalledWith('graphify', expect.anything(), expect.anything(), expect.anything())
     })
 
     it('stages .claude/skills/graphify and .claude/CLAUDE.md via git add after a successful install', async () => {

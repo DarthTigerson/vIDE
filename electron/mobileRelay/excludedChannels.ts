@@ -70,6 +70,8 @@ export const EXCLUDED_CHANNELS = new Set<string>([
 
   // Peripheral features — long-running processes, lower priority
   'graphify:isAvailable', 'graphify:run', 'graphify:readGraph', 'graphify:installClaudeSkill',
+  'graphify:needsClaudeSkill', 'graphify:repairHooksIfNeeded',
+  'graphify:needsGitignore', 'graphify:addToGitignore',
   'update:getLatest',  // minor feature
   'update:getStatus', 'update:check',  // Settings > About's update check (VIDE-143)
 ])
