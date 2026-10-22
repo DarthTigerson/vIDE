@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { LlamaLaunchConfig } from '../../electron/llama'
+import { appendCapped } from '../../electron/llamaLog'
 
 // How much of the accumulated stderr/stdout to fold into the error banner on
 // a non-zero exit, so the page shows the actual failure output (port already
@@ -12,6 +13,9 @@ interface LlamaRunState {
   output: string
   error: string | null
   exitCode: number | null
+  // vIDE started this server and holds its output (false: only the /health
+  // probe knows it's up, e.g. it was started from a terminal).
+  logged?: boolean
 }
 
 const EMPTY_RUN: LlamaRunState = { running: false, output: '', error: null, exitCode: null }
@@ -30,9 +34,54 @@ interface LlamaStore {
   runs: Record<string, LlamaRunState>
   startModel: (id: string, cfg: LlamaLaunchConfig) => Promise<void>
   stopModel: (id: string) => Promise<void>
+  // Load the output the main process kept for a server vIDE started, e.g.
+  // from another window or before a reload, and follow it from then on.
+  attachModel: (id: string) => Promise<void>
   // Probe /health for a model that may have been started externally or in a
   // prior session, and sync runs[id].running without attaching IPC listeners.
   probeModel: (id: string, host: string, port: number) => Promise<void>
+}
+
+type SetState = (fn: (s: LlamaStore) => Partial<LlamaStore> | LlamaStore) => void
+
+// One pair of listeners for every server: output arrives in every window, so
+// whichever window shows the model page has it, not only the one that
+// started the server.
+let listening = false
+function listen(set: SetState) {
+  if (listening) return
+  listening = true
+  window.api.onLlamaData((id, data) => {
+    set((s) => {
+      const current = s.runs[id] ?? { ...EMPTY_RUN, running: true, logged: true }
+      return { runs: { ...s.runs, [id]: { ...current, output: appendCapped(current.output, data) } } }
+    })
+  })
+  window.api.onLlamaExit((id, code) => {
+    set((s) => {
+      const current = s.runs[id]
+      if (!current) return s
+      return {
+        runs: {
+          ...s.runs,
+          [id]: {
+            ...current,
+            running: false,
+            exitCode: code,
+            // llama-server keeps running until stopped — a "successful"
+            // launch only ever surfaces here as an error or an exit code
+            // from a kill, so any non-zero close with output counts as an
+            // error banner.
+            error: code !== 0 && current.output ? current.output.slice(-ERROR_TAIL_CHARS) : null,
+          },
+        },
+      }
+    })
+  })
+}
+
+export function _resetLlamaListenersForTesting(): void {
+  listening = false
 }
 
 export const useLlamaStore = create<LlamaStore>((set, get) => ({
@@ -58,50 +107,13 @@ export const useLlamaStore = create<LlamaStore>((set, get) => ({
   runs: {},
 
   startModel: async (id, cfg) => {
+    listen(set)
     set((s) => ({
-      runs: { ...s.runs, [id]: { running: true, output: '', error: null, exitCode: null } },
+      runs: { ...s.runs, [id]: { running: true, output: '', error: null, exitCode: null, logged: true } },
     }))
-
-    const cleanupData = window.api.onLlamaData((evtId, data) => {
-      if (evtId !== id) return
-      set((s) => ({
-        runs: { ...s.runs, [id]: { ...s.runs[id], output: s.runs[id].output + data } },
-      }))
-    })
-    const cleanupExit = window.api.onLlamaExit((evtId, code) => {
-      if (evtId !== id) return
-      cleanupData()
-      cleanupExit()
-      const run = get().runs[id]
-      const output = run?.output ?? ''
-      set((s) => {
-        const current = s.runs[id]
-        if (!current) return s
-        return {
-          runs: {
-            ...s.runs,
-            [id]: {
-              ...current,
-              running: false,
-              exitCode: code,
-              // llama-server keeps running until stopped — a "successful"
-              // launch only ever surfaces here as an error or an exit code
-              // from a kill, so any non-zero close with output counts as an
-              // error banner.
-              error: code !== 0 && output
-                ? output.slice(-ERROR_TAIL_CHARS)
-                : null,
-            },
-          },
-        }
-      })
-    })
-
     try {
       await window.api.llamaStart(id, cfg)
     } catch (err) {
-      cleanupData()
-      cleanupExit()
       set((s) => ({
         runs: {
           ...s.runs,
@@ -109,6 +121,23 @@ export const useLlamaStore = create<LlamaStore>((set, get) => ({
         },
       }))
     }
+  },
+
+  attachModel: async (id) => {
+    listen(set)
+    let log: { running: boolean; output: string } | null
+    try {
+      log = await window.api.llamaGetLog(id)
+    } catch {
+      return
+    }
+    if (!log) return
+    const { running, output } = log
+    // The snapshot already holds every chunk delivered before it, so it
+    // replaces the local copy rather than adding to it.
+    set((s) => ({
+      runs: { ...s.runs, [id]: { ...(s.runs[id] ?? EMPTY_RUN), running, output, logged: true } },
+    }))
   },
 
   stopModel: async (id) => {
@@ -124,7 +153,7 @@ export const useLlamaStore = create<LlamaStore>((set, get) => ({
       set((s) => {
         const current = s.runs[id]
         if (current?.running === running) return s
-        return { runs: { ...s.runs, [id]: { running, output: current?.output ?? '', error: current?.error ?? null, exitCode: current?.exitCode ?? null } } }
+        return { runs: { ...s.runs, [id]: { ...(current ?? EMPTY_RUN), running } } }
       })
     } catch {
       // Unreachable — mark as not running only if we previously thought it was

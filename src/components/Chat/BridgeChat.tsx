@@ -9,6 +9,8 @@ import type { ReasoningEffort } from '@/stores/llamaModelsStore'
 import { clampToViewport } from '@/components/ui/clampToViewport'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
 import { useBridgeSettingsStore } from '@/stores/bridgeSettingsStore'
+import { useLlamaStore } from '@/stores/llamaStore'
+import { llamaPhaseCode } from '@/lib/llamaProgress'
 
 // Activity rail: each assistant turn is a column of steps (reasoning, tool
 // calls, commentary) joined by a line, with the final answer below it.
@@ -50,7 +52,7 @@ function Icon({ name }: { name: ToolIcon | 'spark' | 'dot' | 'x' | 'sliders' }) 
 
 function Spinner() {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden>
+    <svg width="0.8125rem" height="0.8125rem" viewBox="0 0 24 24" aria-hidden>
       <circle cx="12" cy="12" r="8" fill="none" stroke="var(--color-border)" strokeWidth="2.6" />
       <path className="bridge-spin" d="M12 4a8 8 0 0 1 8 8" fill="none" stroke="rgb(var(--color-accent))" strokeWidth="2.6" strokeLinecap="round" />
     </svg>
@@ -68,7 +70,7 @@ function Step({ tone, node, pulse, children }: { tone: Tone; node: ReactNode; pu
 
 function FileChip({ children }: { children: ReactNode }) {
   return (
-    <span className="min-w-0 truncate rounded border border-border bg-panel px-1.5 py-px font-mono text-[11px] text-fg">
+    <span className="min-w-0 truncate rounded border border-border bg-panel px-1.5 py-px font-mono text-[0.6875rem] text-fg">
       {children}
     </span>
   )
@@ -94,9 +96,9 @@ function ReasoningStep({ message, live }: { message: BridgeChatMessage; live: bo
   if (live) {
     return (
       <Step tone="accent" node={<Icon name="spark" />}>
-        <div className="flex min-h-[22px] items-center gap-2 text-xs">
+        <div className="flex min-h-[1.375rem] items-center gap-2 text-xs">
           <span className="bridge-shimmer font-medium">Reasoning</span>
-          <span className="ml-auto font-mono text-[10.5px] text-fg-muted">{formatDuration(ms)}</span>
+          <span className="ml-auto font-mono text-[0.65625rem] text-fg-muted">{formatDuration(ms)}</span>
         </div>
         {/* Newest lines stay in view; older ones scroll off the top. */}
         <div className="mt-1 flex max-h-28 flex-col justify-end overflow-hidden text-xs leading-relaxed text-fg-muted [mask-image:linear-gradient(to_bottom,transparent,black_1.5rem)]">
@@ -112,11 +114,11 @@ function ReasoningStep({ message, live }: { message: BridgeChatMessage; live: bo
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex min-h-[22px] w-full items-center gap-2 text-left text-xs"
+        className="flex min-h-[1.375rem] w-full items-center gap-2 text-left text-xs"
       >
         <span className="font-medium text-fg">Reasoned</span>
         <span className="text-fg-muted">for {formatDuration(ms)}</span>
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden className={`text-fg-muted transition-transform ${open ? 'rotate-90' : ''}`}>
+        <svg width="0.6875rem" height="0.6875rem" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden className={`text-fg-muted transition-transform ${open ? 'rotate-90' : ''}`}>
           <path d="m9 6 6 6-6 6" />
         </svg>
       </button>
@@ -135,7 +137,7 @@ function DiffCard({ oldString, newString }: { oldString: string; newString: stri
   const { lines } = editDiff(oldString, newString)
   const shown = lines.slice(0, MAX_PREVIEW_LINES)
   return (
-    <div className="mt-1.5 overflow-hidden rounded-lg border border-border bg-panel py-1 font-mono text-[11px] leading-[18px]">
+    <div className="mt-1.5 overflow-hidden rounded-lg border border-border bg-panel py-1 font-mono text-[0.6875rem] leading-[1.125rem]">
       {shown.map((l, i) => (
         <div
           key={i}
@@ -158,7 +160,7 @@ function TextPreview({ text, tone }: { text: string; tone?: 'err' }) {
   const shown = lines.slice(0, MAX_PREVIEW_LINES).join('\n')
   return (
     <pre
-      className="mt-1.5 overflow-x-auto whitespace-pre rounded-lg border border-border bg-panel px-2.5 py-1.5 font-mono text-[11px] leading-relaxed"
+      className="mt-1.5 overflow-x-auto whitespace-pre rounded-lg border border-border bg-panel px-2.5 py-1.5 font-mono text-[0.6875rem] leading-relaxed"
       style={tone === 'err' ? { color: 'var(--git-deleted)' } : { color: 'var(--color-fg)' }}
     >
       {shown}
@@ -211,7 +213,7 @@ function ToolStep({ sessionId, block, cwd }: { sessionId: string; block: BridgeT
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex min-h-[22px] w-full min-w-0 items-center gap-2 text-left text-xs"
+        className="flex min-h-[1.375rem] w-full min-w-0 items-center gap-2 text-left text-xs"
         title={pending ? undefined : 'Show arguments and result'}
       >
         <span className="shrink-0 font-medium" style={pending ? { color: 'var(--git-modified)' } : running ? { color: 'rgb(var(--color-accent))' } : undefined}>
@@ -224,13 +226,13 @@ function ToolStep({ sessionId, block, cwd }: { sessionId: string; block: BridgeT
           </FileChip>
         )}
         {diff && block.status === 'done' && (
-          <span className="ml-auto shrink-0 font-mono text-[10.5px]">
+          <span className="ml-auto shrink-0 font-mono text-[0.65625rem]">
             <span style={{ color: 'var(--git-added)' }}>+{diff.added}</span>{' '}
             <span style={{ color: 'var(--git-deleted)' }}>−{diff.removed}</span>
           </span>
         )}
         {meta && (
-          <span className="ml-auto shrink-0 font-mono text-[10.5px]" style={failed ? { color: 'var(--git-deleted)' } : pending ? { color: 'var(--git-modified)' } : { color: 'var(--color-fg-muted)' }}>
+          <span className="ml-auto shrink-0 font-mono text-[0.65625rem]" style={failed ? { color: 'var(--git-deleted)' } : pending ? { color: 'var(--git-modified)' } : { color: 'var(--color-fg-muted)' }}>
             {meta}
           </span>
         )}
@@ -265,7 +267,7 @@ function ToolStep({ sessionId, block, cwd }: { sessionId: string; block: BridgeT
       {!pending && !open && failed && block.result && <TextPreview text={block.result} tone="err" />}
 
       {!pending && open && (
-        <pre className="mt-1.5 overflow-x-auto whitespace-pre rounded-lg border border-border bg-panel px-2.5 py-1.5 font-mono text-[11px] leading-relaxed text-fg-muted">
+        <pre className="mt-1.5 overflow-x-auto whitespace-pre rounded-lg border border-border bg-panel px-2.5 py-1.5 font-mono text-[0.6875rem] leading-relaxed text-fg-muted">
           {JSON.stringify(block.args, null, 2)}
           {block.result != null ? `\n\n${block.result.length > 3000 ? block.result.slice(0, 3000) + '\n… [truncated]' : block.result}` : ''}
         </pre>
@@ -278,7 +280,7 @@ function WorkingStep() {
   return (
     <div role="status" aria-label="Bridge is thinking">
       <Step tone="accent" node={<Icon name="spark" />}>
-        <div className="flex min-h-[22px] items-center text-xs">
+        <div className="flex min-h-[1.375rem] items-center text-xs">
           <span className="bridge-shimmer font-medium">Thinking</span>
         </div>
       </Step>
@@ -288,7 +290,7 @@ function WorkingStep() {
 
 function RegenerateIcon() {
   return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="0.6875rem" height="0.6875rem" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
       <path d="M3 3v5h5" />
     </svg>
@@ -297,11 +299,11 @@ function RegenerateIcon() {
 
 function CopyIcon({ copied }: { copied: boolean }) {
   return copied ? (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="0.6875rem" height="0.6875rem" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="20 6 9 17 4 12" />
     </svg>
   ) : (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="0.6875rem" height="0.6875rem" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
     </svg>
@@ -369,7 +371,7 @@ function Turn({ sessionId, cwd, rounds, live }: { sessionId: string; cwd: string
     if (m.effortChange) {
       steps.push(
         <Step key={`e${ri}`} tone="muted" node={<Icon name="sliders" />}>
-          <div className="flex min-h-[22px] items-center gap-1.5 text-xs text-fg-muted">
+          <div className="flex min-h-[1.375rem] items-center gap-1.5 text-xs text-fg-muted">
             Effort {EFFORT_LABEL[m.effortChange.from]} → <span className="font-medium text-fg">{EFFORT_LABEL[m.effortChange.to]}</span>
             {live && isLast && <span>· from the next step</span>}
           </div>
@@ -395,7 +397,7 @@ function Turn({ sessionId, cwd, rounds, live }: { sessionId: string; cwd: string
         </div>
       )}
       {!live && tools.length > 0 && (
-        <div className="flex items-center gap-1.5 text-[11px] text-fg-muted">
+        <div className="flex items-center gap-1.5 text-[0.6875rem] text-fg-muted">
           {worked !== null && <><span>Worked {formatDuration(worked)}</span><span>·</span></>}
           <span>{tools.length} {tools.length === 1 ? 'tool' : 'tools'}</span>
           {files > 0 && <><span>·</span><span>{files} {files === 1 ? 'file' : 'files'} changed</span></>}
@@ -462,7 +464,7 @@ function EffortChip({ value, onChange }: { value: ReasoningEffort; onChange: (v:
       >
         <span style={{ color: 'rgb(var(--color-accent))' }}><Icon name="spark" /></span>
         {EFFORT_LABEL[value]}
-        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" aria-hidden><path d="m6 9 6 6 6-6" /></svg>
+        <svg width="0.5625rem" height="0.5625rem" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" aria-hidden><path d="m6 9 6 6 6-6" /></svg>
       </button>
       {open && createPortal(
         <div
@@ -473,7 +475,7 @@ function EffortChip({ value, onChange }: { value: ReasoningEffort; onChange: (v:
           style={{ left: pos.left, top: pos.top }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="px-2 pb-1 pt-1.5 text-[11px] text-fg-muted">Reasoning effort</div>
+          <div className="px-2 pb-1 pt-1.5 text-[0.6875rem] text-fg-muted">Reasoning effort</div>
           {EFFORTS.map((o) => (
             <button
               key={o.value}
@@ -487,10 +489,10 @@ function EffortChip({ value, onChange }: { value: ReasoningEffort; onChange: (v:
               className={`flex w-full flex-col rounded px-2 py-1.5 text-left transition-colors ${o.value === value ? 'bg-accent/10' : 'hover:bg-white/5'}`}
             >
               <span className="text-xs font-medium text-fg">{o.label}</span>
-              <span className="text-[11px] text-fg-muted">{o.hint}</span>
+              <span className="text-[0.6875rem] text-fg-muted">{o.hint}</span>
             </button>
           ))}
-          <div className="mx-1 mt-1 border-t border-border px-1 pb-1 pt-1.5 text-[10.5px] leading-snug text-fg-muted">
+          <div className="mx-1 mt-1 border-t border-border px-1 pb-1 pt-1.5 text-[0.65625rem] leading-snug text-fg-muted">
             Applies from the next step. Off works on any model; levels need one that supports them, like gpt-oss.
           </div>
         </div>,
@@ -517,7 +519,7 @@ function ContextRing({ usage, compactAt }: { usage: { usedTokens: number; contex
       }`}
     >
       {pct !== null && (
-        <svg width="24" height="24" viewBox="0 0 36 36" role="img" aria-label={`${pct}% of context used`}>
+        <svg width="1.5rem" height="1.5rem" viewBox="0 0 36 36" role="img" aria-label={`${pct}% of context used`}>
           <circle cx="18" cy="18" r={r} fill="none" stroke="var(--color-border)" strokeWidth="4" />
           <circle
             cx="18" cy="18" r={r} fill="none" strokeWidth="4" strokeLinecap="round"
@@ -528,8 +530,8 @@ function ContextRing({ usage, compactAt }: { usage: { usedTokens: number; contex
         </svg>
       )}
       <div className="flex flex-col font-mono leading-tight tabular-nums">
-        <span className="text-[11px] text-fg">{formatTokens(usedTokens)}</span>
-        <span className="text-[10px] text-fg-muted">{contextWindow ? `of ${formatTokens(contextWindow)}` : 'tokens'}</span>
+        <span className="text-[0.6875rem] text-fg">{formatTokens(usedTokens)}</span>
+        <span className="text-[0.625rem] text-fg-muted">{contextWindow ? `of ${formatTokens(contextWindow)}` : 'tokens'}</span>
       </div>
     </div>
   )
@@ -550,10 +552,10 @@ function ChatHeader({ title, subtitle, serverRunning, tokensPerSecond, usage, co
 }) {
   return (
     <div className="flex items-center gap-2.5 border-b border-border px-3 py-2">
-      <div className="bridge-node shrink-0" style={{ ...TONE.accent, width: 28, height: 28, borderRadius: 8 }}><Icon name="spark" /></div>
+      <div className="bridge-node shrink-0" style={{ ...TONE.accent, width: "1.75rem", height: "1.75rem", borderRadius: "0.5rem" }}><Icon name="spark" /></div>
       <div className="flex min-w-0 flex-col">
-        <span className="truncate text-[13px] font-semibold text-fg">{title}</span>
-        <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-fg-muted">
+        <span className="truncate text-[0.8125rem] font-semibold text-fg">{title}</span>
+        <span className="flex min-w-0 items-center gap-1.5 text-[0.6875rem] text-fg-muted">
           {serverRunning !== undefined && (
             <span
               className="h-1.5 w-1.5 shrink-0 rounded-full"
@@ -577,6 +579,72 @@ type Item =
   | { kind: 'user'; index: number; message: BridgeChatMessage }
   | { kind: 'turn'; index: number; rounds: BridgeChatMessage[] }
 
+// No new tokens, log lines or tool activity for this long while a turn runs
+// turns the composer light red.
+const STALL_MS = 120_000
+
+export type ComposerLightState =
+  | { kind: 'fill'; progress: number; label: string }
+  | { kind: 'sweep'; promptDone: boolean; label: string }
+  | { kind: 'stalled'; progress: number; label: string }
+
+// What the light on the composer's top edge shows while a turn runs: llama
+// sessions fill it 0 → 1 as llama-server reads the prompt (from its log),
+// then sweep while the model writes. Running tools aren't the model's work,
+// so the light is off for them.
+function useComposerLight(sessionId: string, serverId: string | undefined, streaming: boolean): ComposerLightState | null {
+  const phase = useLlamaStore((s) => (serverId ? llamaPhaseCode(s.runs[serverId]?.output ?? '') : -1))
+  const logLength = useLlamaStore((s) => (serverId ? s.runs[serverId]?.output.length ?? 0 : 0))
+  const activity = useBridgeStore((s) => {
+    const msgs = s.conversations[sessionId]?.messages ?? EMPTY
+    const last = msgs[msgs.length - 1]
+    return `${msgs.length}:${last?.content.length ?? 0}:${last?.reasoning?.length ?? 0}:${last?.toolCalls?.map((t) => t.status).join() ?? ''}`
+  })
+  const toolRunning = useBridgeStore((s) => {
+    const msgs = s.conversations[sessionId]?.messages ?? EMPTY
+    return !!msgs[msgs.length - 1]?.toolCalls?.some((t) => t.status === 'running' || t.status === 'pending-approval')
+  })
+  const lastChangeRef = useRef(Date.now())
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    lastChangeRef.current = Date.now()
+  }, [phase, logLength, activity, streaming])
+
+  useEffect(() => {
+    if (!streaming) return
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [streaming])
+
+  if (!streaming || toolRunning) return null
+  const reading = phase >= 0 && phase <= 1
+  const idleFor = now - lastChangeRef.current
+  if (idleFor >= STALL_MS) {
+    return { kind: 'stalled', progress: reading ? phase : 1, label: `No progress for ${Math.floor(idleFor / 60_000)}m` }
+  }
+  if (reading) return { kind: 'fill', progress: phase, label: `Reading prompt ${Math.round(phase * 100)}%` }
+  return { kind: 'sweep', promptDone: phase === 2, label: 'Writing' }
+}
+
+// The 2px light along the composer's top edge, styled like the footer's
+// git-activity bar.
+export function ComposerLight({ state }: { state: ComposerLightState | null }) {
+  if (!state) return null
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] overflow-hidden rounded-t-xl" aria-hidden>
+      {state.kind === 'fill' && <div className="bridge-light-fill" style={{ width: `${state.progress * 100}%` }} />}
+      {state.kind === 'stalled' && <div className="bridge-light-stalled" style={{ width: `${state.progress * 100}%` }} />}
+      {state.kind === 'sweep' && (
+        <>
+          <div className="bridge-light-sweep" />
+          {state.promptDone && <div className="bridge-light-fill bridge-light-done" style={{ width: '100%' }} />}
+        </>
+      )}
+    </div>
+  )
+}
+
 function groupItems(messages: BridgeChatMessage[]): Item[] {
   const items: Item[] = []
   messages.forEach((m, i) => {
@@ -591,14 +659,16 @@ function groupItems(messages: BridgeChatMessage[]): Item[] {
   return items
 }
 
-export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSend, serverRunning }: {
+export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSend, serverRunning, serverId }: {
   sessionId: string
   cwd: string
   label: string
   connectionOverride?: { endpoint: string; apiKey: string; modelId: string; toolCallLimit?: number; reasoningEffort?: ReasoningEffort; compactAtTokens?: number }
   beforeSend?: () => Promise<void>
-  // Llama sessions only: whether the model's llama-server is up.
+  // Llama sessions only: whether the model's llama-server is up, and its
+  // model config id (whose server log drives the composer light).
   serverRunning?: boolean
+  serverId?: string
 }) {
   useBridgeAgentModeShortcut(sessionId)
   const messages = useBridgeStore((s) => s.conversations[sessionId]?.messages ?? EMPTY)
@@ -624,6 +694,13 @@ export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSe
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const seenFocusTokenRef = useRef(focusToken)
   const [starting, setStarting] = useState(false)
+  const light = useComposerLight(sessionId, serverId, streaming)
+
+  // Follow the server's output in this window, even if another window (or
+  // this one before a reload) started it.
+  useEffect(() => {
+    if (serverId) useLlamaStore.getState().attachModel(serverId)
+  }, [serverId])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView?.({ block: 'end' })
@@ -714,7 +791,8 @@ export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSe
       </div>
 
       <form onSubmit={onSubmit} className="p-2.5">
-        <div className="rounded-xl border border-border bg-panel focus-within:border-accent/60">
+        <div className="relative rounded-xl border border-border bg-panel focus-within:border-accent/60">
+          <ComposerLight state={light} />
           <textarea
             ref={textareaRef}
             value={input}
@@ -748,7 +826,7 @@ export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSe
                 className={segment(agentMode)}
                 title="Run tools without asking"
               >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <svg width="0.625rem" height="0.625rem" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="M13 2 4 14h7l-1 8 9-12h-7z" />
                 </svg>
                 Agent
@@ -760,6 +838,11 @@ export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSe
             <div className="ml-auto flex items-center gap-2">
               {compacting && <span className="text-xs text-fg-muted animate-pulse">Compacting context…</span>}
               {starting && <span className="text-xs text-fg-muted animate-pulse">Starting server…</span>}
+              {!starting && !compacting && light && (
+                <span className="text-xs tabular-nums" style={light.kind === 'stalled' ? { color: 'var(--git-deleted)' } : { color: 'var(--color-fg-muted)' }}>
+                  {light.label}
+                </span>
+              )}
               {!starting && streaming ? (
                 <button
                   type="button"
@@ -778,7 +861,7 @@ export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSe
                   disabled={!input.trim() || starting}
                   className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-on-accent disabled:opacity-30"
                 >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <svg width="0.8125rem" height="0.8125rem" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                     <path d="M12 19V5M5 12l7-7 7 7" />
                   </svg>
                 </button>
