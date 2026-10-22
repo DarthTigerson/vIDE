@@ -1,7 +1,5 @@
-import { useEffect, useState } from 'react'
 import { useGraphifyStore } from '@/stores/graphifyStore'
 import { useGraphifySettingsStore } from '@/stores/graphifySettingsStore'
-import { useFileStore } from '@/stores/fileStore'
 import { Switch } from '@/components/ui/Toggle'
 import { FeatureBlock, SettingRow } from './FeatureBlock'
 import { ToolInstallRow } from './ToolInstallRow'
@@ -13,60 +11,14 @@ const onProgress = (cb: (received: number, total: number) => void) => window.api
 const onInstalled = () => useGraphifyStore.setState({ available: true })
 
 export function GraphifySettingsPage() {
-  const projectRoot = useFileStore((s) => s.projectRoot)
-  const { installingSkill, skillInstallResult, installClaudeSkill } = useGraphifyStore()
   const enabled = useGraphifySettingsStore((s) => s.enabled)
   const setEnabled = useGraphifySettingsStore((s) => s.setEnabled)
   const autoBuildOnOpen = useGraphifySettingsStore((s) => s.autoBuildOnOpen)
   const setAutoBuildOnOpen = useGraphifySettingsStore((s) => s.setAutoBuildOnOpen)
-  const hideOutputInTree = useGraphifySettingsStore((s) => s.hideOutputInTree)
-  const setHideOutputInTree = useGraphifySettingsStore((s) => s.setHideOutputInTree)
-
-  // null while checking (or with no project open). Re-checked after each
-  // install attempt so the status flips without reopening Settings.
-  const [skillInstalled, setSkillInstalled] = useState<boolean | null>(null)
-
-  useEffect(() => {
-    setSkillInstalled(null)
-    if (!projectRoot || installingSkill) return
-    let cancelled = false
-    window.api.graphifyClaudeSkillInstalled(projectRoot)
-      .then((installed) => { if (!cancelled) setSkillInstalled(installed) })
-      .catch(() => { if (!cancelled) setSkillInstalled(false) })
-    return () => { cancelled = true }
-  }, [projectRoot, installingSkill])
-
-  const [gitignoreStatus, setGitignoreStatus] = useState<'ignored' | 'notIgnored' | 'notRepo' | null>(null)
-  const [updatingGitignore, setUpdatingGitignore] = useState(false)
-  const [gitignoreError, setGitignoreError] = useState<string | null>(null)
-
-  useEffect(() => {
-    setGitignoreStatus(null)
-    setGitignoreError(null)
-    if (!projectRoot) return
-    let cancelled = false
-    window.api.graphifyGitignoreStatus(projectRoot)
-      .then((status) => { if (!cancelled) setGitignoreStatus(status) })
-      .catch(() => { if (!cancelled) setGitignoreStatus('notRepo') })
-    return () => { cancelled = true }
-  }, [projectRoot])
-
-  const setGitignored = async (value: boolean) => {
-    if (!projectRoot) return
-    setUpdatingGitignore(true)
-    setGitignoreError(null)
-    try {
-      const result = value
-        ? await window.api.graphifyAddToGitignore(projectRoot)
-        : await window.api.graphifyRemoveFromGitignore(projectRoot)
-      if (!result.ok) setGitignoreError(result.output)
-      setGitignoreStatus(await window.api.graphifyGitignoreStatus(projectRoot))
-    } catch (err) {
-      setGitignoreError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setUpdatingGitignore(false)
-    }
-  }
+  const gitignorePrompt = useGraphifySettingsStore((s) => s.gitignorePrompt)
+  const setGitignorePrompt = useGraphifySettingsStore((s) => s.setGitignorePrompt)
+  const claudeSkillPrompt = useGraphifySettingsStore((s) => s.claudeSkillPrompt)
+  const setClaudeSkillPrompt = useGraphifySettingsStore((s) => s.setClaudeSkillPrompt)
 
   return (
     <div className="h-full overflow-auto bg-panel p-6">
@@ -97,85 +49,12 @@ export function GraphifySettingsPage() {
               from the Graphify panel.
             </p>
           )}
-        </FeatureBlock>
-
-        <FeatureBlock
-          title="Output folder"
-          description={
-            <>
-              graphify writes its build output to{' '}
-              <code className="rounded bg-white/10 px-1 py-0.5 text-[0.95em]">graphify-out/</code> in the project root.
-            </>
-          }
-        >
-          <SettingRow label="Hide from the file tree" description="Hides graphify-out/ from the Explorer. The files stay on disk.">
-            <Switch label="Hide graphify-out from the file tree" checked={hideOutputInTree} onChange={setHideOutputInTree} />
+          <SettingRow label="Remind to gitignore graphify-out/" description="Shows a notification when a repo's graphify-out/ isn't in its .gitignore. Click it to add the entry.">
+            <Switch label="Remind to gitignore graphify-out" checked={gitignorePrompt} onChange={setGitignorePrompt} />
           </SettingRow>
-
-          <SettingRow label="Gitignore graphify-out" description="Adds graphify-out/ to this project's .gitignore so the graph isn't committed.">
-            <Switch
-              label="Gitignore graphify-out"
-              checked={gitignoreStatus === 'ignored'}
-              onChange={setGitignored}
-              disabled={!projectRoot || updatingGitignore || gitignoreStatus === null || gitignoreStatus === 'notRepo'}
-            />
+          <SettingRow label="Remind to set up Claude Code" description="Shows a notification when a repo has a graph but Claude Code can't query it yet. Click it to add graphify's skill (.claude/skills/graphify plus a CLAUDE.md section).">
+            <Switch label="Remind to set up graphify for Claude Code" checked={claudeSkillPrompt} onChange={setClaudeSkillPrompt} />
           </SettingRow>
-          <p className="mt-1 max-w-[460px] rounded border border-border p-2 text-xs text-fg-muted">
-            {gitignoreStatus === 'notRepo'
-              ? "This project isn't a git repository yet. If you put it under git later, add graphify-out/ to its .gitignore to keep the graph output out of the repo."
-              : 'You can also do this manually by adding graphify-out/ to your .gitignore. Turning this off only removes a plain graphify-out entry from the project\'s .gitignore; a broader rule elsewhere will keep it ignored.'}
-          </p>
-          {gitignoreError && (
-            <p className="mt-1 max-w-[460px] whitespace-pre-wrap rounded border border-red-400/30 p-2 text-xs text-red-400">
-              Couldn't update .gitignore: {gitignoreError}
-            </p>
-          )}
-        </FeatureBlock>
-
-        <FeatureBlock
-          title="Claude Code"
-          description={
-            <>
-              Registers graphify as a Claude Code skill for the current project
-              (<code className="rounded bg-white/10 px-1 py-0.5 text-[0.95em]">.claude/skills/graphify</code>, plus a
-              CLAUDE.md section), so Claude can query the graph instead of grepping raw files, saving tokens on
-              codebase questions.
-            </>
-          }
-        >
-          {skillInstalled !== null && (
-            <div className="mb-3 flex items-center gap-2 text-sm">
-              <span className={`h-2 w-2 rounded-full ${skillInstalled ? 'bg-green-400' : 'bg-fg-muted/50'}`} />
-              <span className={skillInstalled ? 'text-fg' : 'text-fg-muted'}>
-                {skillInstalled ? 'Enabled for this project' : 'Not enabled for this project'}
-              </span>
-            </div>
-          )}
-
-          <button
-            type="button"
-            className={`h-8 rounded-full px-4 text-xs font-bold tracking-tight transition-colors disabled:pointer-events-none disabled:opacity-40 ${
-              skillInstalled
-                ? 'border border-border text-fg-muted hover:bg-white/5 hover:text-fg'
-                : 'bg-accent/80 text-on-accent hover:bg-accent'
-            }`}
-            disabled={!projectRoot || installingSkill}
-            onClick={() => projectRoot && installClaudeSkill(projectRoot)}
-          >
-            {installingSkill ? 'Enabling…' : skillInstalled ? 'Reinstall / update' : 'Enable for Claude Code'}
-          </button>
-
-          {skillInstallResult && (
-            <div
-              className={`mt-3 max-h-64 max-w-[560px] overflow-y-auto whitespace-pre-wrap rounded border p-2 text-xs ${
-                skillInstallResult.ok ? 'border-border text-fg-muted' : 'border-red-400/30 text-red-400'
-              }`}
-            >
-              {skillInstallResult.ok
-                ? 'Claude Code can now use graphify on this project (skill + CLAUDE.md added under .claude/ and staged — review and commit to share with your team).'
-                : `Failed to enable graphify for Claude Code:\n${skillInstallResult.output}`}
-            </div>
-          )}
         </FeatureBlock>
       </div>
     </div>

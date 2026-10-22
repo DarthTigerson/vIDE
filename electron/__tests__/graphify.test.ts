@@ -76,16 +76,17 @@ describe('GraphifyManager', () => {
     existsSyncMock.mockImplementation((p: string) => !String(p).endsWith('/.local/bin/graphify'))
   })
 
-  it('claudeSkillInstalled checks for the project skill file', () => {
+  it('needsClaudeSkill is true only once a graph is built and the project skill is missing', () => {
     const manager = new GraphifyManager()
     manager.registerHandlers()
+    const needs = (existing: string[]) => {
+      existsSyncMock.mockImplementation((p: string) => existing.includes(p))
+      return ipcHandlers['graphify:needsClaudeSkill']({}, '/proj')
+    }
 
-    existsSyncMock.mockReturnValue(true)
-    expect(ipcHandlers['graphify:claudeSkillInstalled']({}, '/proj')).toBe(true)
-    expect(existsSyncMock).toHaveBeenLastCalledWith('/proj/.claude/skills/graphify/SKILL.md')
-
-    existsSyncMock.mockReturnValue(false)
-    expect(ipcHandlers['graphify:claudeSkillInstalled']({}, '/proj')).toBe(false)
+    expect(needs(['/proj/graphify-out'])).toBe(true)
+    expect(needs(['/proj/graphify-out', '/proj/.claude/skills/graphify/SKILL.md'])).toBe(false)
+    expect(needs([])).toBe(false)
   })
 
   it('isAvailable resolves true when the process spawns successfully', async () => {

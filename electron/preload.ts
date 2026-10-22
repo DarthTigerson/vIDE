@@ -548,10 +548,9 @@ contextBridge.exposeInMainWorld('api', {
   graphifyReadGraph: (cwd: string) => ipcRenderer.invoke('graphify:readGraph', cwd),
   graphifyInstallClaudeSkill: (cwd: string) => ipcRenderer.invoke('graphify:installClaudeSkill', cwd),
   graphifyRepairHooksIfNeeded: (cwd: string) => ipcRenderer.invoke('graphify:repairHooksIfNeeded', cwd),
-  graphifyClaudeSkillInstalled: (cwd: string) => ipcRenderer.invoke('graphify:claudeSkillInstalled', cwd),
-  graphifyGitignoreStatus: (cwd: string) => ipcRenderer.invoke('graphify:gitignoreStatus', cwd),
+  graphifyNeedsClaudeSkill: (cwd: string) => ipcRenderer.invoke('graphify:needsClaudeSkill', cwd),
+  graphifyNeedsGitignore: (cwd: string) => ipcRenderer.invoke('graphify:needsGitignore', cwd),
   graphifyAddToGitignore: (cwd: string) => ipcRenderer.invoke('graphify:addToGitignore', cwd),
-  graphifyRemoveFromGitignore: (cwd: string) => ipcRenderer.invoke('graphify:removeFromGitignore', cwd),
   onGraphifyData: (cb: (id: string, data: string) => void) => {
     const handler = (_: Electron.IpcRendererEvent, id: string, data: string) => cb(id, data)
     ipcRenderer.on('graphify:data', handler)

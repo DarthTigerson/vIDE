@@ -1,5 +1,6 @@
 import { execFile } from 'child_process'
-import { readFile, appendFile, writeFile } from 'fs/promises'
+import { readFile, appendFile } from 'fs/promises'
+import { existsSync } from 'fs'
 import { join } from 'path'
 
 export type GraphifyGitignoreStatus = 'ignored' | 'notIgnored' | 'notRepo'
@@ -38,21 +39,10 @@ export async function addGraphifyOutToGitignore(cwd: string): Promise<{ ok: bool
   }
 }
 
-// Lines that only exist to ignore graphify-out at the project root; anything
-// broader (`*-out/`, a parent .gitignore, the global excludesfile) is left
-// alone, so the folder can still read as ignored after this runs.
-const ENTRY_VARIANTS = new Set(['graphify-out', 'graphify-out/', '/graphify-out', '/graphify-out/'])
-
-export async function removeGraphifyOutFromGitignore(cwd: string): Promise<{ ok: boolean; output: string }> {
-  const path = join(cwd, '.gitignore')
-  try {
-    const existing = await readFile(path, 'utf-8').catch(() => null)
-    if (existing === null) return { ok: true, output: '' }
-    const kept = existing.split('\n').filter((line) => !ENTRY_VARIANTS.has(line.trim()))
-    const next = kept.join('\n')
-    if (next !== existing) await writeFile(path, next, 'utf-8')
-    return { ok: true, output: '' }
-  } catch (err) {
-    return { ok: false, output: err instanceof Error ? err.message : String(err) }
-  }
+// Drives the "graphify-out/ isn't gitignored" notification: only worth
+// raising once a graph has actually been built here and the repo isn't
+// already ignoring it.
+export async function graphifyOutNeedsGitignore(cwd: string): Promise<boolean> {
+  if (!existsSync(join(cwd, 'graphify-out'))) return false
+  return (await getGraphifyGitignoreStatus(cwd)) === 'notIgnored'
 }

@@ -10,11 +10,13 @@ import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitPanelOpenAlertStore } from '@/stores/gitPanelOpenAlertStore'
 import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
 import { useLlamaStore } from '@/stores/llamaStore'
+import { useGraphifySettingsStore } from '@/stores/graphifySettingsStore'
+import { useGraphifyStore } from '@/stores/graphifyStore'
 import { usePanelRequestStore } from '@/stores/panelRequestStore'
 import { formatCountdownClock } from '@/components/UsagePanel/format'
 import { useEditorStore } from '@/stores/editorStore'
 import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
-import { ClaudeIcon, DockerIcon, GitIcon, LlamaIcon, UpdateAvailableIcon } from '@/components/ActivityBar/ActivityBar'
+import { ClaudeIcon, DockerIcon, GitIcon, GraphIcon, LlamaIcon, UpdateAvailableIcon } from '@/components/ActivityBar/ActivityBar'
 
 export interface NotificationItem {
   id: string
@@ -32,6 +34,12 @@ export function useNotificationItems(): NotificationItem[] {
   const requestDockerOpen = useDockerOffAlertStore((s) => s.requestOpen)
   const llamaEnabled = useLlamaSettingsStore((s) => s.enabled)
   const llamaAvailable = useLlamaStore((s) => s.available)
+  const graphifyEnabled = useGraphifySettingsStore((s) => s.enabled)
+  const graphifyGitignorePrompt = useGraphifySettingsStore((s) => s.gitignorePrompt)
+  const graphifyGitignorePrompts = useGraphifyStore((s) => s.gitignorePrompts)
+  const graphifyClaudeSkillPrompt = useGraphifySettingsStore((s) => s.claudeSkillPrompt)
+  const graphifyClaudeSkillPrompts = useGraphifyStore((s) => s.claudeSkillPrompts)
+  const graphifyInstallingSkill = useGraphifyStore((s) => s.installingSkill)
   const available = useUpdateStore((s) => s.available)
   const status = useUpdateStore((s) => s.status)
   const startUpdate = useUpdateStore((s) => s.startUpdate)
@@ -122,6 +130,43 @@ export function useNotificationItems(): NotificationItem[] {
       icon: <LlamaIcon />,
       onClick: () => usePanelRequestStore.getState().requestPanel('llama'),
     })
+  }
+
+  // Click applies (adds graphify-out/ to .gitignore); × closes it. Stays until
+  // the repo ignores graphify-out/ and the next check clears it.
+  if (graphifyEnabled && graphifyGitignorePrompt) {
+    for (const [cwd, error] of Object.entries(graphifyGitignorePrompts)) {
+      const repoName = cwd.split('/').pop()
+      items.push({
+        id: `graphify-gitignore-${cwd}`,
+        text: error
+          ? `Couldn't add graphify-out/ to .gitignore in ${repoName}: ${error}`
+          : `graphify-out/ isn't in ${repoName}'s .gitignore — click to add it`,
+        disabled: false,
+        icon: <GraphIcon />,
+        onClick: () => useGraphifyStore.getState().addToGitignore(cwd),
+      })
+    }
+  }
+
+  // Click applies (installs graphify's Claude Code skill for the repo); ×
+  // closes it. Disabled while that install runs.
+  if (graphifyEnabled && graphifyClaudeSkillPrompt) {
+    for (const [cwd, error] of Object.entries(graphifyClaudeSkillPrompts)) {
+      const repoName = cwd.split('/').pop()
+      const installing = graphifyInstallingSkill === cwd
+      items.push({
+        id: `graphify-claude-skill-${cwd}`,
+        text: installing
+          ? `Setting up graphify for Claude Code in ${repoName}…`
+          : error
+            ? `Couldn't set up graphify for Claude Code in ${repoName}: ${error}`
+            : `Claude Code isn't using graphify in ${repoName} — click to set it up`,
+        disabled: installing,
+        icon: <GraphIcon />,
+        onClick: () => useGraphifyStore.getState().installClaudeSkill(cwd),
+      })
+    }
   }
 
   if (available) {

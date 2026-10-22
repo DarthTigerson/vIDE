@@ -1,10 +1,10 @@
 // electron/__tests__/graphifyGitignore.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { execFileSync } from 'child_process'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { getGraphifyGitignoreStatus, addGraphifyOutToGitignore, removeGraphifyOutFromGitignore } from '../graphifyGitignore'
+import { getGraphifyGitignoreStatus, addGraphifyOutToGitignore, graphifyOutNeedsGitignore } from '../graphifyGitignore'
 
 describe('graphifyGitignore', () => {
   let dir: string
@@ -60,24 +60,26 @@ describe('graphifyGitignore', () => {
     expect(result.ok).toBe(false)
   })
 
-  it('removes only plain graphify-out entries', async () => {
+  it('needs a gitignore once graphify-out exists in a repo that does not ignore it', async () => {
     initRepo()
-    writeFileSync(join(dir, '.gitignore'), 'node_modules\n/graphify-out/\ndist\ngraphify-out\n')
-    expect(await removeGraphifyOutFromGitignore(dir)).toEqual({ ok: true, output: '' })
-    expect(readFileSync(join(dir, '.gitignore'), 'utf-8')).toBe('node_modules\ndist\n')
-    expect(await getGraphifyGitignoreStatus(dir)).toBe('notIgnored')
+    mkdirSync(join(dir, 'graphify-out'))
+    expect(await graphifyOutNeedsGitignore(dir)).toBe(true)
   })
 
-  it('round-trips add then remove', async () => {
+  it('does not need a gitignore before a graph has been built', async () => {
     initRepo()
-    writeFileSync(join(dir, '.gitignore'), 'node_modules\n')
+    expect(await graphifyOutNeedsGitignore(dir)).toBe(false)
+  })
+
+  it('does not need a gitignore once the entry is added', async () => {
+    initRepo()
+    mkdirSync(join(dir, 'graphify-out'))
     await addGraphifyOutToGitignore(dir)
-    await removeGraphifyOutFromGitignore(dir)
-    expect(readFileSync(join(dir, '.gitignore'), 'utf-8')).toBe('node_modules\n')
+    expect(await graphifyOutNeedsGitignore(dir)).toBe(false)
   })
 
-  it('is a no-op when .gitignore is missing', async () => {
-    initRepo()
-    expect(await removeGraphifyOutFromGitignore(dir)).toEqual({ ok: true, output: '' })
+  it('does not need a gitignore outside a git repository', async () => {
+    mkdirSync(join(dir, 'graphify-out'))
+    expect(await graphifyOutNeedsGitignore(dir)).toBe(false)
   })
 })

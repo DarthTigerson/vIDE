@@ -114,6 +114,7 @@ import { usePanelRequests } from './hooks/usePanelRequests'
 import { useGraphifySettingsStore } from './stores/graphifySettingsStore'
 import { useGraphifyAutoBuild } from './hooks/useGraphifyAutoBuild'
 import { useGraphifyHookRepair } from './hooks/useGraphifyHookRepair'
+import { useGraphifyPromptChecks } from './hooks/useGraphifyPromptChecks'
 import { useNotesStore } from './stores/notesStore'
 import { detectGitRemoteProvider, gitRemoteIcon, gitRemoteLabel } from './lib/gitRemoteProvider'
 import { evaluateCmdWForPinnedTab, type PendingClose } from './lib/pinnedTabCloseGuard'
@@ -576,6 +577,7 @@ export default function App() {
 
   useGraphifyAutoBuild(activeRepo)
   useGraphifyHookRepair(activeRepo)
+  useGraphifyPromptChecks(activeRepo)
 
   useEffect(() => {
     // Catches git state changes made outside the app's own UI — most
