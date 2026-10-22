@@ -583,6 +583,7 @@ contextBridge.exposeInMainWorld('api', {
   llamaStart: (id: string, cfg: LlamaLaunchConfig) => ipcRenderer.invoke('llama:start', id, cfg),
   llamaStop: (id: string) => ipcRenderer.invoke('llama:stop', id),
   llamaGetMemoryUsage: () => ipcRenderer.invoke('llama:getMemoryUsage') as Promise<number | null>,
+  llamaGetLog: (id: string) => ipcRenderer.invoke('llama:getLog', id) as Promise<{ running: boolean; output: string } | null>,
   llamaGetInstall: () => ipcRenderer.invoke('llama:getInstall') as Promise<LlamaInstallInfo>,
   llamaInstall: () => ipcRenderer.invoke('llama:install') as Promise<{ ok: true; path: string } | { ok: false; error: string }>,
   onLlamaInstallProgress: (cb: (received: number, total: number) => void) => {

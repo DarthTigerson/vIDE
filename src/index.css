@@ -922,25 +922,25 @@ body {
 .bridge-step {
   position: relative;
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr);
-  column-gap: 10px;
-  padding-bottom: 12px;
+  grid-template-columns: 1.375rem minmax(0, 1fr);
+  column-gap: 0.625rem;
+  padding-bottom: 0.75rem;
 }
 .bridge-step:last-child { padding-bottom: 0; }
 .bridge-step::before {
   content: "";
   position: absolute;
-  left: 10.5px;
-  top: 25px;
+  left: calc(0.6875rem - 0.5px);
+  top: 1.5625rem;
   bottom: 3px;
   width: 1px;
   background: var(--color-border);
 }
 .bridge-step:last-child::before { display: none; }
 .bridge-node {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
+  width: 1.375rem;
+  height: 1.375rem;
+  border-radius: 0.375rem;
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -960,8 +960,8 @@ body {
 }
 .bridge-caret {
   display: inline-block;
-  width: 6px;
-  height: 12px;
+  width: 0.375rem;
+  height: 0.75rem;
   margin-left: 2px;
   vertical-align: -2px;
   background: rgb(var(--color-accent));
@@ -975,7 +975,45 @@ body {
 }
 .bridge-spin { transform-origin: center; animation: bridge-spin 1s linear infinite; }
 @keyframes bridge-spin { to { transform: rotate(360deg); } }
+/* Composer light (BridgeChat.tsx ComposerLight): the footer git-activity
+   bar's look on the composer's top edge. Fill tracks prompt progress, the
+   sweep runs while the model writes, red when nothing has moved. */
+.bridge-light-fill {
+  height: 100%;
+  background: linear-gradient(90deg, rgb(var(--color-accent) / 0.7), rgb(var(--color-accent)));
+  border-radius: 0 2px 2px 0;
+  box-shadow: 0 0 6px rgb(var(--color-accent) / 0.6);
+  transition: width 0.25s linear;
+}
+.bridge-light-done {
+  position: absolute;
+  inset: 0;
+  animation: bridge-light-done 0.9s ease-out forwards;
+}
+@keyframes bridge-light-done {
+  0%, 60% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.bridge-light-sweep {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 30%;
+  background: linear-gradient(90deg, transparent, var(--git-added), transparent);
+  animation: bridge-light-sweep 1.6s ease-in-out infinite;
+}
+@keyframes bridge-light-sweep {
+  0% { left: -30%; }
+  100% { left: 100%; }
+}
+.bridge-light-stalled {
+  height: 100%;
+  background: var(--git-deleted);
+  border-radius: 0 2px 2px 0;
+}
 @media (prefers-reduced-motion: reduce) {
+  .bridge-light-sweep { animation: none; left: 0; width: 100%; opacity: 0.6; }
+  .bridge-light-done { animation: none; opacity: 0; }
   .bridge-shimmer { animation: none; background: none; color: rgb(var(--color-accent)); }
   .bridge-caret, .bridge-pulse, .bridge-spin { animation: none; }
 }

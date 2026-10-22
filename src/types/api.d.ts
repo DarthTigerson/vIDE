@@ -506,6 +506,8 @@ declare global {
       llamaStart: (id: string, cfg: LlamaLaunchConfig) => Promise<void>
       llamaStop: (id: string) => Promise<void>
       llamaGetMemoryUsage: () => Promise<number | null>
+      // Output kept by the main process for a server vIDE started (null: none this launch)
+      llamaGetLog: (id: string) => Promise<{ running: boolean; output: string } | null>
       llamaGetInstall: () => Promise<{ path: string | null; source: 'system' | 'vide' | null; downloadBytes: number | null }>
       llamaInstall: () => Promise<{ ok: true; path: string } | { ok: false; error: string }>
       onLlamaInstallProgress: (cb: (received: number, total: number) => void) => () => void

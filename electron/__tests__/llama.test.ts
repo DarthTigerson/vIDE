@@ -2,7 +2,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { EventEmitter } from 'events'
 
-const { ipcHandlers, spawnMock, execFileMock } = vi.hoisted(() => ({
+const { ipcHandlers, spawnMock, execFileMock, windows } = vi.hoisted(() => ({
+  windows: [] as any[],
   ipcHandlers: {} as Record<string, (...args: any[]) => unknown>,
   spawnMock: vi.fn(),
   execFileMock: vi.fn(),
@@ -16,6 +17,7 @@ vi.mock('electron', () => ({
   },
   BrowserWindow: {
     fromWebContents: (sender: any) => sender,
+    getAllWindows: () => windows,
   },
 }))
 
@@ -29,6 +31,7 @@ vi.mock('child_process', async (importOriginal) => {
 })
 
 import { homedir } from 'os'
+import { appendCapped } from '../llamaLog'
 import { LlamaManager, resolveLlamaPath, _resetLlamaPathCacheForTesting, sumLlamaServerRss, buildLlamaServerArgs, AUTO_OPTIMIZE_ARGS } from '../llama'
 
 class FakeChildProcess extends EventEmitter {
@@ -45,6 +48,7 @@ describe('LlamaManager', () => {
   beforeEach(() => {
     spawnMock.mockReset()
     execFileMock.mockReset()
+    windows.length = 0
     _resetLlamaPathCacheForTesting()
     // Default: login-shell resolution fails, so callers fall back to the
     // bare 'llama-server' command name.
@@ -177,6 +181,7 @@ describe('LlamaManager', () => {
       const proc = new FakeChildProcess()
       spawnMock.mockReturnValue(proc)
       const win = { webContents: { send: vi.fn() }, isDestroyed: () => false }
+      windows.push(win)
 
       await ipcHandlers['llama:start']({ sender: win }, 'model-1', {
         modelPath: existingFile,
@@ -233,6 +238,7 @@ describe('LlamaManager', () => {
       const proc = new FakeChildProcess()
       spawnMock.mockReturnValue(proc)
       const win = { webContents: { send: vi.fn() }, isDestroyed: () => false }
+      windows.push(win)
 
       await ipcHandlers['llama:start']({ sender: win }, 'model-1', {
         modelPath: `~/${existingFile.slice(homedir().length + 1)}`,
@@ -252,10 +258,90 @@ describe('LlamaManager', () => {
       expect(args[args.indexOf('-m') + 1]).toBe(existingFile)
     })
 
+    it('sends output to every window and keeps it for llama:getLog', async () => {
+      const manager = new LlamaManager()
+      manager.registerHandlers()
+      const proc = new FakeChildProcess()
+      spawnMock.mockReturnValue(proc)
+      const starter = { webContents: { send: vi.fn() }, isDestroyed: () => false }
+      const other = { webContents: { send: vi.fn() }, isDestroyed: () => false }
+      windows.push(starter, other)
+
+      expect(await ipcHandlers['llama:getLog']({}, 'model-1')).toBeNull()
+      await ipcHandlers['llama:start']({ sender: starter }, 'model-1', {
+        modelPath: existingFile,
+        serverExecutable: '',
+        host: '127.0.0.1',
+        port: 8899,
+        apiKey: 'local',
+        contextSize: 16384,
+        batchSize: 256,
+        gpuLayers: 99,
+        parallelRequests: 1,
+        reasoningEffort: 'none',
+        alias: '',
+      })
+      proc.stderr.emit('data', Buffer.from('loading model\n'))
+      proc.stdout.emit('data', Buffer.from('server is listening\n'))
+
+      expect(other.webContents.send).toHaveBeenCalledWith('llama:data', 'model-1', 'loading model\n')
+      expect(await ipcHandlers['llama:getLog']({}, 'model-1')).toEqual({
+        running: true,
+        output: 'loading model\nserver is listening\n',
+      })
+
+      proc.emit('close', 0)
+      expect(other.webContents.send).toHaveBeenCalledWith('llama:exit', 'model-1', 0)
+      expect(await ipcHandlers['llama:getLog']({}, 'model-1')).toEqual({
+        running: false,
+        output: 'loading model\nserver is listening\n',
+      })
+    })
+
+    it('starts a fresh log on relaunch', async () => {
+      const manager = new LlamaManager()
+      manager.registerHandlers()
+      const first = new FakeChildProcess()
+      const second = new FakeChildProcess()
+      spawnMock.mockReturnValueOnce(first).mockReturnValueOnce(second)
+
+      await ipcHandlers['llama:start']({}, 'model-1', {
+        modelPath: existingFile,
+        serverExecutable: '',
+        host: '127.0.0.1',
+        port: 8899,
+        apiKey: 'local',
+        contextSize: 16384,
+        batchSize: 256,
+        gpuLayers: 99,
+        parallelRequests: 1,
+        reasoningEffort: 'none',
+        alias: '',
+      })
+      first.stdout.emit('data', Buffer.from('old run\n'))
+      await ipcHandlers['llama:start']({}, 'model-1', {
+        modelPath: existingFile,
+        serverExecutable: '',
+        host: '127.0.0.1',
+        port: 8899,
+        apiKey: 'local',
+        contextSize: 16384,
+        batchSize: 256,
+        gpuLayers: 99,
+        parallelRequests: 1,
+        reasoningEffort: 'none',
+        alias: '',
+      })
+
+      expect(first.kill).toHaveBeenCalled()
+      expect(await ipcHandlers['llama:getLog']({}, 'model-1')).toEqual({ running: true, output: '' })
+    })
+
     it('reports llama:data + llama:exit 1 when the model file is missing', async () => {
       const manager = new LlamaManager()
       manager.registerHandlers()
       const win = { webContents: { send: vi.fn() }, isDestroyed: () => false }
+      windows.push(win)
 
       await ipcHandlers['llama:start']({ sender: win }, 'model-1', {
         modelPath: '/definitely/not/here.gguf',
@@ -416,5 +502,12 @@ describe('sumLlamaServerRss', () => {
 
   it('returns null when no llama-server is left', () => {
     expect(sumLlamaServerRss(ps, [101, 202])).toBeNull()
+  })
+})
+
+describe('appendCapped', () => {
+  it('keeps only the newest characters past the cap', () => {
+    expect(appendCapped('abc', 'def', 4)).toBe('cdef')
+    expect(appendCapped('ab', 'c', 4)).toBe('abc')
   })
 })

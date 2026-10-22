@@ -1,9 +1,10 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import { BridgeChat } from '../BridgeChat'
 import { useBridgeStore, type BridgeConversation } from '@/stores/bridgeStore'
 import { useClaudeStore } from '@/stores/claudeStore'
 import { useBridgeSettingsStore } from '@/stores/bridgeSettingsStore'
+import { useLlamaStore } from '@/stores/llamaStore'
 
 const setConv = (patch: Partial<BridgeConversation>) =>
   useBridgeStore.setState((s) => ({ conversations: { ...s.conversations, s1: { ...s.conversations.s1, ...patch } } }))
@@ -17,7 +18,11 @@ beforeEach(() => {
     bridgeReject: vi.fn(),
     bridgeCancel: vi.fn(),
     bridgeSetReasoningEffort: vi.fn(),
+    llamaGetLog: vi.fn(async () => null),
+    onLlamaData: vi.fn(() => () => {}),
+    onLlamaExit: vi.fn(() => () => {}),
   }
+  useLlamaStore.setState({ runs: {} })
   useBridgeStore.setState({ conversations: {} })
   useBridgeStore.getState().openConversation('s1', false)
   useClaudeStore.setState({ pendingInjection: null, focusToken: 0 })
@@ -353,5 +358,59 @@ describe('BridgeChat', () => {
   it('placeholder names the agent', () => {
     render(<BridgeChat sessionId="s1" label="Qwen 32B" cwd="/p" />)
     expect(screen.getByPlaceholderText('Message Qwen 32B…')).toBeInTheDocument()
+  })
+
+  describe('composer light', () => {
+    const progressLine = (p: number) =>
+      `slot update_slots: id  0 | task 7 | prompt processing progress, n_tokens = 512, batch.n_tokens = 512, progress = ${p}\n`
+    const setLog = (output: string) =>
+      useLlamaStore.setState({ runs: { m1: { running: true, output, error: null, exitCode: null, logged: true } } })
+
+    it('fills with prompt progress from the llama-server log', () => {
+      setLog(progressLine(0.51))
+      setConv({ streaming: true, messages: [{ role: 'user', content: 'go' }] })
+      const { container } = render(<BridgeChat sessionId="s1" label="Qwen" cwd="/project" serverId="m1" />)
+
+      expect(screen.getByText('Reading prompt 51%')).toBeTruthy()
+      expect((container.querySelector('.bridge-light-fill') as HTMLElement).style.width).toBe('51%')
+    })
+
+    it('sweeps once the prompt is read', () => {
+      setLog(progressLine(1) + 'slot update_slots: id  0 | task 7 | prompt done, n_tokens = 512\n')
+      setConv({ streaming: true, messages: [{ role: 'user', content: 'go' }, { role: 'assistant', content: 'Hel' }] })
+      const { container } = render(<BridgeChat sessionId="s1" label="Qwen" cwd="/project" serverId="m1" />)
+
+      expect(screen.getByText('Writing')).toBeTruthy()
+      expect(container.querySelector('.bridge-light-sweep')).toBeTruthy()
+    })
+
+    it('is off while a tool runs and when no turn is running', () => {
+      setLog(progressLine(0.5))
+      setConv({
+        streaming: true,
+        messages: [{ role: 'assistant', content: '', toolCalls: [{ id: 't', name: 'run_command', args: {}, status: 'running' }] }],
+      })
+      const { container, rerender } = render(<BridgeChat sessionId="s1" label="Qwen" cwd="/project" serverId="m1" />)
+      expect(container.querySelector('.bridge-light-fill, .bridge-light-sweep')).toBeNull()
+
+      setConv({ streaming: false, messages: [] })
+      rerender(<BridgeChat sessionId="s1" label="Qwen" cwd="/project" serverId="m1" />)
+      expect(container.querySelector('.bridge-light-fill, .bridge-light-sweep')).toBeNull()
+    })
+
+    it('turns red when nothing moves for two minutes', () => {
+      vi.useFakeTimers()
+      try {
+        setLog(progressLine(0.3))
+        setConv({ streaming: true, messages: [{ role: 'user', content: 'go' }] })
+        const { container } = render(<BridgeChat sessionId="s1" label="Qwen" cwd="/project" serverId="m1" />)
+        act(() => { vi.advanceTimersByTime(121_000) })
+
+        expect(screen.getByText('No progress for 2m')).toBeTruthy()
+        expect((container.querySelector('.bridge-light-stalled') as HTMLElement).style.width).toBe('30%')
+      } finally {
+        vi.useRealTimers()
+      }
+    })
   })
 })

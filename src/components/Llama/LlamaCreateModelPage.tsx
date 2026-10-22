@@ -190,6 +190,7 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
   const startModel = useLlamaStore((s) => s.startModel)
   const stopModel = useLlamaStore((s) => s.stopModel)
   const probeModel = useLlamaStore((s) => s.probeModel)
+  const attachModel = useLlamaStore((s) => s.attachModel)
   const replaceTabPath = useEditorStore((s) => s.replaceTabPath)
 
   const existing = modelId ? models.find((m) => m.id === modelId) : undefined
@@ -211,9 +212,11 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
   }, [modelId, existing?.id])
 
   // Sync running state on mount so the status reflects a server started
-  // outside this session.
+  // outside this session, and pick up the output of one vIDE started from
+  // another window or before a reload.
   useEffect(() => {
-    if (existing) probeModel(existing.id, existing.host, existing.port)
+    if (!existing) return
+    attachModel(existing.id).then(() => probeModel(existing.id, existing.host, existing.port))
   }, [existing?.id])
 
   // Auto-save 400ms after any change, skipping the initial render and
@@ -403,7 +406,7 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
 
       </div>
 
-      {(output || error) && (
+      {(output || error || running) && (
         <section className="flex-1 min-h-0 flex flex-col border-t border-border px-6 py-4">
           <h2 className="text-xs font-semibold text-fg-muted uppercase tracking-wider mb-3 shrink-0">
             Server Output
@@ -412,7 +415,7 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
             ref={consoleRef}
             className="flex-1 min-h-0 overflow-auto rounded-lg border border-border bg-bg p-3 font-mono text-xs whitespace-pre-wrap break-all text-fg-muted"
           >
-            {output || (error ?? '')}
+            {output || error || (run?.logged ? 'Waiting for server output…' : 'This server was started outside vIDE, so its output isn\u2019t available here.')}
           </div>
         </section>
       )}

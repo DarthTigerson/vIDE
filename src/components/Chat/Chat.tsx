@@ -93,7 +93,7 @@ export function Chat() {
         const runs = useLlamaStore.getState().runs
         if (!runs[modelId]?.running) {
           useLlamaStore.setState((s) => ({
-            runs: { ...s.runs, [modelId]: { running: true, output: '', error: null, exitCode: null } },
+            runs: { ...s.runs, [modelId]: { output: '', error: null, exitCode: null, ...s.runs[modelId], running: true } },
           }))
         }
         return
@@ -423,6 +423,7 @@ export function Chat() {
                   connectionOverride={llamaConnection}
                   beforeSend={isLlama ? llamaBeforeSend : undefined}
                   serverRunning={isLlama ? llamaServerRunning : undefined}
+                  serverId={isLlama ? llamaModelId(activeKind) : undefined}
                 />
               )}
             </div>

@@ -4,6 +4,7 @@ import { existsSync } from 'fs'
 import { homedir } from 'os'
 import type { WebContents } from 'electron'
 import { llamaAsset } from './autocomplete/catalog'
+import { appendCapped } from './llamaLog'
 import type { findInstalledLlamaServer, installLlama } from './autocomplete/llamaInstall'
 
 // Model paths in the config are written the way the user writes them in a
@@ -167,6 +168,9 @@ export interface LlamaInstallInfo {
 
 export class LlamaManager {
   private running = new Map<string, ReturnType<typeof spawn>>()
+  // Tail of each server's output, so a window that opens the model page later
+  // (another window, or after a reload) can still show it.
+  private logs = new Map<string, string>()
   private installing: Promise<{ ok: true; path: string } | { ok: false; error: string }> | null = null
 
   // vIDE's own autocomplete server is a llama-server too, but it has its own
@@ -210,11 +214,7 @@ export class LlamaManager {
     ipcMain.handle('llama:isAvailable', () => this.checkAvailable())
     ipcMain.handle('llama:getInstall', () => this.getInstall())
     ipcMain.handle('llama:install', (event) => this.install(event.sender))
-    ipcMain.handle('llama:start', async (event, id: string, cfg: LlamaLaunchConfig) => {
-      const win = BrowserWindow.fromWebContents(event.sender)
-      if (!win) return
-      await this.spawnServer(id, cfg, win)
-    })
+    ipcMain.handle('llama:start', (_event, id: string, cfg: LlamaLaunchConfig) => this.spawnServer(id, cfg))
     ipcMain.handle('llama:stop', (_event, id: string) => {
       const proc = this.running.get(id)
       if (!proc) return
@@ -222,6 +222,10 @@ export class LlamaManager {
       proc.kill()
     })
     ipcMain.handle('llama:getMemoryUsage', () => this.getRunningMemoryBytes())
+    ipcMain.handle('llama:getLog', (_event, id: string) => {
+      const output = this.logs.get(id)
+      return output === undefined ? null : { running: this.running.has(id), output }
+    })
   }
 
   private async getRunningMemoryBytes(): Promise<number | null> {
@@ -235,11 +239,13 @@ export class LlamaManager {
     })
   }
 
-  // Streams llama-server's stdout/stderr back to the originating window under
-  // `id` and reports `llama:exit` on close — the graphify:run pattern. One
+  // Streams llama-server's stdout/stderr to every window under `id` and
+  // reports `llama:exit` on close, keeping the output's tail for llama:getLog.
+  // A chat in one window can start a server whose model page is open in
+  // another, so output isn't tied to the window that started it. One
   // server per `id`; starting a second one for the same id first kills the
   // existing process (a relaunch from the editor page replaces the old run).
-  private async spawnServer(id: string, cfg: LlamaLaunchConfig, win: BrowserWindow): Promise<void> {
+  private async spawnServer(id: string, cfg: LlamaLaunchConfig): Promise<void> {
     const existing = this.running.get(id)
     if (existing) {
       this.running.delete(id)
@@ -247,8 +253,12 @@ export class LlamaManager {
     }
 
     const send = (channel: string, payload: unknown) => {
-      if (!win.isDestroyed()) win.webContents.send(channel, id, payload)
+      if (channel === 'llama:data') this.logs.set(id, appendCapped(this.logs.get(id) ?? '', payload as string))
+      for (const w of BrowserWindow.getAllWindows()) {
+        if (!w.isDestroyed()) w.webContents.send(channel, id, payload)
+      }
     }
+    this.logs.set(id, '')
 
     const modelPath = expandTilde(cfg.modelPath)
     if (!existsSync(modelPath)) {
