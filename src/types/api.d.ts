@@ -128,6 +128,8 @@ export interface BridgeSettings {
   compactAtTokens?: number
   // Per-request reasoning_effort; missing = the server's default
   reasoningEffort?: 'none' | 'low' | 'medium' | 'high' | 'xhigh'
+  // Chat request timeout in ms (llama model's Request Timeout); 0 = no limit, missing = 10 min
+  requestTimeoutMs?: number
   // Started from the "+" menu's Rocky tab: Rocky's voice rules join the system prompt
   rocky?: boolean
 }

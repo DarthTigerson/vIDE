@@ -26,6 +26,15 @@ describe('agentKinds', () => {
     expect(llamaConnectionFor('llama:q1', [fixed], 40)?.compactAtTokens).toBeUndefined()
   })
 
+  it('passes the model request timeout in ms, defaulting to 10 minutes for models saved before it existed', () => {
+    expect(llamaConnectionFor('llama:q1', [qwen], 40)?.requestTimeoutMs).toBe(10 * 60_000)
+    expect(llamaConnectionFor('llama:q1', [{ ...qwen, requestTimeoutMinutes: 0 }], 40)?.requestTimeoutMs).toBe(0)
+    expect(llamaConnectionFor('llama:q1', [{ ...qwen, requestTimeoutMinutes: 25 }], 40)?.requestTimeoutMs).toBe(25 * 60_000)
+    const legacy = { ...qwen }
+    delete legacy.requestTimeoutMinutes
+    expect(llamaConnectionFor('llama:q1', [legacy], 40)?.requestTimeoutMs).toBe(10 * 60_000)
+  })
+
   it('classifies kinds', () => {
     expect(isLlamaKind('llama:q1')).toBe(true)
     expect(isLlamaKind('bridge')).toBe(false)

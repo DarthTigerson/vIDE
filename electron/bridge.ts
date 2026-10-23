@@ -11,6 +11,7 @@ import { decideStopAction } from './mcp/todoEnforcerHook'
 import { trimToolPayloads } from './bridgeTrim'
 import { ThinkTagSplitter } from './bridgeReasoning'
 import { AUTO_COMPACT_RATIO, compactMessages, fetchContextWindow, isContextOverflow, summarize, wrapSummary } from './bridgeCompact'
+import { requestDispatcher } from './bridgeHttp'
 import { minimatch } from 'minimatch'
 
 const execFileAsync = promisify(execFile)
@@ -49,6 +50,9 @@ export interface BridgeSettings {
   // Per-request reasoning_effort (llama.cpp; 'none' turns thinking off).
   // Missing = the server's own default. Can change mid-run: see setReasoningEffort.
   reasoningEffort?: ReasoningEffort
+  // How long a chat request may wait on the server, in ms (llama model's
+  // Request Timeout). 0 = no limit; missing = DEFAULT_REQUEST_TIMEOUT_MS.
+  requestTimeoutMs?: number
   // Started from the "+" menu's Rocky tab: the system prompt ends with
   // Rocky's voice rules.
   rocky?: boolean
@@ -963,7 +967,8 @@ export class BridgeManager {
           ...(effort ? { reasoning_effort: effort } : {}),
         }),
         signal: controller.signal,
-      })
+        dispatcher: requestDispatcher(settings.requestTimeoutMs),
+      } as RequestInit)
     } catch (err) {
       // An abort (Stop/Clear/supersede) is not a failure worth reporting —
       // and `emit` already drops anything once the run is no longer live.

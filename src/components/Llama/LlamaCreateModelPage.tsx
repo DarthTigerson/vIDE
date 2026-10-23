@@ -15,6 +15,7 @@ function deriveModelName(filePath: string): string {
 }
 import {
   CONTEXT_SIZE_OPTIONS,
+  DEFAULT_REQUEST_TIMEOUT_MINUTES,
   REASONING_EFFORTS,
   defaultLlamaModelConfig,
   toLaunchConfig,
@@ -26,16 +27,20 @@ import { useLlamaStore } from '@/stores/llamaStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { buildLlamaModelPath } from '@/components/Settings/paths'
 
-function NumberField({ id, label, value, onChange, step = 1 }: {
+function NumberField({ id, label, hint, value, onChange, step = 1 }: {
   id: string
   label: string
+  hint?: string
   value: number
   onChange: (v: number) => void
   step?: number
 }) {
   return (
     <div className="flex flex-col gap-1.5 w-40 shrink-0">
-      <label htmlFor={id} className="text-sm text-fg">{label}</label>
+      <label htmlFor={id} className="text-sm text-fg">
+        {label}
+        {hint && <span className="ml-1.5 text-[0.65rem] text-fg-subtle">{hint}</span>}
+      </label>
       <input
         id={id}
         type="number"
@@ -401,6 +406,13 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
             value={form.reasoningEffort}
             options={REASONING_EFFORTS}
             onChange={(v) => patch({ reasoningEffort: v as ReasoningEffort })}
+          />
+          <NumberField
+            id="llama-requestTimeoutMinutes"
+            label="Timeout (min)"
+            hint="0 = no limit"
+            value={form.requestTimeoutMinutes ?? DEFAULT_REQUEST_TIMEOUT_MINUTES}
+            onChange={(v) => patch({ requestTimeoutMinutes: v })}
           />
         </FieldGroup>
 

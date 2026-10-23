@@ -663,7 +663,7 @@ export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSe
   sessionId: string
   cwd: string
   label: string
-  connectionOverride?: { endpoint: string; apiKey: string; modelId: string; toolCallLimit?: number; reasoningEffort?: ReasoningEffort; compactAtTokens?: number }
+  connectionOverride?: { endpoint: string; apiKey: string; modelId: string; toolCallLimit?: number; reasoningEffort?: ReasoningEffort; compactAtTokens?: number; requestTimeoutMs?: number }
   beforeSend?: () => Promise<void>
   // Llama sessions only: whether the model's llama-server is up, and its
   // model config id (whose server log drives the composer light).

@@ -1,6 +1,6 @@
 import type { AssistantKind } from '@/types/api'
 import type { LlamaModelConfig, ReasoningEffort } from '@/stores/llamaModelsStore'
-import { useLlamaModelsStore } from '@/stores/llamaModelsStore'
+import { DEFAULT_REQUEST_TIMEOUT_MINUTES, useLlamaModelsStore } from '@/stores/llamaModelsStore'
 import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
 import { useBridgeSettingsStore } from '@/stores/bridgeSettingsStore'
 
@@ -88,7 +88,7 @@ export function llamaConnectionFor(
   kind: AssistantKind,
   models: LlamaModelConfig[] = useLlamaModelsStore.getState().models,
   toolCallLimit: number = useLlamaSettingsStore.getState().toolCallLimit,
-): { endpoint: string; apiKey: string; modelId: string; toolCallLimit: number; reasoningEffort: ReasoningEffort; compactAtTokens?: number } | undefined {
+): { endpoint: string; apiKey: string; modelId: string; toolCallLimit: number; reasoningEffort: ReasoningEffort; compactAtTokens?: number; requestTimeoutMs: number } | undefined {
   if (!isLlamaKind(kind)) return undefined
   const model = models.find((m) => m.id === llamaModelId(kind) && m.enabled)
   if (!model) return undefined
@@ -102,5 +102,7 @@ export function llamaConnectionFor(
     // Auto-optimize lets llama.cpp pick the context, often 200k+; at local
     // prompt-reading speeds a cache miss that deep costs tens of minutes.
     compactAtTokens: model.autoOptimize ? AUTO_OPTIMIZE_COMPACT_AT : undefined,
+    // Models saved before the field existed get the 10-minute default.
+    requestTimeoutMs: (model.requestTimeoutMinutes ?? DEFAULT_REQUEST_TIMEOUT_MINUTES) * 60_000,
   }
 }
