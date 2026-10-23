@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { MouseEvent } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
 import * as monaco from 'monaco-editor'
 import { ImperativePanelHandle, Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { SIDEBAR_PANEL, CHAT_PANEL, clampRem, remToPercent, percentToRem, percentLimits, loadRem } from '@/lib/remPanelSize'
@@ -49,6 +49,7 @@ import { BatteryPill } from './components/TitleBar/BatteryPill'
 import { AllAppsPanel } from './components/AllApps/AllAppsPanel'
 import { useAppFavoritesStore } from './stores/appFavoritesStore'
 import { APPEND_TARGET, MOVABLE_APP_IDS, pickTemporaryApp, splitApps, type MovableAppId } from './lib/appFavorites'
+import { APP_SETTINGS_PATHS, appEnabledSetter } from './lib/appSettings'
 import { SessionIcon } from './components/ActivityBar/SessionIcon'
 import { NewSessionMenu } from './components/ActivityBar/NewSessionMenu'
 import { ClaudeSessionContextMenu } from './components/ActivityBar/ClaudeSessionContextMenu'
@@ -176,6 +177,24 @@ let initialProjectRequested = false
 
 function readRootPx(): number {
   return parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+}
+
+
+// Title and icon for an app listed in All Apps' Disabled section (the
+// GitHub/GitLab app has no Enable switch, so it never shows there).
+const DISABLED_APP_LABELS: Record<Exclude<MovableAppId, 'git-remote'>, { title: string; icon: ReactNode }> = {
+  docker: { title: 'Docker', icon: <DockerIcon /> },
+  llama: { title: 'Llama', icon: <LlamaIcon /> },
+  mobile: { title: 'Mobile Display', icon: <PhoneIcon /> },
+  graphify: { title: 'Graphify', icon: <GraphIcon /> },
+  todos: { title: 'To Do', icon: <TodoIcon /> },
+  notes: { title: 'Notes', icon: <NotesIcon /> },
+  scripts: { title: 'Scripts', icon: <ScriptsIcon /> },
+  jira: { title: 'Jira', icon: <JiraIcon /> },
+}
+
+function openAppSettings(id: MovableAppId) {
+  useEditorStore.getState().openTab({ path: APP_SETTINGS_PATHS[id], content: '', dirty: false })
 }
 
 export default function App() {
@@ -1098,6 +1117,20 @@ export default function App() {
             favorite: favoriteIds.includes(id),
             badge: appItems[id]!.badge,
             onOpen: appItems[id]!.onClick,
+            onSettings: () => openAppSettings(id),
+            onDisable: appEnabledSetter(id) ? () => appEnabledSetter(id)!(false) : undefined,
+          }))
+          // Apps whose Enable switch is off, for All Apps' Disabled section.
+          const appEnabled: Partial<Record<MovableAppId, boolean>> = {
+            docker: dockerEnabled, llama: llamaEnabled, mobile: mobileEnabled, graphify: graphifyEnabled,
+            todos: todoEnabled, notes: notesEnabled, scripts: scriptsEnabled, jira: jiraEnabled,
+          }
+          const disabledAppEntries = MOVABLE_APP_IDS.filter((id): id is keyof typeof DISABLED_APP_LABELS => appEnabled[id] === false).map((id) => ({
+            id,
+            title: DISABLED_APP_LABELS[id].title,
+            icon: DISABLED_APP_LABELS[id].icon,
+            onEnable: () => appEnabledSetter(id)!(true),
+            onSettings: () => openAppSettings(id),
           }))
           const primaryActivityBar = (
         <ActivityBar
@@ -1151,6 +1184,7 @@ export default function App() {
               return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'search' ? <SearchPanel /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'docker' ? <DockerPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : activeLeftPanel === 'todos' ? <TodoPanel /> : activeLeftPanel === 'notes' ? <NotesPanel /> : activeLeftPanel === 'scripts' ? <ScriptsPanel /> : activeLeftPanel === 'llama' ? <LlamaPanel /> : activeLeftPanel === 'apps' ? (
                 <AllAppsPanel
                   apps={allAppsEntries}
+                  disabledApps={disabledAppEntries}
                   open={leftPanel === 'apps'}
                   onPlace={(id, beforeId) => placeFavorite(id, beforeId ?? APPEND_TARGET, beforeId ? 'before' : 'after')}
                   onUnfavorite={unfavoriteApp}

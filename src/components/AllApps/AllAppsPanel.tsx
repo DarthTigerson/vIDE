@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { APP_DRAG_MIME, hasBadge } from '@/components/ActivityBar/ActivityBar'
 import { panelDropTargetClass } from '@/components/ui/panelDrop'
 import { notifySettingChanged } from '@/lib/notifySettingChanged'
+import { AllAppsContextMenu } from './AllAppsContextMenu'
 
 export interface AllAppsEntry {
   id: string
@@ -10,14 +11,38 @@ export interface AllAppsEntry {
   favorite: boolean
   badge?: string | number
   onOpen: (event: React.MouseEvent<HTMLButtonElement>) => void
+  onSettings: () => void
+  // Omitted for apps with no Enable switch.
+  onDisable?: () => void
+}
+
+// An app whose Enable switch is off, listed in the collapsible Disabled
+// section so it can be switched back on without a trip to Settings.
+export interface DisabledAppEntry {
+  id: string
+  title: string
+  icon: React.ReactNode
+  onEnable: () => void
+  onSettings: () => void
 }
 
 type ViewMode = 'list' | 'icons'
-type DropZone = 'favorites' | 'others'
+type DropZone = 'favorites' | 'others' | 'disabled'
 
 // Under 'vide:general:' so vIDE Sync carries it, like the favorites; it only
 // changes on a click of the header toggle.
 export const ALL_APPS_VIEW_KEY = 'vide:general:allAppsView'
+
+// Whether the Disabled section is expanded; collapsed until first opened.
+export const ALL_APPS_DISABLED_OPEN_KEY = 'vide:general:allAppsDisabledOpen'
+
+function loadDisabledOpen(): boolean {
+  try {
+    return localStorage.getItem(ALL_APPS_DISABLED_OPEN_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
 
 function loadViewMode(): ViewMode {
   try {
@@ -32,8 +57,9 @@ function loadViewMode(): ViewMode {
 // Dragging a row between the sections favorites or unfavorites it, dropping
 // onto a favorite places the app before it, and a favorite dragged off the
 // bar and dropped anywhere outside "On the bar" is unfavorited.
-export function AllAppsPanel({ apps, open, onPlace, onUnfavorite }: {
+export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavorite }: {
   apps: AllAppsEntry[]
+  disabledApps?: DisabledAppEntry[]
   // False while the sidebar shows another panel (or is collapsed) — the
   // search is cleared then, so it's fresh every time the panel opens.
   open: boolean
@@ -44,6 +70,44 @@ export function AllAppsPanel({ apps, open, onPlace, onUnfavorite }: {
   const [query, setQuery] = useState('')
   const [dropZone, setDropZone] = useState<DropZone | null>(null)
   const [viewMode, setViewModeState] = useState<ViewMode>(loadViewMode)
+  const [disabledOpen, setDisabledOpenState] = useState(loadDisabledOpen)
+  const [menu, setMenu] = useState<{
+    x: number
+    y: number
+    id: string
+    favorite?: boolean
+    onToggleFavorite?: () => void
+    onSettings: () => void
+    onDisable?: () => void
+    onEnable?: () => void
+  } | null>(null)
+  const closeMenu = useCallback(() => setMenu(null), [])
+
+  function openMenu(e: React.MouseEvent, app: AllAppsEntry) {
+    e.preventDefault()
+    e.stopPropagation()
+    setMenu({
+      x: e.clientX,
+      y: e.clientY,
+      id: app.id,
+      favorite: app.favorite,
+      onToggleFavorite: () => (app.favorite ? onUnfavorite(app.id) : onPlace(app.id, null)),
+      onSettings: app.onSettings,
+      onDisable: app.onDisable,
+    })
+  }
+
+  function openDisabledMenu(e: React.MouseEvent, app: DisabledAppEntry) {
+    e.preventDefault()
+    e.stopPropagation()
+    setMenu({ x: e.clientX, y: e.clientY, id: app.id, onSettings: app.onSettings, onEnable: app.onEnable })
+  }
+
+  function setDisabledOpen(value: boolean) {
+    setDisabledOpenState(value)
+    try { localStorage.setItem(ALL_APPS_DISABLED_OPEN_KEY, String(value)) } catch {}
+    notifySettingChanged()
+  }
 
   useEffect(() => {
     if (!open) setQuery('')
@@ -59,6 +123,9 @@ export function AllAppsPanel({ apps, open, onPlace, onUnfavorite }: {
   const visible = q ? apps.filter((app) => app.title.toLowerCase().includes(q)) : apps
   const favorites = visible.filter((app) => app.favorite)
   const others = visible.filter((app) => !app.favorite)
+  const visibleDisabled = q ? disabledApps.filter((app) => app.title.toLowerCase().includes(q)) : disabledApps
+  // A search shows matching disabled apps even while the section is collapsed.
+  const disabledExpanded = disabledOpen || (q !== '' && visibleDisabled.length > 0)
   const favoriteIds = new Set(apps.filter((app) => app.favorite).map((app) => app.id))
 
   function zoneHandlers(zone: DropZone) {
@@ -84,6 +151,16 @@ export function AllAppsPanel({ apps, open, onPlace, onUnfavorite }: {
     if (id && id !== beforeId) onPlace(id, beforeId)
   }
 
+  // Dropping an enabled app on Disabled turns it off. The GitHub/GitLab app
+  // has no Enable switch, so dropping it here does nothing.
+  function dropOnDisabled(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    setDropZone(null)
+    const id = e.dataTransfer.getData(APP_DRAG_MIME)
+    apps.find((app) => app.id === id)?.onDisable?.()
+  }
+
   // Everywhere outside "On the bar": a favorite dropped here comes off the
   // bar; an unfavorited row dropped back is a no-op.
   function dropElsewhere(e: React.DragEvent) {
@@ -91,6 +168,48 @@ export function AllAppsPanel({ apps, open, onPlace, onUnfavorite }: {
     setDropZone(null)
     const id = e.dataTransfer.getData(APP_DRAG_MIME)
     if (favoriteIds.has(id)) onUnfavorite(id)
+  }
+
+  // The row a right-click menu is open for keeps its hover look, so it's
+  // clear which app the menu acts on.
+  function menuTargetClass(app: { id: string }) {
+    return menu?.id === app.id ? 'text-fg bg-white/5' : 'text-fg-muted'
+  }
+
+  // Not draggable: a disabled app has to be enabled before it can go on the
+  // bar. The icon is greyed out; a click turns the app back on.
+  function renderDisabledApps(list: DisabledAppEntry[]) {
+    const tile = 'bg-border text-fg-subtle opacity-60'
+    if (viewMode === 'icons') {
+      return (
+        <div className="px-3 grid grid-cols-[repeat(auto-fill,minmax(4.75rem,1fr))] gap-1">
+          {list.map((app) => (
+            <button
+              key={app.id}
+              type="button"
+              onClick={app.onEnable}
+              onContextMenu={(e) => openDisabledMenu(e, app)}
+              className={`min-w-0 h-[4.75rem] px-1 rounded-md flex flex-col items-center justify-center gap-1.5 text-[0.6875rem] hover:text-fg hover:bg-white/5 transition-colors ${menuTargetClass(app)}`}
+            >
+              <span className={`shrink-0 flex items-center justify-center w-10 h-10 rounded-[10px] [&>svg]:w-5 [&>svg]:h-5 ${tile}`}>{app.icon}</span>
+              <span className="max-w-full truncate">{app.title}</span>
+            </button>
+          ))}
+        </div>
+      )
+    }
+    return list.map((app) => (
+      <button
+        key={app.id}
+        type="button"
+        onClick={app.onEnable}
+        onContextMenu={(e) => openDisabledMenu(e, app)}
+        className={`w-full h-9 pl-3 pr-2 flex items-center gap-2.5 text-left text-sm hover:text-fg hover:bg-white/5 transition-colors ${menuTargetClass(app)}`}
+      >
+        <span className={`shrink-0 flex items-center justify-center w-[1.625rem] h-[1.625rem] rounded-md [&>svg]:w-4 [&>svg]:h-4 ${tile}`}>{app.icon}</span>
+        <span className="truncate">{app.title}</span>
+      </button>
+    ))
   }
 
   function renderApps(list: AllAppsEntry[], favorite: boolean) {
@@ -109,7 +228,8 @@ export function AllAppsPanel({ apps, open, onPlace, onUnfavorite }: {
               onDragEnd={() => setDropZone(null)}
               onDrop={favorite ? (e) => dropOnFavorites(e, app.id) : undefined}
               onClick={app.onOpen}
-              className="min-w-0 h-[4.75rem] px-1 rounded-md flex flex-col items-center justify-center gap-1.5 text-[0.6875rem] text-fg-muted hover:text-fg hover:bg-white/5 transition-colors"
+              onContextMenu={(e) => openMenu(e, app)}
+              className={`min-w-0 h-[4.75rem] px-1 rounded-md flex flex-col items-center justify-center gap-1.5 text-[0.6875rem] hover:text-fg hover:bg-white/5 transition-colors ${menuTargetClass(app)}`}
             >
               <AppIcon app={app} className={`w-10 h-10 rounded-[10px] [&>svg]:w-5 [&>svg]:h-5 ${tile}`} />
               <span className="max-w-full truncate">{app.title}</span>
@@ -127,7 +247,8 @@ export function AllAppsPanel({ apps, open, onPlace, onUnfavorite }: {
         onDragEnd={() => setDropZone(null)}
         onDrop={favorite ? (e) => dropOnFavorites(e, app.id) : undefined}
         onClick={app.onOpen}
-        className="w-full h-9 pl-3 pr-2 flex items-center gap-2.5 text-left text-sm text-fg-muted hover:text-fg hover:bg-white/5 transition-colors"
+        onContextMenu={(e) => openMenu(e, app)}
+        className={`w-full h-9 pl-3 pr-2 flex items-center gap-2.5 text-left text-sm hover:text-fg hover:bg-white/5 transition-colors ${menuTargetClass(app)}`}
       >
         <AppIcon app={app} className={`w-[1.625rem] h-[1.625rem] rounded-md [&>svg]:w-4 [&>svg]:h-4 ${tile}`} />
         <span className="truncate">{app.title}</span>
@@ -196,14 +317,53 @@ export function AllAppsPanel({ apps, open, onPlace, onUnfavorite }: {
           aria-label="More apps"
           {...zoneHandlers('others')}
           onDrop={(e) => { e.stopPropagation(); dropElsewhere(e) }}
-          className={`flex-1 pb-1.5 ${dropZone === 'others' ? panelDropTargetClass : ''}`}
+          className={`pb-1.5 shrink-0 ${dropZone === 'others' ? panelDropTargetClass : ''}`}
         >
           <SectionHeading title="More apps" count={others.length} />
           {others.length > 0
             ? renderApps(others, false)
             : q ? <p className="px-3 pb-1.5 text-xs text-fg-subtle">No apps match.</p> : null}
         </section>
+        {(!q || visibleDisabled.length > 0) && (
+          <>
+            <div className="mx-3 h-px bg-border shrink-0" />
+            <section
+              aria-label="Disabled"
+              {...zoneHandlers('disabled')}
+              onDrop={dropOnDisabled}
+              className={`pb-1.5 shrink-0 ${dropZone === 'disabled' ? panelDropTargetClass : ''}`}
+            >
+              <button
+                type="button"
+                aria-expanded={disabledExpanded}
+                onClick={() => setDisabledOpen(!disabledOpen)}
+                className="w-full px-3 pt-2.5 pb-1.5 flex items-center gap-2 text-[0.6875rem] font-semibold uppercase tracking-wider text-fg-muted hover:text-fg"
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true" className={`transition-transform ${disabledExpanded ? 'rotate-90' : ''}`}>
+                  <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Disabled
+                <span className="px-1.5 rounded-full bg-border text-fg-muted font-medium tracking-normal">{visibleDisabled.length}</span>
+              </button>
+              {disabledExpanded && (visibleDisabled.length > 0
+                ? renderDisabledApps(visibleDisabled)
+                : <p className="px-3 pb-1.5 text-xs text-fg-subtle">Drag an app here to disable it.</p>)}
+            </section>
+          </>
+        )}
       </div>
+      {menu && (
+        <AllAppsContextMenu
+          x={menu.x}
+          y={menu.y}
+          favorite={menu.favorite}
+          onToggleFavorite={menu.onToggleFavorite}
+          onSettings={menu.onSettings}
+          onDisable={menu.onDisable}
+          onEnable={menu.onEnable}
+          onClose={closeMenu}
+        />
+      )}
     </div>
   )
 }
