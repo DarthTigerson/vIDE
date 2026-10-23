@@ -467,6 +467,7 @@ contextBridge.exposeInMainWorld('api', {
   browserMcpDisable: () => ipcRenderer.invoke('browser:mcp:disable'),
   searchMcpEnable: () => ipcRenderer.invoke('search:mcp:enable'),
   searchMcpDisable: () => ipcRenderer.invoke('search:mcp:disable'),
+  mcpCatalog: () => ipcRenderer.invoke('mcp:catalog'),
 
   setWindowTitle: (root: string) => ipcRenderer.send('window:setTitle', root),
 

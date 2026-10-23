@@ -8,6 +8,7 @@ import type { GraphifyGraph } from './graphify'
 import type { DefinitionLocation, DetectResult, LspCompletionItem, LspHoverResult, LspServerId } from '../../electron/lsp/types'
 import type { DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats } from '../../electron/docker'
 import type { LlamaLaunchConfig } from '../../electron/llama'
+import type { McpServerId, McpToolInfo } from '../../electron/mcp/mcpTypes'
 import type { OnboardingStatus, GitIdentity } from '../../electron/onboarding'
 import type { ConfigRepoSettings } from '../../electron/configRepo'
 import type { SearchHit, SearchOptions, SearchBatch, SearchDone } from '../../electron/searchTypes'
@@ -470,6 +471,8 @@ declare global {
       browserMcpDisable: () => Promise<void>
       searchMcpEnable: () => Promise<void>
       searchMcpDisable: () => Promise<void>
+      // Tool names and descriptions of every vIDE MCP server, for the MCP panel.
+      mcpCatalog: () => Promise<Record<McpServerId, McpToolInfo[]>>
 
       setWindowTitle: (root: string) => void
 

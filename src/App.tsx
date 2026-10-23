@@ -41,6 +41,7 @@ import {
   ScriptsIcon,
   LlamaIcon,
   AllAppsIcon,
+  McpIcon,
   APP_DRAG_MIME,
   hasBadge,
 } from './components/ActivityBar/ActivityBar'
@@ -131,6 +132,7 @@ import { useScriptsStore } from './stores/scriptsStore'
 import { useScriptsSettingsStore } from './stores/scriptsSettingsStore'
 import { runScriptInNewTerminal, runScriptInAgentTerminal } from './lib/runScript'
 import { LlamaPanel } from './components/Llama/LlamaPanel'
+import { McpPanel } from './components/Mcp/McpPanel'
 import { useNotificationSoundSettingsStore, playNotificationSound } from './stores/notificationSoundSettingsStore'
 import { useConfigRepoStore } from './stores/configRepoStore'
 import type { AssistantKind, MemoryBreakdown } from './types/api'
@@ -220,13 +222,13 @@ export default function App() {
     running: isLlamaKind(o.kind) ? Boolean(llamaRuns[llamaModelId(o.kind)]?.running) : undefined,
   }))
   const repoName = projectRoot ? projectRoot.split('/').pop() : null
-  const [leftPanel, setLeftPanel] = useState<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'scripts' | 'llama' | 'settings' | 'apps' | null>('files')
+  const [leftPanel, setLeftPanel] = useState<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'scripts' | 'llama' | 'settings' | 'apps' | 'mcp' | null>('files')
   const appFavorites = useAppFavoritesStore((s) => s.favorites)
   const placeFavorite = useAppFavoritesStore((s) => s.place)
   const unfavoriteApp = useAppFavoritesStore((s) => s.unfavorite)
   // The bar's temporary slot: the last unfavorited app that was opened.
   const lastTemporaryAppRef = useRef<string | null>(null)
-  const lastLeftPanelRef = useRef<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'scripts' | 'llama' | 'settings' | 'apps'>('files')
+  const lastLeftPanelRef = useRef<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'scripts' | 'llama' | 'settings' | 'apps' | 'mcp'>('files')
   const [sidebarRem, setSidebarRem] = useState(() => loadRem(SIDEBAR_WIDTH_KEY, SIDEBAR_PANEL))
   const [chatRem, setChatRem] = useState(() => loadRem(CHAT_WIDTH_KEY, CHAT_PANEL))
   // The panel group's width and the root font size: the two numbers needed to
@@ -1093,20 +1095,29 @@ export default function App() {
           const hiddenBadge = otherIds.some((id) => appItems[id] !== temporaryItem && hasBadge(appItems[id]!.badge))
           const primaryGroups: ActivityBarItem[][] = [
             [...lockedItems, ...favoriteItems],
-            ...(enabledApps.length > 0 ? [[
-              ...(temporaryItem ? [temporaryItem] : []),
+            [
+              ...(enabledApps.length > 0 ? [
+                ...(temporaryItem ? [temporaryItem] : []),
+                {
+                  id: 'apps',
+                  icon: <AllAppsIcon />,
+                  title: 'All Apps',
+                  active: leftPanel === 'apps',
+                  onClick: togglePanel('apps'),
+                  dot: hiddenBadge,
+                  // Dropping a favorite or All Apps row here appends it.
+                  dragId: APPEND_TARGET,
+                  dropOnly: true,
+                },
+              ] : []),
               {
-                id: 'apps',
-                icon: <AllAppsIcon />,
-                title: 'All Apps',
-                active: leftPanel === 'apps',
-                onClick: togglePanel('apps'),
-                dot: hiddenBadge,
-                // Dropping a favorite or All Apps row here appends it.
-                dragId: APPEND_TARGET,
-                dropOnly: true,
+                id: 'mcp',
+                icon: <McpIcon />,
+                title: 'MCP Servers',
+                active: leftPanel === 'mcp',
+                onClick: togglePanel('mcp'),
               },
-            ]] : []),
+            ],
           ]
           // Every enabled app, favorites included (the star shows which), with
           // favorites in their bar order and the rest in the default order.
@@ -1181,7 +1192,7 @@ export default function App() {
           >
             {(() => {
               const activeLeftPanel = leftPanel ?? lastLeftPanelRef.current
-              return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'search' ? <SearchPanel /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'docker' ? <DockerPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : activeLeftPanel === 'todos' ? <TodoPanel /> : activeLeftPanel === 'notes' ? <NotesPanel /> : activeLeftPanel === 'scripts' ? <ScriptsPanel /> : activeLeftPanel === 'llama' ? <LlamaPanel /> : activeLeftPanel === 'apps' ? (
+              return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'search' ? <SearchPanel /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'docker' ? <DockerPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : activeLeftPanel === 'todos' ? <TodoPanel /> : activeLeftPanel === 'notes' ? <NotesPanel /> : activeLeftPanel === 'scripts' ? <ScriptsPanel /> : activeLeftPanel === 'llama' ? <LlamaPanel /> : activeLeftPanel === 'mcp' ? <McpPanel /> : activeLeftPanel === 'apps' ? (
                 <AllAppsPanel
                   apps={allAppsEntries}
                   disabledApps={disabledAppEntries}

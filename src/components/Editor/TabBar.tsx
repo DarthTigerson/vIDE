@@ -7,7 +7,8 @@ import { useScriptsStore } from '@/stores/scriptsStore'
 import { scriptDisplayTitle } from '@/lib/scriptBody'
 import { useNotesStore } from '@/stores/notesStore'
 import { FileIcon, BrowserTabIcon } from '@/components/Sidebar/FileIcon'
-import { isTerminalTab, getTerminalId, isBrowserTab, getBrowserId, isTodoBoardTab, getTodoBoardProjectId, isTodoDetailTab, getTodoDetailIds, isLlamaModelTab, getLlamaModelId, isScriptTab, getScriptId } from '@/components/Settings/paths'
+import { MCP_SERVERS } from '@/lib/mcpServers'
+import { isTerminalTab, getTerminalId, isBrowserTab, getBrowserId, isTodoBoardTab, getTodoBoardProjectId, isTodoDetailTab, getTodoDetailIds, isLlamaModelTab, getLlamaModelId, isScriptTab, getScriptId, isMcpServerTab, getMcpServerId } from '@/components/Settings/paths'
 import { useLlamaModelsStore } from '@/stores/llamaModelsStore'
 import { orderTabsForDisplay, truncateTabLabel } from './tabDisplay'
 import { TabContextMenu } from './TabContextMenu'
@@ -95,6 +96,8 @@ export function TabBar({ paneId }: { paneId: string }) {
                   const script = scripts.find((s) => s.id === getScriptId(tab.path))
                   return script ? scriptDisplayTitle(script) : 'Script'
                 })()
+            : isMcpServerTab(tab.path)
+              ? `MCP · ${MCP_SERVERS.find((s) => s.id === getMcpServerId(tab.path))?.name ?? 'Server'}`
             : isTodoBoardTab(tab.path)
               ? (todoProjects.find((p) => p.id === getTodoBoardProjectId(tab.path))?.name || 'To Do')
               : isTodoDetailTab(tab.path)

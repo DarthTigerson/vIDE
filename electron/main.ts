@@ -34,6 +34,7 @@ import { fitBoundsToDisplays } from './windowBounds'
 import { registerRecentProjectsHandlers, readRecents, addRecentProject, clearRecentProjects } from './recentProjects'
 import { registerTodoHandlers } from './todos'
 import { registerTodoMcpHandlers, registerNotesMcpHandlers, registerBrowserMcpHandlers, registerScriptsMcpHandlers, registerSearchMcpHandlers, enableDocsMcp } from './mcp/mcpRegistration'
+import { registerMcpCatalogHandlers } from './mcp/mcpCatalog'
 import { registerNotesHandlers } from './notes'
 import { registerScriptsHandlers, registerScriptRunRoute } from './scripts'
 import { registerSearchHandlers } from './search'
@@ -847,6 +848,7 @@ app.whenReady().then(async () => {
   registerBrowserMcpHandlers()
   registerScriptsMcpHandlers()
   registerSearchMcpHandlers()
+  registerMcpCatalogHandlers()
   // Best-effort: no Claude CLI installed just means Claude panels lack it.
   enableDocsMcp().catch(() => {})
   registerWindowHandlers()
