@@ -1,4 +1,6 @@
 import { execFile, spawn } from 'child_process'
+import { existsSync } from 'fs'
+import { dirname, isAbsolute, join } from 'path'
 
 // Electron-launched apps (Finder/Dock, not `npm run dev` from a terminal)
 // don't inherit the interactive shell's PATH, so a bare spawn('gopls', ...)
@@ -35,9 +37,36 @@ export function resolveBinaryPath(command: string): Promise<string | null> {
   return promise
 }
 
+// Env for running a resolved binary. Many are scripts (`#!/usr/bin/env node`
+// for npm and npm-installed servers), so their interpreter must be on PATH;
+// it sits next to the binary for Homebrew/nvm installs.
+export function binaryEnv(binPath: string): NodeJS.ProcessEnv {
+  if (!isAbsolute(binPath)) return process.env
+  return { ...process.env, PATH: `${dirname(binPath)}:${process.env.PATH ?? ''}` }
+}
+
+// `go install` puts binaries in GOBIN, else GOPATH/bin, which is often not
+// on PATH. Returns the binary there if present.
+export async function resolveGoBinary(name: string): Promise<string | null> {
+  const go = await resolveBinaryPath('go')
+  if (!go) return null
+  return new Promise((resolve) => {
+    execFile(go, ['env', 'GOBIN', 'GOPATH'], (err, stdout) => {
+      if (err) {
+        resolve(null)
+        return
+      }
+      const [gobin, gopath] = stdout.toString().split('\n').map((l) => l.trim())
+      const dir = gobin || (gopath ? join(gopath.split(':')[0], 'bin') : '')
+      const bin = dir ? join(dir, name) : ''
+      resolve(bin && existsSync(bin) ? bin : null)
+    })
+  })
+}
+
 export function resolveVersion(binPath: string, versionArgs: string[]): Promise<string | null> {
   return new Promise((resolve) => {
-    execFile(binPath, versionArgs, (err, stdout, stderr) => {
+    execFile(binPath, versionArgs, { env: binaryEnv(binPath) }, (err, stdout, stderr) => {
       if (err) {
         resolve(null)
         return
@@ -58,7 +87,7 @@ export async function resolveAndRunStreamed(
 ): Promise<void> {
   const bin = (await resolveBinaryPath(command)) ?? command
   return new Promise((resolve, reject) => {
-    const proc = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+    const proc = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'], env: binaryEnv(bin) })
     proc.stdout.on('data', (chunk: Buffer) => onData(chunk.toString()))
     proc.stderr.on('data', (chunk: Buffer) => onData(chunk.toString()))
     proc.on('error', (err: NodeJS.ErrnoException) => {

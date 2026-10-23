@@ -2,6 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { BrowserWindow, ipcMain } from 'electron'
 import { fileURLToPath, pathToFileURL } from 'url'
 import { LspConnection } from './protocol'
+import { binaryEnv } from './shellPath'
 import { LSP_SERVERS } from './servers'
 import type {
   DefinitionLocation,
@@ -151,7 +152,7 @@ export class LanguageServerManager {
     const spawnSpec = await server.getSpawn()
     if (!spawnSpec) return null
 
-    const proc = spawn(spawnSpec.command, spawnSpec.args, { cwd: projectRoot }) as ChildProcessWithoutNullStreams
+    const proc = spawn(spawnSpec.command, spawnSpec.args, { cwd: projectRoot, env: binaryEnv(spawnSpec.command) }) as ChildProcessWithoutNullStreams
     // Language servers log diagnostics/trace info to stderr as a matter of
     // course — not surfaced in v1, but the listener must exist or a full
     // stderr pipe buffer would eventually stall the process.

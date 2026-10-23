@@ -1,4 +1,4 @@
-import { resolveAndRunStreamed, resolveBinaryPath, resolveVersion } from '../shellPath'
+import { resolveAndRunStreamed, resolveBinaryPath, resolveGoBinary, resolveVersion } from '../shellPath'
 import type { LspServerModule } from '../types'
 
 export const goServer: LspServerModule = {
@@ -8,14 +8,14 @@ export const goServer: LspServerModule = {
   ramEstimate: 'typically 300–800MB on large modules',
 
   async detect() {
-    const path = await resolveBinaryPath('gopls')
+    const path = await resolveGopls()
     if (!path) return { found: false }
     const version = await resolveVersion(path, ['version'])
     return { found: true, path, version: version ?? undefined }
   },
 
   async getSpawn() {
-    const path = await resolveBinaryPath('gopls')
+    const path = await resolveGopls()
     if (!path) return null
     return { command: path, args: [] }
   },
@@ -23,4 +23,8 @@ export const goServer: LspServerModule = {
   install(onData) {
     return resolveAndRunStreamed('go', ['install', 'golang.org/x/tools/gopls@latest'], onData)
   },
+}
+
+async function resolveGopls(): Promise<string | null> {
+  return (await resolveBinaryPath('gopls')) ?? (await resolveGoBinary('gopls'))
 }
