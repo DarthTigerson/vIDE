@@ -46,9 +46,11 @@ export function HiddenItemsSettings() {
   ]
   const isGlobal = selected === GLOBAL_RULES_KEY
   const rules = selectOwnRules(byRepo, selected)
-  const rows = (Object.keys(KIND_LABELS) as RuleKind[]).flatMap((kind) => rules[kind].map((value) => ({ kind, value })))
-  // A global rule moves to the open repo; with none open it can only be removed.
-  const moveTarget = isGlobal ? currentKey : GLOBAL_RULES_KEY
+  const rowsOf = (from: string) =>
+    (Object.keys(KIND_LABELS) as RuleKind[]).flatMap((kind) => selectOwnRules(byRepo, from)[kind].map((value) => ({ from, kind, value })))
+  // A repo's list starts with the All repos rules that also hide items in it,
+  // marked, then its own.
+  const rows = isGlobal ? rowsOf(GLOBAL_RULES_KEY) : [...rowsOf(GLOBAL_RULES_KEY), ...rowsOf(selected)]
 
   function repoButton(repo: string) {
     const active = repo === selected
@@ -93,29 +95,34 @@ export function HiddenItemsSettings() {
             </div>
             <ul className="flex-1 overflow-y-auto">
               {rows.length === 0 && <li className="px-3 py-2 text-xs text-fg-subtle">Nothing hidden.</li>}
-              {rows.map(({ kind, value }) => (
-                <li key={`${kind}:${value}`} className="flex h-9 items-center gap-2.5 border-t border-border/60 px-3 text-sm text-fg first:border-t-0">
+              {rows.map(({ from, kind, value }) => {
+                return (
+                <li key={`${from}:${kind}:${value}`} className="flex h-9 items-center gap-2.5 border-t border-border/60 px-3 text-sm text-fg first:border-t-0">
                   <span className="w-20 shrink-0 text-xs text-fg-muted">{KIND_LABELS[kind]}</span>
                   <span className="min-w-0 flex-1 truncate">{kind === 'extensions' ? `.${value}` : value}</span>
-                  {moveTarget && (
+                  {!isGlobal && from === GLOBAL_RULES_KEY && (
+                    <span className="shrink-0 rounded-full bg-accent/15 px-1.5 text-[0.625rem] text-accent">all repos</span>
+                  )}
+                  {from !== GLOBAL_RULES_KEY && (
                     <button
                       type="button"
-                      onClick={() => moveRule(selected, moveTarget, kind, value)}
+                      onClick={() => moveRule(from, GLOBAL_RULES_KEY, kind, value)}
                       className="shrink-0 rounded border border-border px-2 py-0.5 text-[0.6875rem] text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
                     >
-                      {isGlobal ? `Only in ${repoName(moveTarget)}` : 'Make global'}
+                      Make global
                     </button>
                   )}
                   <button
                     type="button"
                     aria-label={`Remove ${value}`}
-                    onClick={() => removeRule(selected, kind, value)}
+                    onClick={() => removeRule(from, kind, value)}
                     className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-fg-subtle hover:bg-white/10 hover:text-fg"
                   >
                     ×
                   </button>
                 </li>
-              ))}
+                )
+              })}
             </ul>
           </div>
         </div>

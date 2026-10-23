@@ -85,13 +85,12 @@ describe('HiddenItemsSettings — moving rules', () => {
     expect(byRepo()[GLOBAL_RULES_KEY].names).toEqual(['dist'])
   })
 
-  it('in All repos, "Only in vIDE" moves the rule to the open repo', () => {
+  it('All repos rows have no move button, only ×', () => {
     useTreeHidingStore.setState({ byRepo: { [GLOBAL_RULES_KEY]: rules({ extensions: ['log'] }) } })
     render(<HiddenItemsSettings />)
     fireEvent.click(screen.getByRole('button', { name: /^All repos/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'Only in vIDE' }))
-    expect(byRepo()[GLOBAL_RULES_KEY].extensions).toEqual([])
-    expect(byRepo()['~/vIDE'].extensions).toEqual(['log'])
+    expect(screen.queryByRole('button', { name: /Only in|Make global/ })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Remove log' })).toBeInTheDocument()
   })
 
   it('with no project open, All repos rows have no move button', () => {
@@ -181,5 +180,26 @@ describe('HiddenItemsSettings — resets', () => {
   it('Master Reset is disabled when nothing is saved', () => {
     render(<HiddenItemsSettings />)
     expect(screen.getByRole('button', { name: 'Master Reset' })).toBeDisabled()
+  })
+})
+
+describe('HiddenItemsSettings — global rules in a repo', () => {
+  it('lists All repos rules first in a repo, marked, with no move button', () => {
+    useTreeHidingStore.setState({
+      byRepo: { [GLOBAL_RULES_KEY]: rules({ names: ['node_modules'] }), '~/vIDE': rules({ paths: ['dist'] }) },
+    })
+    render(<HiddenItemsSettings />)
+    const items = screen.getAllByRole('listitem')
+    expect(items.map((i) => within(i).queryByText('all repos') !== null)).toEqual([true, false])
+    expect(within(items[0]).getByText('node_modules')).toBeInTheDocument()
+    expect(within(items[0]).queryByRole('button', { name: /^Only in/ })).toBeNull()
+    expect(within(items[1]).getByRole('button', { name: 'Make global' })).toBeInTheDocument()
+  })
+
+  it('× on a marked row removes the All repos rule', () => {
+    useTreeHidingStore.setState({ byRepo: { [GLOBAL_RULES_KEY]: rules({ extensions: ['log'] }) } })
+    render(<HiddenItemsSettings />)
+    fireEvent.click(screen.getByRole('button', { name: 'Remove log' }))
+    expect(byRepo()[GLOBAL_RULES_KEY].extensions).toEqual([])
   })
 })

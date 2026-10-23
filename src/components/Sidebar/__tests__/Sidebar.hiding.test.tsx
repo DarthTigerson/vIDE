@@ -143,11 +143,11 @@ describe('Sidebar — hidden items eye button', () => {
     expect(screen.queryByRole('button', { name: /hidden items/i })).toBeNull()
   })
 
-  it('shows the rule count and toggles showHidden', () => {
+  it('shows no count and toggles showHidden', () => {
     setRules({ paths: ['a'], names: ['b'], extensions: ['c'] })
     render(<Sidebar />)
     const btn = screen.getByRole('button', { name: 'Show hidden items' })
-    expect(btn).toHaveTextContent('3')
+    expect(btn.textContent).toBe('')
     fireEvent.click(btn)
     expect(rules().showHidden).toBe(true)
     expect(screen.getByRole('button', { name: 'Hide hidden items' })).toBeInTheDocument()
