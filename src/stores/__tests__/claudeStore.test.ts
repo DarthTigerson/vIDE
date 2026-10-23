@@ -157,6 +157,19 @@ describe('claudeStore.loadInstancesFromSession', () => {
     expect(state.activeInstanceId).toBe('a')
   })
 
+  it('restores the Rocky flag on bridge-like sessions only, and reopens their conversation with it', () => {
+    useBridgeStore.setState({ conversations: {} })
+    const saved = [
+      { id: 'b', kind: 'bridge', hue: '#111111', rocky: true },
+      { id: 'c', kind: 'claude', hue: '#222222', rocky: true },
+    ]
+    useClaudeStore.getState().loadInstancesFromSession({ agentSessions: saved })
+    const [bridge, claude] = useClaudeStore.getState().instances
+    expect(bridge.rocky).toBe(true)
+    expect(claude.rocky).toBeUndefined()
+    expect(useBridgeStore.getState().conversations.b.rocky).toBe(true)
+  })
+
   it('falls back to a fresh instance for an empty saved list', () => {
     useClaudeStore.getState().loadInstancesFromSession({ agentSessions: [] })
     expect(useClaudeStore.getState().instances).toHaveLength(1)
@@ -452,6 +465,31 @@ describe('claudeStore mixed sessions', () => {
     expect(inst.kind).toBe('bridge')
     expect(useBridgeStore.getState().conversations[inst.id]).toBeDefined()
     expect(window.api.claudeSpawn).not.toHaveBeenCalled()
+  })
+
+  it('Rocky mode: Claude becomes Rocky Code, Bridge and llama keep their kind and get the flag', () => {
+    useClaudeStore.getState().newSession('/p', 'claude', true)
+    useClaudeStore.getState().newSession('/p', 'bridge', true)
+    useClaudeStore.getState().newSession('/p', 'llama:q1', true)
+    useClaudeStore.getState().newSession('/p', 'terminal', true)
+    useClaudeStore.getState().newSession('/p', 'bridge')
+    const [claude, bridge, llama, terminal, plain] = useClaudeStore.getState().instances
+    expect(claude).toMatchObject({ kind: 'rocky' })
+    expect(claude.rocky).toBeUndefined()
+    expect(bridge).toMatchObject({ kind: 'bridge', rocky: true })
+    expect(llama).toMatchObject({ kind: 'llama:q1', rocky: true })
+    expect(terminal.rocky).toBeUndefined()
+    expect(plain.rocky).toBeUndefined()
+    expect(useBridgeStore.getState().conversations[bridge.id].rocky).toBe(true)
+    expect(useBridgeStore.getState().conversations[plain.id].rocky).toBeUndefined()
+  })
+
+  it('a Rocky mode Bridge session sends rocky with every request', () => {
+    useClaudeStore.getState().newSession('/p', 'bridge', true)
+    const id = useClaudeStore.getState().instances[0].id
+    useBridgeStore.getState().sendMessage(id, '/p', 'hi')
+    const settings = vi.mocked(window.api.bridgeSend).mock.calls.at(-1)![3]
+    expect(settings.rocky).toBe(true)
   })
 
   it('every session gets the next free hue regardless of kind', () => {

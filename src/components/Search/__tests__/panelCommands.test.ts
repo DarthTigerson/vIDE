@@ -46,9 +46,15 @@ describe('sessions', () => {
     useLlamaModelsStore.setState({ models: [{ ...defaultLlamaModelConfig(), id: 'q1', displayName: 'Qwen', enabled: true }] })
 
     const step = await find('new-agent-session').pick!()
-    expect(step.items.map((i) => i.label)).toEqual(['Claude Code', 'Rocky Code', 'Bridge', 'Qwen', 'Terminal'])
+    expect(step.items.map((i) => i.label)).toEqual([
+      'Claude Code', 'Bridge', 'Qwen',
+      'Claude Code (Rocky mode)', 'Bridge (Rocky mode)', 'Qwen (Rocky mode)',
+      'Terminal',
+    ])
     step.onPick('llama:q1')
-    expect(newSession).toHaveBeenCalledWith('/p', 'llama:q1')
+    expect(newSession).toHaveBeenCalledWith('/p', 'llama:q1', false)
+    step.onPick(step.items.find((i) => i.label === 'Qwen (Rocky mode)')!.id)
+    expect(newSession).toHaveBeenLastCalledWith('/p', 'llama:q1', true)
     expect(setChatVisible).toHaveBeenCalledWith(true)
   })
 

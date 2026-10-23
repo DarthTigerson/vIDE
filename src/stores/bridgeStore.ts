@@ -69,6 +69,8 @@ export interface BridgeConversation {
   // This session's reasoning effort, sent per request. Missing = the model's
   // launch setting (Settings > Llama), which the server already applies.
   reasoningEffort?: ReasoningEffort
+  // Started from the "+" menu's Rocky tab (AgentSession.rocky).
+  rocky?: boolean
 }
 
 type ConnectionOverride = { endpoint: string; apiKey: string; modelId: string; toolCallLimit?: number; reasoningEffort?: ReasoningEffort; compactAtTokens?: number }
@@ -209,7 +211,7 @@ function dropTrailingEmptyAssistant(messages: BridgeChatMessage[]): BridgeChatMe
 interface BridgeStore {
   conversations: Record<string, BridgeConversation>
   history: StoredSession[]
-  openConversation: (sessionId: string, agentMode: boolean) => void
+  openConversation: (sessionId: string, agentMode: boolean, rocky?: boolean) => void
   closeConversation: (sessionId: string) => void
   clearConversation: (sessionId: string) => void
   restorePrevious: (sessionId: string) => boolean
@@ -258,6 +260,7 @@ export const useBridgeStore = create<BridgeStore>((set, get) => {
       agentKind: override ? 'llama' : 'bridge',
       reasoningEffort: conv.reasoningEffort,
       compactAtTokens: override?.compactAtTokens,
+      rocky: conv.rocky,
     }
   }
 
@@ -272,7 +275,7 @@ export const useBridgeStore = create<BridgeStore>((set, get) => {
     conversations: {},
     history: migrateLegacyCurrent(),
 
-    openConversation: (sessionId, agentMode) => {
+    openConversation: (sessionId, agentMode, rocky) => {
       if (get().conversations[sessionId]) return
       const saved = loadPersisted(sessionId)
       set({
@@ -284,6 +287,7 @@ export const useBridgeStore = create<BridgeStore>((set, get) => {
             agentMode,
             streaming: false,
             draftInput: '',
+            ...(rocky ? { rocky: true } : {}),
           },
         },
       })

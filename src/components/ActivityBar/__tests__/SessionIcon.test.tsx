@@ -28,6 +28,13 @@ describe('SessionIcon', () => {
     expect((container.firstChild as HTMLElement).style.color).toBe('rgb(91, 155, 213)')
   })
 
+  it('shows the Rocky icon for a Bridge or llama session in Rocky mode', () => {
+    const { container, rerender } = render(<SessionIcon session={{ id: 'l1', kind: 'llama:q1', hue: '#5B9BD5', rocky: true }} />)
+    expect(container.querySelector('img')).not.toBeNull()
+    rerender(<SessionIcon session={{ id: 'l1', kind: 'llama:q1', hue: '#5B9BD5' }} />)
+    expect(container.querySelector('img')).toBeNull()
+  })
+
   it('swaps a busy Rocky session to one of Rocky\'s own working gifs', () => {
     const session = { id: 'r1', kind: 'rocky', hue: '#D97757' }
     const { container } = render(<SessionIcon session={session} />)

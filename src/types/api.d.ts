@@ -128,6 +128,8 @@ export interface BridgeSettings {
   compactAtTokens?: number
   // Per-request reasoning_effort; missing = the server's default
   reasoningEffort?: 'none' | 'low' | 'medium' | 'high' | 'xhigh'
+  // Started from the "+" menu's Rocky tab: Rocky's voice rules join the system prompt
+  rocky?: boolean
 }
 
 export type VideToolGroup = 'todos' | 'notes' | 'scripts' | 'browser' | 'search' | 'docs'

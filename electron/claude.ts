@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { getMobileBroadcaster } from './mobile'
 import { ROCKY_FLAGS, ROCKY_SETTINGS, rockySpawnEnv } from './rocky'
+import { isMultiRepoProject, MULTI_REPO_PATHS_PROMPT } from './multiRepoPaths'
 
 type SessionMode = 'attach' | 'new' | 'continue' | 'resume'
 
@@ -103,9 +104,11 @@ export class ClaudeManager {
   }
 
   registerHandlers(): void {
-    ipcMain.handle('claude:spawn', (event, cwd: string, instanceId: string, mode: SessionMode = 'attach', kind?: string) => {
+    ipcMain.handle('claude:spawn', async (event, cwd: string, instanceId: string, mode: SessionMode = 'attach', kind?: string) => {
       const win = BrowserWindow.fromWebContents(event.sender)
-      if (win) this.spawn(win, cwd, instanceId, mode, kind)
+      if (!win) return
+      const multiRepo = await isMultiRepoProject(cwd)
+      if (!win.isDestroyed()) this.spawn(win, cwd, instanceId, mode, kind, multiRepo)
     })
 
     ipcMain.on('claude:write', (event, instanceId: string, data: string) => {
@@ -126,7 +129,9 @@ export class ClaudeManager {
 
   // `kind` is the renderer's AssistantKind; 'rocky' (Rocky Code, VIDE-108)
   // is the same CLI plus ROCKY_FLAGS, on every mode including restore.
-  spawn(win: BrowserWindow, cwd: string, instanceId: string, mode: SessionMode = 'attach', kind?: string): void {
+  // multiRepo adds MULTI_REPO_PATHS_PROMPT, on every mode too: the CLI
+  // re-renders its system prompt from the current flags.
+  spawn(win: BrowserWindow, cwd: string, instanceId: string, mode: SessionMode = 'attach', kind?: string, multiRepo = false): void {
     const rocky = kind === 'rocky'
     const state = this.stateFor(win.id)
     const inst = state.instances.get(instanceId) ?? newInstanceState()
@@ -163,6 +168,7 @@ export class ClaudeManager {
       const settings = { ...(sessionFile ? SESSION_HOOK_SETTINGS : {}), ...(rocky ? ROCKY_SETTINGS : {}) }
       if (Object.keys(settings).length > 0) baseCommand += ` --settings '${JSON.stringify(settings)}'`
       if (rocky) baseCommand += ` ${ROCKY_FLAGS}`
+      else if (multiRepo) baseCommand += ' --append-system-prompt "$VIDE_PATHS_PROMPT"'
       const command = shimEnv ? `export PATH="${shimEnv.VIDE_BROWSER_SHIM_BIN}:$PATH"; ${baseCommand}` : baseCommand
       const proc = pty.spawn(shell, ['-lic', command], {
         name: 'xterm-color',
@@ -173,7 +179,8 @@ export class ClaudeManager {
           ...(process.env as Record<string, string>),
           ...shimEnv,
           ...(sessionFile ? { VIDE_CLAUDE_SESSION_FILE: sessionFile } : {}),
-          ...(rocky ? rockySpawnEnv() : {}),
+          ...(rocky ? rockySpawnEnv(multiRepo ? MULTI_REPO_PATHS_PROMPT : undefined) : {}),
+          ...(!rocky && multiRepo ? { VIDE_PATHS_PROMPT: MULTI_REPO_PATHS_PROMPT } : {}),
         },
       })
       inst.proc = proc

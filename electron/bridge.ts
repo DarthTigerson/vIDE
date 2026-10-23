@@ -1,4 +1,6 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
+import { isMultiRepoProject, MULTI_REPO_PATHS_PROMPT } from './multiRepoPaths'
+import { ROCKY_VOICE } from './rocky'
 import { readFile, writeFile, unlink, rename, access } from 'fs/promises'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
@@ -47,6 +49,9 @@ export interface BridgeSettings {
   // Per-request reasoning_effort (llama.cpp; 'none' turns thinking off).
   // Missing = the server's own default. Can change mid-run: see setReasoningEffort.
   reasoningEffort?: ReasoningEffort
+  // Started from the "+" menu's Rocky tab: the system prompt ends with
+  // Rocky's voice rules.
+  rocky?: boolean
 }
 
 export type ReasoningEffort = 'none' | 'low' | 'medium' | 'high' | 'xhigh'
@@ -363,7 +368,8 @@ const FILE_TOOL_GUIDANCE =
   'Use this priority order: (1) edit_file for any change to an existing file, (2) write_file only for complete rewrites explicitly requested by the user, ' +
   "(3) create_file only for files that don't exist yet."
 
-async function buildSystemPrompt(cwd: string, videInstructions: string[] = []): Promise<string> {
+export async function buildSystemPrompt(cwd: string, videInstructions: string[] = [], rocky = false): Promise<string> {
+  const multiRepo = await isMultiRepoProject(cwd)
   let branch = ''
   let lastCommit = ''
   try {
@@ -377,7 +383,7 @@ async function buildSystemPrompt(cwd: string, videInstructions: string[] = []): 
 
   return `You are Bridge, an AI coding assistant running inside a local IDE. You have DIRECT access to the user's machine through function/tool calls.
 
-Project directory: ${cwd}${branch ? `\nCurrent branch: ${branch}` : ''}${lastCommit ? `\nLast commit: ${lastCommit}` : ''}
+Project directory: ${cwd}${branch ? `\nCurrent branch: ${branch}` : ''}${lastCommit ? `\nLast commit: ${lastCommit}` : ''}${multiRepo ? `\n\n${MULTI_REPO_PATHS_PROMPT}` : ''}
 
 == TOOLS ==
 You have the following tools. Use them — do not explain how the user could run commands themselves.
@@ -433,7 +439,7 @@ You have full git access via run_command. When the user asks about git, ALWAYS c
 NEVER say you cannot access git or version control. Always use run_command.
 
 == FILE EDITING ==
-${FILE_TOOL_GUIDANCE}`
+${FILE_TOOL_GUIDANCE}${rocky ? `\n\n== ROCKY MODE ==\nYou speak like Rocky, the Eridian engineer from Project Hail Mary.\n\n${ROCKY_VOICE}` : ''}`
 }
 
 interface PendingToolCall {
@@ -526,10 +532,10 @@ export class BridgeManager {
     this.cancelConv(convKey(win.id, sessionId))
   }
 
-  private async systemPromptFor(key: string, historyId: string | undefined, cwd: string, videInstructions: string[]): Promise<string> {
+  private async systemPromptFor(key: string, historyId: string | undefined, cwd: string, videInstructions: string[], rocky = false): Promise<string> {
     const cached = this.systemPromptByConv.get(key)
     if (historyId && cached?.historyId === historyId) return cached.prompt
-    const prompt = await buildSystemPrompt(cwd, videInstructions)
+    const prompt = await buildSystemPrompt(cwd, videInstructions, rocky)
     if (historyId) this.systemPromptByConv.set(key, { historyId, prompt })
     return prompt
   }
@@ -609,7 +615,7 @@ export class BridgeManager {
     const vide = this.videToolsFor(settings, win.id)
     const messages = [...payload.messages]
     if (messages[0]?.role !== 'system') {
-      messages.unshift({ role: 'system', content: await this.systemPromptFor(key, settings.sessionId, cwd, vide.instructions) })
+      messages.unshift({ role: 'system', content: await this.systemPromptFor(key, settings.sessionId, cwd, vide.instructions, settings.rocky) })
     }
     if (!live()) return
 

@@ -418,6 +418,20 @@ describe('BridgeManager tool calls', () => {
     expect(system(2)).toContain('/third')
   })
 
+  it('ends the system prompt with the Rocky voice only for a Rocky mode session', async () => {
+    const { win, sendHandler } = setup()
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(finalTextStream('ok')))
+    vi.stubGlobal('fetch', fetchMock)
+    const system = (call: number) => JSON.parse(fetchMock.mock.calls[call][1].body).messages[0].content as string
+
+    await sendHandler({ sender: win }, { cwd: '/p', messages: [{ role: 'user', content: 'a' }], agentMode: true, settings: { ...SETTINGS, sessionId: 'h1' }, sessionId: 'plain' })
+    await sendHandler({ sender: win }, { cwd: '/p', messages: [{ role: 'user', content: 'b' }], agentMode: true, settings: { ...SETTINGS, sessionId: 'h2', rocky: true }, sessionId: 'rocky' })
+
+    expect(system(0)).not.toContain('== ROCKY MODE ==')
+    expect(system(1)).toMatch(/== ROCKY MODE ==\nYou speak like Rocky[\s\S]*Fails → rewrite\./)
+    expect(system(1)).not.toContain('Delegate only to "scout"')
+  })
+
   it('runs past 40 tool-call rounds when toolCallLimit is 0 (unlimited)', async () => {
     const { win, sendHandler } = setup()
     const fetchMock = vi.fn()

@@ -16,6 +16,8 @@ import { isMac } from '@/lib/platform'
 import { buildTerminalPath } from '@/components/Settings/paths'
 
 const NO_PROJECT = 'Open a project first'
+// Picker ids of the Rocky mode rows: this prefix, then the agent's kind.
+const ROCKY_PICK_PREFIX = 'rocky|'
 
 function projectRoot(): string | null {
   return useFileStore.getState().projectRoot
@@ -81,16 +83,21 @@ export function panelCommands(): Command[] {
       pick: () => ({
         placeholder: 'Start which agent?',
         emptyText: 'No agents enabled — turn one on in Settings',
-        items: [
-          ...availableAgents(useModelSettingsStore.getState().enabled, useLlamaModelsStore.getState().models)
-            .map((o) => ({ id: o.kind, label: o.label })),
-          // Same as the "+" menu: a plain shell is always on offer.
-          { id: TERMINAL_KIND, label: 'Terminal' },
-        ],
-        onPick: (kind) => {
+        items: (() => {
+          const agents = availableAgents(useModelSettingsStore.getState().enabled, useLlamaModelsStore.getState().models)
+          return [
+            ...agents.map((o) => ({ id: o.kind, label: o.label })),
+            // The "+" menu's Rocky tab, one row per agent.
+            ...agents.map((o) => ({ id: `${ROCKY_PICK_PREFIX}${o.kind}`, label: `${o.label} (Rocky mode)` })),
+            // Same as the "+" menu: a plain shell is always on offer.
+            { id: TERMINAL_KIND, label: 'Terminal' },
+          ]
+        })(),
+        onPick: (id) => {
           const root = projectRoot()
           if (!root) return
-          useClaudeStore.getState().newSession(root, kind)
+          const rocky = id.startsWith(ROCKY_PICK_PREFIX)
+          useClaudeStore.getState().newSession(root, rocky ? id.slice(ROCKY_PICK_PREFIX.length) : id, rocky)
           useClaudeStore.getState().setChatVisible(true)
         },
       }),
