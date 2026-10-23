@@ -7,8 +7,9 @@ import { download } from './download'
 import { resolveBinaryPath, runStreamed } from './shellPath'
 
 // The JSON, Python, TypeScript and YAML servers are npm packages. When npm
-// is missing, try in order: the system package manager, then a private
-// Node.js download into ~/.vide/lsp/node, then ask the user to install it.
+// is missing, try in order: a private Node.js download into ~/.vide/lsp/node
+// (no admin rights, touches nothing else), then the system package manager,
+// then ask the user to install it.
 export const MANAGED_NODE_DIR = join(homedir(), '.vide', 'lsp', 'node')
 const MANAGED_BIN = join(MANAGED_NODE_DIR, 'bin')
 
@@ -39,8 +40,9 @@ function findNpm(): Promise<string | null> {
 }
 
 export async function ensureNpm(onData: OnData): Promise<string> {
-  const steps = [installWithPackageManager, installPrivateNode]
+  const steps = [installPrivateNode, installWithPackageManager]
   let npm = await findNpm()
+  if (!npm) onData('npm not found.\n')
   for (const step of steps) {
     if (npm) return npm
     try {
@@ -59,14 +61,14 @@ export async function ensureNpm(onData: OnData): Promise<string> {
 export async function installWithPackageManager(onData: OnData): Promise<void> {
   if (platform() === 'darwin') {
     const brew = (await resolveBinaryPath('brew')) ?? ['/opt/homebrew/bin/brew', '/usr/local/bin/brew'].find((p) => existsSync(p))
-    if (!brew) throw new Error('npm not found, and Homebrew is not installed.')
-    onData('npm not found. Installing Node.js with Homebrew (brew install node)…\n')
+    if (!brew) throw new Error('Homebrew is not installed.')
+    onData('Installing Node.js with Homebrew (brew install node)…\n')
     await runStreamed(brew, ['install', 'node'], onData, 'brew', { HOMEBREW_NO_AUTO_UPDATE: '1', NONINTERACTIVE: '1' })
     return
   }
   const apt = await resolveBinaryPath('apt-get')
-  if (!apt) throw new Error('npm not found, and apt-get is not available.')
-  onData('npm not found. Installing Node.js with apt-get…\n')
+  if (!apt) throw new Error('apt-get is not available.')
+  onData('Installing Node.js with apt-get…\n')
   const env = { DEBIAN_FRONTEND: 'noninteractive' }
   const args = ['install', '-y', 'nodejs', 'npm']
   if (userInfo().uid === 0) await runStreamed(apt, args, onData, 'apt-get', env)

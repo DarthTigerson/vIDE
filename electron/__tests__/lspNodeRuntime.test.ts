@@ -39,7 +39,7 @@ describe('ensureNpm', () => {
     expect(runStreamedMock).toHaveBeenCalledWith('/usr/local/bin/npm', ['install', '-g', 'pyright'], expect.any(Function), 'npm')
   })
 
-  it('installs Node.js with Homebrew when npm is missing', async () => {
+  it('installs Node.js with Homebrew when npm is missing and the download fails', async () => {
     resolveBinaryPathMock.mockImplementation(async (c: string) => (c === 'brew' ? '/opt/homebrew/bin/brew' : null))
     runStreamedMock.mockImplementation(async (bin: string) => {
       if (bin.endsWith('brew')) existsSyncMock.mockImplementation((p: string) => p === '/opt/homebrew/bin/npm')
@@ -48,11 +48,11 @@ describe('ensureNpm', () => {
     expect(runStreamedMock.mock.calls[0].slice(0, 2)).toEqual(['/opt/homebrew/bin/brew', ['install', 'node']])
   })
 
-  it('falls back to the Node.js download when Homebrew is missing, then asks for Node.js', async () => {
+  it('tries the download, then Homebrew, then asks for Node.js', async () => {
     const log: string[] = []
     await expect(ensureNpm((c) => log.push(c))).rejects.toThrow(NODE_REQUIRED)
-    expect(log).toContain('npm not found, and Homebrew is not installed.\n')
-    expect(log).toContain('offline\n')
+    expect(log.indexOf('offline\n')).toBeLessThan(log.indexOf('Homebrew is not installed.\n'))
+    expect(log.indexOf('offline\n')).toBeGreaterThanOrEqual(0)
     expect(runStreamedMock).not.toHaveBeenCalled()
   })
 
