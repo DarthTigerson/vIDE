@@ -143,14 +143,21 @@ export function HiddenItemsSettings() {
         )}
       </FeatureBlock>
 
-      <FeatureBlock
-        title="Reset all hidden items"
-        description="Clears the rules of every repo and All repos, and puts every repo's Hide switches back to their defaults."
-      >
-        <button type="button" disabled={Object.keys(byRepo).length === 0} onClick={() => setConfirm('all')} className={`${dangerButton} mt-1 disabled:opacity-40`}>
-          Master Reset
-        </button>
-      </FeatureBlock>
+      {/* FeatureBlock's frame, with the button beside the text instead of below. */}
+      <section aria-label="Reset all hidden items" className="border-t border-border py-6">
+        {/* SettingRow's width, so the button lines up with the switches above. */}
+        <div className="flex max-w-[460px] items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-fg">Reset all hidden items</h2>
+            <p className="mt-0.5 max-w-[52ch] text-xs leading-relaxed text-fg-muted">
+              Clears the rules of every repo and All repos, and puts every repo's Hide switches back to their defaults.
+            </p>
+          </div>
+          <button type="button" disabled={Object.keys(byRepo).length === 0} onClick={() => setConfirm('all')} className={`${dangerButton} disabled:opacity-40`}>
+            Master Reset
+          </button>
+        </div>
+      </section>
 
       {confirm === 'repo' && (
         <ConfirmActionModal
