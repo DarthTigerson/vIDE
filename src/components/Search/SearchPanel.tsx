@@ -11,6 +11,22 @@ import { copyToClipboard as copyText } from '@/components/Git/commitFormat'
 import { SearchFileContextMenu } from './SearchFileContextMenu'
 import { UndoToast } from '@/components/ui/UndoToast'
 import { hitKey, planRender, RENDER_STEP, useGlobalSearchStore, type ResultGroup, type SearchToggle } from '@/stores/globalSearchStore'
+import { selectRules, useTreeHidingStore } from '@/stores/treeHidingStore'
+import { useGraphifySettingsStore } from '@/stores/graphifySettingsStore'
+import { isSearchHidden, relativePath } from '@/lib/treeHiding'
+import { notifySettingChanged } from '@/lib/notifySettingChanged'
+
+// Whether the Hidden results section is expanded; collapsed until first
+// opened. Under 'vide:general:' so vIDE Sync carries it, like All Apps' view.
+export const SEARCH_HIDDEN_OPEN_KEY = 'vide:general:searchHiddenOpen'
+
+function loadHiddenOpen(): boolean {
+  try {
+    return localStorage.getItem(SEARCH_HIDDEN_OPEN_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
 
 function basename(path: string): string {
   return path.split('/').pop() ?? path
@@ -265,6 +281,15 @@ export function SearchPanel() {
   const [tip, setTip] = useState<Tip | null>(null)
   const [fileMenu, setFileMenu] = useState<{ x: number; y: number; path: string } | null>(null)
   const [trashTarget, setTrashTarget] = useState<string | null>(null)
+  const [hiddenOpen, setHiddenOpenState] = useState(loadHiddenOpen)
+  const hideRules = useTreeHidingStore((s) => selectRules(s.byRepo, projectRoot))
+  const graphifyEnabled = useGraphifySettingsStore((s) => s.enabled)
+
+  function setHiddenOpen(value: boolean) {
+    setHiddenOpenState(value)
+    try { localStorage.setItem(SEARCH_HIDDEN_OPEN_KEY, String(value)) } catch {}
+    notifySettingChanged()
+  }
 
   function openFileMenu(event: MouseEvent, path: string) {
     event.preventDefault()
@@ -306,8 +331,36 @@ export function SearchPanel() {
     return () => clearTimeout(timer)
   }, [replaceOutcome, dismissReplaceOutcome])
 
-  const plan = planRender(groups, collapsed, renderLimit)
+  // Files hidden in the Site Tree still match, but are listed in their own
+  // collapsible Hidden section after the rest.
+  const isHiddenGroup = (group: ResultGroup) => {
+    const rel = projectRoot ? relativePath(projectRoot, group.path) : null
+    return !!rel && isSearchHidden(rel, hideRules, graphifyEnabled)
+  }
+  const shownGroups = groups.filter((g) => !isHiddenGroup(g))
+  const hiddenGroups = groups.filter(isHiddenGroup)
+  const plan = planRender(shownGroups, collapsed, renderLimit)
+  const hiddenPlan = planRender(hiddenGroups, collapsed, renderLimit)
   const stale = groups.some((g) => g.stale)
+
+  function renderGroup(group: ResultGroup, visibleCount: number) {
+    return (
+      <GroupRow
+        key={group.path}
+        group={group}
+        root={projectRoot}
+        collapsed={!!collapsed[group.path]}
+        visibleCount={visibleCount}
+        activeKey={activeKey}
+        canReplace={canReplace}
+        onToggle={() => toggleCollapsed(group.path)}
+        onOpen={(hit) => void openHit(hit)}
+        onReplaceFile={() => void replaceFile(group.path)}
+        onReplaceHit={(hit) => void replaceHit(hit)}
+        onFileContextMenu={(e) => openFileMenu(e, group.path)}
+      />
+    )
+  }
   // Replacing needs a finished search: while results are still streaming the
   // list is incomplete, so "replace all" would miss some.
   const canReplace = showReplace && status === 'done' && matchCount > 0 && !replacing
@@ -480,22 +533,7 @@ export function SearchPanel() {
                   {diskChanged && <div className="text-accent">Files changed on disk since this search.</div>}
                 </div>
                 <ul>
-                  {groups.slice(0, plan.shownGroups).map((group) => (
-                    <GroupRow
-                      key={group.path}
-                      group={group}
-                      root={projectRoot}
-                      collapsed={!!collapsed[group.path]}
-                      visibleCount={plan.visible[group.path] ?? 0}
-                      activeKey={activeKey}
-                      canReplace={canReplace}
-                      onToggle={() => toggleCollapsed(group.path)}
-                      onOpen={(hit) => void openHit(hit)}
-                      onReplaceFile={() => void replaceFile(group.path)}
-                      onReplaceHit={(hit) => void replaceHit(hit)}
-                      onFileContextMenu={(e) => openFileMenu(e, group.path)}
-                    />
-                  ))}
+                  {shownGroups.slice(0, plan.shownGroups).map((group) => renderGroup(group, plan.visible[group.path] ?? 0))}
                 </ul>
                 {plan.hidden > 0 && (
                   <button
@@ -506,6 +544,25 @@ export function SearchPanel() {
                     {`Show ${Math.min(RENDER_STEP, plan.hidden).toLocaleString()} more`}
                     <span className="ml-1 text-fg-subtle">{`(${plan.hidden.toLocaleString()} not shown)`}</span>
                   </button>
+                )}
+                {hiddenGroups.length > 0 && (
+                  <section aria-label="Hidden results" className="mt-1 border-t border-border">
+                    <button
+                      type="button"
+                      aria-expanded={hiddenOpen}
+                      onClick={() => setHiddenOpen(!hiddenOpen)}
+                      className="flex w-full items-center gap-2 px-3 pt-2.5 pb-1.5 text-[0.6875rem] font-semibold uppercase tracking-wider text-fg-muted hover:text-fg"
+                    >
+                      <Chevron open={hiddenOpen} />
+                      Hidden
+                      <span className="rounded-full bg-border px-1.5 font-medium tracking-normal text-fg-muted">{hiddenGroups.length}</span>
+                    </button>
+                    {hiddenOpen && (
+                      <ul className="opacity-55">
+                        {hiddenGroups.slice(0, hiddenPlan.shownGroups).map((group) => renderGroup(group, hiddenPlan.visible[group.path] ?? 0))}
+                      </ul>
+                    )}
+                  </section>
                 )}
               </>
             )}

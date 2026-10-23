@@ -22,6 +22,9 @@ import { isExternalFileDrag } from './treeUtils'
 import { useGitTreeDecorations } from './useGitTreeDecorations'
 import { useGeneralSettingsStore } from '@/stores/generalSettingsStore'
 import { treeRowDropTargetClass } from '@/components/ui/panelDrop'
+import { isRuleHidden, isTreeVisible, relativePath } from '@/lib/treeHiding'
+import { selectRules, useTreeHidingStore } from '@/stores/treeHidingStore'
+import { useGraphifySettingsStore } from '@/stores/graphifySettingsStore'
 
 export type TreePromptKind = 'file' | 'directory' | 'rename'
 
@@ -37,6 +40,9 @@ interface FileTreeProps {
   directoryPath: string
   depth?: number
   onContextMenu: (event: MouseEvent, node: FileNode) => void
+  // The row a right-click menu is open for; it keeps its hover look so it's
+  // clear which item the menu acts on.
+  menuPath?: string | null
   prompt: TreePromptState | null
   setPromptValue: (value: string) => void
   commitPrompt: () => void
@@ -88,6 +94,7 @@ export function FileTree({
   directoryPath,
   depth = 0,
   onContextMenu,
+  menuPath,
   prompt,
   setPromptValue,
   commitPrompt,
@@ -104,6 +111,8 @@ export function FileTree({
   const selectedRepo = useGitReposStore((s) => s.selectedRepo)
   const ignoredPaths = useRepoGitState(selectedRepo).ignoredPaths
   const { files: fileGitDecorations, folders: folderGitAggregates } = useGitTreeDecorations()
+  const hideRules = useTreeHidingStore((s) => selectRules(s.byRepo, projectRoot))
+  const graphifyEnabled = useGraphifySettingsStore((s) => s.enabled)
   // Settings > General > File Tree: 'letter' keeps names their normal colour.
   const colourGitNames = useGeneralSettingsStore((s) => s.fileTreeGitStatus === 'letterAndColour')
   const { activeTabPath, openTab, openTabInNewSplitPane } = useEditorStore()
@@ -178,6 +187,10 @@ export function FileTree({
       )}
       {nodes.map((node) => {
         const ignored = !!selectedRepo && isIgnoredPath(node.path, selectedRepo, ignoredPaths)
+        const rel = projectRoot ? relativePath(projectRoot, node.path) : null
+        if (rel && !isTreeVisible(rel, node.isDirectory, ignored, hideRules, graphifyEnabled)) return null
+        // Only reachable while "Hidden items" is switched on.
+        const ruleHidden = !!rel && isRuleHidden(rel, node.isDirectory, hideRules)
         // Folders show the dominant color of whatever's changed inside them
         // (an aggregate, so no single-letter badge); files show their own
         // status's color + letter directly. Both come from the same
@@ -200,8 +213,8 @@ export function FileTree({
                 id={`file-tree-node:${node.path}`}
                 draggable
                 className={`flex items-center gap-1 w-full text-left py-0.5 text-sm hover:bg-white/5 rounded truncate ${
-                  activeFilePath === node.path ? 'bg-accent/20 text-fg' : 'text-fg'
-                } ${ignored ? 'opacity-45' : ''} ${
+                  activeFilePath === node.path ? 'bg-accent/20 text-fg' : menuPath === node.path ? 'bg-white/5 text-fg' : 'text-fg'
+                } ${ignored || ruleHidden ? 'opacity-45' : ''} ${ruleHidden ? 'italic' : ''} ${
                   revealedPath === node.path ? 'ring-1 ring-inset ring-accent/70' : ''
                 } ${dragOverPath === node.path ? treeRowDropTargetClass : ''}`}
                 style={{ paddingLeft: `${8 + depth * 12}px`, paddingRight: '8px' }}
@@ -255,6 +268,7 @@ export function FileTree({
                 <span className={`truncate flex-1 min-w-0 ${gitDecoration && colourGitNames ? gitDecoration.textClass : 'text-fg'}`}>
                   {node.name}
                 </span>
+                {ruleHidden && <span className="shrink-0 text-[0.625rem] not-italic text-fg-subtle">hidden</span>}
                 {!node.isDirectory && gitDecoration && (
                   <span className={`shrink-0 text-xs font-semibold ${gitDecoration.textClass}`}>
                     {gitDecoration.letter}
@@ -276,6 +290,7 @@ export function FileTree({
                 directoryPath={node.path}
                 depth={depth + 1}
                 onContextMenu={onContextMenu}
+                menuPath={menuPath}
                 prompt={prompt}
                 setPromptValue={setPromptValue}
                 commitPrompt={commitPrompt}
