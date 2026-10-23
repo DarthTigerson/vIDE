@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { APP_DRAG_MIME, hasBadge } from '@/components/ActivityBar/ActivityBar'
 import { panelDropTargetClass } from '@/components/ui/panelDrop'
 import { notifySettingChanged } from '@/lib/notifySettingChanged'
+import { AllAppsContextMenu } from './AllAppsContextMenu'
 
 export interface AllAppsEntry {
   id: string
@@ -10,6 +11,9 @@ export interface AllAppsEntry {
   favorite: boolean
   badge?: string | number
   onOpen: (event: React.MouseEvent<HTMLButtonElement>) => void
+  onSettings: () => void
+  // Omitted for apps with no Enable switch.
+  onDisable?: () => void
 }
 
 type ViewMode = 'list' | 'icons'
@@ -44,6 +48,14 @@ export function AllAppsPanel({ apps, open, onPlace, onUnfavorite }: {
   const [query, setQuery] = useState('')
   const [dropZone, setDropZone] = useState<DropZone | null>(null)
   const [viewMode, setViewModeState] = useState<ViewMode>(loadViewMode)
+  const [menu, setMenu] = useState<{ x: number; y: number; app: AllAppsEntry } | null>(null)
+  const closeMenu = useCallback(() => setMenu(null), [])
+
+  function openMenu(e: React.MouseEvent, app: AllAppsEntry) {
+    e.preventDefault()
+    e.stopPropagation()
+    setMenu({ x: e.clientX, y: e.clientY, app })
+  }
 
   useEffect(() => {
     if (!open) setQuery('')
@@ -93,6 +105,12 @@ export function AllAppsPanel({ apps, open, onPlace, onUnfavorite }: {
     if (favoriteIds.has(id)) onUnfavorite(id)
   }
 
+  // The row a right-click menu is open for keeps its hover look, so it's
+  // clear which app the menu acts on.
+  function menuTargetClass(app: AllAppsEntry) {
+    return menu?.app.id === app.id ? 'text-fg bg-white/5' : 'text-fg-muted'
+  }
+
   function renderApps(list: AllAppsEntry[], favorite: boolean) {
     const tile = favorite ? 'bg-accent/15 text-accent' : 'bg-border text-fg-muted'
     if (viewMode === 'icons') {
@@ -109,7 +127,8 @@ export function AllAppsPanel({ apps, open, onPlace, onUnfavorite }: {
               onDragEnd={() => setDropZone(null)}
               onDrop={favorite ? (e) => dropOnFavorites(e, app.id) : undefined}
               onClick={app.onOpen}
-              className="min-w-0 h-[4.75rem] px-1 rounded-md flex flex-col items-center justify-center gap-1.5 text-[0.6875rem] text-fg-muted hover:text-fg hover:bg-white/5 transition-colors"
+              onContextMenu={(e) => openMenu(e, app)}
+              className={`min-w-0 h-[4.75rem] px-1 rounded-md flex flex-col items-center justify-center gap-1.5 text-[0.6875rem] hover:text-fg hover:bg-white/5 transition-colors ${menuTargetClass(app)}`}
             >
               <AppIcon app={app} className={`w-10 h-10 rounded-[10px] [&>svg]:w-5 [&>svg]:h-5 ${tile}`} />
               <span className="max-w-full truncate">{app.title}</span>
@@ -127,7 +146,8 @@ export function AllAppsPanel({ apps, open, onPlace, onUnfavorite }: {
         onDragEnd={() => setDropZone(null)}
         onDrop={favorite ? (e) => dropOnFavorites(e, app.id) : undefined}
         onClick={app.onOpen}
-        className="w-full h-9 pl-3 pr-2 flex items-center gap-2.5 text-left text-sm text-fg-muted hover:text-fg hover:bg-white/5 transition-colors"
+        onContextMenu={(e) => openMenu(e, app)}
+        className={`w-full h-9 pl-3 pr-2 flex items-center gap-2.5 text-left text-sm hover:text-fg hover:bg-white/5 transition-colors ${menuTargetClass(app)}`}
       >
         <AppIcon app={app} className={`w-[1.625rem] h-[1.625rem] rounded-md [&>svg]:w-4 [&>svg]:h-4 ${tile}`} />
         <span className="truncate">{app.title}</span>
@@ -204,6 +224,15 @@ export function AllAppsPanel({ apps, open, onPlace, onUnfavorite }: {
             : q ? <p className="px-3 pb-1.5 text-xs text-fg-subtle">No apps match.</p> : null}
         </section>
       </div>
+      {menu && (
+        <AllAppsContextMenu
+          x={menu.x}
+          y={menu.y}
+          onSettings={menu.app.onSettings}
+          onDisable={menu.app.onDisable}
+          onClose={closeMenu}
+        />
+      )}
     </div>
   )
 }

@@ -4,9 +4,9 @@ import { AllAppsPanel, ALL_APPS_VIEW_KEY } from '../AllAppsPanel'
 import { APP_DRAG_MIME } from '@/components/ActivityBar/ActivityBar'
 
 const apps = [
-  { id: 'docker', title: 'Docker', icon: null, favorite: true, onOpen: vi.fn() },
-  { id: 'todos', title: 'To Do', icon: null, favorite: false, badge: 2, onOpen: vi.fn() },
-  { id: 'notes', title: 'Notes', icon: null, favorite: false, onOpen: vi.fn() },
+  { id: 'docker', title: 'Docker', icon: null, favorite: true, onOpen: vi.fn(), onSettings: vi.fn(), onDisable: vi.fn() },
+  { id: 'todos', title: 'To Do', icon: null, favorite: false, badge: 2, onOpen: vi.fn(), onSettings: vi.fn(), onDisable: vi.fn() },
+  { id: 'notes', title: 'Notes', icon: null, favorite: false, onOpen: vi.fn(), onSettings: vi.fn() },
 ]
 
 function dataTransfer(data: Record<string, string>) {
@@ -30,9 +30,9 @@ describe('AllAppsPanel', () => {
   it('lists favorites first, and an unfavorited app goes back to its own position', () => {
     const order = () => screen.getAllByRole('button').filter((b) => b.draggable).map((b) => b.textContent)
     const list = [
-      { id: 'todos', title: 'To Do', icon: null, favorite: false, onOpen: vi.fn() },
-      { id: 'notes', title: 'Notes', icon: null, favorite: true, onOpen: vi.fn() },
-      { id: 'docker', title: 'Docker', icon: null, favorite: false, onOpen: vi.fn() },
+      { id: 'todos', title: 'To Do', icon: null, favorite: false, onOpen: vi.fn(), onSettings: vi.fn() },
+      { id: 'notes', title: 'Notes', icon: null, favorite: true, onOpen: vi.fn(), onSettings: vi.fn() },
+      { id: 'docker', title: 'Docker', icon: null, favorite: false, onOpen: vi.fn(), onSettings: vi.fn() },
     ]
     const { rerender } = render(<AllAppsPanel apps={list} open onPlace={vi.fn()} onUnfavorite={vi.fn()} />)
     expect(order()).toEqual(['Notes', 'To Do', 'Docker'])
@@ -46,6 +46,36 @@ describe('AllAppsPanel', () => {
     setup()
     fireEvent.click(screen.getByText('Notes'))
     expect(apps[2].onOpen).toHaveBeenCalled()
+  })
+
+  it("right-click opens a menu whose Settings and Disable call the app's handlers", () => {
+    setup()
+    fireEvent.contextMenu(screen.getByText('Docker'))
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    expect(apps[0].onSettings).toHaveBeenCalled()
+    expect(screen.queryByRole('menu')).toBeNull()
+
+    fireEvent.contextMenu(screen.getByText('Docker'))
+    fireEvent.click(screen.getByRole('button', { name: 'Disable' }))
+    expect(apps[0].onDisable).toHaveBeenCalled()
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('highlights the right-clicked row while its menu is open', () => {
+    setup()
+    const row = screen.getByText('Docker').closest('button')!
+    fireEvent.contextMenu(row)
+    expect(row.classList).toContain('bg-white/5')
+    expect(screen.getByText('Notes').closest('button')!.classList).not.toContain('bg-white/5')
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(row.classList).not.toContain('bg-white/5')
+  })
+
+  it('leaves Disable out of the menu for an app without one', () => {
+    setup()
+    fireEvent.contextMenu(screen.getByText('Notes'))
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Disable' })).toBeNull()
   })
 
   it('filters by the search box and clears it when the panel closes', () => {

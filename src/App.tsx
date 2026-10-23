@@ -49,6 +49,7 @@ import { BatteryPill } from './components/TitleBar/BatteryPill'
 import { AllAppsPanel } from './components/AllApps/AllAppsPanel'
 import { useAppFavoritesStore } from './stores/appFavoritesStore'
 import { APPEND_TARGET, MOVABLE_APP_IDS, pickTemporaryApp, splitApps, type MovableAppId } from './lib/appFavorites'
+import { APP_SETTINGS_PATHS, appDisabler } from './lib/appSettings'
 import { SessionIcon } from './components/ActivityBar/SessionIcon'
 import { NewSessionMenu } from './components/ActivityBar/NewSessionMenu'
 import { ClaudeSessionContextMenu } from './components/ActivityBar/ClaudeSessionContextMenu'
@@ -1098,6 +1099,8 @@ export default function App() {
             favorite: favoriteIds.includes(id),
             badge: appItems[id]!.badge,
             onOpen: appItems[id]!.onClick,
+            onSettings: () => useEditorStore.getState().openTab({ path: APP_SETTINGS_PATHS[id], content: '', dirty: false }),
+            onDisable: appDisabler(id) ?? undefined,
           }))
           const primaryActivityBar = (
         <ActivityBar
