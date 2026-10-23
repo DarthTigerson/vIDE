@@ -15,7 +15,7 @@ vi.mock('child_process', async (importOriginal) => {
   }
 })
 
-import { resolveBinaryPath, resolveAndRunStreamed, _resetShellPathCacheForTesting } from '../lsp/shellPath'
+import { binaryEnv, resolveBinaryPath, resolveAndRunStreamed, _resetShellPathCacheForTesting } from '../lsp/shellPath'
 
 class FakeChildProcess extends EventEmitter {
   stdout = new EventEmitter()
@@ -125,5 +125,26 @@ describe('resolveAndRunStreamed', () => {
     proc.emit('close', 1)
 
     await expect(done).rejects.toThrow('npm exited with code 1')
+  })
+  it('puts the binary folder on PATH so `#!/usr/bin/env node` scripts find node', async () => {
+    execFileMock.mockImplementation((_shell: string, _args: string[], cb: (err: Error | null, stdout: string) => void) => {
+      cb(null, '/opt/homebrew/bin/npm\n')
+    })
+    const proc = new FakeChildProcess()
+    spawnMock.mockReturnValue(proc)
+
+    const done = resolveAndRunStreamed('npm', ['install', '-g', 'pyright'], () => {})
+    await waitForSpawn()
+    proc.emit('close', 0)
+    await done
+
+    const opts = spawnMock.mock.calls[0][2] as { env: NodeJS.ProcessEnv }
+    expect(opts.env.PATH?.split(':')[0]).toBe('/opt/homebrew/bin')
+  })
+})
+
+describe('binaryEnv', () => {
+  it('leaves the env alone for an unresolved bare command', () => {
+    expect(binaryEnv('npm')).toBe(process.env)
   })
 })

@@ -1,4 +1,5 @@
-import { resolveAndRunStreamed, resolveBinaryPath, resolveVersion } from '../shellPath'
+import { npmInstallGlobal, resolveNpmBinary } from '../nodeRuntime'
+import { resolveVersion } from '../shellPath'
 import type { LspServerModule } from '../types'
 
 // vscode-json-language-server, shipped in the maintained
@@ -13,19 +14,19 @@ export const jsonServer: LspServerModule = {
   ramEstimate: 'typically 60–150MB',
 
   async detect() {
-    const path = await resolveBinaryPath('vscode-json-language-server')
+    const path = await resolveNpmBinary('vscode-json-language-server')
     if (!path) return { found: false }
     const version = await resolveVersion(path, ['--version'])
     return { found: true, path, version: version ?? undefined }
   },
 
   async getSpawn() {
-    const path = await resolveBinaryPath('vscode-json-language-server')
+    const path = await resolveNpmBinary('vscode-json-language-server')
     if (!path) return null
     return { command: path, args: ['--stdio'] }
   },
 
   install(onData) {
-    return resolveAndRunStreamed('npm', ['install', '-g', 'vscode-langservers-extracted'], onData)
+    return npmInstallGlobal(['vscode-langservers-extracted'], onData)
   },
 }
