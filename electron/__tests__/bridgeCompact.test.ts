@@ -12,6 +12,7 @@ vi.mock('electron', () => ({
 
 import { BridgeManager, compactThreshold, type BridgeMessage } from '../bridge'
 import { compactMessages, isContextOverflow, renderTranscript, SUMMARY_PREFIX } from '../bridgeCompact'
+import { requestDispatcher } from '../bridgeHttp'
 
 function sseStream(chunks: string[]): Response {
   const encoder = new TextEncoder()
@@ -195,5 +196,16 @@ describe('BridgeManager compaction', () => {
     expect(result).toEqual({ ok: true, summary: 'MANUAL', content: `${SUMMARY_PREFIX}\n\nMANUAL` })
     const body = JSON.parse(fetchMock.mock.calls.find((c: any[]) => String(c[0]).endsWith('/chat/completions'))![1].body)
     expect(body.messages[1].content).toContain('focus on: the API')
+  })
+
+  it('sends the summary request through the configured timeout dispatcher', async () => {
+    new BridgeManager().registerHandlers()
+    const fetchMock = vi.fn(async (url: string, _init?: any) => (url.endsWith('/props') ? json({}, 404) : json({ choices: [{ message: { content: 'S' } }] })))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await handlers['bridge:compact']({}, { messages: [{ role: 'user', content: 'hi' }], settings: { ...SETTINGS, requestTimeoutMs: 0 } })
+
+    const init = fetchMock.mock.calls.find((c) => String(c[0]).endsWith('/chat/completions'))![1]
+    expect(init.dispatcher).toBe(requestDispatcher(0))
   })
 })

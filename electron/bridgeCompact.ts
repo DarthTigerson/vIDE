@@ -1,4 +1,5 @@
 import type { BridgeMessage, BridgeSettings } from './bridge'
+import { requestDispatcher } from './bridgeHttp'
 
 // vIDE Compacting for Bridge/llama sessions: when the transcript nears the
 // model's context window, the same model writes a handoff summary of
@@ -126,7 +127,8 @@ export async function summarize(
       stream: false,
     }),
     signal,
-  })
+    dispatcher: requestDispatcher(settings.requestTimeoutMs),
+  } as RequestInit)
   if (!response.ok) throw new Error(`summary request failed: ${response.status} ${(await response.text()).slice(0, 200)}`)
   const data = (await response.json()) as { choices?: Array<{ message?: { content?: string | null } }> }
   const summary = data.choices?.[0]?.message?.content?.trim()

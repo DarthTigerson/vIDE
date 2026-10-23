@@ -28,6 +28,9 @@ export interface LlamaModelConfig {
   gpuLayers: number
   parallelRequests: number
   reasoningEffort: ReasoningEffort
+  // How long a chat request waits on the server before giving up; 0 = no
+  // limit. Missing on models saved before it existed (= the default).
+  requestTimeoutMinutes?: number
 
   autoStart: boolean
   agentModeOnLaunch: boolean
@@ -35,6 +38,8 @@ export interface LlamaModelConfig {
   // of the fixed contextSize/gpuLayers. Off for models saved before it existed.
   autoOptimize: boolean
 }
+
+export const DEFAULT_REQUEST_TIMEOUT_MINUTES = 10
 
 // Defaults come from the "Current Cosmos Configuration" in the instructions
 // note — the known-good values for the current Apple Silicon setup.
@@ -59,6 +64,7 @@ export function defaultLlamaModelConfig(): LlamaModelConfig {
     gpuLayers: 99,
     parallelRequests: 1,
     reasoningEffort: 'medium',
+    requestTimeoutMinutes: DEFAULT_REQUEST_TIMEOUT_MINUTES,
 
     autoStart: true,
     agentModeOnLaunch: false,
