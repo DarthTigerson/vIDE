@@ -6,6 +6,11 @@ import { getMobileBroadcaster } from './mobile'
 import { ROCKY_FLAGS, ROCKY_SETTINGS, rockySpawnEnv } from './rocky'
 import { isMultiRepoProject, MULTI_REPO_PATHS_PROMPT } from './multiRepoPaths'
 
+// Extra system prompt (multi-repo paths, AI rules) rides in an env var for
+// the same no-quoting reason as Rocky's prompt. Rocky already passes
+// --append-system-prompt, so for Rocky it is folded into that one prompt.
+const APPEND_PROMPT_FLAGS = '--append-system-prompt "$VIDE_APPEND_PROMPT"'
+
 type SessionMode = 'attach' | 'new' | 'continue' | 'resume'
 
 const COMMANDS: Record<Exclude<SessionMode, 'attach'>, string> = {
@@ -98,8 +103,13 @@ export class ClaudeManager {
   private byWindow = new Map<number, WindowState>()
 
   // sessionDir enables session restore (see SESSION_HOOK_SETTINGS); without
-  // it every spawn behaves exactly as before.
-  constructor(private browserBridge?: BrowserBridgeLike, private sessionDir?: string) {
+  // it every spawn behaves exactly as before. aiRulesPrompt returns the AI
+  // rules text to append, '' for none.
+  constructor(
+    private browserBridge?: BrowserBridgeLike,
+    private sessionDir?: string,
+    private aiRulesPrompt?: () => string
+  ) {
     if (sessionDir) mkdirSync(sessionDir, { recursive: true })
   }
 
@@ -167,8 +177,10 @@ export class ClaudeManager {
       // command, so nothing in it may contain an apostrophe.
       const settings = { ...(sessionFile ? SESSION_HOOK_SETTINGS : {}), ...(rocky ? ROCKY_SETTINGS : {}) }
       if (Object.keys(settings).length > 0) baseCommand += ` --settings '${JSON.stringify(settings)}'`
+      const aiRules = this.aiRulesPrompt?.() ?? ''
       if (rocky) baseCommand += ` ${ROCKY_FLAGS}`
-      else if (multiRepo) baseCommand += ' --append-system-prompt "$VIDE_PATHS_PROMPT"'
+      const extraPrompt = [multiRepo ? MULTI_REPO_PATHS_PROMPT : '', aiRules].filter(Boolean).join('\n\n')
+      if (!rocky && extraPrompt) baseCommand += ` ${APPEND_PROMPT_FLAGS}`
       const command = shimEnv ? `export PATH="${shimEnv.VIDE_BROWSER_SHIM_BIN}:$PATH"; ${baseCommand}` : baseCommand
       const proc = pty.spawn(shell, ['-lic', command], {
         name: 'xterm-color',
@@ -179,8 +191,8 @@ export class ClaudeManager {
           ...(process.env as Record<string, string>),
           ...shimEnv,
           ...(sessionFile ? { VIDE_CLAUDE_SESSION_FILE: sessionFile } : {}),
-          ...(rocky ? rockySpawnEnv(multiRepo ? MULTI_REPO_PATHS_PROMPT : undefined) : {}),
-          ...(!rocky && multiRepo ? { VIDE_PATHS_PROMPT: MULTI_REPO_PATHS_PROMPT } : {}),
+          ...(rocky ? rockySpawnEnv(extraPrompt || undefined) : {}),
+          ...(!rocky && extraPrompt ? { VIDE_APPEND_PROMPT: extraPrompt } : {}),
         },
       })
       inst.proc = proc

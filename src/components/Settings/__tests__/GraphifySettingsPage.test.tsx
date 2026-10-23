@@ -1,3 +1,4 @@
+import { DEFAULT_AI_PRESET_VALUES } from '../../../../electron/aiRulesPresets'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { GraphifySettingsPage } from '../GraphifySettingsPage'
@@ -10,6 +11,9 @@ beforeEach(() => {
     graphifyGetInstall: vi.fn().mockResolvedValue({ path: null, source: null, downloadBytes: null }),
     graphifyInstall: vi.fn().mockResolvedValue({ ok: true, path: '/Users/t/.local/bin/graphify' }),
     onGraphifyInstallProgress: vi.fn(() => () => {}),
+    aiRulesGet: vi.fn().mockResolvedValue({ enabled: true, presets: DEFAULT_AI_PRESET_VALUES, boards: [], lists: { general: [], todos: ['Track work'], scripts: [], notes: [], browser: [], graphify: ['Query first'] } }),
+    aiRulesSet: vi.fn().mockResolvedValue(undefined),
+    aiRulesGetDefaults: vi.fn(),
   }
   ;(window as any).api = api
 })

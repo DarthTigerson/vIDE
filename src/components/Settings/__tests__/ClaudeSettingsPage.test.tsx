@@ -1,19 +1,26 @@
 /// <reference types="@testing-library/jest-dom" />
+import { DEFAULT_AI_PRESET_VALUES } from '../../../../electron/aiRulesPresets'
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { ClaudeSettingsPage } from '../ClaudeSettingsPage'
 import { useModelSettingsStore } from '@/stores/modelSettingsStore'
 import { useInlineEditSettingsStore } from '@/stores/inlineEditSettingsStore'
 import { useUsagePassiveSettingsStore } from '@/stores/usagePassiveSettingsStore'
+import { useAiRulesSettingsStore } from '@/stores/aiRulesSettingsStore'
 import { useCommitMessageSettingsStore } from '@/stores/commitMessageSettingsStore'
 import { useNotificationSoundSettingsStore } from '@/stores/notificationSoundSettingsStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
 
+const EMPTY_LISTS = { general: [], todos: [], scripts: [], notes: [], browser: [], graphify: [] }
+
 function baseWindowApi() {
   return {
     usageGetPassiveEnabled: vi.fn().mockResolvedValue(false),
     usageSetPassiveEnabled: vi.fn().mockResolvedValue(undefined),
+    aiRulesGet: vi.fn().mockResolvedValue({ enabled: true, presets: DEFAULT_AI_PRESET_VALUES, boards: [], lists: { ...EMPTY_LISTS, general: ['No em dashes'] } }),
+    aiRulesSet: vi.fn().mockResolvedValue(undefined),
+    aiRulesGetDefaults: vi.fn().mockResolvedValue({ ...EMPTY_LISTS, general: ['DEFAULT'] }),
   }
 }
 
@@ -26,6 +33,7 @@ afterEach(() => {
   useModelSettingsStore.setState({ enabled: { claude: true, bridge: true } })
   useInlineEditSettingsStore.setState({ enabled: true, model: 'claude-sonnet-5' })
   useUsagePassiveSettingsStore.setState({ enabled: false, initialized: false })
+  useAiRulesSettingsStore.setState({ enabled: true, presets: DEFAULT_AI_PRESET_VALUES, boards: [], lists: EMPTY_LISTS, initialized: false })
   useCommitMessageSettingsStore.setState({ enabled: false, model: 'claude-sonnet-5', prompt: '' })
   useNotificationSoundSettingsStore.setState({ enabled: false, muted: false, soundId: 'ding' })
 })
@@ -196,5 +204,37 @@ describe('ClaudeSettingsPage notifications section', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Test sound' }))
     expect(audioInstances).toHaveLength(1)
     expect(audioInstances[0].play).toHaveBeenCalled()
+  })
+})
+
+describe('ClaudeSettingsPage AI rules section', () => {
+  it('loads the saved rules and saves an edited row', async () => {
+    render(<ClaudeSettingsPage />)
+    await waitFor(() => expect(screen.getByLabelText('General rules 1')).toHaveValue('No em dashes'))
+
+    fireEvent.change(screen.getByLabelText('General rules 1'), { target: { value: 'Be brief' } })
+
+    expect(window.api.aiRulesSet).toHaveBeenLastCalledWith({ enabled: true, presets: DEFAULT_AI_PRESET_VALUES, boards: [], lists: { ...EMPTY_LISTS, general: ['Be brief'] } })
+  })
+
+  it('adds and removes rows', async () => {
+    render(<ClaudeSettingsPage />)
+    await waitFor(() => expect(screen.getByLabelText('General rules 1')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add rule' }))
+    expect(screen.getByLabelText('General rules 2')).toHaveValue('')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove general rules 1' }))
+    expect(screen.queryByLabelText('General rules 2')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('General rules 1')).toHaveValue('')
+  })
+
+  it('resets the list to the default', async () => {
+    render(<ClaudeSettingsPage />)
+    await waitFor(() => expect(screen.getByLabelText('General rules 1')).toHaveValue('No em dashes'))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset to default' }))
+
+    await waitFor(() => expect(screen.getByLabelText('General rules 1')).toHaveValue('DEFAULT'))
   })
 })

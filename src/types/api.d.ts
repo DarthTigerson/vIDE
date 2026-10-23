@@ -8,6 +8,7 @@ import type { GraphifyGraph } from './graphify'
 import type { DefinitionLocation, DetectResult, LspCompletionItem, LspHoverResult, LspServerId } from '../../electron/lsp/types'
 import type { DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats } from '../../electron/docker'
 import type { LlamaLaunchConfig } from '../../electron/llama'
+import type { AiRules } from '../../electron/aiRules'
 import type { OnboardingStatus, GitIdentity } from '../../electron/onboarding'
 import type { ConfigRepoSettings } from '../../electron/configRepo'
 import type { SearchHit, SearchOptions, SearchBatch, SearchDone } from '../../electron/searchTypes'
@@ -364,6 +365,10 @@ declare global {
       usageGetRange: (fromTs: number, toTs: number, maxPoints?: number) => Promise<UsageSnapshot[]>
       usageGetPassiveEnabled: () => Promise<boolean>
       usageSetPassiveEnabled: (enabled: boolean) => Promise<void>
+      // AI rules appended to every Claude session's system prompt.
+      aiRulesGet: () => Promise<AiRules>
+      aiRulesSet: (rules: AiRules) => Promise<void>
+      aiRulesGetDefaults: () => Promise<AiRules['lists']>
       onUsageUpdate: (cb: (latest: LatestUsage | null) => void) => () => void
 
       updateGetLatest: () => Promise<UpdateInfo | null>

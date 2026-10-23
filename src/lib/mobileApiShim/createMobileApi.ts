@@ -261,6 +261,9 @@ export function createMobileApi(wsUrl: string) {
     usageGetRange: invoke('usage:getRange'),
     usageGetPassiveEnabled: invoke('usage:getPassiveEnabled'),
     usageSetPassiveEnabled: invoke('usage:setPassiveEnabled'),
+    aiRulesGet: invoke('aiRules:get'),
+    aiRulesSet: invoke('aiRules:set'),
+    aiRulesGetDefaults: invoke('aiRules:getDefaults'),
     onUsageUpdate: on('usage:update'),
 
     // bridge — mirrors electron/mobileRelay/channels/bridgeChannels.ts

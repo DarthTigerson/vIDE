@@ -31,7 +31,8 @@ async function findLive(dataDir: string, id: string): Promise<Script> {
 export const SCRIPTS_INSTRUCTIONS =
   "These are the user's saved routines (shell scripts with a title and a description of when to use them). " +
   'When the user asks for something a script describes, offer or use run_script instead of retyping its commands. ' +
-  'When asked to write or fix a routine, use create_script / update_script. You cannot delete scripts.'
+  'When asked to write or fix a routine, use create_script / update_script. ' +
+  'Before creating one, check list_scripts and update a matching script instead of adding a near-duplicate. You cannot delete scripts.'
 
 export function socketRunner(socketPath: string, windowId: string): (scriptId: string) => Promise<string> {
   return (scriptId) =>
