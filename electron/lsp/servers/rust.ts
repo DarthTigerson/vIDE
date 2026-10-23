@@ -1,9 +1,9 @@
 import { existsSync } from 'fs'
 import { chmod, mkdir, writeFile } from 'fs/promises'
-import https from 'https'
 import { homedir, arch, platform } from 'os'
 import { join } from 'path'
 import { gunzipSync } from 'zlib'
+import { download } from '../download'
 import { resolveBinaryPath, resolveVersion } from '../shellPath'
 import type { LspServerModule } from '../types'
 
@@ -25,35 +25,6 @@ async function resolvedPath(): Promise<string | null> {
   const onPath = await resolveBinaryPath('rust-analyzer')
   if (onPath) return onPath
   return existsSync(MANAGED_PATH) ? MANAGED_PATH : null
-}
-
-function download(url: string, redirectsLeft = 5): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    https
-      .get(url, { headers: { 'User-Agent': 'vide' } }, (res) => {
-        if (
-          res.statusCode &&
-          res.statusCode >= 300 &&
-          res.statusCode < 400 &&
-          res.headers.location &&
-          redirectsLeft > 0
-        ) {
-          res.resume()
-          download(res.headers.location, redirectsLeft - 1).then(resolve, reject)
-          return
-        }
-        if (res.statusCode !== 200) {
-          reject(new Error(`Download failed: HTTP ${res.statusCode}`))
-          res.resume()
-          return
-        }
-        const chunks: Buffer[] = []
-        res.on('data', (c: Buffer) => chunks.push(c))
-        res.on('end', () => resolve(Buffer.concat(chunks)))
-        res.on('error', reject)
-      })
-      .on('error', reject)
-  })
 }
 
 export const rustServer: LspServerModule = {
