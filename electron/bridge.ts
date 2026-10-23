@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
+import { isMultiRepoProject, MULTI_REPO_PATHS_PROMPT } from './multiRepoPaths'
 import { readFile, writeFile, unlink, rename, access } from 'fs/promises'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
@@ -364,6 +365,7 @@ const FILE_TOOL_GUIDANCE =
   "(3) create_file only for files that don't exist yet."
 
 async function buildSystemPrompt(cwd: string, videInstructions: string[] = []): Promise<string> {
+  const multiRepo = await isMultiRepoProject(cwd)
   let branch = ''
   let lastCommit = ''
   try {
@@ -377,7 +379,7 @@ async function buildSystemPrompt(cwd: string, videInstructions: string[] = []): 
 
   return `You are Bridge, an AI coding assistant running inside a local IDE. You have DIRECT access to the user's machine through function/tool calls.
 
-Project directory: ${cwd}${branch ? `\nCurrent branch: ${branch}` : ''}${lastCommit ? `\nLast commit: ${lastCommit}` : ''}
+Project directory: ${cwd}${branch ? `\nCurrent branch: ${branch}` : ''}${lastCommit ? `\nLast commit: ${lastCommit}` : ''}${multiRepo ? `\n\n${MULTI_REPO_PATHS_PROMPT}` : ''}
 
 == TOOLS ==
 You have the following tools. Use them — do not explain how the user could run commands themselves.

@@ -28,6 +28,12 @@ vi.mock('../mobile', () => ({
   getMobileBroadcaster: () => ({ emit: broadcastEmitMock }),
 }))
 
+const { isMultiRepoMock } = vi.hoisted(() => ({ isMultiRepoMock: vi.fn(async () => false) }))
+vi.mock('../multiRepoPaths', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../multiRepoPaths')>()),
+  isMultiRepoProject: isMultiRepoMock,
+}))
+
 import { ClaudeManager, ECHO_WINDOW_MS, IDLE_TIMEOUT_MS } from '../claude'
 
 beforeEach(() => {
@@ -69,46 +75,46 @@ describe('ClaudeManager claude:spawn (attach mode)', () => {
     return { manager, spawnHandler: handlers['claude:spawn'] }
   }
 
-  it('reuses the existing process when re-attaching with the same cwd', () => {
+  it('reuses the existing process when re-attaching with the same cwd', async () => {
     const { spawnHandler } = setup()
     const win = fakeWin(1)
     const proc = fakePty()
     spawnMock.mockReturnValueOnce(proc)
 
-    spawnHandler({ sender: win }, '/project/a', 'claude', undefined)
-    spawnHandler({ sender: win }, '/project/a', 'claude', undefined)
+    await spawnHandler({ sender: win }, '/project/a', 'claude', undefined)
+    await spawnHandler({ sender: win }, '/project/a', 'claude', undefined)
 
     expect(spawnMock).toHaveBeenCalledTimes(1)
     expect(proc.kill).not.toHaveBeenCalled()
   })
 
-  it('spawns a fresh process rooted in the new cwd when the project folder changes', () => {
+  it('spawns a fresh process rooted in the new cwd when the project folder changes', async () => {
     const { spawnHandler } = setup()
     const win = fakeWin(1)
     const procA = fakePty()
     const procB = fakePty()
     spawnMock.mockReturnValueOnce(procA).mockReturnValueOnce(procB)
 
-    spawnHandler({ sender: win }, '/project/a', 'claude', undefined)
-    spawnHandler({ sender: win }, '/project/b', 'claude', undefined)
+    await spawnHandler({ sender: win }, '/project/a', 'claude', undefined)
+    await spawnHandler({ sender: win }, '/project/b', 'claude', undefined)
 
     expect(spawnMock).toHaveBeenCalledTimes(2)
     expect(spawnMock.mock.calls[1][2]).toMatchObject({ cwd: '/project/b' })
     expect(procA.kill).toHaveBeenCalled()
   })
 
-  it('spawns claude --resume for resume mode', () => {
+  it('spawns claude --resume for resume mode', async () => {
     const { spawnHandler } = setup()
     const win = fakeWin(1)
     const proc = fakePty()
     spawnMock.mockReturnValueOnce(proc)
 
-    spawnHandler({ sender: win }, '/project/a', 'claude', 'resume')
+    await spawnHandler({ sender: win }, '/project/a', 'claude', 'resume')
 
     expect(spawnMock.mock.calls[0][1][1]).toBe('claude --resume')
   })
 
-  it('keeps window A\'s instance running independent of window B', () => {
+  it('keeps window A\'s instance running independent of window B', async () => {
     const { spawnHandler } = setup()
     const winA = fakeWin(1)
     const winB = fakeWin(2)
@@ -116,23 +122,23 @@ describe('ClaudeManager claude:spawn (attach mode)', () => {
     const procB = fakePty()
     spawnMock.mockReturnValueOnce(procA).mockReturnValueOnce(procB)
 
-    spawnHandler({ sender: winA }, '/project/a', 'claude', undefined)
-    spawnHandler({ sender: winB }, '/project/b', 'claude', undefined)
+    await spawnHandler({ sender: winA }, '/project/a', 'claude', undefined)
+    await spawnHandler({ sender: winB }, '/project/b', 'claude', undefined)
 
     expect(procA.kill).not.toHaveBeenCalled()
     expect(procB.kill).not.toHaveBeenCalled()
     expect(spawnMock).toHaveBeenCalledTimes(2)
   })
 
-  it('keeps two instances in the same window independent of each other', () => {
+  it('keeps two instances in the same window independent of each other', async () => {
     const { spawnHandler } = setup()
     const win = fakeWin(1)
     const procA = fakePty()
     const procB = fakePty()
     spawnMock.mockReturnValueOnce(procA).mockReturnValueOnce(procB)
 
-    spawnHandler({ sender: win }, '/project/a', 'instance-a', undefined)
-    spawnHandler({ sender: win }, '/project/a', 'instance-b', undefined)
+    await spawnHandler({ sender: win }, '/project/a', 'instance-a', undefined)
+    await spawnHandler({ sender: win }, '/project/a', 'instance-b', undefined)
 
     expect(procA.kill).not.toHaveBeenCalled()
     expect(procB.kill).not.toHaveBeenCalled()
@@ -150,7 +156,7 @@ describe('ClaudeManager claude:spawn failure', () => {
   // failure (e.g. `claude` not on PATH) needs to reach the phone via the
   // mobile broadcaster, not just `win.webContents.send` — otherwise the
   // phone's terminal just looks permanently blank with no explanation.
-  it('broadcasts the "claude not found" error to mobile clients, not just the real window', () => {
+  it('broadcasts the "claude not found" error to mobile clients, not just the real window', async () => {
     const manager = new ClaudeManager()
     manager.registerHandlers()
     const win = fakeWin(1)
@@ -158,7 +164,7 @@ describe('ClaudeManager claude:spawn failure', () => {
       throw new Error('ENOENT')
     })
 
-    handlers['claude:spawn']({ sender: win }, '/project/a', 'claude', undefined)
+    await handlers['claude:spawn']({ sender: win }, '/project/a', 'claude', undefined)
 
     const expectedMessage = expect.stringContaining("'claude' not found in PATH")
     expect(win.webContents.send).toHaveBeenCalledWith('claude:data', 'claude', expectedMessage)
@@ -182,23 +188,23 @@ describe('ClaudeManager busy detection', () => {
     return { spawnHandler: handlers['claude:spawn'], writeHandler: handlers['claude:write'] }
   }
 
-  function spawnClaude(instanceId = 'claude') {
+  async function spawnClaude(instanceId = 'claude') {
     const { spawnHandler, writeHandler } = setup()
     const win = fakeWin(1)
     const proc = fakePty()
     spawnMock.mockReturnValueOnce(proc)
-    spawnHandler({ sender: win }, '/project/a', instanceId, undefined)
+    await spawnHandler({ sender: win }, '/project/a', instanceId, undefined)
     return { win, proc, writeHandler }
   }
 
-  it('output with no recent input write marks busy immediately', () => {
-    const { win, proc } = spawnClaude()
+  it('output with no recent input write marks busy immediately', async () => {
+    const { win, proc } = await spawnClaude()
     proc.emitData('generating a response...')
     expect(busyCalls(win)).toEqual([['claude:busy', 'claude', true, 1]])
   })
 
-  it('output arriving within ECHO_WINDOW_MS of our own write is treated as an echo, not busy', () => {
-    const { win, proc, writeHandler } = spawnClaude()
+  it('output arriving within ECHO_WINDOW_MS of our own write is treated as an echo, not busy', async () => {
+    const { win, proc, writeHandler } = await spawnClaude()
     writeHandler({ sender: win }, 'claude', 'h')
     vi.advanceTimersByTime(ECHO_WINDOW_MS - 50)
     proc.emitData('h') // the CLI echoing the keystroke back to redraw its input box
@@ -206,8 +212,8 @@ describe('ClaudeManager busy detection', () => {
     expect(busyCalls(win)).toEqual([])
   })
 
-  it('output arriving after ECHO_WINDOW_MS of our own write still counts as real activity', () => {
-    const { win, proc, writeHandler } = spawnClaude()
+  it('output arriving after ECHO_WINDOW_MS of our own write still counts as real activity', async () => {
+    const { win, proc, writeHandler } = await spawnClaude()
     writeHandler({ sender: win }, 'claude', 'h')
     vi.advanceTimersByTime(ECHO_WINDOW_MS + 50)
     proc.emitData('some real output')
@@ -215,8 +221,8 @@ describe('ClaudeManager busy detection', () => {
     expect(busyCalls(win)).toEqual([['claude:busy', 'claude', true, 1]])
   })
 
-  it('busy clears itself IDLE_TIMEOUT_MS after the last non-echo output', () => {
-    const { win, proc } = spawnClaude()
+  it('busy clears itself IDLE_TIMEOUT_MS after the last non-echo output', async () => {
+    const { win, proc } = await spawnClaude()
     proc.emitData('chunk 1')
     vi.advanceTimersByTime(IDLE_TIMEOUT_MS)
 
@@ -226,8 +232,8 @@ describe('ClaudeManager busy detection', () => {
     ])
   })
 
-  it('further output resets the idle timer instead of stacking a stale one', () => {
-    const { win, proc } = spawnClaude()
+  it('further output resets the idle timer instead of stacking a stale one', async () => {
+    const { win, proc } = await spawnClaude()
     proc.emitData('chunk 1')
     vi.advanceTimersByTime(IDLE_TIMEOUT_MS - 200)
     proc.emitData('chunk 2') // resets the countdown
@@ -242,8 +248,8 @@ describe('ClaudeManager busy detection', () => {
     ])
   })
 
-  it('does not send duplicate busy:true events while continuously active', () => {
-    const { win, proc } = spawnClaude()
+  it('does not send duplicate busy:true events while continuously active', async () => {
+    const { win, proc } = await spawnClaude()
     proc.emitData('chunk 1')
     vi.advanceTimersByTime(100)
     proc.emitData('chunk 2')
@@ -251,8 +257,8 @@ describe('ClaudeManager busy detection', () => {
     expect(busyCalls(win)).toEqual([['claude:busy', 'claude', true, 1]])
   })
 
-  it('process exit clears busy', () => {
-    const { win, proc } = spawnClaude()
+  it('process exit clears busy', async () => {
+    const { win, proc } = await spawnClaude()
     proc.emitData('chunk 1')
     proc.emitExit()
 
@@ -262,8 +268,8 @@ describe('ClaudeManager busy detection', () => {
     ])
   })
 
-  it('reports how many non-echo chunks arrived over the whole episode on the busy=false event', () => {
-    const { win, proc } = spawnClaude()
+  it('reports how many non-echo chunks arrived over the whole episode on the busy=false event', async () => {
+    const { win, proc } = await spawnClaude()
     proc.emitData('chunk 1')
     vi.advanceTimersByTime(200)
     proc.emitData('chunk 2')
@@ -277,8 +283,8 @@ describe('ClaudeManager busy detection', () => {
     ])
   })
 
-  it('resets the chunk count for a fresh episode after going idle', () => {
-    const { win, proc } = spawnClaude()
+  it('resets the chunk count for a fresh episode after going idle', async () => {
+    const { win, proc } = await spawnClaude()
     proc.emitData('chunk 1')
     proc.emitData('chunk 2')
     vi.advanceTimersByTime(IDLE_TIMEOUT_MS) // first episode goes idle: 2 chunks
@@ -294,14 +300,14 @@ describe('ClaudeManager busy detection', () => {
     ])
   })
 
-  it('tracks busy independently for two concurrent instances in the same window', () => {
+  it('tracks busy independently for two concurrent instances in the same window', async () => {
     const { spawnHandler } = setup()
     const win = fakeWin(1)
     const procA = fakePty()
     const procB = fakePty()
     spawnMock.mockReturnValueOnce(procA).mockReturnValueOnce(procB)
-    spawnHandler({ sender: win }, '/project/a', 'instance-a', undefined)
-    spawnHandler({ sender: win }, '/project/a', 'instance-b', undefined)
+    await spawnHandler({ sender: win }, '/project/a', 'instance-a', undefined)
+    await spawnHandler({ sender: win }, '/project/a', 'instance-b', undefined)
 
     procA.emitData('a is generating')
     expect(busyCalls(win)).toEqual([['claude:busy', 'instance-a', true, 1]])
@@ -327,7 +333,7 @@ describe('ClaudeManager claude:kill', () => {
     spawnMock.mockReset()
   })
 
-  it('kills only the targeted instance, leaving a sibling instance running', () => {
+  it('kills only the targeted instance, leaving a sibling instance running', async () => {
     const manager = new ClaudeManager()
     manager.registerHandlers()
     const win = fakeWin(1)
@@ -335,15 +341,15 @@ describe('ClaudeManager claude:kill', () => {
     const procB = fakePty()
     spawnMock.mockReturnValueOnce(procA).mockReturnValueOnce(procB)
 
-    handlers['claude:spawn']({ sender: win }, '/project/a', 'instance-a', undefined)
-    handlers['claude:spawn']({ sender: win }, '/project/a', 'instance-b', undefined)
+    await handlers['claude:spawn']({ sender: win }, '/project/a', 'instance-a', undefined)
+    await handlers['claude:spawn']({ sender: win }, '/project/a', 'instance-b', undefined)
     handlers['claude:kill']({ sender: win }, 'instance-a')
 
     expect(procA.kill).toHaveBeenCalled()
     expect(procB.kill).not.toHaveBeenCalled()
   })
 
-  it('is a no-op for an unknown instance id', () => {
+  it('is a no-op for an unknown instance id', async () => {
     const manager = new ClaudeManager()
     manager.registerHandlers()
     const win = fakeWin(1)
@@ -368,7 +374,7 @@ describe('ClaudeManager browser-open shim env', () => {
     }
   }
 
-  it('merges the browser-open shim env vars into a claude spawn, keyed by that spawn\'s window', () => {
+  it('merges the browser-open shim env vars into a claude spawn, keyed by that spawn\'s window', async () => {
     const shim = fakeShim()
     const manager = new ClaudeManager(shim)
     manager.registerHandlers()
@@ -376,7 +382,7 @@ describe('ClaudeManager browser-open shim env', () => {
     const proc = fakePty()
     spawnMock.mockReturnValueOnce(proc)
 
-    handlers['claude:spawn']({ sender: win }, '/project/a', 'claude', undefined)
+    await handlers['claude:spawn']({ sender: win }, '/project/a', 'claude', undefined)
 
     expect(shim.getSpawnEnv).toHaveBeenCalledWith(9)
     expect(spawnMock.mock.calls[0][2].env).toMatchObject({
@@ -391,7 +397,7 @@ describe('ClaudeManager browser-open shim env', () => {
   // before the shell body even runs, so /usr/bin/open always wins over our
   // shim dir if we rely on the env var alone. Re-exporting PATH inside the
   // command string itself runs after that clobbering, so our shim dir wins.
-  it('re-prepends the shim bin dir to PATH inside the command string, after the login shell would otherwise clobber it', () => {
+  it('re-prepends the shim bin dir to PATH inside the command string, after the login shell would otherwise clobber it', async () => {
     const shim = fakeShim()
     const manager = new ClaudeManager(shim)
     manager.registerHandlers()
@@ -399,7 +405,7 @@ describe('ClaudeManager browser-open shim env', () => {
     const proc = fakePty()
     spawnMock.mockReturnValueOnce(proc)
 
-    handlers['claude:spawn']({ sender: win }, '/project/a', 'claude', undefined)
+    await handlers['claude:spawn']({ sender: win }, '/project/a', 'claude', undefined)
 
     const command = spawnMock.mock.calls[0][1][1]
     expect(command).toBe('export PATH="/shim/bin:$PATH"; claude')
@@ -435,16 +441,16 @@ describe('ClaudeManager session restore', () => {
     return spawnMock.mock.calls[call][2].env
   }
 
-  it('creates the session directory', () => {
+  it('creates the session directory', async () => {
     setup()
     expect(fs.existsSync(path.join(dir, 'sessions'))).toBe(true)
   })
 
-  it('passes a SessionStart hook and the per-instance session file to every spawn', () => {
+  it('passes a SessionStart hook and the per-instance session file to every spawn', async () => {
     const { spawnHandler } = setup()
     spawnMock.mockReturnValue(fakePty())
 
-    spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined)
+    await spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined)
 
     const cmd = spawnedCommand()
     expect(cmd).toContain(`--settings '`)
@@ -453,72 +459,72 @@ describe('ClaudeManager session restore', () => {
     expect(spawnedEnv().VIDE_CLAUDE_SESSION_FILE).toBe(path.join(dir, 'sessions', 'inst-1.json'))
   })
 
-  it('resumes the recorded conversation when restoring an instance whose transcript exists', () => {
+  it('resumes the recorded conversation when restoring an instance whose transcript exists', async () => {
     const { spawnHandler } = setup()
     spawnMock.mockReturnValue(fakePty())
     const transcript = path.join(dir, 'abc-123.jsonl')
     fs.writeFileSync(transcript, '{}\n')
     record('inst-1', { session_id: 'abc-123', transcript_path: transcript })
 
-    spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined)
+    await spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined)
 
     expect(spawnedCommand()).toMatch(/^claude --resume abc-123 --settings /)
   })
 
-  it('starts fresh when the recorded transcript no longer exists (e.g. /clear with no new message)', () => {
+  it('starts fresh when the recorded transcript no longer exists (e.g. /clear with no new message)', async () => {
     const { spawnHandler } = setup()
     spawnMock.mockReturnValue(fakePty())
     record('inst-1', { session_id: 'abc-123', transcript_path: path.join(dir, 'missing.jsonl') })
 
-    spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined)
+    await spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined)
 
     expect(spawnedCommand()).toMatch(/^claude --settings /)
   })
 
-  it('starts fresh when nothing was recorded or the record is corrupt', () => {
+  it('starts fresh when nothing was recorded or the record is corrupt', async () => {
     const { spawnHandler } = setup()
     spawnMock.mockReturnValue(fakePty())
     record('inst-2', { nope: true })
     fs.writeFileSync(path.join(dir, 'sessions', 'inst-3.json'), '{not json')
 
-    spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined)
-    spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-2', undefined)
-    spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-3', undefined)
+    await spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined)
+    await spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-2', undefined)
+    await spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-3', undefined)
 
     for (const call of [0, 1, 2]) expect(spawnedCommand(call)).toMatch(/^claude --settings /)
   })
 
-  it('never puts an unsafe recorded session id into the shell command', () => {
+  it('never puts an unsafe recorded session id into the shell command', async () => {
     const { spawnHandler } = setup()
     spawnMock.mockReturnValue(fakePty())
     const transcript = path.join(dir, 't.jsonl')
     fs.writeFileSync(transcript, '{}\n')
     record('inst-1', { session_id: 'x; rm -rf ~', transcript_path: transcript })
 
-    spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined)
+    await spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined)
 
     expect(spawnedCommand()).not.toContain('rm -rf')
     expect(spawnedCommand()).toMatch(/^claude --settings /)
   })
 
-  it('does not record sessions for an instance id that is not a safe filename', () => {
+  it('does not record sessions for an instance id that is not a safe filename', async () => {
     const { spawnHandler } = setup()
     spawnMock.mockReturnValue(fakePty())
 
-    spawnHandler({ sender: fakeWin(1) }, '/p', '../escape', undefined)
+    await spawnHandler({ sender: fakeWin(1) }, '/p', '../escape', undefined)
 
     expect(spawnedCommand()).toBe('claude')
     expect(spawnedEnv().VIDE_CLAUDE_SESSION_FILE).toBeUndefined()
   })
 
-  it('keeps explicit continue/resume modes but still records the session they land on', () => {
+  it('keeps explicit continue/resume modes but still records the session they land on', async () => {
     const { spawnHandler } = setup()
     spawnMock.mockReturnValue(fakePty())
     const transcript = path.join(dir, 't.jsonl')
     fs.writeFileSync(transcript, '{}\n')
     record('inst-1', { session_id: 'abc-123', transcript_path: transcript })
 
-    spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', 'resume')
+    await spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', 'resume')
 
     expect(spawnedCommand()).toMatch(/^claude --resume --settings /)
   })
@@ -550,11 +556,11 @@ describe('ClaudeManager Rocky Code launch', () => {
     return spawnMock.mock.calls[call][2].env
   }
 
-  it.each([undefined, 'new', 'continue', 'resume'])('adds the Rocky flags and env for a rocky spawn in %s mode', (mode) => {
+  it.each([undefined, 'new', 'continue', 'resume'])('adds the Rocky flags and env for a rocky spawn in %s mode', async (mode) => {
     const { spawnHandler } = setup()
     spawnMock.mockReturnValue(fakePty())
 
-    spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', mode, 'rocky')
+    await spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', mode, 'rocky')
 
     expect(spawnedCommand()).toContain(' --model opus --append-system-prompt "$VIDE_ROCKY_PROMPT" --agents "$VIDE_ROCKY_AGENTS"')
     expect(spawnedEnv().VIDE_ROCKY_PROMPT).toContain('Rocky')
@@ -563,28 +569,60 @@ describe('ClaudeManager Rocky Code launch', () => {
     expect(Object.keys(JSON.parse(spawnedEnv().VIDE_ROCKY_AGENTS))).toEqual(['scout', 'worker'])
   })
 
-  it('keeps the Rocky flags when restoring a recorded rocky conversation', () => {
+  it('keeps the Rocky flags when restoring a recorded rocky conversation', async () => {
     const { spawnHandler } = setup()
     spawnMock.mockReturnValue(fakePty())
     const transcript = path.join(dir, 'abc-123.jsonl')
     fs.writeFileSync(transcript, '{}\n')
     fs.writeFileSync(path.join(dir, 'sessions', 'inst-1.json'), JSON.stringify({ session_id: 'abc-123', transcript_path: transcript }))
 
-    spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined, 'rocky')
+    await spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined, 'rocky')
 
     expect(spawnedCommand()).toMatch(/^claude --resume abc-123 --settings .* --model opus --append-system-prompt /)
   })
 
-  it('leaves plain Claude spawns without Rocky flags or env', () => {
+  it('leaves plain Claude spawns without Rocky flags or env', async () => {
     const { spawnHandler } = setup()
     spawnMock.mockReturnValue(fakePty())
 
-    spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined, 'claude')
+    await spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined, 'claude')
 
     expect(spawnedCommand()).not.toContain('--model opus')
     expect(spawnedCommand()).not.toContain('spinnerVerbs')
     // Compared to the inherited env so this holds when run from a Rocky session.
     expect(spawnedEnv().VIDE_ROCKY_PROMPT).toBe(process.env.VIDE_ROCKY_PROMPT)
     expect(spawnedEnv().VIDE_ROCKY_AGENTS).toBe(process.env.VIDE_ROCKY_AGENTS)
+  })
+
+  describe('multi-repo paths instruction', () => {
+    afterEach(() => isMultiRepoMock.mockResolvedValue(false))
+
+    it('asks plain Claude for absolute paths when the project holds several repos', async () => {
+      isMultiRepoMock.mockResolvedValue(true)
+      const { spawnHandler } = setup()
+      spawnMock.mockReturnValue(fakePty())
+      await spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined, 'claude')
+      expect(isMultiRepoMock).toHaveBeenCalledWith('/p')
+      expect(spawnedCommand()).toContain(' --append-system-prompt "$VIDE_PATHS_PROMPT"')
+      expect(spawnedEnv().VIDE_PATHS_PROMPT).toContain('full absolute path')
+    })
+
+    it('adds nothing for a single-repo project', async () => {
+      const { spawnHandler } = setup()
+      spawnMock.mockReturnValue(fakePty())
+      await spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined, 'claude')
+      expect(spawnedCommand()).not.toContain('--append-system-prompt')
+      expect(spawnedEnv().VIDE_PATHS_PROMPT).toBe(process.env.VIDE_PATHS_PROMPT)
+    })
+
+    it("joins it to Rocky's prompt instead of passing a second flag", async () => {
+      isMultiRepoMock.mockResolvedValue(true)
+      const { spawnHandler } = setup()
+      spawnMock.mockReturnValue(fakePty())
+      await spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined, 'rocky')
+      expect(spawnedCommand().match(/--append-system-prompt/g)).toHaveLength(1)
+      expect(spawnedEnv().VIDE_ROCKY_PROMPT).toContain('Rocky')
+      expect(spawnedEnv().VIDE_ROCKY_PROMPT).toContain('full absolute path')
+    })
   })
 })

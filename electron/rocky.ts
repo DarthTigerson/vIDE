@@ -103,6 +103,8 @@ export const ROCKY_SETTINGS = {
 // (see rockySpawnEnv) so none of it needs shell quoting inside `-lic`.
 export const ROCKY_FLAGS = '--model opus --append-system-prompt "$VIDE_ROCKY_PROMPT" --agents "$VIDE_ROCKY_AGENTS"'
 
-export function rockySpawnEnv(): Record<string, string> {
-  return { VIDE_ROCKY_PROMPT: ROCKY_PROMPT, VIDE_ROCKY_AGENTS: JSON.stringify(ROCKY_AGENTS) }
+// extraPrompt joins Rocky's own: the CLI takes one --append-system-prompt.
+export function rockySpawnEnv(extraPrompt?: string): Record<string, string> {
+  const prompt = extraPrompt ? `${ROCKY_PROMPT}\n\n${extraPrompt}` : ROCKY_PROMPT
+  return { VIDE_ROCKY_PROMPT: prompt, VIDE_ROCKY_AGENTS: JSON.stringify(ROCKY_AGENTS) }
 }
