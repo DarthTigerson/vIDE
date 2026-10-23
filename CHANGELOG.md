@@ -1,4 +1,15 @@
 # vIDE
+## v0.2.29 (2026-10-23)
+- **Graphify reminders in notifications**: once a repo has a graph, the notification bell offers to add `graphify-out/` to its `.gitignore` if it isn't ignored yet, and to set graphify up for Claude Code if the project doesn't have its skill. Click a notification to apply it, or close it with ×. Both checks run when a repo opens and after each graph build, and each has a "Remind to…" switch in Settings > Graphify (on by default)
+- **Graphify hooks repair themselves**: when a project's Claude Code hooks point at a graphify binary from someone else's machine, vIDE reinstalls them on open so they point at yours
+- **Llama server output in every window**: a llama-server started in one window, or before a reload, now shows its output on the model's page in any window. A server started outside vIDE says so instead of showing an empty box
+- **Prompt progress in Bridge chat**: a light in the composer shows while llama.cpp is reading your prompt and how far along it is, before the reply starts
+- Settings > Graphify's Claude Code section is gone; setting it up now happens from the notification
+
+**Bug fixes**
+- Fixed a long-running llama-server's output growing without limit; vIDE now keeps only the most recent part
+
+
 ## v0.2.28 (2026-10-22)
 - **Redesigned Bridge and Llama chat**: each turn now plays out as an activity rail, with a step for the model's reasoning, each tool call and each file edit. Reasoning streams in live and folds into "Reasoned for Ns" when it's done (click to read it again), tool steps show what they read, searched or ran and how long it took, and edits show their diff inline. Models that put their thinking in `<think>` tags get the same reasoning step
 - **Reasoning effort for Llama sessions**: a chip in the composer sets how hard the model thinks — Off, Low, Medium, High or Max — per session, and you can change it in the middle of a turn. The change is marked on the rail
