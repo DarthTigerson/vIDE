@@ -4,6 +4,8 @@ import { extensionOf, GRAPHIFY_OUT_DIR, isRuleHidden, relativePath, type HideTog
 import { selectRules, useTreeHidingStore } from '@/stores/treeHidingStore'
 import { useGraphifySettingsStore } from '@/stores/graphifySettingsStore'
 import { useFileStore } from '@/stores/fileStore'
+import { useEditorStore } from '@/stores/editorStore'
+import { FILE_TREE_SETTINGS_TAB_PATH } from '@/components/Settings/paths'
 
 // The Site Tree right-click menu's Hide ▸ submenu: hide this item, every item
 // with its name, or every file with its extension (Unhide instead on an item
@@ -56,6 +58,11 @@ export function HideSubmenu({ root, node, onDone }: {
       {hideSwitch('showGitignored', 'Gitignored items')}
       {hideSwitch('showDotfiles', 'Dotfiles')}
       {graphifyEnabled && hasGraphifyOut && hideSwitch('showGraphify', 'Graphify output')}
+      <MenuDivider />
+      {/* Settings › Site Tree lists every repo's rules, global ones too. */}
+      <MenuButton onClick={() => run(() => useEditorStore.getState().openTab({ path: FILE_TREE_SETTINGS_TAB_PATH, content: '', dirty: false }))}>
+        Hidden items settings…
+      </MenuButton>
     </SubMenuButton>
   )
 }

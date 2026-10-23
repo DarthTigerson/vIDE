@@ -155,3 +155,15 @@ describe('Sidebar — hidden items eye button', () => {
     expect(rules().showHidden).toBe(false)
   })
 })
+
+describe('Sidebar — hidden items settings link', () => {
+  it('opens Settings › Site Tree and closes the menu', () => {
+    const openTab = vi.fn()
+    useEditorStore.setState({ openTab } as any)
+    const { container } = render(<Sidebar />)
+    openHide(container, '/proj/util.ts')
+    fireEvent.click(screen.getByText('Hidden items settings…'))
+    expect(openTab).toHaveBeenCalledWith(expect.objectContaining({ path: 'settings://Site Tree' }))
+    expect(screen.queryByText('Move to Trash')).toBeNull()
+  })
+})
