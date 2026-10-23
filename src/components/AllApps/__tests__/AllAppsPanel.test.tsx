@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { AllAppsPanel, ALL_APPS_VIEW_KEY } from '../AllAppsPanel'
+import { AllAppsPanel, ALL_APPS_VIEW_KEY, ALL_APPS_DISABLED_OPEN_KEY } from '../AllAppsPanel'
 import { APP_DRAG_MIME } from '@/components/ActivityBar/ActivityBar'
 
 const apps = [
@@ -144,5 +144,59 @@ describe('AllAppsPanel', () => {
     expect(screen.getByText('To Do').closest('button')!.textContent).toContain('2')
     fireEvent.click(screen.getByRole('button', { name: 'List' }))
     expect(localStorage.getItem(ALL_APPS_VIEW_KEY)).toBe('"list"')
+  })
+
+  describe('Disabled section', () => {
+    const disabled = () => [
+      { id: 'jira', title: 'Jira', icon: null, onEnable: vi.fn(), onSettings: vi.fn() },
+      { id: 'scripts', title: 'Scripts', icon: null, onEnable: vi.fn(), onSettings: vi.fn() },
+    ]
+    const renderWith = (list = disabled()) => {
+      render(<AllAppsPanel apps={apps} disabledApps={list} open onPlace={vi.fn()} onUnfavorite={vi.fn()} />)
+      return list
+    }
+
+    it('is collapsed by default, and remembers being opened', () => {
+      localStorage.removeItem(ALL_APPS_DISABLED_OPEN_KEY)
+      renderWith()
+      const toggle = screen.getByRole('button', { name: /Disabled/ })
+      expect(toggle.getAttribute('aria-expanded')).toBe('false')
+      expect(toggle.textContent).toContain('2')
+      expect(screen.queryByText('Jira')).toBeNull()
+
+      fireEvent.click(toggle)
+      expect(screen.getByText('Jira')).toBeTruthy()
+      expect(localStorage.getItem(ALL_APPS_DISABLED_OPEN_KEY)).toBe('true')
+      fireEvent.click(toggle)
+      expect(localStorage.getItem(ALL_APPS_DISABLED_OPEN_KEY)).toBe('false')
+    })
+
+    it('is hidden when no app is disabled', () => {
+      renderWith([])
+      expect(screen.queryByRole('region', { name: 'Disabled' })).toBeNull()
+    })
+
+    it('enables an app on click, and offers Enable and Settings on right-click', () => {
+      localStorage.setItem(ALL_APPS_DISABLED_OPEN_KEY, 'true')
+      const list = renderWith()
+      fireEvent.click(screen.getByText('Jira'))
+      expect(list[0].onEnable).toHaveBeenCalled()
+
+      fireEvent.contextMenu(screen.getByText('Scripts'))
+      expect(screen.queryByRole('button', { name: 'Disable' })).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+      expect(list[1].onSettings).toHaveBeenCalled()
+      fireEvent.contextMenu(screen.getByText('Scripts'))
+      fireEvent.click(screen.getByRole('button', { name: 'Enable' }))
+      expect(list[1].onEnable).toHaveBeenCalled()
+    })
+
+    it('shows matching disabled apps while searching, even when collapsed', () => {
+      localStorage.removeItem(ALL_APPS_DISABLED_OPEN_KEY)
+      renderWith()
+      fireEvent.change(screen.getByLabelText('Search apps'), { target: { value: 'jir' } })
+      expect(screen.getByText('Jira')).toBeTruthy()
+      expect(screen.queryByText('Scripts')).toBeNull()
+    })
   })
 })

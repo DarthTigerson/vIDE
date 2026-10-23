@@ -9,7 +9,7 @@ vi.hoisted(() => {
   }
 })
 import { MOVABLE_APP_IDS } from '../appFavorites'
-import { APP_SETTINGS_PATHS, appDisabler } from '../appSettings'
+import { APP_SETTINGS_PATHS, appEnabledSetter } from '../appSettings'
 import { SETTINGS_PAGES } from '@/components/Search/pageCommands'
 import { useDockerSettingsStore } from '@/stores/dockerSettingsStore'
 
@@ -19,13 +19,14 @@ describe('appSettings', () => {
     for (const id of MOVABLE_APP_IDS) expect(pages.has(APP_SETTINGS_PATHS[id])).toBe(true)
   })
 
-  it('has a disabler for every app except the GitHub/GitLab one', () => {
-    for (const id of MOVABLE_APP_IDS) expect(appDisabler(id) === null).toBe(id === 'git-remote')
+  it('has a setter for every app except the GitHub/GitLab one', () => {
+    for (const id of MOVABLE_APP_IDS) expect(appEnabledSetter(id) === null).toBe(id === 'git-remote')
   })
 
-  it("turns the app's Enable switch off", () => {
-    useDockerSettingsStore.getState().setEnabled(true)
-    appDisabler('docker')!()
+  it("flips the app's Enable switch", () => {
+    appEnabledSetter('docker')!(true)
+    expect(useDockerSettingsStore.getState().enabled).toBe(true)
+    appEnabledSetter('docker')!(false)
     expect(useDockerSettingsStore.getState().enabled).toBe(false)
   })
 })

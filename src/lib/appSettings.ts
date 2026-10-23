@@ -33,19 +33,19 @@ export const APP_SETTINGS_PATHS: Record<MovableAppId, string> = {
   jira: JIRA_SETTINGS_TAB_PATH,
 }
 
-// Turns an app's Enable switch off, the same as doing it from its settings
-// page. null for the GitHub/GitLab app: it has no switch, it shows whenever a
+// Sets an app's Enable switch, the same as flipping it on its settings page.
+// null for the GitHub/GitLab app: it has no switch, it shows whenever a
 // remote URL is set.
-export function appDisabler(id: MovableAppId): (() => void) | null {
+export function appEnabledSetter(id: MovableAppId): ((enabled: boolean) => void) | null {
   switch (id) {
-    case 'docker': return () => useDockerSettingsStore.getState().setEnabled(false)
-    case 'llama': return () => useLlamaSettingsStore.getState().setEnabled(false)
-    case 'mobile': return () => useMobileSettingsStore.getState().setEnabled(false)
-    case 'graphify': return () => useGraphifySettingsStore.getState().setEnabled(false)
-    case 'todos': return () => useTodoSettingsStore.getState().setEnabled(false)
-    case 'notes': return () => useNotesSettingsStore.getState().setEnabled(false)
-    case 'scripts': return () => useScriptsSettingsStore.getState().setEnabled(false)
-    case 'jira': return () => useJiraSettingsStore.getState().setEnabled(false)
+    case 'docker': return useDockerSettingsStore.getState().setEnabled
+    case 'llama': return useLlamaSettingsStore.getState().setEnabled
+    case 'mobile': return useMobileSettingsStore.getState().setEnabled
+    case 'graphify': return useGraphifySettingsStore.getState().setEnabled
+    case 'todos': return useTodoSettingsStore.getState().setEnabled
+    case 'notes': return useNotesSettingsStore.getState().setEnabled
+    case 'scripts': return useScriptsSettingsStore.getState().setEnabled
+    case 'jira': return useJiraSettingsStore.getState().setEnabled
     case 'git-remote': return null
   }
 }
