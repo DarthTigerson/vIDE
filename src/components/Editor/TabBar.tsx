@@ -212,6 +212,18 @@ export function TabBar({ paneId }: { paneId: string }) {
           </div>
         )
       })}
+      {/* Same as the bottom terminal panel's "+": a new blank file, like
+          double-clicking the empty strip. */}
+      <button
+        type="button"
+        aria-label="New file"
+        title="New file"
+        className="flex w-7 shrink-0 items-center justify-center text-base leading-none text-fg-muted hover:text-fg"
+        onClick={() => openScratchTab(paneId)}
+        onDoubleClick={(e) => e.stopPropagation()}
+      >
+        +
+      </button>
       </div>
       {/* Outside the scrolling list on purpose: padding on the list itself
           scrolls away once tabs overflow, which is exactly when there is no

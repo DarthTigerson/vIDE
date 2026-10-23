@@ -19,6 +19,9 @@ import { copyToClipboard, pasteInto, dropExternalFiles } from '@/lib/fileClipboa
 import { findNodeByPath, isExternalFileDrag } from './treeUtils'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
 import { panelDropTargetClass } from '@/components/ui/panelDrop'
+import { HideSubmenu } from './HideSubmenu'
+import { selectRules, useTreeHidingStore } from '@/stores/treeHidingStore'
+import { ruleCount } from '@/lib/treeHiding'
 
 const UNDO_TIMEOUT_MS = 10000
 
@@ -90,6 +93,8 @@ export function Sidebar() {
   const [deleteTarget, setDeleteTarget] = useState<FileNode | null>(null)
   const [dragOverPath, setDragOverPath] = useState<string | null>(null)
   const [undoMove, setUndoMove] = useState<{ from: string; to: string } | null>(null)
+  const hideRules = useTreeHidingStore((s) => selectRules(s.byRepo, projectRoot))
+  const hiddenRuleCount = ruleCount(hideRules)
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -396,6 +401,25 @@ export function Sidebar() {
             <span className="text-xs font-semibold text-fg-muted uppercase tracking-wider truncate">
               Site Tree
             </span>
+            {hiddenRuleCount > 0 && (
+              <button
+                type="button"
+                title={hideRules.showHidden ? 'Hide hidden items' : 'Show hidden items'}
+                aria-label={hideRules.showHidden ? 'Hide hidden items' : 'Show hidden items'}
+                aria-pressed={hideRules.showHidden}
+                onClick={() => useTreeHidingStore.getState().setToggle(projectRoot, 'showHidden', !hideRules.showHidden)}
+                className={[
+                  'flex items-center rounded px-1.5 h-5 transition-colors',
+                  hideRules.showHidden ? 'bg-accent/15 text-accent' : 'text-fg-subtle hover:text-fg hover:bg-white/5',
+                ].join(' ')}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  {hideRules.showHidden
+                    ? <><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></>
+                    : <path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.1A10 10 0 0 1 12 5c6 0 10 7 10 7a17 17 0 0 1-3.2 3.9M6.1 6.1C3.6 7.8 2 12 2 12s4 7 10 7a9.6 9.6 0 0 0 4.3-1" />}
+                </svg>
+              </button>
+            )}
           </div>
 
           <div
@@ -422,6 +446,7 @@ export function Sidebar() {
               nodes={tree}
               directoryPath={projectRoot}
               onContextMenu={openContextMenu}
+              menuPath={menu?.node?.path ?? null}
               prompt={prompt}
               setPromptValue={setPromptValue}
               commitPrompt={commitPrompt}
@@ -487,6 +512,12 @@ export function Sidebar() {
               }}>
                 Collapse All
               </ContextMenuButton>
+              {!menu.node && (
+                <>
+                  <ContextMenuDivider />
+                  <HideSubmenu root={projectRoot} node={null} onDone={() => setMenu(null)} />
+                </>
+              )}
               {menu.node && (
                 <>
                   <ContextMenuDivider />
@@ -505,6 +536,8 @@ export function Sidebar() {
                   }}>
                     Reveal in Finder
                   </ContextMenuButton>
+                  <ContextMenuDivider />
+                  <HideSubmenu root={projectRoot} node={menu.node} onDone={() => setMenu(null)} />
                   <ContextMenuDivider />
                   <ContextMenuButton danger onClick={() => requestTrashNode(menu.node!)}>
                     Move to Trash
