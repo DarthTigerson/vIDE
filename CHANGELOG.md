@@ -1,4 +1,15 @@
 # vIDE
+## v0.2.30 (2026-10-23)
+- **Rocky mode for every agent**: the "+" menu now has Normal and Rocky tabs at the top. On the Rocky tab every agent shows Rocky's icon and starts in Rocky mode: Claude Code becomes Rocky Code, and Bridge and Llama sessions answer in Rocky's voice. The menu remembers the tab you last picked, so whichever mode you use most is one click. Rocky Bridge and Llama sessions keep Rocky's icon in the session bar and stay in Rocky mode after a relaunch. New Agent Session in the Action Palette lists a "(Rocky mode)" entry for each agent. The separate Rocky Code row is gone, since the Rocky tab replaces it
+- **Hide items in the Site Tree**: right-click a file or folder for a new Hide submenu. Hide that one item, everything with the same name, or every file with the same extension, and switch hidden items, gitignored items, dotfiles and graphify output on or off for the repo. Hidden items can be shown faded and tagged "hidden" from an eye button in the Site Tree header, and unhidden from the same submenu. Search keeps their matches in a collapsible Hidden results section instead of mixing them in
+- **Hidden items settings**: a new section in Settings > Site Tree lists every repo's hide rules, plus rules for All repos that apply everywhere. Make a repo's rule global, remove rules one by one, reset one repo, or clear everything with Master Reset. "Hidden items settings…" at the bottom of the Hide submenu jumps straight there. Hide rules sync through vIDE Sync
+- **All Apps right-click menu**: right-click an app to favourite or unfavourite it, open its settings, or enable or disable it. The row you right-clicked stays highlighted while the menu is open
+- **Disabled apps in All Apps**: a collapsible Disabled section under More Apps lists the apps you've turned off. Click one to enable it again, or drag an app onto the section to disable it
+- **New file button in the tab bar**: a + at the end of each pane's tabs opens a new scratch file in that pane
+- **Full file paths in multi-repo projects**: when the project folder holds several git repos, Claude, Rocky, Bridge and Llama are told to always write full absolute file paths, so file links in chat open the right file instead of guessing which repo a path belongs to
+
+
+
 ## v0.2.29 (2026-10-23)
 - **Graphify reminders in notifications**: once a repo has a graph, the notification bell offers to add `graphify-out/` to its `.gitignore` if it isn't ignored yet, and to set graphify up for Claude Code if the project doesn't have its skill. Click a notification to apply it, or close it with ×. Both checks run when a repo opens and after each graph build, and each has a "Remind to…" switch in Settings > Graphify (on by default)
 - **Graphify hooks repair themselves**: when a project's Claude Code hooks point at a graphify binary from someone else's machine, vIDE reinstalls them on open so they point at yours
