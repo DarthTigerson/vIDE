@@ -86,8 +86,20 @@ export async function resolveAndRunStreamed(
   onData: (chunk: string) => void
 ): Promise<void> {
   const bin = (await resolveBinaryPath(command)) ?? command
+  return runStreamed(bin, args, onData, command)
+}
+
+// Spawns `bin` and streams stdout+stderr chunks to `onData` until it exits.
+// `command` is the name used in error messages.
+export function runStreamed(
+  bin: string,
+  args: string[],
+  onData: (chunk: string) => void,
+  command = bin,
+  extraEnv: NodeJS.ProcessEnv = {}
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    const proc = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'], env: binaryEnv(bin) })
+    const proc = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'], env: { ...binaryEnv(bin), ...extraEnv } })
     proc.stdout.on('data', (chunk: Buffer) => onData(chunk.toString()))
     proc.stderr.on('data', (chunk: Buffer) => onData(chunk.toString()))
     proc.on('error', (err: NodeJS.ErrnoException) => {

@@ -1,4 +1,5 @@
-import { resolveAndRunStreamed, resolveBinaryPath, resolveVersion } from '../shellPath'
+import { npmInstallGlobal, resolveNpmBinary } from '../nodeRuntime'
+import { resolveVersion } from '../shellPath'
 import type { LspServerModule } from '../types'
 
 // Red Hat's yaml-language-server, the same one VS Code's YAML extension and
@@ -12,19 +13,19 @@ export const yamlServer: LspServerModule = {
   ramEstimate: 'typically 80–200MB',
 
   async detect() {
-    const path = await resolveBinaryPath('yaml-language-server')
+    const path = await resolveNpmBinary('yaml-language-server')
     if (!path) return { found: false }
     const version = await resolveVersion(path, ['--version'])
     return { found: true, path, version: version ?? undefined }
   },
 
   async getSpawn() {
-    const path = await resolveBinaryPath('yaml-language-server')
+    const path = await resolveNpmBinary('yaml-language-server')
     if (!path) return null
     return { command: path, args: ['--stdio'] }
   },
 
   install(onData) {
-    return resolveAndRunStreamed('npm', ['install', '-g', 'yaml-language-server'], onData)
+    return npmInstallGlobal(['yaml-language-server'], onData)
   },
 }
