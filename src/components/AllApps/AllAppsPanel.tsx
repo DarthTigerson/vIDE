@@ -27,7 +27,7 @@ export interface DisabledAppEntry {
 }
 
 type ViewMode = 'list' | 'icons'
-type DropZone = 'favorites' | 'others'
+type DropZone = 'favorites' | 'others' | 'disabled'
 
 // Under 'vide:general:' so vIDE Sync carries it, like the favorites; it only
 // changes on a click of the header toggle.
@@ -149,6 +149,16 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
     setDropZone(null)
     const id = e.dataTransfer.getData(APP_DRAG_MIME)
     if (id && id !== beforeId) onPlace(id, beforeId)
+  }
+
+  // Dropping an enabled app on Disabled turns it off. The GitHub/GitLab app
+  // has no Enable switch, so dropping it here does nothing.
+  function dropOnDisabled(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    setDropZone(null)
+    const id = e.dataTransfer.getData(APP_DRAG_MIME)
+    apps.find((app) => app.id === id)?.onDisable?.()
   }
 
   // Everywhere outside "On the bar": a favorite dropped here comes off the
@@ -314,10 +324,15 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
             ? renderApps(others, false)
             : q ? <p className="px-3 pb-1.5 text-xs text-fg-subtle">No apps match.</p> : null}
         </section>
-        {visibleDisabled.length > 0 && (
+        {(!q || visibleDisabled.length > 0) && (
           <>
             <div className="mx-3 h-px bg-border shrink-0" />
-            <section aria-label="Disabled" className="pb-1.5 shrink-0">
+            <section
+              aria-label="Disabled"
+              {...zoneHandlers('disabled')}
+              onDrop={dropOnDisabled}
+              className={`pb-1.5 shrink-0 ${dropZone === 'disabled' ? panelDropTargetClass : ''}`}
+            >
               <button
                 type="button"
                 aria-expanded={disabledExpanded}
@@ -330,7 +345,9 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
                 Disabled
                 <span className="px-1.5 rounded-full bg-border text-fg-muted font-medium tracking-normal">{visibleDisabled.length}</span>
               </button>
-              {disabledExpanded && renderDisabledApps(visibleDisabled)}
+              {disabledExpanded && (visibleDisabled.length > 0
+                ? renderDisabledApps(visibleDisabled)
+                : <p className="px-3 pb-1.5 text-xs text-fg-subtle">Drag an app here to disable it.</p>)}
             </section>
           </>
         )}

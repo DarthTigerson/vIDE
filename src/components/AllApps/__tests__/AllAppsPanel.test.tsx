@@ -182,9 +182,22 @@ describe('AllAppsPanel', () => {
       expect(localStorage.getItem(ALL_APPS_DISABLED_OPEN_KEY)).toBe('false')
     })
 
-    it('is hidden when no app is disabled', () => {
+    it('stays as a drop target when no app is disabled', () => {
+      localStorage.setItem(ALL_APPS_DISABLED_OPEN_KEY, 'true')
       renderWith([])
-      expect(screen.queryByRole('region', { name: 'Disabled' })).toBeNull()
+      expect(screen.getByRole('region', { name: 'Disabled' }).textContent).toContain('Drag an app here to disable it.')
+    })
+
+    it('disables an app dropped on it', () => {
+      apps[0].onDisable!.mockClear()
+      renderWith()
+      fireEvent.drop(screen.getByRole('region', { name: 'Disabled' }), { dataTransfer: dataTransfer({ [APP_DRAG_MIME]: 'docker' }) })
+      expect(apps[0].onDisable).toHaveBeenCalled()
+    })
+
+    it('ignores a drop of an app with no Enable switch', () => {
+      renderWith()
+      expect(() => fireEvent.drop(screen.getByRole('region', { name: 'Disabled' }), { dataTransfer: dataTransfer({ [APP_DRAG_MIME]: 'notes' }) })).not.toThrow()
     })
 
     it('enables an app on click, and offers Enable and Settings on right-click', () => {
