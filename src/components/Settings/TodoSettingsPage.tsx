@@ -1,5 +1,6 @@
 import { useTodoSettingsStore } from '@/stores/todoSettingsStore'
 import { useTodoMcpStore } from '@/stores/todoMcpStore'
+import { AiRulesSection } from './AiRulesSection'
 import { FeatureBlock } from './FeatureBlock'
 
 export function TodoSettingsPage() {
@@ -29,6 +30,7 @@ export function TodoSettingsPage() {
           toggle={{ checked: mcpEnabled, onChange: (value) => void setMcpEnabled(value), label: "Let Claude see & manage your todos", disabled: mcpPending }}
         >
           {mcpError && <p className="text-xs text-red-500">{mcpError}</p>}
+          {mcpEnabled && <AiRulesSection tool="todos" />}
         </FeatureBlock>
       </div>
     </div>

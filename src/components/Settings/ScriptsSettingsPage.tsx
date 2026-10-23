@@ -1,5 +1,6 @@
 import { useScriptsSettingsStore } from '@/stores/scriptsSettingsStore'
 import { useScriptsMcpStore } from '@/stores/scriptsMcpStore'
+import { AiRulesSection } from './AiRulesSection'
 import { FeatureBlock } from './FeatureBlock'
 
 export function ScriptsSettingsPage() {
@@ -29,6 +30,7 @@ export function ScriptsSettingsPage() {
           toggle={{ checked: mcpEnabled, onChange: (value) => void setMcpEnabled(value), label: 'Let Claude see & run your scripts', disabled: mcpPending }}
         >
           {mcpError && <p className="text-xs text-red-500">{mcpError}</p>}
+          {mcpEnabled && <AiRulesSection tool="scripts" />}
         </FeatureBlock>
       </div>
     </div>

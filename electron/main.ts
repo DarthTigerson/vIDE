@@ -4,6 +4,7 @@ import { is } from '@electron-toolkit/utils'
 import { access, cp } from 'fs/promises'
 import { PtyManager } from './pty'
 import { ClaudeManager } from './claude'
+import { aiRulesPrompt, initAiRules, registerAiRulesHandlers } from './aiRules'
 import { BrowserBridge } from './browserBridge'
 import { GitRunner } from './gitRunner'
 import { GraphifyManager } from './graphify'
@@ -863,7 +864,9 @@ app.whenReady().then(async () => {
   registerScriptRunRoute(browserBridge, ptyMgr)
   // claude-sessions/ is machine-local (transcripts live in this machine's
   // ~/.claude) — deliberately not part of vIDE Sync.
-  claudeMgr = new ClaudeManager(browserBridge, join(app.getPath('userData'), 'claude-sessions'))
+  initAiRules(join(app.getPath('userData'), 'ai-rules.json'))
+  registerAiRulesHandlers()
+  claudeMgr = new ClaudeManager(browserBridge, join(app.getPath('userData'), 'claude-sessions'), () => aiRulesPrompt())
   claudeMgr.registerHandlers()
   const gitRunner = new GitRunner()
   gitRunner.registerHandlers()

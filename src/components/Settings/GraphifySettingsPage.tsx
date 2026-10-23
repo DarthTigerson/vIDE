@@ -1,6 +1,7 @@
 import { useGraphifyStore } from '@/stores/graphifyStore'
 import { useGraphifySettingsStore } from '@/stores/graphifySettingsStore'
 import { Switch } from '@/components/ui/Toggle'
+import { AiRulesSection } from './AiRulesSection'
 import { FeatureBlock, SettingRow } from './FeatureBlock'
 import { ToolInstallRow } from './ToolInstallRow'
 
@@ -55,6 +56,7 @@ export function GraphifySettingsPage() {
           <SettingRow label="Remind to set up Claude Code" description="Shows a notification when a repo has a graph but Claude Code can't query it yet. Click it to add graphify's skill (.claude/skills/graphify plus a CLAUDE.md section).">
             <Switch label="Remind to set up graphify for Claude Code" checked={claudeSkillPrompt} onChange={setClaudeSkillPrompt} />
           </SettingRow>
+          <AiRulesSection tool="graphify" />
         </FeatureBlock>
       </div>
     </div>

@@ -11,6 +11,7 @@ import { registerCommitMessageRelayChannels } from './channels/commitMessageChan
 import { registerRecentProjectsRelayChannels } from './channels/recentProjectsChannels'
 import { registerWindowRelayChannels } from './channels/windowChannels'
 import { registerUsageRelayChannels } from './channels/usageChannels'
+import { registerAiRulesRelayChannels } from './channels/aiRulesChannels'
 import { registerBridgeRelayChannels } from './channels/bridgeChannels'
 import { registerTodosRelayChannels } from './channels/todosChannels'
 import { registerNotesRelayChannels } from './channels/notesChannels'
@@ -55,6 +56,7 @@ export function registerAllRelayChannels(deps: RelayChannelDeps): void {
   registerRecentProjectsRelayChannels()
   registerWindowRelayChannels()
   registerUsageRelayChannels(deps.usageManager)
+  registerAiRulesRelayChannels()
   registerBridgeRelayChannels(deps.bridgeManager, deps.win)
   registerTodosRelayChannels()
   registerNotesRelayChannels()

@@ -210,6 +210,9 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('usage:getRange', fromTs, toTs, maxPoints) as Promise<import('./usagePoller').UsageSnapshot[]>,
   usageGetPassiveEnabled: () => ipcRenderer.invoke('usage:getPassiveEnabled'),
   usageSetPassiveEnabled: (enabled: boolean) => ipcRenderer.invoke('usage:setPassiveEnabled', enabled),
+  aiRulesGet: () => ipcRenderer.invoke('aiRules:get'),
+  aiRulesSet: (rules: unknown) => ipcRenderer.invoke('aiRules:set', rules),
+  aiRulesGetDefaults: () => ipcRenderer.invoke('aiRules:getDefaults'),
   onUsageUpdate: (cb: (latest: import('./usagePoller').LatestUsage | null) => void) => {
     const handler = (_: Electron.IpcRendererEvent, latest: import('./usagePoller').LatestUsage | null) => cb(latest)
     ipcRenderer.on('usage:update', handler)

@@ -2,6 +2,7 @@ import { useBrowserSettingsStore } from '@/stores/browserSettingsStore'
 import { useBrowserMcpStore } from '@/stores/browserMcpStore'
 import { useSearchMcpStore } from '@/stores/searchMcpStore'
 import { Switch } from '@/components/ui/Toggle'
+import { AiRulesSection } from './AiRulesSection'
 import { FeatureBlock, SettingRow } from './FeatureBlock'
 
 export function BrowserSettingsPage() {
@@ -36,6 +37,7 @@ export function BrowserSettingsPage() {
           toggle={{ checked: mcpEnabled, onChange: (value) => void setMcpEnabled(value), label: 'Let Claude drive a browser tab', disabled: mcpPending }}
         >
           {mcpError && <p className="text-xs text-red-500">{mcpError}</p>}
+          {mcpEnabled && <AiRulesSection tool="browser" />}
         </FeatureBlock>
 
         <FeatureBlock

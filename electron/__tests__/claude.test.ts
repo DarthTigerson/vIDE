@@ -581,6 +581,38 @@ describe('ClaudeManager Rocky Code launch', () => {
     expect(spawnedCommand()).toMatch(/^claude --resume abc-123 --settings .* --model opus --append-system-prompt /)
   })
 
+  it('appends AI rules to a plain Claude spawn via env', async () => {
+    const manager = new ClaudeManager(undefined, path.join(dir, 'sessions'), () => 'RULE ONE')
+    manager.registerHandlers()
+    spawnMock.mockReturnValue(fakePty())
+
+    await handlers['claude:spawn']({ sender: fakeWin(1) }, '/p', 'inst-1', 'new', 'claude')
+
+    expect(spawnedCommand()).toContain(' --append-system-prompt "$VIDE_APPEND_PROMPT"')
+    expect(spawnedEnv().VIDE_APPEND_PROMPT).toBe('RULE ONE')
+  })
+
+  it('folds AI rules into the single Rocky prompt instead of a second flag', async () => {
+    const manager = new ClaudeManager(undefined, path.join(dir, 'sessions'), () => 'RULE ONE')
+    manager.registerHandlers()
+    spawnMock.mockReturnValue(fakePty())
+
+    await handlers['claude:spawn']({ sender: fakeWin(1) }, '/p', 'inst-1', 'new', 'rocky')
+
+    expect(spawnedCommand().match(/--append-system-prompt/g)).toHaveLength(1)
+    expect(spawnedEnv().VIDE_ROCKY_PROMPT).toMatch(/Rocky[\s\S]*\n\nRULE ONE$/)
+  })
+
+  it('adds no AI rules flag when the rules are empty', async () => {
+    const manager = new ClaudeManager(undefined, path.join(dir, 'sessions'), () => '')
+    manager.registerHandlers()
+    spawnMock.mockReturnValue(fakePty())
+
+    await handlers['claude:spawn']({ sender: fakeWin(1) }, '/p', 'inst-1', 'new', 'claude')
+
+    expect(spawnedCommand()).not.toContain('--append-system-prompt')
+  })
+
   it('leaves plain Claude spawns without Rocky flags or env', async () => {
     const { spawnHandler } = setup()
     spawnMock.mockReturnValue(fakePty())
@@ -603,8 +635,18 @@ describe('ClaudeManager Rocky Code launch', () => {
       spawnMock.mockReturnValue(fakePty())
       await spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined, 'claude')
       expect(isMultiRepoMock).toHaveBeenCalledWith('/p')
-      expect(spawnedCommand()).toContain(' --append-system-prompt "$VIDE_PATHS_PROMPT"')
-      expect(spawnedEnv().VIDE_PATHS_PROMPT).toContain('full absolute path')
+      expect(spawnedCommand()).toContain(' --append-system-prompt "$VIDE_APPEND_PROMPT"')
+      expect(spawnedEnv().VIDE_APPEND_PROMPT).toContain('full absolute path')
+    })
+
+    it('sends the paths instruction and AI rules together in one appended prompt', async () => {
+      isMultiRepoMock.mockResolvedValue(true)
+      const manager = new ClaudeManager(undefined, path.join(dir, 'sessions'), () => 'RULE ONE')
+      manager.registerHandlers()
+      spawnMock.mockReturnValue(fakePty())
+      await handlers['claude:spawn']({ sender: fakeWin(1) }, '/p', 'inst-1', undefined, 'claude')
+      expect(spawnedCommand().match(/--append-system-prompt/g)).toHaveLength(1)
+      expect(spawnedEnv().VIDE_APPEND_PROMPT).toMatch(/full absolute path[\s\S]*\n\nRULE ONE$/)
     })
 
     it('adds nothing for a single-repo project', async () => {
@@ -612,7 +654,7 @@ describe('ClaudeManager Rocky Code launch', () => {
       spawnMock.mockReturnValue(fakePty())
       await spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined, 'claude')
       expect(spawnedCommand()).not.toContain('--append-system-prompt')
-      expect(spawnedEnv().VIDE_PATHS_PROMPT).toBe(process.env.VIDE_PATHS_PROMPT)
+      expect(spawnedEnv().VIDE_APPEND_PROMPT).toBe(process.env.VIDE_APPEND_PROMPT)
     })
 
     it("joins it to Rocky's prompt instead of passing a second flag", async () => {

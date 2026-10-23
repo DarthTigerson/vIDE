@@ -4,11 +4,13 @@ import { CLAUDE_MODELS } from '@/stores/claudeModels'
 import { useInlineEditSettingsStore } from '@/stores/inlineEditSettingsStore'
 import { useCommitMessageSettingsStore } from '@/stores/commitMessageSettingsStore'
 import { useUsagePassiveSettingsStore } from '@/stores/usagePassiveSettingsStore'
+import { useAiRulesSettingsStore } from '@/stores/aiRulesSettingsStore'
 import { useNotificationSoundSettingsStore, NOTIFICATION_SOUND_OPTIONS, playNotificationSound } from '@/stores/notificationSoundSettingsStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
 import { Select } from '@/components/ui/Select'
 import { FeatureBlock, SettingRow } from './FeatureBlock'
+import { AiRulesList } from './AiRulesList'
 import { InlineEditPreview, CommitMessagePreview } from './previews/claudePreviews'
 
 function SpeakerIcon() {
@@ -48,6 +50,9 @@ export function ClaudeSettingsPage() {
   const notificationSoundId = useNotificationSoundSettingsStore((s) => s.soundId)
   const setNotificationSoundId = useNotificationSoundSettingsStore((s) => s.setSoundId)
 
+  const aiRulesEnabled = useAiRulesSettingsStore((s) => s.enabled)
+  const setAiRulesEnabled = useAiRulesSettingsStore((s) => s.setEnabled)
+
   useEffect(() => {
     useUsagePassiveSettingsStore.getState().init()
   }, [])
@@ -65,6 +70,14 @@ export function ClaudeSettingsPage() {
           description="Show Claude Code in the model dropdown."
           toggle={{ checked: claudeEnabled, onChange: (value) => setModelEnabled('claude', value), label: 'Claude' }}
         />
+
+        <FeatureBlock
+          title="AI rules"
+          description="Standing instructions added to every Claude session vIDE starts, in every project. Each tool (To Do, Scripts, Notes, Browser, Graphify) has its own list on its settings page. Changes apply to the next session you start."
+          toggle={{ checked: aiRulesEnabled, onChange: setAiRulesEnabled, label: 'AI rules' }}
+        >
+          <AiRulesList id="general" label="General rules" />
+        </FeatureBlock>
 
         <FeatureBlock
           title="Done sound"

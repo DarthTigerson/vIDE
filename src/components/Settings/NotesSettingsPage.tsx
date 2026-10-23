@@ -1,5 +1,6 @@
 import { useNotesSettingsStore } from '@/stores/notesSettingsStore'
 import { useNotesMcpStore } from '@/stores/notesMcpStore'
+import { AiRulesSection } from './AiRulesSection'
 import { FeatureBlock } from './FeatureBlock'
 
 export function NotesSettingsPage() {
@@ -29,6 +30,7 @@ export function NotesSettingsPage() {
           toggle={{ checked: mcpEnabled, onChange: (value) => void setMcpEnabled(value), label: "Let Claude read & write your notes", disabled: mcpPending }}
         >
           {mcpError && <p className="text-xs text-red-500">{mcpError}</p>}
+          {mcpEnabled && <AiRulesSection tool="notes" />}
         </FeatureBlock>
       </div>
     </div>
