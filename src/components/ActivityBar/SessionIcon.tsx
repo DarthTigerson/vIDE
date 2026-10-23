@@ -25,7 +25,7 @@ export function SessionIcon({ session }: { session: AgentSession }) {
   if (isTerminalKind(session.kind)) return <span className="flex" style={{ color: session.hue }}><TerminalIcon /></span>
   return (
     <span className={['flex', streaming ? 'animate-pulse' : ''].join(' ')} style={{ color: session.hue }}>
-      {isLlamaKind(session.kind) ? <LlamaIcon /> : <BridgeIcon color={session.hue} />}
+      {session.rocky ? <RockyIcon color={session.hue} /> : isLlamaKind(session.kind) ? <LlamaIcon /> : <BridgeIcon color={session.hue} />}
     </span>
   )
 }

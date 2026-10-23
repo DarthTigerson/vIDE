@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ROCKY_AGENTS, ROCKY_PROMPT, ROCKY_SETTINGS, rockySpawnEnv } from '../rocky'
+import { ROCKY_AGENTS, ROCKY_PROMPT, ROCKY_SETTINGS, ROCKY_VOICE, rockySpawnEnv } from '../rocky'
 
 describe('Rocky Code preset', () => {
   it('defines a Haiku scout and a Sonnet worker', () => {
@@ -25,5 +25,11 @@ describe('Rocky Code preset', () => {
   it('keeps code and helper briefs out of the Rocky voice', () => {
     expect(ROCKY_PROMPT).toMatch(/Normal English, no Rocky voice, in: code/)
     expect(ROCKY_PROMPT).toMatch(/Delegate only to "scout" and "worker"/)
+  })
+
+  it('keeps the voice rules on their own, with no Claude Code or helper parts', () => {
+    expect(ROCKY_PROMPT).toContain(ROCKY_VOICE)
+    expect(ROCKY_VOICE).toMatch(/^VOICE/)
+    expect(ROCKY_VOICE).not.toMatch(/Claude Code|DELEGATION/)
   })
 })

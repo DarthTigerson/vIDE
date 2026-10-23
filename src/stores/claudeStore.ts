@@ -24,13 +24,18 @@ export interface AgentSession {
   // User-chosen label (right-click → Rename…). Persisted; overrides the
   // live terminal title in titleByInstance.
   name?: string
+  // A Bridge or llama session started from the "+" menu's Rocky tab: its
+  // replies use Rocky's voice. (Claude in Rocky mode is its own kind, 'rocky'.)
+  rocky?: boolean
 }
 
 // Older name, kept so existing imports keep compiling.
 export type ClaudeInstance = AgentSession
 
-function createInstance(kind: AssistantKind, hue: string): AgentSession {
-  return { id: crypto.randomUUID(), kind, hue }
+function createInstance(kind: AssistantKind, hue: string, rocky = false): AgentSession {
+  const session: AgentSession = { id: crypto.randomUUID(), kind: rocky && kind === 'claude' ? 'rocky' : kind, hue }
+  if (rocky && isBridgeLike(kind)) session.rocky = true
+  return session
 }
 
 function parseSaved(raw: unknown, defaultKind?: AssistantKind): AgentSession[] {
@@ -41,6 +46,7 @@ function parseSaved(raw: unknown, defaultKind?: AssistantKind): AgentSession[] {
     if (!kind) return []
     const session: AgentSession = { id: inst.id, kind, hue: inst.hue }
     if (typeof inst.name === 'string' && inst.name) session.name = inst.name
+    if (inst.rocky === true && isBridgeLike(kind)) session.rocky = true
     return [session]
   })
 }
@@ -54,7 +60,7 @@ function persist(cwd: string, agentSessions: AgentSession[]) {
 }
 
 function openIfBridgeLike(inst: AgentSession) {
-  if (isBridgeLike(inst.kind)) useBridgeStore.getState().openConversation(inst.id, agentModeOnLaunchFor(inst.kind))
+  if (isBridgeLike(inst.kind)) useBridgeStore.getState().openConversation(inst.id, agentModeOnLaunchFor(inst.kind), inst.rocky)
 }
 
 interface ClaudeState {
@@ -85,7 +91,9 @@ interface ClaudeState {
   toggleAgentBarCollapsed: () => void
   loadInstancesFromSession: (data: { agentSessions?: unknown; claudeInstances?: unknown } | null | undefined) => void
   // Returns the new session's id (a terminal session's id is also its PTY id).
-  newSession: (cwd: string, kind: AssistantKind) => string
+  // rocky (the "+" menu's Rocky tab): Claude becomes Rocky Code, Bridge and
+  // llama sessions get Rocky's voice; a terminal ignores it.
+  newSession: (cwd: string, kind: AssistantKind, rocky?: boolean) => string
   moveInstance: (cwd: string, dragId: string, targetId: string, placement: 'before' | 'after') => void
   previousSession: (cwd: string) => void
   resumeSession: (cwd: string) => void
@@ -199,9 +207,9 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
 
   consumeInjection: () => set({ pendingInjection: null }),
 
-  newSession: (cwd, kind) => {
+  newSession: (cwd, kind, rocky = false) => {
     const instances = get().instances
-    const instance = createInstance(kind, nextHueForInstances(instances))
+    const instance = createInstance(kind, nextHueForInstances(instances), rocky)
     openIfBridgeLike(instance)
     const nextInstances = [...instances, instance]
     set({ instances: nextInstances, activeInstanceId: instance.id, ...usagePanelsFor(instance) })

@@ -1423,9 +1423,9 @@ export default function App() {
           anchor={newSessionMenu}
           side={mirrored ? 'left' : 'right'}
           options={agentOptions}
-          onPick={(kind) => {
+          onPick={(kind, rocky) => {
             if (!projectRoot) return
-            useClaudeStore.getState().newSession(projectRoot, kind)
+            useClaudeStore.getState().newSession(projectRoot, kind, rocky)
             useClaudeStore.getState().setChatVisible(true)
           }}
           onPickScript={(script) => {

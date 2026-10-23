@@ -53,7 +53,6 @@ describe('agentKinds', () => {
   it('lists enabled built-ins then enabled llama models', () => {
     expect(availableAgents({ claude: true, bridge: false }, [qwen, off])).toEqual([
       { kind: 'claude', label: 'Claude Code' },
-      { kind: 'rocky', label: 'Rocky Code' },
       { kind: 'llama:q1', label: 'Qwen 32B' },
     ])
     expect(availableAgents({ claude: false, bridge: true }, [])).toEqual([{ kind: 'bridge', label: 'Bridge' }])
