@@ -71,6 +71,17 @@ describe('AllAppsPanel', () => {
     expect(row.classList).not.toContain('bg-white/5')
   })
 
+  it('favorites an app from the right-click menu, and unfavorites a favorite', () => {
+    const { onPlace, onUnfavorite } = setup()
+    fireEvent.contextMenu(screen.getByText('Notes'))
+    fireEvent.click(screen.getByRole('button', { name: 'Favorite' }))
+    expect(onPlace).toHaveBeenCalledWith('notes', null)
+
+    fireEvent.contextMenu(screen.getByText('Docker'))
+    fireEvent.click(screen.getByRole('button', { name: 'Unfavorite' }))
+    expect(onUnfavorite).toHaveBeenCalledWith('docker')
+  })
+
   it('leaves Disable out of the menu for an app without one', () => {
     setup()
     fireEvent.contextMenu(screen.getByText('Notes'))
@@ -184,6 +195,7 @@ describe('AllAppsPanel', () => {
 
       fireEvent.contextMenu(screen.getByText('Scripts'))
       expect(screen.queryByRole('button', { name: 'Disable' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Favorite' })).toBeNull()
       fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
       expect(list[1].onSettings).toHaveBeenCalled()
       fireEvent.contextMenu(screen.getByText('Scripts'))

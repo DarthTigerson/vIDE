@@ -4,12 +4,15 @@ import { clampToViewport } from '@/components/ui/clampToViewport'
 import { MenuButton, MenuDivider } from '@/components/ui/MenuItems'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
 
-// Right-click menu on an All Apps row: open the app's settings page, and
-// turn the app off (omitted for apps without an Enable switch) or, on a
-// Disabled row, back on.
-export function AllAppsContextMenu({ x, y, onSettings, onDisable, onEnable, onClose }: {
+// Right-click menu on an All Apps row: put the app on the bar or take it off,
+// open its settings page, and turn it off (omitted for apps without an Enable
+// switch) or, on a Disabled row, back on.
+export function AllAppsContextMenu({ x, y, favorite, onToggleFavorite, onSettings, onDisable, onEnable, onClose }: {
   x: number
   y: number
+  // Omitted on Disabled rows, which can't go on the bar.
+  favorite?: boolean
+  onToggleFavorite?: () => void
   onSettings: () => void
   onDisable?: () => void
   onEnable?: () => void
@@ -45,6 +48,9 @@ export function AllAppsContextMenu({ x, y, onSettings, onDisable, onEnable, onCl
       style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
     >
+      {onToggleFavorite && (
+        <MenuButton onClick={() => { onToggleFavorite(); onClose() }}>{favorite ? 'Unfavorite' : 'Favorite'}</MenuButton>
+      )}
       {onEnable && <MenuButton onClick={() => { onEnable(); onClose() }}>Enable</MenuButton>}
       <MenuButton onClick={() => { onSettings(); onClose() }}>Settings</MenuButton>
       {onDisable && (

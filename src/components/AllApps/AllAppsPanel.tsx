@@ -75,6 +75,8 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
     x: number
     y: number
     id: string
+    favorite?: boolean
+    onToggleFavorite?: () => void
     onSettings: () => void
     onDisable?: () => void
     onEnable?: () => void
@@ -84,7 +86,15 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
   function openMenu(e: React.MouseEvent, app: AllAppsEntry) {
     e.preventDefault()
     e.stopPropagation()
-    setMenu({ x: e.clientX, y: e.clientY, id: app.id, onSettings: app.onSettings, onDisable: app.onDisable })
+    setMenu({
+      x: e.clientX,
+      y: e.clientY,
+      id: app.id,
+      favorite: app.favorite,
+      onToggleFavorite: () => (app.favorite ? onUnfavorite(app.id) : onPlace(app.id, null)),
+      onSettings: app.onSettings,
+      onDisable: app.onDisable,
+    })
   }
 
   function openDisabledMenu(e: React.MouseEvent, app: DisabledAppEntry) {
@@ -329,6 +339,8 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
         <AllAppsContextMenu
           x={menu.x}
           y={menu.y}
+          favorite={menu.favorite}
+          onToggleFavorite={menu.onToggleFavorite}
           onSettings={menu.onSettings}
           onDisable={menu.onDisable}
           onEnable={menu.onEnable}
