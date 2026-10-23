@@ -2,6 +2,7 @@ import { useGeneralSettingsStore, type FileTreeGitStatus } from '@/stores/genera
 import { RadioGroup } from '@/components/ui/RadioGroup'
 import { FeatureBlock, SettingRow } from './FeatureBlock'
 import { FileTreePreview } from './previews/fileTreePreviews'
+import { HiddenItemsSettings } from './HiddenItemsSettings'
 
 export function FileTreeSettingsPage() {
   const fileTreeGitStatus = useGeneralSettingsStore((s) => s.fileTreeGitStatus)
@@ -31,6 +32,8 @@ export function FileTreeSettingsPage() {
             />
           </SettingRow>
         </FeatureBlock>
+
+        <HiddenItemsSettings />
       </div>
     </div>
   )
