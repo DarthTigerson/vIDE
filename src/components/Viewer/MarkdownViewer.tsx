@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { PROSE_CLASSES } from './proseClasses'
 import { useEditorStore } from '@/stores/editorStore'
 
@@ -51,7 +52,11 @@ export function MarkdownViewer({ path }: { path: string }) {
   return (
     <div className="h-full overflow-auto bg-panel">
       <div className={PROSE_CLASSES}>
-        <ReactMarkdown>{content}</ReactMarkdown>
+        {/* react-markdown is CommonMark only; remark-gfm adds the GitHub
+            extensions VS Code and Cursor's preview render out of the box
+            (pipe tables, strikethrough, task lists, autolinks, footnotes).
+            Without it a table showed up as one paragraph of raw pipes. */}
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
       </div>
     </div>
   )
