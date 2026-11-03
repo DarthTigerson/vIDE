@@ -18,7 +18,11 @@ interface FileRowProps {
 }
 
 export function FileRow({ file, staged, onToggle, onOpenDiff, onContextMenu }: FileRowProps) {
-  const name = file.path.split('/').pop() ?? file.path
+  // A trailing slash is a folder entry (a nested repo, `?? nested/`): name it
+  // by the folder, slash kept, rather than the empty last segment.
+  const name = file.path.endsWith('/')
+    ? `${file.path.slice(0, -1).split('/').pop()}/`
+    : file.path.split('/').pop() ?? file.path
 
   return (
     <div

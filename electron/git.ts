@@ -230,9 +230,13 @@ export function parsePorcelainStatus(raw: string): GitStatus {
   return { staged, unstaged }
 }
 
+// --untracked-files=all lists each file inside a new folder instead of one
+// collapsed `?? newdir/` entry, so every untracked file gets its own named,
+// stageable, diffable row. A repo nested inside this one still comes back as
+// a single `?? nested/` entry — git never lists inside another repo.
 export async function getGitStatus(cwd: string): Promise<GitStatus> {
   try {
-    const { stdout } = await execFileAsync('git', ['status', '--porcelain=v1', '-z'], { cwd })
+    const { stdout } = await execFileAsync('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all'], { cwd })
     return parsePorcelainStatus(stdout)
   } catch {
     return { staged: [], unstaged: [] }
