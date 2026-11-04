@@ -117,12 +117,11 @@ export function TabBar({ paneId }: { paneId: string }) {
           <div
             key={tab.path}
             draggable
-            className={`relative flex items-center gap-1.5 px-3 py-1.5 border-r border-border whitespace-nowrap text-sm ${
-              // Browser tabs size like Chrome/Firefox: up to a max width, then
-              // all shrink evenly (equal flex-basis) to a min before the strip
-              // scrolls. Other tab kinds keep sizing to their content.
-              isBrowser ? 'flex-[0_1_220px] min-w-[4.5rem] max-w-[220px]' : ''
-            } ${
+            // Every tab sizes to its name up to a max width; once the strip is
+            // full they all shrink (longest the most) down to a min width, and
+            // only then does the strip scroll. The name truncates with an
+            // ellipsis and the full name is on hover.
+            className={`relative flex shrink items-center gap-1.5 px-3 py-1.5 border-r border-border whitespace-nowrap text-sm min-w-[4.5rem] max-w-[220px] ${
               isDragging ? 'cursor-grabbing' : 'cursor-grab'
             } ${
               isActive
@@ -189,10 +188,7 @@ export function TabBar({ paneId }: { paneId: string }) {
               />
             )}
             {isBrowser ? <BrowserTabIcon /> : <FileIcon name={name} />}
-            <span
-              className={isBrowser ? 'min-w-0 flex-1 truncate' : undefined}
-              title={isBrowser ? name : undefined}
-            >
+            <span className="min-w-0 truncate" title={name}>
               {displayName}
             </span>
             {tab.missing && (
@@ -204,7 +200,7 @@ export function TabBar({ paneId }: { paneId: string }) {
               </span>
             )}
             {tab.dirty && (
-              <span className="text-accent" title="Unsaved changes">
+              <span className="shrink-0 text-accent" title="Unsaved changes">
                 ●
               </span>
             )}
