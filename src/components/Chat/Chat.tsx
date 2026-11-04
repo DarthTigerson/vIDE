@@ -22,7 +22,7 @@ import { UsagePanel } from '@/components/UsagePanel/UsagePanel'
 import { CostPanel } from '@/components/UsagePanel/CostPanel'
 import { isShiftEnterKeydown, SHIFT_ENTER_SEQUENCE } from './shiftEnterSequence'
 import { wrapBracketedPaste } from '@/lib/sendSelectionToAssistant'
-import { createFilePathLinkProvider, createFilePathActivateHandler, createUrlLinkProvider, createUrlActivateHandler, openUrlInBrowserTab } from './terminalLinks'
+import { createFilePathLinkProvider, createFilePathActivateHandler, createUrlLinkProvider, createUrlActivateHandler, joinedSelectionText, openUrlInBrowserTab } from './terminalLinks'
 
 function hasValidSize(cols: number, rows: number): boolean {
   return cols > 0 && rows > 0
@@ -210,6 +210,14 @@ export function Chat() {
       // instance, so this applies unconditionally.
       xterm.registerLinkProvider(createUrlLinkProvider(xterm, createUrlActivateHandler()))
       xterm.registerLinkProvider(createFilePathLinkProvider(xterm, createFilePathActivateHandler()))
+      // Capture phase, ahead of xterm's own copy handler on its textarea, so
+      // a path or URL Claude Code wrapped across rows copies as one line.
+      host.addEventListener('copy', (event) => {
+        if (!xterm.hasSelection() || !event.clipboardData) return
+        event.clipboardData.setData('text/plain', joinedSelectionText(xterm))
+        event.preventDefault()
+        event.stopImmediatePropagation()
+      }, true)
 
       window.api.claudeSpawn(projectRoot, id, undefined, kind)
       const cleanupData = window.api.onClaudeData((source, data) => {

@@ -194,11 +194,48 @@ function rowContinuesOnto(terminal: Terminal, row: BufferLine, next: BufferLine)
   if (next.isWrapped) return true
   const text = row.translateToString(true)
   if (!text) return false
-  const nextText = next.translateToString(true)
   const usedCols = columnForStringIndex(terminal, row, text.length) - 1
-  if (usedCols >= terminal.cols - HARD_WRAP_EDGE_SLACK) return /\S/.test(nextText)
+  if (usedCols >= terminal.cols - HARD_WRAP_EDGE_SLACK) return /\S/.test(next.translateToString(true))
+  return pathContinuesOnto(terminal, row, next)
+}
+
+// The stricter test: the row was cut inside a path or URL (its last token
+// is an unfinished path/URL near the edge, and the next row carries on with
+// path characters). Used on its own when copying, where joining word-wrapped
+// prose would glue words together.
+function pathContinuesOnto(terminal: Terminal, row: BufferLine, next: BufferLine): boolean {
+  const text = row.translateToString(true)
+  if (!text) return false
+  const usedCols = columnForStringIndex(terminal, row, text.length) - 1
   if (usedCols < terminal.cols - PATH_WRAP_EDGE_SLACK) return false
-  return PATH_TAIL.test(text) && PATH_HEAD.test(nextText)
+  return PATH_TAIL.test(text) && PATH_HEAD.test(next.translateToString(true))
+}
+
+// Copying from the Claude panel: xterm keeps Claude Code's hard wraps as
+// real newlines, so a long path or URL copied from the chat pasted as several
+// lines. Rows cut inside a path/URL are joined (continuation indent dropped);
+// every other line break is kept. Selection positions are 0-based, with an
+// exclusive end column.
+export function joinedSelectionText(terminal: Terminal): string {
+  const range = terminal.getSelectionPosition()
+  if (!range) return terminal.getSelection()
+  const buffer = terminal.buffer.active
+  let out = ''
+  let joined = false
+  for (let y = range.start.y; y <= range.end.y; y++) {
+    const line = buffer.getLine(y)
+    if (!line) break
+    const startCol = y === range.start.y ? range.start.x : 0
+    const endCol = y === range.end.y ? range.end.x : terminal.cols
+    const part = line.translateToString(true, startCol, endCol)
+    out += joined ? part.trimStart() : part
+    if (y === range.end.y) break
+    const next = buffer.getLine(y + 1)
+    // Soft wraps are one line already; xterm's own copy joins them the same way.
+    joined = !!next && !next.isWrapped && pathContinuesOnto(terminal, line, next)
+    if (!next?.isWrapped && !joined) out += '\n'
+  }
+  return out
 }
 
 // Joins the logical line containing `y` across soft and hard wraps.
