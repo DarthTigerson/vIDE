@@ -44,6 +44,7 @@ import { getSystemMemoryUsage } from './systemMemory'
 import { getBatteryStatus } from './systemBattery'
 import { registerOnboardingHandlers } from './onboarding'
 import { registerConfigRepoHandlers } from './configRepo'
+import { applyDevProfile } from './devProfile'
 
 function registerFsHandlers(): void {
   ipcMain.handle('fs:readDir', (_e, path: string) => buildTree(path))
@@ -441,6 +442,7 @@ async function restoreOpenWindows(): Promise<void> {
 }
 
 app.name = 'vIDE'
+applyDevProfile()
 
 // One-time, non-destructive migration for users upgrading from Huginn: copy
 // the old userData directory (settings, usage history, etc.) into the new
