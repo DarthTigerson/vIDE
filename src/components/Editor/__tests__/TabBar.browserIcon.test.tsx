@@ -41,7 +41,7 @@ describe('TabBar — browser tab icon', () => {
   })
 })
 
-describe('TabBar — browser tab sizing', () => {
+describe('TabBar — tab sizing', () => {
   it('gives browser tabs a max/min width, an ellipsis label with a full-title tooltip, and a non-shrinking close button', () => {
     setup()
     useBrowserStore.setState({
@@ -57,7 +57,7 @@ describe('TabBar — browser tab sizing', () => {
     expect(screen.getByLabelText(/^Close /)).toHaveClass('shrink-0')
   })
 
-  it('leaves non-browser tabs sized to their content', () => {
+  it('sizes file tabs the same way as browser tabs', () => {
     setup()
     const filePath = '/repo/readme.txt'
     useEditorStore.setState({
@@ -66,8 +66,10 @@ describe('TabBar — browser tab sizing', () => {
       paneTabLists: { 'pane-1': [filePath] },
     })
     render(<TabBar paneId="pane-1" />)
-    const tab = screen.getByText('readme.txt').parentElement!
-    expect(tab.className).not.toContain('max-w-[220px]')
-    expect(screen.getByText('readme.txt')).not.toHaveAttribute('title')
+    const label = screen.getByText('readme.txt')
+    expect(label).toHaveClass('truncate')
+    expect(label).toHaveAttribute('title', 'readme.txt')
+    expect(label.parentElement!.className).toContain('max-w-[220px]')
+    expect(label.parentElement!.className).toContain('min-w-[4.5rem]')
   })
 })
