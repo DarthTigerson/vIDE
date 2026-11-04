@@ -1,4 +1,10 @@
 # vIDE
+## v0.2.32 (2026-11-04)
+**Bug fixes**
+- Fixed language server installs silently failing when vIDE is launched from the Dock or Finder instead of a terminal — the app now finds npm even when it isn't on the restricted PATH Electron gets, by checking known Homebrew and nvm locations. If npm still can't be found, it downloads a private Node.js runtime into `~/.vide/lsp/node` (no admin rights needed), falls back to Homebrew or apt-get, then asks you to install Node.js manually as a last resort. Go to Definition for TypeScript, Python, JSON and YAML now also finds binaries installed via npm global even when the bin folder isn't on PATH
+- Fixed the markdown preview rendering pipe tables as a paragraph of raw `|` characters — added GitHub-flavored markdown support (tables, strikethrough, task lists, autolinks, footnotes) to match what VS Code and Cursor render out of the box. Tables scroll sideways when wider than the page and respect column alignment from the `:---:` row
+
+
 ## v0.2.31 (2026-11-03)
 **Bug fixes**
 - Fixed new folders showing up in the Git panel as a blank row with just a "?" until you staged them. Each untracked file inside a new folder now gets its own row you can open, stage or discard, in single-repo and multi-repo projects alike. A git repo inside another repo shows as one row named after its folder, and its folder gets its badge in the Site Tree
