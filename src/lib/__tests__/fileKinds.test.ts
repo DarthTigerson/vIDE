@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { isImageFile, isMarkdownFile, imageMimeType } from '../fileKinds'
+import {
+  isImageFile, isMarkdownFile, imageMimeType, isRasterImageFile, isSvgFile, needsImageConversion,
+} from '../fileKinds'
 
 describe('isImageFile', () => {
   it('recognizes common image extensions', () => {
@@ -34,5 +36,18 @@ describe('imageMimeType', () => {
     expect(imageMimeType('a.svg')).toBe('image/svg+xml')
     expect(imageMimeType('a.ico')).toBe('image/x-icon')
     expect(imageMimeType('a.webp')).toBe('image/webp')
+  })
+})
+
+describe('viewer extension file kinds', () => {
+  it('splits raster images from SVG and flags the formats that need conversion', () => {
+    expect(isRasterImageFile('a.png')).toBe(true)
+    expect(isRasterImageFile('a.svg')).toBe(false)
+    expect(isSvgFile('A.SVG')).toBe(true)
+    for (const name of ['a.tif', 'a.TIFF', 'a.heic', 'a.heif']) {
+      expect(isRasterImageFile(name)).toBe(true)
+      expect(needsImageConversion(name)).toBe(true)
+    }
+    expect(needsImageConversion('a.png')).toBe(false)
   })
 })
