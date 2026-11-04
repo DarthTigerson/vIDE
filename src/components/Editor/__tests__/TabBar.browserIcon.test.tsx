@@ -1,6 +1,6 @@
 /// <reference types="@testing-library/jest-dom" />
-import { describe, it, expect, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { describe, it, expect, afterEach, vi } from 'vitest'
+import { render, screen, cleanup, act } from '@testing-library/react'
 import { TabBar } from '../TabBar'
 import { useEditorStore } from '@/stores/editorStore'
 import { useBrowserStore } from '@/stores/browserStore'
@@ -71,5 +71,46 @@ describe('TabBar — tab sizing', () => {
     expect(label).toHaveAttribute('title', 'readme.txt')
     expect(label.parentElement!.className).toContain('max-w-[220px]')
     expect(label.parentElement!.className).toContain('min-w-[4.5rem]')
+  })
+})
+
+describe('TabBar — icon-only tabs when crowded', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  function renderWithStripWidth(width: number) {
+    let report: ((entries: { contentRect: { width: number } }[]) => void) | null = null
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(cb: typeof report) { report = cb }
+      observe() {}
+      disconnect() {}
+    })
+    const paths = ['/repo/alpha.ts', '/repo/beta.ts', '/repo/gamma.ts']
+    useEditorStore.setState({
+      tabs: paths.map((path) => ({ path, content: '', dirty: false })),
+      activeTabPath: paths[0],
+      layout: { type: 'pane', id: 'pane-1' },
+      activePaneId: 'pane-1',
+      paneTabs: { 'pane-1': paths[0] },
+      paneTabLists: { 'pane-1': paths },
+      closedTabs: [],
+      pinnedPaths: new Set(),
+    })
+    render(<TabBar paneId="pane-1" />)
+    act(() => report!([{ contentRect: { width } }]))
+  }
+
+  it('shows only the icon on inactive tabs, keeping the active tab readable and closable', () => {
+    renderWithStripWidth(200) // ~67px per tab
+    expect(screen.getByText('beta.ts')).toHaveClass('hidden')
+    expect(screen.getByLabelText('Close beta.ts')).toHaveClass('hidden')
+    expect(screen.getByText('beta.ts').parentElement).toHaveAttribute('title', 'beta.ts')
+    expect(screen.getByText('alpha.ts')).not.toHaveClass('hidden')
+    expect(screen.getByLabelText('Close alpha.ts')).not.toHaveClass('hidden')
+  })
+
+  it('keeps names on every tab while there is room', () => {
+    renderWithStripWidth(600)
+    expect(screen.getByText('beta.ts')).not.toHaveClass('hidden')
+    expect(screen.getByLabelText('Close beta.ts')).not.toHaveClass('hidden')
   })
 })

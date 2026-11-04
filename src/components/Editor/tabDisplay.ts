@@ -13,3 +13,12 @@ export function orderTabsForDisplay(paths: string[], pinnedPaths: ReadonlySet<st
   const rest = paths.filter((p) => !pinnedPaths.has(p))
   return [...pinned, ...rest]
 }
+
+// Below this average width per tab there is no room for a readable name, so
+// inactive tabs collapse to just their icon (like a browser's favicon-only
+// tabs) and the active tab keeps its name and close button.
+export const COMPACT_TAB_WIDTH = 88
+
+export function isCompactTabStrip(stripWidth: number, tabCount: number): boolean {
+  return stripWidth > 0 && tabCount > 0 && stripWidth / tabCount < COMPACT_TAB_WIDTH
+}

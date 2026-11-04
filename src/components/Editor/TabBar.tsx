@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useEditorStore } from '@/stores/editorStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useBrowserStore } from '@/stores/browserStore'
@@ -9,7 +9,7 @@ import { useNotesStore } from '@/stores/notesStore'
 import { FileIcon, BrowserTabIcon } from '@/components/Sidebar/FileIcon'
 import { isTerminalTab, getTerminalId, isBrowserTab, getBrowserId, isTodoBoardTab, getTodoBoardProjectId, isTodoDetailTab, getTodoDetailIds, isLlamaModelTab, getLlamaModelId, isScriptTab, getScriptId } from '@/components/Settings/paths'
 import { useLlamaModelsStore } from '@/stores/llamaModelsStore'
-import { orderTabsForDisplay, truncateTabLabel } from './tabDisplay'
+import { isCompactTabStrip, orderTabsForDisplay, truncateTabLabel } from './tabDisplay'
 import { TabContextMenu } from './TabContextMenu'
 import { useTabContextMenuStore } from '@/stores/tabContextMenuStore'
 import { useTabDragStore } from '@/stores/tabDragStore'
@@ -50,12 +50,25 @@ export function TabBar({ paneId }: { paneId: string }) {
   const openContextMenu = useTabContextMenuStore((s) => s.open)
   const openTabContextMenu = useTabContextMenuStore((s) => s.openMenu)
   const closeTabContextMenu = useTabContextMenuStore((s) => s.closeMenu)
+  // The strip's own width (not the tabs'), so collapsing tabs to icons can't
+  // change the measurement that decided it.
+  const [stripWidth, setStripWidth] = useState(0)
+  const stripObserverRef = useRef<ResizeObserver | null>(null)
+  const stripRef = useCallback((el: HTMLDivElement | null) => {
+    stripObserverRef.current?.disconnect()
+    stripObserverRef.current = null
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(([entry]) => setStripWidth(entry.contentRect.width))
+    observer.observe(el)
+    stripObserverRef.current = observer
+  }, [])
   const contextMenu =
     openContextMenu?.paneId === paneId
       ? { x: openContextMenu.x, y: openContextMenu.y, path: openContextMenu.path }
       : null
 
   if (paneTabs_.length === 0) return null
+  const compact = isCompactTabStrip(stripWidth, paneTabs_.length)
 
   function getDropPlacement(e: React.DragEvent<HTMLElement>): 'before' | 'after' {
     const rect = e.currentTarget.getBoundingClientRect()
@@ -70,6 +83,7 @@ export function TabBar({ paneId }: { paneId: string }) {
   return (
     <div className="flex bg-tab-bar border-b border-border shrink-0 select-none">
       <div
+        ref={stripRef}
         className="flex flex-1 min-w-0 overflow-x-auto"
         // Empty strip only — e.target is the container itself just for the gap
         // to the right of the last tab. Double-clicking a tab (or its close
@@ -113,6 +127,7 @@ export function TabBar({ paneId }: { paneId: string }) {
         const isPinned = pinnedPaths.has(tab.path)
         const displayName = isPinned ? truncateTabLabel(name) : name
         const isBrowser = isBrowserTab(tab.path)
+        const iconOnly = compact && !isActive
         return (
           <div
             key={tab.path}
@@ -120,8 +135,12 @@ export function TabBar({ paneId }: { paneId: string }) {
             // Every tab sizes to its name up to a max width; once the strip is
             // full they all shrink (longest the most) down to a min width, and
             // only then does the strip scroll. The name truncates with an
-            // ellipsis and the full name is on hover.
-            className={`relative flex shrink items-center gap-1.5 px-3 py-1.5 border-r border-border whitespace-nowrap text-sm min-w-[4.5rem] max-w-[220px] ${
+            // ellipsis and the full name is on hover. With too many tabs for
+            // any name to be readable, inactive tabs shrink to just their icon.
+            title={iconOnly ? name : undefined}
+            className={`relative flex shrink items-center gap-1.5 px-3 py-1.5 border-r border-border whitespace-nowrap text-sm max-w-[220px] ${
+              iconOnly ? 'min-w-[2.75rem]' : 'min-w-[4.5rem]'
+            } ${
               isDragging ? 'cursor-grabbing' : 'cursor-grab'
             } ${
               isActive
@@ -188,10 +207,10 @@ export function TabBar({ paneId }: { paneId: string }) {
               />
             )}
             {isBrowser ? <BrowserTabIcon /> : <FileIcon name={name} />}
-            <span className="min-w-0 truncate" title={name}>
+            <span className={`min-w-0 truncate ${iconOnly ? 'hidden' : ''}`} title={name}>
               {displayName}
             </span>
-            {tab.missing && (
+            {tab.missing && !iconOnly && (
               <span
                 title="File no longer exists on disk. Press Cmd+S to save it again."
                 className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border border-amber-400/70 text-[0.625rem] font-bold leading-none text-amber-300"
@@ -199,7 +218,7 @@ export function TabBar({ paneId }: { paneId: string }) {
                 !
               </span>
             )}
-            {tab.dirty && (
+            {tab.dirty && !iconOnly && (
               <span className="shrink-0 text-accent" title="Unsaved changes">
                 ●
               </span>
@@ -208,7 +227,7 @@ export function TabBar({ paneId }: { paneId: string }) {
               type="button"
               draggable={false}
               aria-label={`Close ${name}`}
-              className="text-fg-subtle hover:text-fg text-base leading-none ml-1 shrink-0"
+              className={`text-fg-subtle hover:text-fg text-base leading-none ml-1 shrink-0 ${iconOnly ? 'hidden' : ''}`}
               onClick={(e) => {
                 e.stopPropagation()
                 requestCloseTab(paneId, tab.path)
