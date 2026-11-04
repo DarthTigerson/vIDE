@@ -362,9 +362,9 @@ describe('BrowserViewManager Claude-controlled tab (VIDE-53)', () => {
     const view = lastCreatedView()
 
     const onCalls = (view.webContents.on as ReturnType<typeof vi.fn>).mock.calls
-    const consoleHandler = onCalls.find(([event]: [string]) => event === 'console-message')?.[1]
-    consoleHandler(undefined, 1, 'hello from the page')
-    consoleHandler(undefined, 3, 'boom')
+    const consoleHandler = onCalls.find((call: unknown[]) => call[0] === 'console-message')?.[1]
+    consoleHandler({ level: 'info', message: 'hello from the page' })
+    consoleHandler({ level: 'error', message: 'boom' })
 
     expect(manager.getClaudeTabConsoleLogs(26)).toEqual(['[info] hello from the page', '[error] boom'])
   })

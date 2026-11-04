@@ -120,7 +120,6 @@ interface Entry {
 export const CLAUDE_TAB_ID = 'claude-controlled'
 const MAX_CONSOLE_LOGS = 200
 const MAX_NETWORK_LOG = 100
-const CONSOLE_LEVELS = ['verbose', 'info', 'warning', 'error'] as const
 
 // Maps common DOM key names to Electron accelerator-style key codes that
 // sendInputEvent expects. Anything not in the map is passed through as-is.
@@ -358,10 +357,12 @@ export class BrowserViewManager {
     // buffer actually gets read (via getClaudeTabConsoleLogs), but wiring it
     // for every view uniformly is simpler than a separate code path just for
     // that one id.
-    wc.on('console-message', (_e, level, message) => {
+    // Electron 35+ passes one details object; `level` is a string now
+    // ('debug' replaces the old numeric 'verbose').
+    wc.on('console-message', ({ level, message }) => {
       const entry = this.viewsByWindow.get(win.id)?.get(id)
       if (!entry) return
-      entry.consoleLogs.push(`[${CONSOLE_LEVELS[level] ?? level}] ${message}`)
+      entry.consoleLogs.push(`[${level === 'debug' ? 'verbose' : level}] ${message}`)
       if (entry.consoleLogs.length > MAX_CONSOLE_LOGS) entry.consoleLogs.shift()
     })
     wc.on('did-fail-load', (_e, errorCode, errorDescription, _validatedUrl, isMainFrame) => {
