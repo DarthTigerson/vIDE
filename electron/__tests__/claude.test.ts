@@ -144,6 +144,32 @@ describe('ClaudeManager claude:spawn (attach mode)', () => {
     expect(procB.kill).not.toHaveBeenCalled()
     expect(spawnMock).toHaveBeenCalledTimes(2)
   })
+
+  it('spawns at the size the renderer sent before the process existed (VIDE-26)', async () => {
+    const { spawnHandler } = setup()
+    const win = fakeWin(1)
+    const proc = fakePty()
+    spawnMock.mockReturnValueOnce(proc)
+
+    // The renderer's first fit arrives while claude:spawn is still awaiting
+    // the multi-repo check, so there is no process to resize yet.
+    handlers['claude:resize']({ sender: win }, 'claude', 62.4, 30)
+    await spawnHandler({ sender: win }, '/project/a', 'claude', undefined)
+
+    expect(spawnMock.mock.calls[0][2]).toMatchObject({ cols: 62, rows: 30 })
+  })
+
+  it('still resizes a running process and defaults to 80x24 with no size sent', async () => {
+    const { spawnHandler } = setup()
+    const win = fakeWin(1)
+    const proc = fakePty()
+    spawnMock.mockReturnValueOnce(proc)
+
+    await spawnHandler({ sender: win }, '/project/a', 'claude', undefined)
+    expect(spawnMock.mock.calls[0][2]).toMatchObject({ cols: 80, rows: 24 })
+    handlers['claude:resize']({ sender: win }, 'claude', 100, 40)
+    expect(proc.resize).toHaveBeenCalledWith(100, 40)
+  })
 })
 
 describe('ClaudeManager claude:spawn failure', () => {

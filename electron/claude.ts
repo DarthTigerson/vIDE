@@ -80,6 +80,11 @@ interface InstanceState {
   // wiring in App.tsx) can tell genuine turns from output blips without
   // relying on timing, which can't reliably distinguish the two (VIDE-59).
   busyChunkCount: number
+  // Last size the renderer asked for. claude:spawn awaits a multi-repo check
+  // before creating the PTY, and the renderer's first fit + resize lands
+  // during that wait with no process to apply it to; the PTY is spawned at
+  // this size instead of 80x24 so the CLI never draws for the wrong width.
+  size?: { cols: number; rows: number }
 }
 
 interface WindowState {
@@ -172,8 +177,8 @@ export class ClaudeManager {
       const command = shimEnv ? `export PATH="${shimEnv.VIDE_BROWSER_SHIM_BIN}:$PATH"; ${baseCommand}` : baseCommand
       const proc = pty.spawn(shell, ['-lic', command], {
         name: 'xterm-color',
-        cols: 80,
-        rows: 24,
+        cols: inst.size?.cols ?? 80,
+        rows: inst.size?.rows ?? 24,
         cwd,
         env: {
           ...(process.env as Record<string, string>),
@@ -227,7 +232,11 @@ export class ClaudeManager {
 
   resize(win: BrowserWindow, instanceId: string, cols: number, rows: number): void {
     if (!hasValidSize(cols, rows)) return
-    this.stateFor(win.id).instances.get(instanceId)?.proc?.resize(Math.floor(cols), Math.floor(rows))
+    const state = this.stateFor(win.id)
+    const inst = state.instances.get(instanceId) ?? newInstanceState()
+    state.instances.set(instanceId, inst)
+    inst.size = { cols: Math.floor(cols), rows: Math.floor(rows) }
+    inst.proc?.resize(inst.size.cols, inst.size.rows)
   }
 
   kill(win: BrowserWindow, instanceId: string): void {
