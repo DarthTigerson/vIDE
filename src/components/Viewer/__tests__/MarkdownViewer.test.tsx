@@ -57,4 +57,21 @@ describe('MarkdownViewer', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Hello' })).toBeTruthy())
     expect(window.api.readFile).toHaveBeenCalledWith('/proj/README.md')
   })
+  it('renders GitHub-flavored tables, strikethrough and task lists (VIDE-10: tables showed as raw pipe text)', async () => {
+    useEditorStore.setState({
+      tabs: [{
+        path: '/proj/README.md',
+        content: '| Name | Qty |\n| :--- | ---: |\n| Apple | 3 |\n\n~~old~~\n\n- [x] done\n- [ ] todo',
+        dirty: false,
+      }],
+    })
+    render(<MarkdownViewer path="/proj/README.md" />)
+
+    const table = await screen.findByRole('table')
+    expect(screen.getByRole('columnheader', { name: 'Name' })).toBeTruthy()
+    expect(screen.getByRole('cell', { name: '3' }).style.textAlign).toBe('right')
+    expect(table.textContent).not.toContain('|')
+    expect(screen.getByText('old').tagName).toBe('DEL')
+    expect(screen.getAllByRole('checkbox')).toHaveLength(2)
+  })
 })
