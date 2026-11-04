@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildFileGitDecorations, buildFolderGitAggregates } from '../gitTreeStatus'
+import { buildFileGitDecorations, buildFolderGitAggregates, lookupGitDecoration, toDecoration } from '../gitTreeStatus'
 import type { GitStatus } from '@/types/index'
 
 function status(staged: GitStatus['staged'], unstaged: GitStatus['unstaged']): GitStatus {
@@ -36,7 +36,7 @@ describe('buildFileGitDecorations', () => {
     expect(files.get('/proj/added.ts')?.textClass).toBe('text-green-400')
     expect(files.get('/proj/deleted.ts')?.textClass).toBe('text-red-400')
     expect(files.get('/proj/renamed.ts')?.textClass).toBe('text-blue-400')
-    expect(files.get('/proj/new.ts')).toEqual({ code: '?', letter: 'U', textClass: 'text-fg-subtle' })
+    expect(files.get('/proj/new.ts')).toEqual({ code: '?', letter: 'U', textClass: 'text-emerald-400' })
   })
 
   it('shows the working-tree status over the staged one when a file has both', () => {
@@ -123,5 +123,26 @@ describe('buildFolderGitAggregates', () => {
   it('produces no folder aggregates when there are no changed files', () => {
     const folders = buildFolderGitAggregates(new Map())
     expect(folders.size).toBe(0)
+  })
+})
+
+describe('untracked decoration', () => {
+  it('uses a colour distinct from the muted text/ignored look', () => {
+    expect(toDecoration('?').textClass).not.toBe('text-fg-subtle')
+  })
+
+  it('lookupGitDecoration finds a folder reported as a single untracked entry and its contents', () => {
+    const files = buildFileGitDecorations(
+      ['/proj'],
+      [{ staged: [], unstaged: [{ path: 'helm-charts/linkerd/', status: '?' }] }],
+    )
+    const folders = buildFolderGitAggregates(files)
+    // the folder itself (not an ancestor of any file entry)
+    expect(lookupGitDecoration('/proj/helm-charts/linkerd', true, files, folders)?.code).toBe('?')
+    // its contents, which git did not list individually
+    expect(lookupGitDecoration('/proj/helm-charts/linkerd/kustomization.yaml', false, files, folders)?.code).toBe('?')
+    // its parent still shows the aggregate
+    expect(lookupGitDecoration('/proj/helm-charts', true, files, folders)?.code).toBe('?')
+    expect(lookupGitDecoration('/proj/other.txt', false, files, folders)).toBeUndefined()
   })
 })
