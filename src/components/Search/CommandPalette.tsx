@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useEditorStore } from '@/stores/editorStore'
+import { openFile as openFileByRoute } from '@/lib/openFile'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
 
 interface Props {
@@ -31,7 +32,6 @@ export function CommandPalette({ projectRoot, onClose }: Props) {
   const [activeIndex, setActiveIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
-  const openTab = useEditorStore((s) => s.openTab)
 
   useEffect(() => {
     window.api.listAllFiles(projectRoot).then(setAllFiles)
@@ -53,8 +53,7 @@ export function CommandPalette({ projectRoot, onClose }: Props) {
   }, [activeIndex])
 
   async function openFile(path: string) {
-    const content = await window.api.readFile(path)
-    openTab({ path, content, dirty: false })
+    await openFileByRoute(path)
     onClose()
   }
 

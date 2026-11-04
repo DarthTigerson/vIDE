@@ -63,7 +63,8 @@ describe('FileTree — markdownOpenMode default click behavior', () => {
   it('"editor" (default) opens the plain file tab', async () => {
     const { container } = renderTree()
     clickReadme(container)
-    await vi.waitFor(() => expect(window.api.readFile).toHaveBeenCalledWith('/proj/README.md'))
+    await vi.waitFor(() => expect(useEditorStore.getState().activeTabPath).toBe('/proj/README.md'))
+    expect(window.api.readFile).toHaveBeenCalledWith('/proj/README.md')
 
     const state = useEditorStore.getState()
     expect(state.activeTabPath).toBe('/proj/README.md')
@@ -84,7 +85,8 @@ describe('FileTree — markdownOpenMode default click behavior', () => {
     const { container } = renderTree()
     clickReadme(container)
 
-    await vi.waitFor(() => expect(window.api.readFile).toHaveBeenCalledWith('/proj/README.md'))
+    await vi.waitFor(() => expect(Object.keys(useEditorStore.getState().paneTabLists)).toHaveLength(2))
+    expect(window.api.readFile).toHaveBeenCalledWith('/proj/README.md')
     const state = useEditorStore.getState()
     expect(state.paneTabLists['pane-1']).toEqual(['/proj/README.md'])
     expect(state.layout).toEqual({

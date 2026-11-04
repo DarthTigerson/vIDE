@@ -7,8 +7,9 @@ import { useFileStore } from '@/stores/fileStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { useSidebarUiStore } from '@/stores/sidebarUiStore'
 import { isGitDiffTab, parseGitDiffPath, isGitCommitDiffTab, parseGitCommitDiffPath } from '@/components/Git/paths'
-import { buildImagePreviewPath, buildMarkdownPreviewPath } from '@/components/Viewer/paths'
-import { isImageFile, isMarkdownFile } from '@/lib/fileKinds'
+import { buildMarkdownPreviewPath } from '@/components/Viewer/paths'
+import { openFile } from '@/lib/openFile'
+import { isImageFile, isMarkdownFile, isSvgFile } from '@/lib/fileKinds'
 import { FileTree, type TreePromptState } from './FileTree'
 import { ConfirmTrashModal } from '@/components/ui/ConfirmTrashModal'
 import { clampToViewport } from '@/components/ui/clampToViewport'
@@ -238,16 +239,10 @@ export function Sidebar() {
     })
   }
 
-  async function openFile(node: FileNode) {
+  async function openFromMenu(node: FileNode) {
     if (node.isDirectory) return
     setMenu(null)
-    const content = await window.api.readFile(node.path)
-    openTab({ path: node.path, content, dirty: false })
-  }
-
-  function openImagePreview(node: FileNode) {
-    setMenu(null)
-    openTab({ path: buildImagePreviewPath(node.path), content: '', dirty: false })
+    await openFile(node.path)
   }
 
   function openMarkdownPreview(node: FileNode) {
@@ -466,13 +461,13 @@ export function Sidebar() {
               onClick={(event) => event.stopPropagation()}
             >
               {menu.node && !menu.node.isDirectory && (
-                <ContextMenuButton onClick={() => openFile(menu.node!)}>
+                <ContextMenuButton onClick={() => void openFromMenu(menu.node!)}>
                   Open / Edit
                 </ContextMenuButton>
               )}
               {menu.node && !menu.node.isDirectory && isImageFile(menu.node.name) && (
-                <ContextMenuButton onClick={() => openImagePreview(menu.node!)}>
-                  View in Image Viewer
+                <ContextMenuButton onClick={() => void openFromMenu(menu.node!)}>
+                  {isSvgFile(menu.node.name) ? 'View in SVG Viewer' : 'View in Image Viewer'}
                 </ContextMenuButton>
               )}
               {menu.node && !menu.node.isDirectory && isMarkdownFile(menu.node.name) && (

@@ -88,7 +88,7 @@ describe('FileTree click on an already-highlighted diff node', () => {
     const node = container.querySelector('#file-tree-node\\:\\/proj\\/src\\/App\\.tsx') as HTMLElement
 
     fireEvent.click(node)
-    await vi.waitFor(() => expect(window.api.readFile).toHaveBeenCalledWith('/proj/src/App.tsx'))
+    await vi.waitFor(() => expect(useEditorStore.getState().activeTabPath).toBe('/proj/src/App.tsx'))
 
     expect(useEditorStore.getState().activeTabPath).toBe('/proj/src/App.tsx')
   })
@@ -98,7 +98,7 @@ describe('FileTree click on an already-highlighted diff node', () => {
     const node = container.querySelector('#file-tree-node\\:\\/proj\\/src\\/App\\.tsx') as HTMLElement
 
     fireEvent.click(node)
-    await vi.waitFor(() => expect(window.api.readFile).toHaveBeenCalledWith('/proj/src/App.tsx'))
+    await vi.waitFor(() => expect(useEditorStore.getState().activeTabPath).toBe('/proj/src/App.tsx'))
 
     expect(useEditorStore.getState().activeTabPath).toBe('/proj/src/App.tsx')
   })
