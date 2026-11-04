@@ -1,5 +1,5 @@
 // electron/__tests__/graphifyHooks.test.ts
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { execFileSync } from 'child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
@@ -22,9 +22,14 @@ describe('findBrokenGraphifyHookPaths', () => {
     mkdirSync(join(dir, '.claude', 'skills', 'graphify'), { recursive: true })
     writeFileSync(join(dir, '.claude', 'skills', 'graphify', 'SKILL.md'), '')
     mkdirSync(join(dir, 'graphify-out'))
+    // A global gitignore (e.g. one listing graphify-out/) must not leak into
+    // the temp repos these tests build.
+    vi.stubEnv('GIT_CONFIG_GLOBAL', '/dev/null')
+    vi.stubEnv('XDG_CONFIG_HOME', dir)
   })
 
   afterEach(() => {
+    vi.unstubAllEnvs()
     rmSync(dir, { recursive: true, force: true })
   })
 
