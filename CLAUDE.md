@@ -23,6 +23,12 @@ npm run dist:mac            # build + package a macOS .zip (release/)
 npm run dist:linux           # build + package a Linux .tar.gz (release/)
 ```
 
+Unpackaged runs (`npm run dev`, `electron .`) use their own profile at
+`~/Library/Application Support/vIDE-dev` and skip every `claude mcp`/`claude
+plugin` call, so testing a branch never touches the installed app's data or
+its global Claude Code MCP registrations (`electron/devProfile.ts`, VIDE-24).
+`VIDE_DEV_SHARED_PROFILE=1 npm run dev` opts back into the real profile.
+
 There is no separate lint script; type errors surface via `npm run build`
 (`tsc -b` runs before the Vite build for both `tsconfig.node.json` and
 `tsconfig.web.json`).

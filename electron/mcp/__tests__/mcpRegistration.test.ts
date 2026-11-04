@@ -7,7 +7,7 @@ const { execFileMock, fsState } = vi.hoisted(() => ({
 
 vi.mock('child_process', () => ({ execFile: execFileMock }))
 vi.mock('electron', () => ({
-  app: { getPath: () => '/fake/userData' },
+  app: { getPath: () => '/fake/userData', isPackaged: true },
   ipcMain: { handle: vi.fn() },
 }))
 vi.mock('fs/promises', () => ({
@@ -17,7 +17,7 @@ vi.mock('fs/promises', () => ({
   },
 }))
 
-import { ipcMain } from 'electron'
+import { app, ipcMain } from 'electron'
 import {
   enableTodoMcp,
   disableTodoMcp,
@@ -62,6 +62,20 @@ describe('mcpRegistration', () => {
   beforeEach(() => {
     execFileMock.mockReset()
     fsState.files.clear()
+  })
+
+  it('an isolated dev build never changes the global Claude Code config (VIDE-24)', async () => {
+    const calls = mockClaudeResolvable()
+    ;(app as any).isPackaged = false
+    try {
+      await enableTodoMcp()
+      await enableBrowserMcp()
+      await enableTodoEnforcerPlugin()
+      await disableSearchMcp()
+    } finally {
+      ;(app as any).isPackaged = true
+    }
+    expect(calls.some((c) => c.args[0] === 'mcp' || c.args[0] === 'plugin')).toBe(false)
   })
 
   it('enableTodoMcp resolves claude via the login shell, then registers the server at user scope', async () => {
