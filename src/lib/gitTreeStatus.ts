@@ -14,15 +14,17 @@ export interface FileGitDecoration {
 }
 
 // Copied from src/components/Git/FileRow.tsx's STATUS_COLOR map (that file
-// is outside this feature's read-write scope) so the tree's colors are
-// identical to the Git panel's own per-file status rows rather than a new
-// palette invented for this feature.
+// is outside this feature's read-write scope) so the tree's colors match the
+// Git panel's own per-file status rows. The exception is untracked: the Git
+// panel's letter badge uses text-fg-subtle, but in the tree that colours the
+// whole name, and the muted grey is indistinguishable from the dimmed look
+// of a gitignored entry. Untracked gets its own colour here instead.
 const STATUS_COLOR: Record<GitFileEntry['status'], string> = {
   M: 'text-amber-400',
   A: 'text-green-400',
   D: 'text-red-400',
   R: 'text-blue-400',
-  '?': 'text-fg-subtle',
+  '?': 'text-emerald-400',
 }
 
 export function toDecoration(code: GitFileEntry['status']): FileGitDecoration {
@@ -100,4 +102,26 @@ export function buildFolderGitAggregates(files: FileGitDecorationMap): FolderGit
     }
   }
   return folders
+}
+
+// Looks up the decoration for one tree row. A folder shows its aggregate of
+// changes inside; failing that, its own entry, since git can report a folder
+// whose contents are all untracked as one `?? linkerd/` entry rather than
+// listing what's inside. Anything under such an untracked folder is itself
+// untracked, so rows beneath it get the same decoration.
+export function lookupGitDecoration(
+  path: string,
+  isDirectory: boolean,
+  files: FileGitDecorationMap,
+  folders: FolderGitAggregateMap,
+): FileGitDecoration | undefined {
+  const own = isDirectory ? (folders.get(path) ?? files.get(path)) : files.get(path)
+  if (own) return own
+  let dir = parentDir(path)
+  while (dir) {
+    const ancestor = files.get(dir)
+    if (ancestor?.code === '?') return ancestor
+    dir = parentDir(dir)
+  }
+  return undefined
 }

@@ -20,6 +20,7 @@ import { isIgnoredPath } from '@/lib/gitIgnore'
 import { FileIcon, FolderIcon } from './FileIcon'
 import { isExternalFileDrag } from './treeUtils'
 import { useGitTreeDecorations } from './useGitTreeDecorations'
+import { lookupGitDecoration } from '@/lib/gitTreeStatus'
 import { useGeneralSettingsStore } from '@/stores/generalSettingsStore'
 import { treeRowDropTargetClass } from '@/components/ui/panelDrop'
 import { isRuleHidden, isTreeVisible, relativePath } from '@/lib/treeHiding'
@@ -195,9 +196,7 @@ export function FileTree({
         // (an aggregate, so no single-letter badge); files show their own
         // status's color + letter directly. Both come from the same
         // memoized per-repo lookup — no recompute or tree walk per row.
-        const gitDecoration = node.isDirectory
-          ? folderGitAggregates.get(node.path)
-          : fileGitDecorations.get(node.path)
+        const gitDecoration = lookupGitDecoration(node.path, node.isDirectory, fileGitDecorations, folderGitAggregates)
         return (
           <li key={node.path}>
             {prompt?.kind === 'rename' && prompt.node?.path === node.path ? (

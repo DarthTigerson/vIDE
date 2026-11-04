@@ -88,3 +88,46 @@ describe('FileTree git status display setting', () => {
     expect(name('src')).toHaveClass('text-fg')
   })
 })
+
+describe('FileTree untracked entries', () => {
+  it('shows an untracked folder and its contents in the untracked colour, not dimmed', () => {
+    useGitStore.setState({
+      repos: {
+        '/proj': {
+          ...emptyRepoGitState,
+          ignoredPaths: ['node_modules'],
+          status: { staged: [], unstaged: [{ path: 'src/', status: '?' }] },
+        },
+      },
+    })
+    useFileStore.setState({ expandedPaths: new Set(['/proj/src']) })
+    useGeneralSettingsStore.setState({ fileTreeGitStatus: 'letterAndColour' })
+    const tree: FileNode[] = [
+      {
+        name: 'src', path: '/proj/src', isDirectory: true,
+        children: [{ name: 'kustomization.yaml', path: '/proj/src/kustomization.yaml', isDirectory: false }],
+      },
+    ]
+    render(
+      <FileTree
+        nodes={tree}
+        directoryPath="/proj"
+        onContextMenu={noop}
+        prompt={null}
+        setPromptValue={noop}
+        commitPrompt={noop}
+        cancelPrompt={noop}
+        dragOverPath={null}
+        setDragOverPath={noop}
+        onMoveNode={noop}
+        onDropExternal={noop}
+      />
+    )
+    for (const text of ['src', 'kustomization.yaml']) {
+      const el = name(text)
+      expect(el).toHaveClass('text-emerald-400')
+      expect(el.closest('button')).not.toHaveClass('opacity-45')
+    }
+    expect(screen.getByText('U', { selector: 'span' })).toHaveClass('text-emerald-400')
+  })
+})
