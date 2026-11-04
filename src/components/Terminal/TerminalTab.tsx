@@ -14,6 +14,7 @@ import { buildTerminalPath } from '@/components/Settings/paths'
 import { createTerminalKeyHandler } from './terminalKeys'
 import { TerminalContextMenu } from './TerminalContextMenu'
 import { liveTerminals, type LiveTerminal as TerminalInstance } from '@/lib/liveTerminals'
+import { PTY_XTERM_OPTIONS } from '@/lib/ptyXtermOptions'
 
 interface Props {
   terminalId: string
@@ -70,7 +71,7 @@ export function TerminalTab({ terminalId, isStillOpen }: Props) {
         fontFamily: useDisplayStore.getState().font,
         fontSize: useInstanceFontSizeStore.getState().overrides[terminalId] ?? useFontSizeStore.getState().fontSize,
         cursorBlink: true,
-        convertEol: true,
+        ...PTY_XTERM_OPTIONS,
         // xterm.js's default (1) maps physical mouse-wheel notches almost
         // 1:1 to pixels before converting to rows, so a notched USB/Bluetooth
         // mouse (which reports far coarser, less frequent deltaY than a

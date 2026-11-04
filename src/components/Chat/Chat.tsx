@@ -18,6 +18,7 @@ import { agentLabel, isBridgeLike, isClaudeLike, isLlamaKind, isTerminalKind, ll
 import type { AssistantKind } from '@/types/api'
 import { TerminalTab } from '@/components/Terminal/TerminalTab'
 import { liveTerminals } from '@/lib/liveTerminals'
+import { PTY_XTERM_OPTIONS } from '@/lib/ptyXtermOptions'
 import { UsagePanel } from '@/components/UsagePanel/UsagePanel'
 import { CostPanel } from '@/components/UsagePanel/CostPanel'
 import { isShiftEnterKeydown, SHIFT_ENTER_SEQUENCE } from './shiftEnterSequence'
@@ -42,7 +43,7 @@ function createXTerm(themeId: ThemeId, panelStyle: PanelStyle, fontSize: number)
     fontFamily: useDisplayStore.getState().font,
     fontSize,
     cursorBlink: true,
-    convertEol: true,
+    ...PTY_XTERM_OPTIONS,
     // Without this, xterm's built-in OscLinkProvider handles OSC 8 terminal
     // hyperlinks (real clickable links the CLI itself renders — e.g. an
     // artifact-publish banner — distinct from WebLinksAddon's plain-URL-text
