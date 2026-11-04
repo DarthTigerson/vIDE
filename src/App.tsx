@@ -5,6 +5,7 @@ import { ImperativePanelHandle, Panel, PanelGroup, PanelResizeHandle } from 'rea
 import { SIDEBAR_PANEL, CHAT_PANEL, clampRem, remToPercent, percentToRem, percentLimits, loadRem } from '@/lib/remPanelSize'
 import { openNewBrowserTab } from '@/lib/openBrowserTab'
 import { syncOpenTabsFromDisk } from '@/lib/syncOpenTabsFromDisk'
+import { refreshRepoStatuses } from '@/lib/refreshRepoStatuses'
 import { restoreEditorSession, startEditorSessionPersistence } from '@/lib/editorSession'
 import { resetBottomTerminal, restoreBottomTerminal, startBottomTerminalPersistence } from '@/lib/bottomTerminalSession'
 import { useBottomTerminalStore } from '@/stores/bottomTerminalStore'
@@ -682,7 +683,7 @@ export default function App() {
     return window.api.onFsChanged((cwd) => {
       if (cwd === useFileStore.getState().projectRoot) {
         useFileStore.getState().refreshTree()
-        useGitStore.getState().refreshStatus(cwd)
+        refreshRepoStatuses(cwd)
         syncOpenTabsFromDisk()
       }
     })
