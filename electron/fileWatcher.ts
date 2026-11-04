@@ -5,6 +5,9 @@ import { getMobileBroadcaster } from './mobile'
 interface WindowState {
   watcher: FSWatcher | null
   debounceTimer: ReturnType<typeof setTimeout> | null
+  // Paths changed since the last fs:changed push, so the renderer can
+  // refresh git status for just the repos that own them.
+  changedPaths: Set<string>
   cwd: string | null
 }
 
@@ -43,15 +46,18 @@ export class FileWatcher {
       ignoreInitial: true,
       ignored: (path: string) => IGNORED_SEGMENTS.some((seg) => path.includes(`/${seg}/`) || path.endsWith(`/${seg}`)),
     })
-    freshState.watcher.on('all', () => this.notifyChanged(win, cwd))
+    freshState.watcher.on('all', (_event, path) => this.notifyChanged(win, cwd, path))
     freshState.watcher.on('error', (err) => console.error('FileWatcher error:', err))
   }
 
-  private notifyChanged(win: BrowserWindow, cwd: string): void {
+  private notifyChanged(win: BrowserWindow, cwd: string, path: string): void {
     const state = this.stateFor(win.id)
+    state.changedPaths.add(path)
     if (state.debounceTimer) clearTimeout(state.debounceTimer)
     state.debounceTimer = setTimeout(() => {
-      if (!win.isDestroyed()) win.webContents.send('fs:changed', cwd)
+      const paths = Array.from(state.changedPaths)
+      state.changedPaths.clear()
+      if (!win.isDestroyed()) win.webContents.send('fs:changed', cwd, paths)
       getMobileBroadcaster().emit('fs:changed', cwd)
     }, 300)
   }
@@ -59,7 +65,7 @@ export class FileWatcher {
   private stateFor(winId: number): WindowState {
     let state = this.byWindow.get(winId)
     if (!state) {
-      state = { watcher: null, debounceTimer: null, cwd: null }
+      state = { watcher: null, debounceTimer: null, changedPaths: new Set(), cwd: null }
       this.byWindow.set(winId, state)
     }
     return state
@@ -72,6 +78,7 @@ export class FileWatcher {
       clearTimeout(state.debounceTimer)
       state.debounceTimer = null
     }
+    state.changedPaths.clear()
     state.watcher?.close()
     state.watcher = null
     state.cwd = null

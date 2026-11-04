@@ -46,8 +46,8 @@ contextBridge.exposeInMainWorld('api', {
   getMemoryBreakdown: () => ipcRenderer.invoke('system:getMemoryBreakdown'),
   getBatteryStatus: () => ipcRenderer.invoke('system:getBattery'),
   fsWatchRoot: (cwd: string | null) => ipcRenderer.send('fs:watchRoot', cwd),
-  onFsChanged: (cb: (cwd: string) => void) => {
-    const handler = (_: Electron.IpcRendererEvent, cwd: string) => cb(cwd)
+  onFsChanged: (cb: (cwd: string, paths?: string[]) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, cwd: string, paths?: string[]) => cb(cwd, paths)
     ipcRenderer.on('fs:changed', handler)
     return () => ipcRenderer.removeListener('fs:changed', handler)
   },
