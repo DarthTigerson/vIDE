@@ -109,6 +109,33 @@ describe('Chat terminal link provider (integration)', () => {
     spy.mockRestore()
   })
 
+  // Claude Code draws markdown tables with box borders and wraps a long cell
+  // inside its column, so the continuation sits between "│" borders.
+  it('joins a path wrapped inside a table cell and links each row without the borders', async () => {
+    const path = '/Users/keithfenech/Documents/GitLab/KustomizeApps/kubernetes/wiki/monitoring/federation.md'
+    const cut = 40
+    const w = cut + 2
+    const pad = (s: string) => ` ${s}`.padEnd(w)
+    const rows = [`│ id │${pad(path.slice(0, cut))}│`, `│    │${pad(path.slice(cut))}│`]
+    const { spy, registered } = await setupAndWriteLine(rows.join('\r\n'))
+
+    for (const row of [1, 2]) {
+      const links = await linksOn(registered[1], row)
+      expect(links.map((l) => l.text)).toEqual([path])
+      expect(links[0].range.start.y).toBe(row)
+      expect(links[0].range.end.y).toBe(row)
+      expect(links[0].range.start.x).toBe(8)
+    }
+    spy.mockRestore()
+  })
+
+  it('does not join table rows whose cell stops short of the column edge', async () => {
+    const { spy, registered } = await setupAndWriteLine('│ id │ /Users/a/b      │\r\n│    │ c/d             │')
+    const links = await linksOn(registered[1], 1)
+    expect(links.map((l) => l.text)).toEqual(['/Users/a/b'])
+    spy.mockRestore()
+  })
+
   it('does not join a URL onto the next row when its row stops short of the edge', async () => {
     const { spy, registered } = await setupAndWriteLine('See https://example.com/a\r\nnext line')
     const links = await linksOn(registered[0], 1)

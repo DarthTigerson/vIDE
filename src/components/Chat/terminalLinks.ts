@@ -8,6 +8,7 @@ import { toRelativePath } from '@/lib/sendSelectionToAssistant'
 import { openFileAtLocation } from '@/lib/openFileLocation'
 import { buildBrowserPath } from '@/components/Settings/paths'
 import { buildGitDiffPath } from '@/components/Git/paths'
+import { splitTableRow, tableCellContinues, type TableCell } from './tableCells'
 
 export interface ParsedFileLink {
   path: string
@@ -228,6 +229,46 @@ function positionForIndex(terminal: Terminal, segments: RowSegment[], index: num
   return { x, y: seg.y + 1 }
 }
 
+// Table rows: a cell value wrapped inside its column continues in the same
+// column of the next row, between the box borders (see tableCells.ts). Joins
+// that cell's chain of rows into one text, returning each row's slice so the
+// link can be drawn on just the cell, not across the other columns.
+interface CellChain {
+  text: string
+  segments: { y: number; line: BufferLine; offset: number; lead: number; length: number }[]
+}
+
+function rowCells(terminal: Terminal, y: number): TableCell[] | null {
+  const line = terminal.buffer.active.getLine(y)
+  return line ? splitTableRow(line.translateToString(true)) : null
+}
+
+function joinTableCell(terminal: Terminal, y: number, cellIndex: number): CellChain {
+  const buffer = terminal.buffer.active
+  let first = y
+  while (first > 0 && y - first < MAX_JOINED_ROWS) {
+    const above = rowCells(terminal, first - 1)
+    const here = rowCells(terminal, first)
+    if (!above || !here || !tableCellContinues(above, here, cellIndex)) break
+    first--
+  }
+
+  const segments: CellChain['segments'] = []
+  let text = ''
+  for (let row = first; segments.length < MAX_JOINED_ROWS * 2; row++) {
+    const cells = rowCells(terminal, row)
+    const line = buffer.getLine(row)
+    if (!cells || !line) break
+    const cell = cells[cellIndex]
+    const lead = cell.raw.length - cell.raw.trimStart().length
+    const part = cell.raw.trim()
+    segments.push({ y: row, line, offset: text.length, lead: cell.start + lead, length: part.length })
+    text += part
+    if (!tableCellContinues(cells, rowCells(terminal, row + 1), cellIndex)) break
+  }
+  return { text, segments }
+}
+
 // A hand-rolled ILinkProvider, used for both URLs and file paths, that
 // matches across wrapped rows. @xterm/addon-web-links only follows xterm's
 // own soft wraps, so a URL Claude Code hard-wrapped opened truncated; it
@@ -242,6 +283,11 @@ export function createWrappedLinkProvider(
 ): ILinkProvider {
   return {
     provideLinks(bufferLineNumber, callback) {
+      const tableLinks = provideTableLinks(terminal, bufferLineNumber, regex, activate, accept)
+      if (tableLinks) {
+        callback(tableLinks.length ? tableLinks : undefined)
+        return
+      }
       const joined = joinWrappedRows(terminal, bufferLineNumber - 1)
       if (!joined) {
         callback(undefined)
@@ -262,6 +308,45 @@ export function createWrappedLinkProvider(
       callback(links.length ? links : undefined)
     },
   }
+}
+
+// Null when the row is not a table content row (fall back to plain joining).
+// Otherwise matches within each cell's joined text and emits, for this row
+// only, one link per match covering just that row's part of the cell.
+function provideTableLinks(
+  terminal: Terminal,
+  bufferLineNumber: number,
+  regex: RegExp,
+  activate: (event: MouseEvent, text: string) => void,
+  accept: (text: string) => boolean
+): ILink[] | null {
+  const y = bufferLineNumber - 1
+  const cells = rowCells(terminal, y)
+  if (!cells) return null
+
+  const links: ILink[] = []
+  for (let i = 0; i < cells.length; i++) {
+    const { text, segments } = joinTableCell(terminal, y, i)
+    const mine = segments.find((s) => s.y === y)
+    if (!mine) continue
+    const re = new RegExp(regex.source, 'g')
+    let match: RegExpExecArray | null
+    while ((match = re.exec(text))) {
+      const matchedText = match[0]
+      const from = Math.max(match.index, mine.offset)
+      const to = Math.min(match.index + matchedText.length, mine.offset + mine.length)
+      if (from >= to || !accept(matchedText)) continue
+      links.push({
+        text: matchedText,
+        range: {
+          start: { x: columnForStringIndex(terminal, mine.line, from - mine.offset + mine.lead), y: bufferLineNumber },
+          end: { x: columnForStringIndex(terminal, mine.line, to - mine.offset + mine.lead), y: bufferLineNumber },
+        },
+        activate,
+      })
+    }
+  }
+  return links
 }
 
 function isParsableUrl(text: string): boolean {
