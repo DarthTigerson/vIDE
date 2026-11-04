@@ -354,3 +354,57 @@ describe('fileStore', () => {
     expect(localStorage.getItem('vide:lastProjectRoot')).toBe('/proj')
   })
 })
+
+describe('fileStore expand state', () => {
+  const tree: FileNode[] = [{ name: 'a', path: '/proj/a', isDirectory: true }]
+  const listings: Record<string, FileNode[]> = {
+    '/proj': tree,
+    '/proj/a': [
+      { name: 'x', path: '/proj/a/x', isDirectory: true },
+      { name: 'y', path: '/proj/a/y', isDirectory: true },
+    ],
+    '/proj/a/x': [{ name: 'f.ts', path: '/proj/a/x/f.ts', isDirectory: false }],
+    '/proj/a/y': [{ name: 'g.ts', path: '/proj/a/y/g.ts', isDirectory: false }],
+  }
+
+  beforeEach(() => {
+    vi.mocked(window.api.readDir).mockImplementation((dir: string) => Promise.resolve(listings[dir] ?? []))
+    useFileStore.setState({ projectRoot: '/proj', tree, expandedPaths: new Set(), selectedPath: null, revealedPath: null })
+  })
+
+  it('re-expanding an open ancestor keeps its already-open subfolders loaded', async () => {
+    const { expandDir } = useFileStore.getState()
+    await expandDir('/proj/a')
+    await expandDir('/proj/a/x')
+    // selecting a file in a/y re-expands a, which is already open
+    await expandDir('/proj/a')
+    await expandDir('/proj/a/y')
+
+    const state = useFileStore.getState()
+    expect(state.expandedPaths.has('/proj/a/x')).toBe(true)
+    const x = state.tree[0].children!.find((n) => n.path === '/proj/a/x')!
+    expect(x.children?.map((n) => n.name)).toEqual(['f.ts'])
+  })
+
+  it('refreshTree does not undo a folder expanded while it was reading', async () => {
+    const { expandDir } = useFileStore.getState()
+    await expandDir('/proj/a')
+    let release!: () => void
+    const gate = new Promise<void>((r) => { release = r })
+    let held = true
+    vi.mocked(window.api.readDir).mockImplementation(async (dir: string) => {
+      if (held && dir === '/proj/a') { held = false; await gate }
+      return listings[dir] ?? []
+    })
+
+    const refresh = useFileStore.getState().refreshTree()
+    await Promise.resolve()
+    await expandDir('/proj/a/x')
+    release()
+    await refresh
+
+    expect(useFileStore.getState().expandedPaths.has('/proj/a/x')).toBe(true)
+    const a = useFileStore.getState().tree[0]
+    expect(a.children!.find((n) => n.path === '/proj/a/x')!.children).toBeDefined()
+  })
+})

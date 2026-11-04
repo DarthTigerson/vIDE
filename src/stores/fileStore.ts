@@ -4,6 +4,7 @@ import { useEditorStore } from './editorStore'
 import { useGitReposStore } from './gitReposStore'
 import { useGitStore } from './gitStore'
 import { useGitSettingsStore } from './gitSettingsStore'
+import { findNodeByPath } from '@/components/Sidebar/treeUtils'
 
 function setNodeChildren(
   nodes: FileNode[],
@@ -108,22 +109,33 @@ export const useFileStore = create<FileState>((set, get) => {
   // up without collapsing folders the user already had open. Directories
   // that no longer exist are silently dropped from the expanded set.
   refreshTree: async () => {
-    const { projectRoot, expandedPaths } = get()
-    if (!projectRoot) return
-    let tree = await window.api.readDir(projectRoot)
+    if (!get().projectRoot) return
+    // The directory reads below are async, so the user can expand/collapse a
+    // folder (or select a file, which expands its ancestors) while they're in
+    // flight. Committing the result then would overwrite that with the
+    // snapshot this pass started from, so a pass only commits if the expanded
+    // set is still the one it read; otherwise it goes again with the new one.
+    for (let attempt = 0; ; attempt++) {
+      const { projectRoot, expandedPaths } = get()
+      if (!projectRoot) return
+      let tree = await window.api.readDir(projectRoot)
 
-    const stillExpanded = new Set<string>()
-    const byDepth = Array.from(expandedPaths).sort((a, b) => a.length - b.length)
-    for (const dirPath of byDepth) {
-      try {
-        const children = await window.api.readDir(dirPath)
-        tree = setNodeChildren(tree, dirPath, children)
-        stillExpanded.add(dirPath)
-      } catch {
-        // directory was deleted/renamed externally — drop it
+      const stillExpanded = new Set<string>()
+      const byDepth = Array.from(expandedPaths).sort((a, b) => a.length - b.length)
+      for (const dirPath of byDepth) {
+        try {
+          const children = await window.api.readDir(dirPath)
+          tree = setNodeChildren(tree, dirPath, children)
+          stillExpanded.add(dirPath)
+        } catch {
+          // directory was deleted/renamed externally — drop it
+        }
+      }
+      if (get().expandedPaths === expandedPaths || attempt >= 2) {
+        set({ tree, expandedPaths: stillExpanded })
+        return
       }
     }
-    set({ tree, expandedPaths: stillExpanded })
   },
 
   openFolder: async () => {
@@ -144,12 +156,26 @@ export const useFileStore = create<FileState>((set, get) => {
     window.api.setWindowTitle(root)
   },
 
+  // Also run for folders that are already open (Reveal in File Tree and
+  // selecting a file both expand every ancestor). A fresh listing has no
+  // `children` on its directories, so the subfolders the user already had
+  // open under it carry their loaded children over, or they would stay in
+  // expandedPaths but render empty.
   expandDir: async (dirPath: string) => {
-    const children = await window.api.readDir(dirPath)
-    set((state) => ({
-      tree: setNodeChildren(state.tree, dirPath, children),
-      expandedPaths: new Set(state.expandedPaths).add(dirPath),
-    }))
+    const listing = await window.api.readDir(dirPath)
+    set((state) => {
+      const previous = findNodeByPath(state.tree, dirPath)?.children
+      const children = previous
+        ? listing.map((node) => {
+            const old = node.isDirectory ? previous.find((p) => p.path === node.path) : undefined
+            return old?.children ? { ...node, children: old.children } : node
+          })
+        : listing
+      return {
+        tree: setNodeChildren(state.tree, dirPath, children),
+        expandedPaths: new Set(state.expandedPaths).add(dirPath),
+      }
+    })
   },
 
   // Collapsing a folder also collapses every folder that was expanded inside
