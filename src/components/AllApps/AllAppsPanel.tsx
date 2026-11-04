@@ -26,6 +26,17 @@ export interface DisabledAppEntry {
   onSettings: () => void
 }
 
+// An extension in the Extensions section: it only changes how files open, so
+// it has no bar icon, favorite star or drag, just its on/off state.
+export interface ExtensionEntry {
+  id: string
+  title: string
+  icon: React.ReactNode
+  enabled: boolean
+  onSetEnabled: (enabled: boolean) => void
+  onSettings: () => void
+}
+
 type ViewMode = 'list' | 'icons'
 type DropZone = 'favorites' | 'others' | 'disabled'
 
@@ -57,9 +68,10 @@ function loadViewMode(): ViewMode {
 // Dragging a row between the sections favorites or unfavorites it, dropping
 // onto a favorite places the app before it, and a favorite dragged off the
 // bar and dropped anywhere outside "On the bar" is unfavorited.
-export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavorite }: {
+export function AllAppsPanel({ apps, disabledApps = [], extensions = [], open, onPlace, onUnfavorite }: {
   apps: AllAppsEntry[]
   disabledApps?: DisabledAppEntry[]
+  extensions?: ExtensionEntry[]
   // False while the sidebar shows another panel (or is collapsed) — the
   // search is cleared then, so it's fresh every time the panel opens.
   open: boolean
@@ -126,6 +138,7 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
   const visibleDisabled = q ? disabledApps.filter((app) => app.title.toLowerCase().includes(q)) : disabledApps
   // A search shows matching disabled apps even while the section is collapsed.
   const disabledExpanded = disabledOpen || (q !== '' && visibleDisabled.length > 0)
+  const visibleExtensions = q ? extensions.filter((ext) => ext.title.toLowerCase().includes(q)) : extensions
   const favoriteIds = new Set(apps.filter((app) => app.favorite).map((app) => app.id))
 
   function zoneHandlers(zone: DropZone) {
@@ -324,6 +337,51 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
             ? renderApps(others, false)
             : q ? <p className="px-3 pb-1.5 text-xs text-fg-subtle">No apps match.</p> : null}
         </section>
+        {visibleExtensions.length > 0 && (
+          <>
+            <div className="mx-3 h-px bg-border shrink-0" />
+            <section aria-label="Extensions" className="pb-1.5 shrink-0">
+              <SectionHeading title="Extensions" count={visibleExtensions.length} />
+              {visibleExtensions.map((ext) => (
+                <div
+                  key={ext.id}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setMenu({
+                      x: e.clientX,
+                      y: e.clientY,
+                      id: ext.id,
+                      onSettings: ext.onSettings,
+                      onDisable: ext.enabled ? () => ext.onSetEnabled(false) : undefined,
+                      onEnable: ext.enabled ? undefined : () => ext.onSetEnabled(true),
+                    })
+                  }}
+                  className={`w-full h-9 pl-3 pr-2 flex items-center gap-2.5 text-sm ${menuTargetClass(ext)}`}
+                >
+                  <button
+                    type="button"
+                    onClick={ext.onSettings}
+                    aria-label={`${ext.title} settings`}
+                    className="min-w-0 flex-1 h-full flex items-center gap-2.5 text-left hover:text-fg"
+                  >
+                    <span className={`shrink-0 flex items-center justify-center w-[1.625rem] h-[1.625rem] rounded-md [&>svg]:w-4 [&>svg]:h-4 ${ext.enabled ? 'bg-border text-fg-muted' : 'bg-border text-fg-subtle opacity-60'}`}>{ext.icon}</span>
+                    <span className="truncate">{ext.title}</span>
+                    <span className="text-[0.6875rem] text-fg-subtle">{ext.enabled ? 'On' : 'Off'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => ext.onSetEnabled(!ext.enabled)}
+                    aria-label={`${ext.enabled ? 'Disable' : 'Enable'} ${ext.title}`}
+                    className="shrink-0 h-6 px-2 rounded text-[0.6875rem] text-fg-muted hover:text-fg hover:bg-white/5"
+                  >
+                    {ext.enabled ? 'Disable' : 'Enable'}
+                  </button>
+                </div>
+              ))}
+            </section>
+          </>
+        )}
         {(!q || visibleDisabled.length > 0) && (
           <>
             <div className="mx-3 h-px bg-border shrink-0" />

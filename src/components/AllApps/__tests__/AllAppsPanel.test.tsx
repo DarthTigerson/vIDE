@@ -225,3 +225,49 @@ describe('AllAppsPanel', () => {
     })
   })
 })
+
+describe('AllAppsPanel extensions', () => {
+  const extensions = () => [
+    { id: 'image-viewer', title: 'Image viewer', icon: null, enabled: true, onSetEnabled: vi.fn(), onSettings: vi.fn() },
+    { id: 'svg-viewer', title: 'SVG viewer', icon: null, enabled: false, onSetEnabled: vi.fn(), onSettings: vi.fn() },
+  ]
+
+  it('lists the extensions with their on/off state, apart from the apps', () => {
+    render(<AllAppsPanel apps={apps} extensions={extensions()} open onPlace={vi.fn()} onUnfavorite={vi.fn()} />)
+    const section = screen.getByRole('region', { name: 'Extensions' })
+    expect(section.textContent).toContain('Image viewer')
+    expect(section.textContent).toContain('SVG viewer')
+    expect(screen.getByRole('button', { name: 'Image viewer settings' }).textContent).toContain('On')
+    expect(screen.getByRole('button', { name: 'SVG viewer settings' }).textContent).toContain('Off')
+    // not draggable, so never favorited onto the bar
+    expect(screen.getByRole('button', { name: 'Image viewer settings' }).draggable).toBe(false)
+  })
+
+  it('Disable and Enable buttons flip the extension, and a row opens its settings', () => {
+    const list = extensions()
+    render(<AllAppsPanel apps={apps} extensions={list} open onPlace={vi.fn()} onUnfavorite={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Disable Image viewer' }))
+    expect(list[0].onSetEnabled).toHaveBeenCalledWith(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Enable SVG viewer' }))
+    expect(list[1].onSetEnabled).toHaveBeenCalledWith(true)
+    fireEvent.click(screen.getByRole('button', { name: 'SVG viewer settings' }))
+    expect(list[1].onSettings).toHaveBeenCalled()
+  })
+
+  it('right-click offers Settings and the matching Enable or Disable', () => {
+    const list = extensions()
+    render(<AllAppsPanel apps={apps} extensions={list} open onPlace={vi.fn()} onUnfavorite={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'SVG viewer settings' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Enable' }))
+    expect(list[1].onSetEnabled).toHaveBeenCalledWith(true)
+  })
+
+  it('search filters the extensions too, and the section hides when none match', () => {
+    render(<AllAppsPanel apps={apps} extensions={extensions()} open onPlace={vi.fn()} onUnfavorite={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText('Search apps'), { target: { value: 'svg' } })
+    expect(screen.queryByText('Image viewer')).toBeNull()
+    expect(screen.getByText('SVG viewer')).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('Search apps'), { target: { value: 'zzz' } })
+    expect(screen.queryByRole('region', { name: 'Extensions' })).toBeNull()
+  })
+})
