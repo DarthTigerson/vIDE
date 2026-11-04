@@ -32,6 +32,8 @@ function mockWindowApi() {
     browserViewClearCache: vi.fn().mockResolvedValue(undefined),
     browserViewClearCookies: vi.fn().mockResolvedValue(undefined),
     browserViewDestroy: vi.fn(),
+    browserViewFind: vi.fn(),
+    browserViewStopFind: vi.fn(),
     onBrowserViewEvent: vi.fn((cb: (id: string, event: any) => void) => {
       lastEventCallback = cb
       return () => {}
@@ -245,3 +247,70 @@ describe('BrowserTab — popups over the page', () => {
     expect(window.api.browserViewSetVisible).toHaveBeenLastCalledWith('tab-race', true)
   })
 })
+
+describe('BrowserTab find in page', () => {
+  function setup(id: string) {
+    useBrowserStore.getState().ensureTab(id, 'https://example.com')
+    return render(<BrowserTab browserId={id} />)
+  }
+
+  it('opens the find box when the main process reports Cmd+F inside the page', () => {
+    const { queryByLabelText, getByLabelText } = setup('tab-find-1')
+    expect(queryByLabelText('Find in page')).toBeNull()
+    act(() => lastEventCallback!('tab-find-1', { type: 'find-requested' }))
+    expect(getByLabelText('Find in page')).toBeTruthy()
+    expect(document.activeElement).toBe(getByLabelText('Find in page'))
+  })
+
+  it('opens the find box on Cmd+F from inside the tab chrome', () => {
+    const { container, getByLabelText } = setup('tab-find-2')
+    fireEvent.keyDown(container.querySelector('input') as HTMLInputElement, { key: 'f', metaKey: true })
+    expect(getByLabelText('Find in page')).toBeTruthy()
+  })
+
+  it('searches as you type, steps with Enter / Shift+Enter, and shows n of m', () => {
+    const { getByLabelText, getByText } = setup('tab-find-3')
+    act(() => lastEventCallback!('tab-find-3', { type: 'find-requested' }))
+    const input = getByLabelText('Find in page')
+    fireEvent.change(input, { target: { value: 'foo' } })
+    expect(window.api.browserViewFind).toHaveBeenLastCalledWith('tab-find-3', 'foo')
+
+    act(() => lastEventCallback!('tab-find-3', { type: 'find-result', activeMatchOrdinal: 2, matches: 5 }))
+    expect(getByText('2 of 5')).toBeTruthy()
+
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(window.api.browserViewFind).toHaveBeenLastCalledWith('tab-find-3', 'foo', { forward: true, findNext: true })
+    fireEvent.keyDown(input, { key: 'Enter', shiftKey: true })
+    expect(window.api.browserViewFind).toHaveBeenLastCalledWith('tab-find-3', 'foo', { forward: false, findNext: true })
+    fireEvent.click(getByLabelText('Previous match'))
+    expect(window.api.browserViewFind).toHaveBeenLastCalledWith('tab-find-3', 'foo', { forward: false, findNext: true })
+  })
+
+  it('shows No results when nothing matches', () => {
+    const { getByLabelText, getByText } = setup('tab-find-4')
+    act(() => lastEventCallback!('tab-find-4', { type: 'find-requested' }))
+    fireEvent.change(getByLabelText('Find in page'), { target: { value: 'zzz' } })
+    act(() => lastEventCallback!('tab-find-4', { type: 'find-result', activeMatchOrdinal: 0, matches: 0 }))
+    expect(getByText('No results')).toBeTruthy()
+  })
+
+  it('closes on Escape and on the close button, clearing the selection', () => {
+    const { getByLabelText, queryByLabelText } = setup('tab-find-5')
+    act(() => lastEventCallback!('tab-find-5', { type: 'find-requested' }))
+    fireEvent.keyDown(getByLabelText('Find in page'), { key: 'Escape' })
+    expect(queryByLabelText('Find in page')).toBeNull()
+    expect(window.api.browserViewStopFind).toHaveBeenCalledWith('tab-find-5')
+
+    act(() => lastEventCallback!('tab-find-5', { type: 'find-requested' }))
+    fireEvent.click(getByLabelText('Close find'))
+    expect(queryByLabelText('Find in page')).toBeNull()
+    expect(window.api.browserViewStopFind).toHaveBeenCalledTimes(2)
+  })
+
+  it('ignores find events for other tabs', () => {
+    const { queryByLabelText } = setup('tab-find-6')
+    act(() => lastEventCallback!('other-tab', { type: 'find-requested' }))
+    expect(queryByLabelText('Find in page')).toBeNull()
+  })
+})
+

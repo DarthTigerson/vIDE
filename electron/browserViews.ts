@@ -39,6 +39,8 @@ export type BrowserViewEvent =
   | { type: 'dom-ready'; webContentsId: number }
   | { type: 'zoom-changed'; level: number }
   | { type: 'open-in-new-tab'; url: string }
+  | { type: 'find-requested' }
+  | { type: 'find-result'; activeMatchOrdinal: number; matches: number }
 
 export interface NetworkLogEntry {
   requestId: string
@@ -194,6 +196,21 @@ export class BrowserViewManager {
       await getBrowserSession().clearStorageData({ storages: ['cookies'] })
       this.get(this.winIdOf(event), id)?.webContents.reload()
     })
+    ipcMain.handle(
+      'browserView:find',
+      (event, id: string, text: string, options?: { forward?: boolean; findNext?: boolean }) => {
+        if (!text) return
+        this.get(this.winIdOf(event), id)?.webContents.findInPage(text, options)
+      }
+    )
+    ipcMain.handle('browserView:stopFind', (event, id: string) => {
+      const wc = this.get(this.winIdOf(event), id)?.webContents
+      if (!wc) return
+      wc.stopFindInPage('clearSelection')
+      // The find box lives in the app's own DOM, which holds focus while it is
+      // open; hand focus back to the page so Escape lands where the user expects.
+      wc.focus()
+    })
     ipcMain.handle('browserView:destroy', (event, id: string) => {
       const win = BrowserWindow.fromWebContents(event.sender)
       if (win) this.destroy(win, id)
@@ -281,6 +298,13 @@ export class BrowserViewManager {
       })
     )
     wc.on('page-title-updated', (_e, title) => this.sendEvent(win, id, { type: 'page-title-updated', title }))
+    wc.on('found-in-page', (_e, result) =>
+      this.sendEvent(win, id, {
+        type: 'find-result',
+        activeMatchOrdinal: result.activeMatchOrdinal,
+        matches: result.matches,
+      })
+    )
     // Buffered per-view rather than forwarded live — only the Claude tab's
     // buffer actually gets read (via getClaudeTabConsoleLogs), but wiring it
     // for every view uniformly is simpler than a separate code path just for
@@ -328,6 +352,13 @@ export class BrowserViewManager {
       } else if (input.key === '0') {
         event.preventDefault()
         this.setZoom(win.id, id, 0)
+      } else if (input.key.toLowerCase() === 'f') {
+        // Keystrokes inside the page never reach the renderer's keydown, so
+        // Cmd/Ctrl+F is caught here. Focus moves to the app's DOM first so the
+        // find box's input can take it, then the renderer opens the box.
+        event.preventDefault()
+        win.webContents.focus()
+        this.sendEvent(win, id, { type: 'find-requested' })
       } else if (input.key.toLowerCase() === 'r' && (process.platform === 'darwin' ? input.meta : input.control)) {
         // Reload just this page. preventDefault also stops the app menu's
         // Cmd+R "Reload Window" accelerator from reloading the whole window.

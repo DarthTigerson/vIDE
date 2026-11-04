@@ -59,6 +59,10 @@ export function BrowserTab({ browserId }: Props) {
   useCoverNativeViews(deviceMenuOpen)
   const deviceButtonRef = useRef<HTMLButtonElement>(null)
   const [clearDataOpen, setClearDataOpen] = useState(false)
+  const findInputRef = useRef<HTMLInputElement>(null)
+  const [findOpen, setFindOpen] = useState(false)
+  const [findText, setFindText] = useState('')
+  const [findResult, setFindResult] = useState<{ active: number; total: number } | null>(null)
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -133,6 +137,15 @@ export function BrowserTab({ browserId }: Props) {
           break
         case 'zoom-changed':
           useBrowserStore.getState().updateTab(browserId, { zoomLevel: event.level })
+          break
+        case 'find-requested':
+          setFindOpen(true)
+          // The input may already be mounted (box open, focus in the page).
+          findInputRef.current?.focus()
+          findInputRef.current?.select()
+          break
+        case 'find-result':
+          setFindResult({ active: event.activeMatchOrdinal, total: event.matches })
           break
         case 'open-in-new-tab': {
           const newId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
@@ -378,6 +391,41 @@ export function BrowserTab({ browserId }: Props) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [isFullscreen])
 
+  useEffect(() => {
+    if (findOpen) {
+      findInputRef.current?.focus()
+      findInputRef.current?.select()
+    }
+  }, [findOpen])
+
+  function openFind() {
+    if (!url) return
+    setFindOpen(true)
+    findInputRef.current?.focus()
+    findInputRef.current?.select()
+  }
+
+  function closeFind() {
+    setFindOpen(false)
+    setFindResult(null)
+    window.api.browserViewStopFind(browserId)
+  }
+
+  function handleFindChange(text: string) {
+    setFindText(text)
+    if (!text) {
+      setFindResult(null)
+      window.api.browserViewStopFind(browserId)
+      return
+    }
+    window.api.browserViewFind(browserId, text)
+  }
+
+  function findStep(forward: boolean) {
+    if (!findText) return
+    window.api.browserViewFind(browserId, findText, { forward, findNext: true })
+  }
+
   function toggleMobileMode() {
     const next = !mobileMode
     useBrowserStore.getState().updateTab(browserId, { mobileMode: next })
@@ -395,7 +443,17 @@ export function BrowserTab({ browserId }: Props) {
   }, [url])
 
   return (
-    <div className="h-full w-full flex flex-col bg-bg overflow-hidden">
+    <div
+      className="h-full w-full flex flex-col bg-bg overflow-hidden"
+      // Focus in the toolbar/find box is DOM focus, so Cmd/Ctrl+F is seen here;
+      // focus inside the page itself is handled in the main process instead.
+      onKeyDown={(e) => {
+        if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f') {
+          e.preventDefault()
+          openFind()
+        }
+      }}
+    >
       {!isFullscreen && (
       <>
       <div className="flex items-center gap-1 px-2 h-9 border-b border-border shrink-0 bg-tab-bar">
@@ -584,6 +642,61 @@ export function BrowserTab({ browserId }: Props) {
         </div>
       )}
       </>
+      )}
+      {findOpen && !isFullscreen && (
+        <div className="flex items-center gap-1 px-2 h-9 border-b border-border shrink-0 bg-tab-bar">
+          <input
+            ref={findInputRef}
+            type="text"
+            aria-label="Find in page"
+            placeholder="Find in page"
+            value={findText}
+            onChange={(e) => handleFindChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                findStep(!e.shiftKey)
+              } else if (e.key === 'Escape') {
+                e.preventDefault()
+                e.stopPropagation()
+                closeFind()
+              }
+            }}
+            className="h-6 w-56 rounded border border-border bg-bg px-2 text-xs text-fg outline-none focus:border-accent"
+          />
+          <span className="min-w-[3.5rem] text-xs tabular-nums text-fg-muted">
+            {findText && findResult ? (findResult.total === 0 ? 'No results' : `${findResult.active} of ${findResult.total}`) : ''}
+          </span>
+          <button
+            type="button"
+            aria-label="Previous match"
+            title="Previous match (Shift+Enter)"
+            disabled={!findText}
+            onClick={() => findStep(false)}
+            className="flex h-6 w-6 items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            aria-label="Next match"
+            title="Next match (Enter)"
+            disabled={!findText}
+            onClick={() => findStep(true)}
+            className="flex h-6 w-6 items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
+          >
+            ↓
+          </button>
+          <button
+            type="button"
+            aria-label="Close find"
+            title="Close (Esc)"
+            onClick={closeFind}
+            className="flex h-6 w-6 items-center justify-center rounded text-base leading-none text-fg-muted hover:text-fg hover:bg-white/5"
+          >
+            ×
+          </button>
+        </div>
       )}
       <div className="relative flex-1 min-h-0">
         <div ref={containerRef} className="h-full w-full" />

@@ -401,3 +401,70 @@ describe('BrowserViewManager Claude-controlled tab (VIDE-53)', () => {
     expect(win.contentView.addChildView).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('BrowserViewManager find in page', () => {
+  function lastCreatedView() {
+    const created = (WebContentsView as unknown as ReturnType<typeof vi.fn>).mock.results
+    return created[created.length - 1].value
+  }
+
+  function setupFind(winId: number) {
+    const manager = new BrowserViewManager()
+    manager.registerHandlers()
+    const win = fakeWin(winId) as any
+    win.webContents.focus = vi.fn()
+    winsById.set(winId, win)
+    handlers['browserView:create']({ sender: win }, 'tab-1', 'https://example.com')
+    const view = lastCreatedView()
+    view.webContents.findInPage = vi.fn()
+    view.webContents.stopFindInPage = vi.fn()
+    view.webContents.focus = vi.fn()
+    const listener = (event: string) =>
+      view.webContents.on.mock.calls.find((c: any[]) => c[0] === event)![1] as (...a: any[]) => void
+    return { win, view, listener }
+  }
+
+  it('browserView:find forwards text and options to findInPage and ignores empty text', () => {
+    const { win, view } = setupFind(40)
+    handlers['browserView:find']({ sender: win }, 'tab-1', 'foo', { forward: false, findNext: true })
+    expect(view.webContents.findInPage).toHaveBeenCalledWith('foo', { forward: false, findNext: true })
+    handlers['browserView:find']({ sender: win }, 'tab-1', '')
+    expect(view.webContents.findInPage).toHaveBeenCalledTimes(1)
+  })
+
+  it('browserView:stopFind clears the selection and refocuses the page', () => {
+    const { win, view } = setupFind(41)
+    handlers['browserView:stopFind']({ sender: win }, 'tab-1')
+    expect(view.webContents.stopFindInPage).toHaveBeenCalledWith('clearSelection')
+    expect(view.webContents.focus).toHaveBeenCalled()
+  })
+
+  it('forwards found-in-page results to the renderer', () => {
+    const { win, listener } = setupFind(42)
+    listener('found-in-page')({}, { activeMatchOrdinal: 3, matches: 7 })
+    expect(win.webContents.send).toHaveBeenCalledWith('browserView:event', 'tab-1', {
+      type: 'find-result',
+      activeMatchOrdinal: 3,
+      matches: 7,
+    })
+  })
+
+  it('Cmd/Ctrl+F inside the page is swallowed and asks the renderer to open find', () => {
+    const { win, listener } = setupFind(43)
+    const preventDefault = vi.fn()
+    listener('before-input-event')({ preventDefault }, { type: 'keyDown', key: 'f', meta: true, control: false, shift: false, alt: false })
+    expect(preventDefault).toHaveBeenCalled()
+    expect(win.webContents.focus).toHaveBeenCalled()
+    expect(win.webContents.send).toHaveBeenCalledWith('browserView:event', 'tab-1', { type: 'find-requested' })
+  })
+
+  it('plain F and Cmd+Shift+F are left to the page', () => {
+    const { win, listener } = setupFind(44)
+    const preventDefault = vi.fn()
+    listener('before-input-event')({ preventDefault }, { type: 'keyDown', key: 'f', meta: false, control: false, shift: false, alt: false })
+    listener('before-input-event')({ preventDefault }, { type: 'keyDown', key: 'f', meta: true, control: false, shift: true, alt: false })
+    expect(preventDefault).not.toHaveBeenCalled()
+    expect(win.webContents.send).not.toHaveBeenCalled()
+  })
+})
+

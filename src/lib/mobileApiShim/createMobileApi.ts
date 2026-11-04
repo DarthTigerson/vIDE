@@ -374,6 +374,8 @@ export function createMobileApi(wsUrl: string) {
     browserViewSetMobileMode: stubInvoke(undefined as void),
     browserViewClearCache: stubInvoke(undefined as void),
     browserViewClearCookies: stubInvoke(undefined as void),
+    browserViewFind: stubInvoke(undefined as void),
+    browserViewStopFind: stubInvoke(undefined as void),
     browserViewDestroy: stubInvoke(undefined as void),
     onBrowserViewEvent: stubOn(),
     onBrowserOpenExternalUrl: stubOn(),
