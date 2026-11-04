@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('api', {
   readDir: (path: string) => ipcRenderer.invoke('fs:readDir', path),
   readFile: (path: string) => ipcRenderer.invoke('fs:readFile', path),
   readImageDataUrl: (path: string) => ipcRenderer.invoke('fs:readImageDataUrl', path),
+  readImagePngDataUrl: (path: string) => ipcRenderer.invoke('fs:readImagePngDataUrl', path),
   pathExists: (path: string) => ipcRenderer.invoke('fs:exists', path),
   getHomeDir: () => ipcRenderer.invoke('fs:homeDir'),
   writeFile: (path: string, content: string) =>

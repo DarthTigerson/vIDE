@@ -4,7 +4,7 @@ import {
 } from 'fs/promises'
 import { join, extname, basename, dirname, relative, resolve, isAbsolute } from 'path'
 import { homedir } from 'os'
-import { shell } from 'electron'
+import { shell, nativeImage } from 'electron'
 import { IGNORED_SEGMENTS } from './ignoredSegments'
 
 const IMAGE_MIME_TYPES: Record<string, string> = {
@@ -138,6 +138,20 @@ export async function readImageDataUrl(filePath: string): Promise<string> {
   const mime = IMAGE_MIME_TYPES[extname(filePath).toLowerCase()] ?? 'application/octet-stream'
   const buffer = await readFile(filePath)
   return `data:${mime};base64,${buffer.toString('base64')}`
+}
+
+// TIFF and HEIC can't be decoded by <img>, so the main process converts them
+// with the OS image decoder (macOS decodes both). Returns '' when nothing could
+// be decoded (e.g. no HEIC support on Linux, or an unreadable file) so the
+// viewer can say so instead of showing a broken image.
+export async function readImagePngDataUrl(filePath: string): Promise<string> {
+  try {
+    const image = nativeImage.createFromPath(filePath)
+    if (image.isEmpty()) return ''
+    return `data:image/png;base64,${image.toPNG().toString('base64')}`
+  } catch {
+    return ''
+  }
 }
 
 // Extracted from electron/main.ts's registerFsHandlers() inline ipcMain
