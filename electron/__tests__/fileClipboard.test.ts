@@ -1,10 +1,23 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-const buffers = new Map<string, Buffer>()
+// An in-memory stand-in for Electron 44's promise-based clipboard.
+const store = new Map<string, string>()
+const RAW = (name: string) => `electron application/osclipboard;format="${name}"`
 vi.mock('electron', () => ({
+  ClipboardItem: class {
+    constructor(public data: Record<string, string>) {}
+    get types() { return Object.keys(this.data) }
+    async getType(type: string) { return new Blob([this.data[type]]) }
+  },
   clipboard: {
-    writeBuffer: (format: string, data: Buffer) => { buffers.clear(); buffers.set(format, data) },
-    readBuffer: (format: string) => buffers.get(format) ?? Buffer.alloc(0),
+    write: async (items: Array<{ data: Record<string, string> }>) => {
+      store.clear()
+      for (const item of items) for (const [k, v] of Object.entries(item.data)) store.set(k, v)
+    },
+    read: async () => (store.size === 0 ? [] : [{
+      types: [...store.keys()],
+      getType: async (type: string) => new Blob([store.get(type) ?? '']),
+    }]),
   },
 }))
 
@@ -16,47 +29,47 @@ function setPlatform(value: string) {
 
 describe('fileClipboard', () => {
   const realPlatform = process.platform
-  beforeEach(() => buffers.clear())
+  beforeEach(() => store.clear())
   afterEach(() => setPlatform(realPlatform))
 
-  it('darwin: writes the first path as public.file-url and reads it back as a copy', () => {
+  it('darwin: writes the paths as a text/uri-list and reads it back as a copy', async () => {
     setPlatform('darwin')
-    writeClipboardFiles(['/proj/a b.txt'], 'cut')
-    expect(buffers.get('public.file-url')?.toString('utf8')).toBe('file:///proj/a%20b.txt')
-    expect(readClipboardFiles()).toEqual({ paths: ['/proj/a b.txt'], mode: 'copy' })
+    await writeClipboardFiles(['/proj/a b.txt'], 'cut')
+    expect(store.get('text/uri-list')).toBe('file:///proj/a%20b.txt')
+    expect(await readClipboardFiles()).toEqual({ paths: ['/proj/a b.txt'], mode: 'copy' })
   })
 
-  it('darwin: reads a multi-file Finder copy from NSFilenamesPboardType', () => {
+  it('darwin: reads a multi-file Finder copy from NSFilenamesPboardType', async () => {
     setPlatform('darwin')
-    buffers.set(
-      'NSFilenamesPboardType',
-      Buffer.from('<plist><array><string>/a.txt</string><string>/b.txt</string></array></plist>'),
+    store.set(
+      RAW('NSFilenamesPboardType'),
+      '<plist><array><string>/a.txt</string><string>/b.txt</string></array></plist>',
     )
-    expect(readClipboardFiles()).toEqual({ paths: ['/a.txt', '/b.txt'], mode: 'copy' })
+    expect(await readClipboardFiles()).toEqual({ paths: ['/a.txt', '/b.txt'], mode: 'copy' })
   })
 
-  it('linux: round-trips a cut through x-special/gnome-copied-files', () => {
+  it('linux: round-trips a cut through x-special/gnome-copied-files', async () => {
     setPlatform('linux')
-    writeClipboardFiles(['/proj/a.txt'], 'cut')
-    expect(readClipboardFiles()).toEqual({ paths: ['/proj/a.txt'], mode: 'cut' })
+    await writeClipboardFiles(['/proj/a.txt'], 'cut')
+    expect(await readClipboardFiles()).toEqual({ paths: ['/proj/a.txt'], mode: 'cut' })
   })
 
-  it('linux: falls back to text/uri-list', () => {
+  it('linux: falls back to text/uri-list', async () => {
     setPlatform('linux')
-    buffers.set('text/uri-list', Buffer.from('file:///x.txt\r\n'))
-    expect(readClipboardFiles()).toEqual({ paths: ['/x.txt'], mode: 'copy' })
+    store.set('text/uri-list', 'file:///x.txt\r\n')
+    expect(await readClipboardFiles()).toEqual({ paths: ['/x.txt'], mode: 'copy' })
   })
 
-  it('returns null when the clipboard holds no files', () => {
+  it('returns null when the clipboard holds no files', async () => {
     setPlatform('darwin')
-    expect(readClipboardFiles()).toBeNull()
+    expect(await readClipboardFiles()).toBeNull()
     setPlatform('linux')
-    expect(readClipboardFiles()).toBeNull()
+    expect(await readClipboardFiles()).toBeNull()
   })
 
-  it('writing an empty path list is a no-op', () => {
+  it('writing an empty path list is a no-op', async () => {
     setPlatform('darwin')
-    writeClipboardFiles([], 'copy')
-    expect(buffers.size).toBe(0)
+    await writeClipboardFiles([], 'copy')
+    expect(store.size).toBe(0)
   })
 })
