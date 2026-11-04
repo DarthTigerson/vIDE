@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { truncateTabLabel, orderTabsForDisplay } from '../tabDisplay'
+import { truncateTabLabel, orderTabsForDisplay, isCompactTabStrip, COMPACT_TAB_WIDTH } from '../tabDisplay'
 
 describe('truncateTabLabel', () => {
   it('leaves short names untouched', () => {
@@ -31,5 +31,17 @@ describe('orderTabsForDisplay', () => {
   it('is a no-op when everything is pinned', () => {
     const pinned = new Set(['/a.ts', '/b.ts'])
     expect(orderTabsForDisplay(['/a.ts', '/b.ts'], pinned)).toEqual(['/a.ts', '/b.ts'])
+  })
+})
+
+describe('isCompactTabStrip', () => {
+  it('collapses once the average tab would be narrower than COMPACT_TAB_WIDTH', () => {
+    expect(isCompactTabStrip(COMPACT_TAB_WIDTH * 10, 10)).toBe(false)
+    expect(isCompactTabStrip(COMPACT_TAB_WIDTH * 10 - 1, 10)).toBe(true)
+  })
+
+  it('never collapses before the strip has been measured or with no tabs', () => {
+    expect(isCompactTabStrip(0, 30)).toBe(false)
+    expect(isCompactTabStrip(500, 0)).toBe(false)
   })
 })
