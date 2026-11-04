@@ -17,7 +17,7 @@
     "dist:linux": "electron-vite build && electron-builder --linux"
   },
   "dependencies": {
-    "@electron-toolkit/utils": "^3.0.0",
+    "@electron-toolkit/utils": "^4.0.0",
     "@monaco-editor/react": "^4.6.0",
     "@vscode/ripgrep": "^1.18.0",
     "@xterm/addon-fit": "^0.10.0",
@@ -27,7 +27,7 @@
     "d3-force": "^3.0.0",
     "diff": "^9.0.0",
     "minimatch": "^10.2.6",
-    "node-pty": "^1.0.0",
+    "node-pty": "^1.1.0",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -39,7 +39,7 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
-    "@electron/rebuild": "^3.6.0",
+    "@electron/rebuild": "^4.0.0",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -51,7 +51,7 @@
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
-    "electron": "^32.3.3",
+    "electron": "45.2.3",
     "electron-builder": "^26.15.3",
     "electron-vite": "^2.3.0",
     "jsdom": "^29.1.1",
@@ -62,7 +62,7 @@
     "vitest": "^2.1.4"
   },
   "allowScripts": {
-    "electron@32.3.3": true
+    "electron@45.2.3": true
   },
   "build": {
     "appId": "com.thomasbonnici.vide",
