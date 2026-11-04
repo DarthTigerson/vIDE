@@ -38,7 +38,13 @@ export type BrowserViewEvent =
   | { type: 'did-fail-load'; errorDescription: string }
   | { type: 'dom-ready'; webContentsId: number }
   | { type: 'zoom-changed'; level: number }
-  | { type: 'open-in-new-tab'; url: string }
+  // tabId set: main already created the view (a script-opened window that
+  // keeps its window.opener link) under that id, and the renderer must use it
+  // for the new tab so browserView:create adopts the existing view.
+  | { type: 'open-in-new-tab'; url: string; tabId?: string }
+  // The page closed itself (window.close(), e.g. an OAuth popup once sign-in
+  // completes); the renderer should close the tab.
+  | { type: 'closed-by-page' }
 
 export interface NetworkLogEntry {
   requestId: string
@@ -230,14 +236,40 @@ export class BrowserViewManager {
         session: getBrowserSession(),
       },
     })
-    view.setBackgroundColor('#1e1e1e')
     view.webContents.loadURL(url)
-    this.wireEvents(win, id, view)
-
-    win.contentView.addChildView(view)
-    entries.set(id, { view, attached: true, mobileMode: false, consoleLogs: [], networkLog: [] })
-    if (id === CLAUDE_TAB_ID) this.attachNetworkDebugger(win.id, id, view.webContents)
+    this.register(win, id, view)
     return view.webContents.id
+  }
+
+  private register(win: BrowserWindow, id: string, view: WebContentsView): void {
+    view.setBackgroundColor('#1e1e1e')
+    this.wireEvents(win, id, view)
+    win.contentView.addChildView(view)
+    this.entriesFor(win.id).set(id, { view, attached: true, mobileMode: false, consoleLogs: [], networkLog: [] })
+    if (id === CLAUDE_TAB_ID) this.attachNetworkDebugger(win.id, id, view.webContents)
+  }
+
+  // A window the page opened itself (window.open, target="_blank"). Chromium
+  // builds its webContents and hands us the options; adopting that into a
+  // WebContentsView, rather than denying it and loading the url in a fresh
+  // view, keeps the window.opener link. OAuth/SSO popups depend on it: the
+  // popup posts the result back through window.opener and then calls
+  // window.close(). A denied window also makes window.open() return null,
+  // which many sign-in pages treat as "popup blocked" (VIDE-18).
+  private adoptOpenedWindow(
+    win: BrowserWindow,
+    openerId: string,
+    options: Electron.BrowserWindowConstructorOptions,
+    url: string
+  ): Electron.WebContents {
+    const tabId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+    const view = new WebContentsView(options as Electron.WebContentsViewConstructorOptions)
+    this.register(win, tabId, view)
+    // Sent as the opener's event (its BrowserTab is the one listening).
+    // The view starts at zero bounds until the new tab mounts and pushes
+    // real ones; its browserView:create call finds this entry and adopts it.
+    this.sendEvent(win, openerId, { type: 'open-in-new-tab', url, tabId })
+    return view.webContents
   }
 
   private sendEvent(win: BrowserWindow, id: string, payload: BrowserViewEvent): void {
@@ -248,12 +280,27 @@ export class BrowserViewManager {
     const wc = view.webContents
 
     // Links/scripts that would normally pop a real OS window (target="_blank",
-    // window.open, ctrl/cmd-click) get deny'd here — WebContentsView has no
-    // window of its own to pop one into anyway — and handed to the renderer
-    // instead, which opens it as a new browser tab in the app's own tab strip.
-    wc.setWindowOpenHandler((details) => {
-      this.sendEvent(win, id, { type: 'open-in-new-tab', url: details.url })
-      return { action: 'deny' }
+    // window.open, ctrl/cmd-click) open as a new browser tab in the app's own
+    // tab strip instead. The new page's webContents is still created by
+    // Chromium (see adoptOpenedWindow) so window.opener keeps working.
+    wc.setWindowOpenHandler((details) => ({
+      action: 'allow',
+      // A tab, not a child window: closing the page that opened it must not
+      // close it too.
+      outlivesOpener: true,
+      createWindow: (options) => this.adoptOpenedWindow(win, id, options, details.url),
+    }))
+
+    // window.close() from the page destroys its webContents. Our own destroy()
+    // removes the entry first, so a still-registered view here means the page
+    // closed itself: drop it and let the renderer close the tab.
+    wc.once('destroyed', () => {
+      const entries = this.viewsByWindow.get(win.id)
+      const entry = entries?.get(id)
+      if (!entry || entry.view !== view) return
+      if (entry.attached && !win.isDestroyed()) win.contentView.removeChildView(view)
+      entries!.delete(id)
+      this.sendEvent(win, id, { type: 'closed-by-page' })
     })
 
     wc.on('did-start-loading', () => this.sendEvent(win, id, { type: 'did-start-loading' }))

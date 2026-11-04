@@ -37,6 +37,7 @@ function fakeWebContentsView() {
       loadURL: vi.fn(),
       setWindowOpenHandler: vi.fn(),
       on: vi.fn(),
+      once: vi.fn(),
       getZoomLevel: vi.fn(() => 0),
       isDestroyed: vi.fn(() => false),
       close: vi.fn(),
@@ -399,5 +400,69 @@ describe('BrowserViewManager Claude-controlled tab (VIDE-53)', () => {
     // the ipc handler, the Claude tab via navigateClaudeTab
     expect(claudeTabView).not.toBe(userTabView)
     expect(win.contentView.addChildView).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('BrowserViewManager pages opening new windows (VIDE-18)', () => {
+  function lastCreatedView() {
+    const created = (WebContentsView as unknown as ReturnType<typeof vi.fn>).mock.results
+    return created[created.length - 1].value
+  }
+  function openHandlerOf(view: any) {
+    return view.webContents.setWindowOpenHandler.mock.calls[0][0]
+  }
+  function destroyedListenerOf(view: any) {
+    return view.webContents.once.mock.calls.find((c: any[]) => c[0] === 'destroyed')[1]
+  }
+
+  it('allows window.open, adopts the opened webContents into a new tab view, and tells the opener tab', () => {
+    const manager = new BrowserViewManager()
+    manager.registerHandlers()
+    const win = fakeWin(40)
+    handlers['browserView:create']({ sender: win }, 'opener', 'https://app.example.com')
+    const openerView = lastCreatedView()
+
+    const response = openHandlerOf(openerView)({ url: 'https://idp.example.com/login', disposition: 'new-window' })
+    expect(response.action).toBe('allow')
+    expect(response.outlivesOpener).toBe(true)
+
+    const options = { webContents: { fake: true }, webPreferences: {} }
+    const openedWc = response.createWindow(options)
+    const popupView = lastCreatedView()
+    expect(vi.mocked(WebContentsView)).toHaveBeenLastCalledWith(options)
+    expect(openedWc).toBe(popupView.webContents)
+    // Chromium already navigates the opened window; we must not load it again.
+    expect(popupView.webContents.loadURL).not.toHaveBeenCalled()
+
+    const [channel, openerId, event] = win.webContents.send.mock.calls.at(-1)
+    expect(channel).toBe('browserView:event')
+    expect(openerId).toBe('opener')
+    expect(event).toMatchObject({ type: 'open-in-new-tab', url: 'https://idp.example.com/login' })
+    expect(typeof event.tabId).toBe('string')
+
+    // The renderer's new tab then calls create with that id and gets the
+    // already-open view back instead of a fresh one.
+    const wcId = handlers['browserView:create']({ sender: win }, event.tabId, 'https://idp.example.com/login')
+    expect(wcId).toBe(popupView.webContents.id)
+    expect(lastCreatedView()).toBe(popupView)
+  })
+
+  it('reports closed-by-page when the page closes itself, but not when the app destroys the tab', () => {
+    const manager = new BrowserViewManager()
+    manager.registerHandlers()
+    const win = fakeWin(41)
+    handlers['browserView:create']({ sender: win }, 'a', 'https://a.example.com')
+    const viewA = lastCreatedView()
+    handlers['browserView:create']({ sender: win }, 'b', 'https://b.example.com')
+    const viewB = lastCreatedView()
+
+    destroyedListenerOf(viewA)()
+    expect(win.webContents.send).toHaveBeenLastCalledWith('browserView:event', 'a', { type: 'closed-by-page' })
+    expect(win.contentView.removeChildView).toHaveBeenCalledWith(viewA)
+
+    win.webContents.send.mockClear()
+    handlers['browserView:destroy']({ sender: win }, 'b')
+    destroyedListenerOf(viewB)()
+    expect(win.webContents.send).not.toHaveBeenCalledWith('browserView:event', 'b', { type: 'closed-by-page' })
   })
 })

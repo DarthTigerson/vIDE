@@ -55,6 +55,23 @@ afterEach(() => {
 })
 
 describe('BrowserTab', () => {
+  it('opens a page-opened window in a new tab using the id main already registered (VIDE-18)', () => {
+    useEditorStore.setState({ tabs: [{ path: 'browser://opener', content: '', dirty: false }] } as any)
+    useBrowserStore.getState().ensureTab('opener', 'https://app.example.com')
+    render(<BrowserTab browserId="opener" />)
+    act(() => lastEventCallback!('opener', { type: 'open-in-new-tab', url: 'https://idp.example.com/login', tabId: 'popup1' }))
+    expect(useBrowserStore.getState().tabs['popup1']?.url).toBe('https://idp.example.com/login')
+    expect(useEditorStore.getState().tabs.some((t) => t.path === 'browser://popup1')).toBe(true)
+  })
+
+  it('closes its editor tab when the page closes itself (VIDE-18)', () => {
+    useEditorStore.setState({ tabs: [{ path: 'browser://popup1', content: '', dirty: false }] } as any)
+    useBrowserStore.getState().ensureTab('popup1', 'https://idp.example.com/done')
+    render(<BrowserTab browserId="popup1" />)
+    act(() => lastEventCallback!('popup1', { type: 'closed-by-page' }))
+    expect(useEditorStore.getState().tabs.some((t) => t.path === 'browser://popup1')).toBe(false)
+  })
+
   it('a brand-new tab does not create a native view and shows the landing page', () => {
     const { getByText } = render(<BrowserTab browserId="tab-1" />)
     expect(window.api.browserViewCreate).not.toHaveBeenCalled()
