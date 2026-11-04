@@ -30,6 +30,7 @@ import { registerLspProviders } from '@/lib/lspClient'
 import { registerModelPath } from '@/lib/lspModelRegistry'
 import { formatSelectionForAssistant, toRelativePath } from '@/lib/sendSelectionToAssistant'
 import { computeDiff } from '@/lib/lineDiff'
+import { gitChangeRulerColor } from '@/lib/gitChangeColors'
 import { getLastFocusedEditor, setLastFocusedEditor } from '@/lib/lastFocusedEditor'
 import { notifyNoteChanged } from '@/lib/notifySettingChanged'
 import { attachCurrentLineBlame } from './currentLineBlame'
@@ -996,6 +997,9 @@ function EditorPane({ paneId }: { paneId: string }) {
                       // the gap, so washing it would mark that line changed.
                       className: showInline && c.type !== 'deleted' ? `git-line-${c.type}` : undefined,
                       lineNumberClassName: `git-gutter-${c.type}`,
+                      // Same colour as the gutter mark, in the scrollbar, so
+                      // changes further down a long file can be found.
+                      overviewRuler: { color: gitChangeRulerColor(c.type), position: monaco.editor.OverviewRulerLane.Left },
                     },
                   })))
                   inlineDiffDecorationsRef.current?.set(!showInline ? [] : inlineDiffs.flatMap((d) => d.ranges.map((r) => ({

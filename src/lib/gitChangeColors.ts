@@ -50,3 +50,13 @@ export function applyGitChangeColors(mode: ChangeColorMode, custom: ChangeColors
     else style.setProperty(name, value)
   }
 }
+
+// Monaco paints scrollbar (overview ruler) marks itself and takes a literal
+// colour, not a CSS variable, so the current --git-* value is resolved from
+// the root element at the time the marks are set. Falls back to the dark-
+// theme defaults outside a DOM.
+export function gitChangeRulerColor(type: keyof ChangeColors): string {
+  if (typeof document === 'undefined') return DEFAULT_CUSTOM_CHANGE_COLORS[type]
+  const value = getComputedStyle(document.documentElement).getPropertyValue(`--git-${type}`).trim()
+  return value || DEFAULT_CUSTOM_CHANGE_COLORS[type]
+}
