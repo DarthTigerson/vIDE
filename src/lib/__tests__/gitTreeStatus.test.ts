@@ -7,6 +7,12 @@ function status(staged: GitStatus['staged'], unstaged: GitStatus['unstaged']): G
 }
 
 describe('buildFileGitDecorations', () => {
+  it('keys a nested repo\'s `?? nested/` entry by the folder itself, without the trailing slash', () => {
+    const files = buildFileGitDecorations(['/proj/repoA'], [status([], [{ path: 'nested/', status: '?' }])])
+    expect(files.get('/proj/repoA/nested')?.letter).toBe('U')
+    expect(files.has('/proj/repoA/nested/')).toBe(false)
+  })
+
   it('joins a repo-relative status path with its own repo root', () => {
     const files = buildFileGitDecorations(
       ['/proj/repoA'],

@@ -58,7 +58,9 @@ export function buildFileGitDecorations(
     // (e.g. porcelain "AM") ends up showing its current working-tree
     // status — the more immediately relevant of the two for a single
     // at-a-glance tree badge.
-    for (const entry of status.unstaged) files.set(`${repo}/${entry.path}`, toDecoration(entry.status))
+    // A nested repo comes back as `nested/`; key it by the folder itself so
+    // the tree's folder lookup finds it.
+    for (const entry of status.unstaged) files.set(`${repo}/${entry.path.replace(/\/$/, '')}`, toDecoration(entry.status))
   })
   return files
 }

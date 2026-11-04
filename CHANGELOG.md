@@ -1,4 +1,9 @@
 # vIDE
+## v0.2.31 (2026-11-03)
+**Bug fixes**
+- Fixed new folders showing up in the Git panel as a blank row with just a "?" until you staged them. Each untracked file inside a new folder now gets its own row you can open, stage or discard, in single-repo and multi-repo projects alike. A git repo inside another repo shows as one row named after its folder, and its folder gets its badge in the Site Tree
+
+
 ## v0.2.30 (2026-10-23)
 - **Rocky mode for every agent**: the "+" menu now has Normal and Rocky tabs at the top. On the Rocky tab every agent shows Rocky's icon and starts in Rocky mode: Claude Code becomes Rocky Code, and Bridge and Llama sessions answer in Rocky's voice. The menu remembers the tab you last picked, so whichever mode you use most is one click. Rocky Bridge and Llama sessions keep Rocky's icon in the session bar and stay in Rocky mode after a relaunch. New Agent Session in the Action Palette lists a "(Rocky mode)" entry for each agent. The separate Rocky Code row is gone, since the Rocky tab replaces it
 - **Hide items in the Site Tree**: right-click a file or folder for a new Hide submenu. Hide that one item, everything with the same name, or every file with the same extension, and switch hidden items, gitignored items, dotfiles and graphify output on or off for the repo. Hidden items can be shown faded and tagged "hidden" from an eye button in the Site Tree header, and unhidden from the same submenu. Search keeps their matches in a collapsible Hidden results section instead of mixing them in
