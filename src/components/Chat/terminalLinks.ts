@@ -174,6 +174,12 @@ export const URL_REGEX = /(https?|HTTPS?):[/]{2}[^\s"'!*(){}|\\\^<>`]*[^\s"':,.!
 // treated as continuing onto the next when its text runs to (nearly) the
 // right edge with no trailing space, i.e. a token was cut mid-way.
 const HARD_WRAP_EDGE_SLACK = 2
+// Claude Code also keeps a right margin of a few columns, so a cut-off path
+// or URL can end short of the edge. Within this wider slack a row is joined
+// only when both sides of the break look like one unbroken path/URL.
+const PATH_WRAP_EDGE_SLACK = 8
+const PATH_TAIL = /[A-Za-z0-9_.~%?&=#:+@-]*\/[A-Za-z0-9_./~%?&=#:+@-]*$/
+const PATH_HEAD = /^\s*[A-Za-z0-9_./~%?&=#:+@-]/
 const MAX_JOINED_ROWS = 12
 
 interface RowSegment {
@@ -188,8 +194,11 @@ function rowContinuesOnto(terminal: Terminal, row: BufferLine, next: BufferLine)
   if (next.isWrapped) return true
   const text = row.translateToString(true)
   if (!text) return false
-  if (columnForStringIndex(terminal, row, text.length) - 1 < terminal.cols - HARD_WRAP_EDGE_SLACK) return false
-  return /\S/.test(next.translateToString(true))
+  const nextText = next.translateToString(true)
+  const usedCols = columnForStringIndex(terminal, row, text.length) - 1
+  if (usedCols >= terminal.cols - HARD_WRAP_EDGE_SLACK) return /\S/.test(nextText)
+  if (usedCols < terminal.cols - PATH_WRAP_EDGE_SLACK) return false
+  return PATH_TAIL.test(text) && PATH_HEAD.test(nextText)
 }
 
 // Joins the logical line containing `y` across soft and hard wraps.

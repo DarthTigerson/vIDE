@@ -152,6 +152,28 @@ describe('Chat terminal link provider (integration)', () => {
     spy.mockRestore()
   })
 
+  // Reported bug: Claude Code wraps a few columns short of the terminal edge
+  // (its own right margin), so the first row ends at column 75 of 80 and the
+  // path was split into unclickable pieces.
+  it('joins a path Claude Code wrapped short of the edge, clickable from every row', async () => {
+    const path = '/private/tmp/claude-501/-Users-keithfenech-Documents-vSuite/987e5218-655a-4c78-9d4b-6c658deabfd0/scratchpad/multiline-test.txt'
+    const rows = ['  ' + path.slice(0, 73), '  ' + path.slice(73)]
+    const { spy, registered } = await setupAndWriteLine(rows.join('\r\n'))
+    for (const row of [1, 2]) {
+      const links = await linksOn(registered[1], row)
+      expect(links.map((l) => l.text)).toEqual([path])
+    }
+    spy.mockRestore()
+  })
+
+  it('does not join prose that stops short of the edge onto a path on the next row', async () => {
+    const prose = 'This sentence ends a few columns before the right edge of the terminal.'
+    const { spy, registered } = await setupAndWriteLine(`${prose}\r\nsrc/next/file.ts`)
+    const links = await linksOn(registered[1], 2)
+    expect(links.map((l) => l.text)).toEqual(['src/next/file.ts'])
+    spy.mockRestore()
+  })
+
   it('registers a link provider that detects an extensionless SSH-key path in real terminal buffer content', async () => {
     const { links, spy } = await setupAndWriteLine('~/.ssh/id_ed25519_github_personal')
 
