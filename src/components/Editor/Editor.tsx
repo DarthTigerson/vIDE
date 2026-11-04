@@ -81,6 +81,8 @@ import {
   GENERAL_SETTINGS_TAB_PATH,
   TODO_SETTINGS_TAB_PATH,
   NOTES_SETTINGS_TAB_PATH,
+  IMAGE_VIEWER_SETTINGS_TAB_PATH,
+  SVG_VIEWER_SETTINGS_TAB_PATH,
   LLAMA_SETTINGS_TAB_PATH,
 } from '@/components/Settings/paths'
 import { TerminalTab } from '@/components/Terminal/TerminalTab'
@@ -119,12 +121,24 @@ import { ScriptsSettingsPage } from '@/components/Settings/ScriptsSettingsPage'
 import { TodoDetailPage } from '@/components/Todo/TodoDetailPage'
 import {
   isImagePreviewTab,
+  isSvgViewerTab,
+  parseSvgViewerPath,
+  isExtensionOffTab,
+  parseExtensionOffPath,
   parseImagePreviewPath,
   isMarkdownPreviewTab,
   buildMarkdownPreviewPath,
   parseMarkdownPreviewPath,
 } from '@/components/Viewer/paths'
 import { ImageViewer } from '@/components/Viewer/ImageViewer'
+import { SvgViewer } from '@/components/Viewer/SvgViewer'
+import { ExtensionOffNotice } from '@/components/Viewer/ExtensionOffNotice'
+import { SvgModeControls } from '@/components/Viewer/SvgModeControls'
+import { ImageViewerSettingsPage } from '@/components/Settings/ImageViewerSettingsPage'
+import { SvgViewerSettingsPage } from '@/components/Settings/SvgViewerSettingsPage'
+import { useExtensionsStore } from '@/stores/extensionsStore'
+import type { ExtensionId } from '@/lib/extensions'
+import { isSvgFile } from '@/lib/fileKinds'
 import { MarkdownViewer } from '@/components/Viewer/MarkdownViewer'
 import { isMarkdownFile } from '@/lib/fileKinds'
 import type { GitDiffContent } from '@/types/index'
@@ -476,6 +490,9 @@ function EditorPane({ paneId }: { paneId: string }) {
   const isDockerLogs = !!activeTab && isDockerLogsTab(activeTab.path)
   const isImagePreview = !!activeTab && isImagePreviewTab(activeTab.path)
   const isMarkdownPreview = !!activeTab && isMarkdownPreviewTab(activeTab.path)
+  const isSvgViewer = !!activeTab && isSvgViewerTab(activeTab.path)
+  const isExtensionOff = !!activeTab && isExtensionOffTab(activeTab.path)
+  const svgViewerEnabled = useExtensionsStore((s) => s.enabled['svg-viewer'])
   // Tabs that encode their real file path in a scheme (markdown-preview://,
   // git-diff://, git-commit-diff://) get it parsed back out by
   // breadcrumbPathForTab, so the breadcrumb shows there too. Image previews
@@ -485,7 +502,7 @@ function EditorPane({ paneId }: { paneId: string }) {
     !isVirtual && !isTerminal && !isBrowser &&
     !isDiff && !isCommitDiff && !isGitLog && !isGitGraph && !isGitBranchDiff &&
     !isGraphifyGraph && !isUsageGraph && !isAlarms && !isUpdate && !isTodoBoard && !isScript && !isTodoDetail && !isTodoTrash &&
-    !isLlamaModel && !isDockerLogs && !isImagePreview && !isMarkdownPreview &&
+    !isLlamaModel && !isDockerLogs && !isImagePreview && !isMarkdownPreview && !isSvgViewer && !isExtensionOff &&
     // A scratch tab has no file on disk yet, so there is no path to show —
     // without this the breadcrumb splits 'scratch://<uuid>' on '/' and
     // renders the scheme and the uuid as if they were folders.
@@ -634,7 +651,9 @@ function EditorPane({ paneId }: { paneId: string }) {
             path={breadcrumbFilePath}
             projectRoot={projectRoot}
             right={
-              isMarkdownFile(breadcrumbFilePath) ? (
+              isSvgFile(breadcrumbFilePath) && svgViewerEnabled ? (
+                <SvgModeControls filePath={breadcrumbFilePath} onSource={!isSvgViewer} paneId={paneId} />
+              ) : isMarkdownFile(breadcrumbFilePath) ? (
                 <MarkdownModeToggleButton
                   filePath={breadcrumbFilePath}
                   mode={isMarkdownPreview ? 'preview' : 'editor'}
@@ -687,6 +706,10 @@ function EditorPane({ paneId }: { paneId: string }) {
             <MobileSettingsPage />
           ) : activeTab.path === TODO_SETTINGS_TAB_PATH ? (
             <TodoSettingsPage />
+          ) : activeTab.path === IMAGE_VIEWER_SETTINGS_TAB_PATH ? (
+            <ImageViewerSettingsPage />
+          ) : activeTab.path === SVG_VIEWER_SETTINGS_TAB_PATH ? (
+            <SvgViewerSettingsPage />
           ) : activeTab.path === NOTES_SETTINGS_TAB_PATH ? (
             <NotesSettingsPage />
           ) : activeTab.path === SCRIPTS_SETTINGS_TAB_PATH ? (
@@ -740,6 +763,14 @@ function EditorPane({ paneId }: { paneId: string }) {
           <ImageViewer key={activeTab.path} path={parseImagePreviewPath(activeTab.path)} />
         ) : isMarkdownPreview ? (
           <MarkdownViewer key={activeTab.path} path={parseMarkdownPreviewPath(activeTab.path)} />
+        ) : isSvgViewer ? (
+          <SvgViewer key={activeTab.path} path={parseSvgViewerPath(activeTab.path)} />
+        ) : isExtensionOff ? (
+          <ExtensionOffNotice
+            key={activeTab.path}
+            extensionId={parseExtensionOffPath(activeTab.path).extensionId as ExtensionId}
+            path={parseExtensionOffPath(activeTab.path).filePath}
+          />
         ) : (isDiff || isCommitDiff) ? (
           <div className="h-full overflow-hidden">
             {diffContent && (

@@ -6,6 +6,12 @@ import {
   isMarkdownPreviewTab,
   buildMarkdownPreviewPath,
   parseMarkdownPreviewPath,
+  isSvgViewerTab,
+  buildSvgViewerPath,
+  parseSvgViewerPath,
+  isExtensionOffTab,
+  buildExtensionOffPath,
+  parseExtensionOffPath,
 } from '../paths'
 
 describe('image preview virtual tab paths', () => {
@@ -43,5 +49,22 @@ describe('markdown preview virtual tab paths', () => {
   it('round-trips build -> parse', () => {
     const built = buildMarkdownPreviewPath('/proj/README.md')
     expect(parseMarkdownPreviewPath(built)).toBe('/proj/README.md')
+  })
+})
+
+describe('svg viewer and extension-off tab paths', () => {
+  it('round-trips an svg viewer path', () => {
+    const tab = buildSvgViewerPath('/proj/logo.svg')
+    expect(tab).toBe('svg-viewer:///proj/logo.svg')
+    expect(isSvgViewerTab(tab)).toBe(true)
+    expect(isSvgViewerTab('/proj/logo.svg')).toBe(false)
+    expect(parseSvgViewerPath(tab)).toBe('/proj/logo.svg')
+  })
+
+  it('round-trips an extension-off notice path', () => {
+    const tab = buildExtensionOffPath('image-viewer', '/proj/a b/shot.png')
+    expect(isExtensionOffTab(tab)).toBe(true)
+    expect(isExtensionOffTab('/proj/shot.png')).toBe(false)
+    expect(parseExtensionOffPath(tab)).toEqual({ extensionId: 'image-viewer', filePath: '/proj/a b/shot.png' })
   })
 })

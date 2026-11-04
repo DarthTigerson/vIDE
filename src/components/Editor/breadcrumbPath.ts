@@ -5,6 +5,8 @@ import {
 import {
   isMarkdownPreviewTab, parseMarkdownPreviewPath,
   isImagePreviewTab, parseImagePreviewPath,
+  isSvgViewerTab, parseSvgViewerPath,
+  isExtensionOffTab, parseExtensionOffPath,
 } from '@/components/Viewer/paths'
 
 function joinPath(root: string, rel: string): string {
@@ -19,6 +21,7 @@ function joinPath(root: string, rel: string): string {
 export function breadcrumbPathForTab(tabPath: string, isPlainFileTab: boolean): string | null {
   if (isPlainFileTab) return tabPath
   if (isMarkdownPreviewTab(tabPath)) return parseMarkdownPreviewPath(tabPath)
+  if (isSvgViewerTab(tabPath)) return parseSvgViewerPath(tabPath)
   if (isGitDiffTab(tabPath)) {
     const { repoRoot, path } = parseGitDiffPath(tabPath)
     return joinPath(repoRoot, path)
@@ -40,6 +43,7 @@ export function diffFilePathForTab(tabPath: string): string | null {
 // (terminals, settings pages, …), which all carry a "://" scheme.
 export function filePathForTab(tabPath: string): string | null {
   if (isImagePreviewTab(tabPath)) return parseImagePreviewPath(tabPath)
+  if (isExtensionOffTab(tabPath)) return parseExtensionOffPath(tabPath).filePath
   if (!tabPath.includes('://')) return tabPath
   return breadcrumbPathForTab(tabPath, false)
 }

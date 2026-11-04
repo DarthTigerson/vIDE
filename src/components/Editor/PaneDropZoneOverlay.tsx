@@ -3,9 +3,8 @@ import { collectPaneIds, useEditorStore, type EditorSplitDirection, type SplitPl
 import { useTabDragStore } from '@/stores/tabDragStore'
 import { computeDropZone, type DropZone } from './dropZone'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
-import { buildImagePreviewPath, buildMarkdownPreviewPath } from '@/components/Viewer/paths'
+import { routeFile, resolveFileTab } from '@/lib/openFile'
 import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
-import { isImageFile, isMarkdownFile } from '@/lib/fileKinds'
 
 const SPLIT_FOR_ZONE: Record<Exclude<DropZone, 'center'>, { direction: EditorSplitDirection; placement: SplitPlacement }> = {
   left: { direction: 'horizontal', placement: 'before' },
@@ -30,20 +29,10 @@ export function useCoverNativeViewsWhileDragging(): void {
   useCoverNativeViews(useTabDragStore((s) => s.dragging !== null || s.draggingFile !== null))
 }
 
-// The tab path a file-tree click would open for this file (image and
-// Markdown previews have their own tab paths).
-function tabPathForFile(path: string): string {
-  if (isImageFile(path)) return buildImagePreviewPath(path)
-  if (isMarkdownFile(path) && useEditorSettingsStore.getState().markdownOpenMode === 'preview') {
-    return buildMarkdownPreviewPath(path)
-  }
-  return path
-}
-
 // Drops a file dragged from the file tree. A file already open in some pane
 // moves like a dragged tab from that pane; otherwise it opens fresh.
 async function dropFile(path: string, paneId: string, zone: DropZone) {
-  const tabPath = tabPathForFile(path)
+  const tabPath = routeFile(path, { markdownMode: useEditorSettingsStore.getState().markdownOpenMode }).tabPath
   const before = useEditorStore.getState()
   const sourcePaneId = collectPaneIds(before.layout).find((pid) => (before.paneTabLists[pid] ?? []).includes(tabPath))
   const split = zone === 'center' ? null : SPLIT_FOR_ZONE[zone]
@@ -53,8 +42,7 @@ async function dropFile(path: string, paneId: string, zone: DropZone) {
     else before.setPaneActive(paneId, tabPath)
     return
   }
-  const content = tabPath === path ? await window.api.readFile(path) : ''
-  const tab = { path: tabPath, content, dirty: false }
+  const tab = await resolveFileTab(path, { markdownMode: useEditorSettingsStore.getState().markdownOpenMode })
   const store = useEditorStore.getState()
   if (split) store.openTabInNewSplitPane(tab, paneId, split.direction, split.placement)
   else store.openTabInPane(tab, paneId)
