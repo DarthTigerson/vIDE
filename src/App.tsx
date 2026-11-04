@@ -680,10 +680,10 @@ export default function App() {
     // Same reasoning applies to any open editor tab for that file: without
     // this, the tab shows stale content until closed and reopened, and
     // autosave will happily write that stale content back over the change.
-    return window.api.onFsChanged((cwd) => {
+    return window.api.onFsChanged((cwd, paths) => {
       if (cwd === useFileStore.getState().projectRoot) {
         useFileStore.getState().refreshTree()
-        refreshRepoStatuses(cwd)
+        refreshRepoStatuses(cwd, paths)
         syncOpenTabsFromDisk()
       }
     })

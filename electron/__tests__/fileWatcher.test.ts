@@ -86,14 +86,19 @@ describe('FileWatcher multi-window isolation', () => {
     handlers['fs:watchRoot']({ sender: winA }, '/project/a')
     const onAll = watcherInstances[0].on.mock.calls.find((c: any[]) => c[0] === 'all')[1]
 
-    onAll()
-    onAll()
-    onAll()
+    onAll('change', '/project/a/x.ts')
+    onAll('add', '/project/a/y.ts')
+    onAll('change', '/project/a/x.ts')
     expect(winA.webContents.send).not.toHaveBeenCalled()
 
     vi.advanceTimersByTime(300)
     expect(winA.webContents.send).toHaveBeenCalledTimes(1)
-    expect(winA.webContents.send).toHaveBeenCalledWith('fs:changed', '/project/a')
+    expect(winA.webContents.send).toHaveBeenCalledWith('fs:changed', '/project/a', ['/project/a/x.ts', '/project/a/y.ts'])
+
+    // The next burst only carries its own paths.
+    onAll('unlink', '/project/a/z.ts')
+    vi.advanceTimersByTime(300)
+    expect(winA.webContents.send).toHaveBeenLastCalledWith('fs:changed', '/project/a', ['/project/a/z.ts'])
     vi.useRealTimers()
   })
 })
