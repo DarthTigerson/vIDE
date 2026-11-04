@@ -2,6 +2,14 @@ import { defineConfig } from 'vitest/config'
 import { resolve } from 'path'
 import react from '@vitejs/plugin-react'
 
+// Node 25 ships an experimental Web Storage global that shadows jsdom's
+// localStorage (every store then fails with "localStorage.getItem is not a
+// function"). Turn it off for the test workers, but only where Node knows the
+// flag: older versions reject an unknown --no-* option at startup.
+const execArgv = process.allowedNodeEnvironmentFlags.has('--no-experimental-webstorage')
+  ? ['--no-experimental-webstorage']
+  : []
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -35,6 +43,10 @@ export default defineConfig({
       'electron/__tests__/**/*.test.ts',
       'electron/**/__tests__/**/*.test.ts'
     ],
+    poolOptions: {
+      forks: { execArgv },
+      threads: { execArgv }
+    },
     setupFiles: ['./vitest.setup.ts'],
     // Lets a test import the real monaco-editor (ESM with CSS imports) — see
     // src/lib/__tests__/editorFindController.monaco.test.ts
