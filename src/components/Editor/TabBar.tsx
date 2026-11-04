@@ -112,11 +112,17 @@ export function TabBar({ paneId }: { paneId: string }) {
         const isDropTarget = dropTarget?.path === tab.path && draggedPath !== tab.path
         const isPinned = pinnedPaths.has(tab.path)
         const displayName = isPinned ? truncateTabLabel(name) : name
+        const isBrowser = isBrowserTab(tab.path)
         return (
           <div
             key={tab.path}
             draggable
             className={`relative flex items-center gap-1.5 px-3 py-1.5 border-r border-border whitespace-nowrap text-sm ${
+              // Browser tabs size like Chrome/Firefox: up to a max width, then
+              // all shrink evenly (equal flex-basis) to a min before the strip
+              // scrolls. Other tab kinds keep sizing to their content.
+              isBrowser ? 'flex-[0_1_220px] min-w-[4.5rem] max-w-[220px]' : ''
+            } ${
               isDragging ? 'cursor-grabbing' : 'cursor-grab'
             } ${
               isActive
@@ -182,8 +188,13 @@ export function TabBar({ paneId }: { paneId: string }) {
                 ].join(' ')}
               />
             )}
-            {isBrowserTab(tab.path) ? <BrowserTabIcon /> : <FileIcon name={name} />}
-            <span>{displayName}</span>
+            {isBrowser ? <BrowserTabIcon /> : <FileIcon name={name} />}
+            <span
+              className={isBrowser ? 'min-w-0 flex-1 truncate' : undefined}
+              title={isBrowser ? name : undefined}
+            >
+              {displayName}
+            </span>
             {tab.missing && (
               <span
                 title="File no longer exists on disk. Press Cmd+S to save it again."
@@ -201,7 +212,7 @@ export function TabBar({ paneId }: { paneId: string }) {
               type="button"
               draggable={false}
               aria-label={`Close ${name}`}
-              className="text-fg-subtle hover:text-fg text-base leading-none ml-1"
+              className="text-fg-subtle hover:text-fg text-base leading-none ml-1 shrink-0"
               onClick={(e) => {
                 e.stopPropagation()
                 requestCloseTab(paneId, tab.path)
