@@ -8,6 +8,7 @@ import { useBrowserFavoritesStore } from '@/stores/browserFavoritesStore'
 import { useBrowserRecentStore } from '@/stores/browserRecentStore'
 import { useBrowserClosedTabsStore } from '@/stores/browserClosedTabsStore'
 import { useNativeViewCoverStore } from '@/lib/nativeViewCover'
+import { isMac } from '@/lib/platform'
 
 // Captures the most recent onBrowserViewEvent callback so later tasks'
 // tests can simulate main-process events (did-navigate, page-title-updated, ...).
@@ -214,15 +215,45 @@ describe('BrowserTab', () => {
     expect(getByText('Star the address bar on any page to pin it here.')).toBeTruthy()
   })
 
-  it('opens the clear browsing data modal from the tools menu', () => {
+  it('opens the clear browsing data modal from the clear dropdown', () => {
     useBrowserStore.getState().ensureTab('tab-13', 'https://example.com')
     const { getByLabelText, getByText, queryByText } = render(<BrowserTab browserId="tab-13" />)
 
     expect(queryByText('Clear browsing data')).toBeNull()
     fireEvent.click(getByLabelText('Zoom controls'))
-    fireEvent.click(getByText('Clear browsing data…'))
+    fireEvent.click(getByLabelText('Clear browsing data'))
+    fireEvent.click(getByText('Choose what to clear…'))
 
     expect(getByText('Clear browsing data')).toBeTruthy()
+  })
+
+  it('clears cookies straight from the clear dropdown', async () => {
+    useBrowserStore.getState().ensureTab('tab-14', 'https://example.com')
+    const { getByLabelText, getByText, queryByText } = render(<BrowserTab browserId="tab-14" />)
+    fireEvent.click(getByLabelText('Zoom controls'))
+    fireEvent.click(getByLabelText('Clear browsing data'))
+    fireEvent.click(getByText('Clear cookies'))
+    await waitFor(() => expect(window.api.browserViewClearCookies).toHaveBeenCalledWith('tab-14'))
+    expect(window.api.browserViewClearCache).not.toHaveBeenCalled()
+    expect(queryByText('Clear cache')).toBeNull()
+  })
+
+  it('the device dropdown switches between a phone and Desktop', () => {
+    useBrowserStore.getState().ensureTab('tab-15', 'https://example.com')
+    const { getByLabelText, getByText } = render(<BrowserTab browserId="tab-15" />)
+    fireEvent.click(getByLabelText('Zoom controls'))
+    expect(getByLabelText('Device').textContent).toContain('Desktop')
+
+    fireEvent.click(getByLabelText('Device'))
+    fireEvent.click(getByText('iPhone SE'))
+    expect(useBrowserStore.getState().tabs['tab-15']).toMatchObject({ mobileMode: true, mobileDeviceId: 'iphone-se' })
+    expect(window.api.browserViewSetMobileMode).toHaveBeenLastCalledWith('tab-15', true, expect.objectContaining({ id: 'iphone-se' }))
+    expect(getByLabelText('Device').textContent).toContain('iPhone SE')
+
+    fireEvent.click(getByLabelText('Device'))
+    fireEvent.click(getByText('Desktop'))
+    expect(useBrowserStore.getState().tabs['tab-15'].mobileMode).toBe(false)
+    expect(window.api.browserViewSetMobileMode).toHaveBeenLastCalledWith('tab-15', false, undefined)
   })
 })
 
@@ -273,22 +304,22 @@ describe('BrowserTab find in page', () => {
 
   it('opens the find box when the main process reports Cmd+F inside the page', () => {
     const { queryByLabelText, getByLabelText } = setup('tab-find-1')
-    expect(queryByLabelText('Find in page')).toBeNull()
+    expect(queryByLabelText('Find text')).toBeNull()
     act(() => lastEventCallback!('tab-find-1', { type: 'find-requested' }))
-    expect(getByLabelText('Find in page')).toBeTruthy()
-    expect(document.activeElement).toBe(getByLabelText('Find in page'))
+    expect(getByLabelText('Find text')).toBeTruthy()
+    expect(document.activeElement).toBe(getByLabelText('Find text'))
   })
 
   it('opens the find box on Cmd+F from inside the tab chrome', () => {
     const { container, getByLabelText } = setup('tab-find-2')
-    fireEvent.keyDown(container.querySelector('input') as HTMLInputElement, { key: 'f', metaKey: true })
-    expect(getByLabelText('Find in page')).toBeTruthy()
+    fireEvent.keyDown(container.querySelector('input') as HTMLInputElement, { key: 'f', ...(isMac ? { metaKey: true } : { ctrlKey: true }) })
+    expect(getByLabelText('Find text')).toBeTruthy()
   })
 
   it('searches as you type, steps with Enter / Shift+Enter, and shows n of m', () => {
     const { getByLabelText, getByText } = setup('tab-find-3')
     act(() => lastEventCallback!('tab-find-3', { type: 'find-requested' }))
-    const input = getByLabelText('Find in page')
+    const input = getByLabelText('Find text')
     fireEvent.change(input, { target: { value: 'foo' } })
     expect(window.api.browserViewFind).toHaveBeenLastCalledWith('tab-find-3', 'foo')
 
@@ -306,7 +337,7 @@ describe('BrowserTab find in page', () => {
   it('shows No results when nothing matches', () => {
     const { getByLabelText, getByText } = setup('tab-find-4')
     act(() => lastEventCallback!('tab-find-4', { type: 'find-requested' }))
-    fireEvent.change(getByLabelText('Find in page'), { target: { value: 'zzz' } })
+    fireEvent.change(getByLabelText('Find text'), { target: { value: 'zzz' } })
     act(() => lastEventCallback!('tab-find-4', { type: 'find-result', activeMatchOrdinal: 0, matches: 0 }))
     expect(getByText('No results')).toBeTruthy()
   })
@@ -314,20 +345,39 @@ describe('BrowserTab find in page', () => {
   it('closes on Escape and on the close button, clearing the selection', () => {
     const { getByLabelText, queryByLabelText } = setup('tab-find-5')
     act(() => lastEventCallback!('tab-find-5', { type: 'find-requested' }))
-    fireEvent.keyDown(getByLabelText('Find in page'), { key: 'Escape' })
-    expect(queryByLabelText('Find in page')).toBeNull()
+    fireEvent.keyDown(getByLabelText('Find text'), { key: 'Escape' })
+    expect(queryByLabelText('Find text')).toBeNull()
     expect(window.api.browserViewStopFind).toHaveBeenCalledWith('tab-find-5')
 
     act(() => lastEventCallback!('tab-find-5', { type: 'find-requested' }))
     fireEvent.click(getByLabelText('Close find'))
-    expect(queryByLabelText('Find in page')).toBeNull()
+    expect(queryByLabelText('Find text')).toBeNull()
     expect(window.api.browserViewStopFind).toHaveBeenCalledTimes(2)
+  })
+
+  it('clearing the text stops the search without pulling focus into the page', () => {
+    const { getByLabelText } = setup('tab-find-7')
+    act(() => lastEventCallback!('tab-find-7', { type: 'find-requested' }))
+    const input = getByLabelText('Find text')
+    fireEvent.change(input, { target: { value: 'foo' } })
+    fireEvent.change(input, { target: { value: '' } })
+    expect(window.api.browserViewStopFind).toHaveBeenLastCalledWith('tab-find-7', false)
+  })
+
+  it('the magnifier in the tools row opens and closes find', () => {
+    const { getByLabelText, queryByLabelText } = setup('tab-find-8')
+    fireEvent.click(getByLabelText('Zoom controls'))
+    fireEvent.click(getByLabelText('Find in page'))
+    expect(document.activeElement).toBe(getByLabelText('Find text'))
+    fireEvent.click(getByLabelText('Find in page'))
+    expect(queryByLabelText('Find text')).toBeNull()
+    expect(window.api.browserViewStopFind).toHaveBeenCalledWith('tab-find-8')
   })
 
   it('ignores find events for other tabs', () => {
     const { queryByLabelText } = setup('tab-find-6')
     act(() => lastEventCallback!('other-tab', { type: 'find-requested' }))
-    expect(queryByLabelText('Find in page')).toBeNull()
+    expect(queryByLabelText('Find text')).toBeNull()
   })
 })
 

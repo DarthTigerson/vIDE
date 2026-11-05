@@ -452,7 +452,7 @@ describe('BrowserViewManager pages opening new windows (VIDE-18)', () => {
     // Chromium already navigates the opened window; we must not load it again.
     expect(popupView.webContents.loadURL).not.toHaveBeenCalled()
 
-    const [channel, openerId, event] = win.webContents.send.mock.calls.at(-1)
+    const [channel, openerId, event] = win.webContents.send.mock.calls.at(-1)! as [string, string, any]
     expect(channel).toBe('browserView:event')
     expect(openerId).toBe('opener')
     expect(event).toMatchObject({ type: 'open-in-new-tab', url: 'https://idp.example.com/login' })
@@ -522,6 +522,13 @@ describe('BrowserViewManager find in page', () => {
     expect(view.webContents.focus).toHaveBeenCalled()
   })
 
+  it('browserView:stopFind with refocus=false leaves focus in the find box', () => {
+    const { win, view } = setupFind(45)
+    handlers['browserView:stopFind']({ sender: win }, 'tab-1', false)
+    expect(view.webContents.stopFindInPage).toHaveBeenCalledWith('clearSelection')
+    expect(view.webContents.focus).not.toHaveBeenCalled()
+  })
+
   it('forwards found-in-page results to the renderer', () => {
     const { win, listener } = setupFind(42)
     listener('found-in-page')({}, { activeMatchOrdinal: 3, matches: 7 })
@@ -532,20 +539,33 @@ describe('BrowserViewManager find in page', () => {
     })
   })
 
+  // The platform's find chord: Cmd on macOS, Ctrl elsewhere.
+  const isDarwin = process.platform === 'darwin'
+  const findChord = { meta: isDarwin, control: !isDarwin }
+  const otherChord = { meta: !isDarwin, control: isDarwin }
+
   it('Cmd/Ctrl+F inside the page is swallowed and asks the renderer to open find', () => {
     const { win, listener } = setupFind(43)
     const preventDefault = vi.fn()
-    listener('before-input-event')({ preventDefault }, { type: 'keyDown', key: 'f', meta: true, control: false, shift: false, alt: false })
+    listener('before-input-event')({ preventDefault }, { type: 'keyDown', key: 'f', ...findChord, shift: false, alt: false })
     expect(preventDefault).toHaveBeenCalled()
     expect(win.webContents.focus).toHaveBeenCalled()
     expect(win.webContents.send).toHaveBeenCalledWith('browserView:event', 'tab-1', { type: 'find-requested' })
+  })
+
+  it('the other platform\'s modifier + F is left to the page (Ctrl+F is cursor-forward on macOS)', () => {
+    const { win, listener } = setupFind(46)
+    const preventDefault = vi.fn()
+    listener('before-input-event')({ preventDefault }, { type: 'keyDown', key: 'f', ...otherChord, shift: false, alt: false })
+    expect(preventDefault).not.toHaveBeenCalled()
+    expect(win.webContents.send).not.toHaveBeenCalled()
   })
 
   it('plain F and Cmd+Shift+F are left to the page', () => {
     const { win, listener } = setupFind(44)
     const preventDefault = vi.fn()
     listener('before-input-event')({ preventDefault }, { type: 'keyDown', key: 'f', meta: false, control: false, shift: false, alt: false })
-    listener('before-input-event')({ preventDefault }, { type: 'keyDown', key: 'f', meta: true, control: false, shift: true, alt: false })
+    listener('before-input-event')({ preventDefault }, { type: 'keyDown', key: 'f', ...findChord, shift: true, alt: false })
     expect(preventDefault).not.toHaveBeenCalled()
     expect(win.webContents.send).not.toHaveBeenCalled()
   })

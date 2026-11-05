@@ -388,7 +388,7 @@ contextBridge.exposeInMainWorld('api', {
   browserViewClearCookies: (id: string) => ipcRenderer.invoke('browserView:clearCookies', id),
   browserViewFind: (id: string, text: string, options?: { forward?: boolean; findNext?: boolean }) =>
     ipcRenderer.invoke('browserView:find', id, text, options),
-  browserViewStopFind: (id: string) => ipcRenderer.invoke('browserView:stopFind', id),
+  browserViewStopFind: (id: string, refocus?: boolean) => ipcRenderer.invoke('browserView:stopFind', id, refocus),
   browserViewDestroy: (id: string) => ipcRenderer.invoke('browserView:destroy', id),
   onBrowserViewEvent: (cb: (id: string, event: import('./browserViews').BrowserViewEvent) => void) => {
     const handler = (_: Electron.IpcRendererEvent, id: string, event: import('./browserViews').BrowserViewEvent) =>

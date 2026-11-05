@@ -209,13 +209,15 @@ export class BrowserViewManager {
         this.get(this.winIdOf(event), id)?.webContents.findInPage(text, options)
       }
     )
-    ipcMain.handle('browserView:stopFind', (event, id: string) => {
+    ipcMain.handle('browserView:stopFind', (event, id: string, refocus = true) => {
       const wc = this.get(this.winIdOf(event), id)?.webContents
       if (!wc) return
       wc.stopFindInPage('clearSelection')
       // The find box lives in the app's own DOM, which holds focus while it is
-      // open; hand focus back to the page so Escape lands where the user expects.
-      wc.focus()
+      // open; on close, hand focus back to the page so Escape lands where the
+      // user expects. Not when the box was merely emptied: the user is still
+      // typing in it, and refocusing would send the next keystroke to the page.
+      if (refocus) wc.focus()
     })
     ipcMain.handle('browserView:destroy', (event, id: string) => {
       const win = BrowserWindow.fromWebContents(event.sender)
@@ -399,7 +401,9 @@ export class BrowserViewManager {
       } else if (input.key === '0') {
         event.preventDefault()
         this.setZoom(win.id, id, 0)
-      } else if (input.key.toLowerCase() === 'f') {
+      } else if (input.key.toLowerCase() === 'f' && (process.platform === 'darwin' ? input.meta : input.control)) {
+        // Only the platform's own find chord: on macOS, Ctrl+F is "cursor
+        // forward" in text fields and must reach the page.
         // Keystrokes inside the page never reach the renderer's keydown, so
         // Cmd/Ctrl+F is caught here. Focus moves to the app's DOM first so the
         // find box's input can take it, then the renderer opens the box.

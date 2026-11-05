@@ -416,7 +416,7 @@ declare global {
       browserViewClearCache: (id: string) => Promise<void>
       browserViewClearCookies: (id: string) => Promise<void>
       browserViewFind: (id: string, text: string, options?: { forward?: boolean; findNext?: boolean }) => Promise<void>
-      browserViewStopFind: (id: string) => Promise<void>
+      browserViewStopFind: (id: string, refocus?: boolean) => Promise<void>
       browserViewDestroy: (id: string) => Promise<void>
       onBrowserViewEvent: (cb: (id: string, event: BrowserViewEvent) => void) => () => void
 
