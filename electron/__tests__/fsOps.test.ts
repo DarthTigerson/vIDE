@@ -4,12 +4,14 @@ import { tmpdir, homedir } from 'os'
 import { join } from 'path'
 
 const trashItemMock = vi.fn(async (_path: string) => undefined)
+const createFromPathMock = vi.fn()
 vi.mock('electron', () => ({
   shell: { trashItem: (path: string) => trashItemMock(path) },
+  nativeImage: { createFromPath: (path: string) => createFromPathMock(path) },
 }))
 
 import {
-  listAllFiles, searchText, buildTree, buildTreeWithDates, readImageDataUrl,
+  listAllFiles, searchText, buildTree, buildTreeWithDates, readImageDataUrl, readImagePngDataUrl,
   readTextFile, pathExists, getHomeDir,
   writeFile as writeFileOp, mkdir as mkdirOp, renamePath, trashPath,
   copyInto, moveInto, uniqueDestPath,
@@ -86,6 +88,19 @@ describe('fsOps', () => {
     await writeFile(path, Buffer.from([1, 2, 3]))
     const dataUrl = await readImageDataUrl(path)
     expect(dataUrl.startsWith('data:application/octet-stream;base64,')).toBe(true)
+  })
+
+  it('readImagePngDataUrl returns the decoded image as a png data url', async () => {
+    createFromPathMock.mockReturnValue({ isEmpty: () => false, toPNG: () => Buffer.from([0x89, 0x50, 0x4e, 0x47]) })
+    expect(await readImagePngDataUrl('/x/scan.tiff')).toBe('data:image/png;base64,iVBORw==')
+    expect(createFromPathMock).toHaveBeenCalledWith('/x/scan.tiff')
+  })
+
+  it('readImagePngDataUrl returns an empty string when the image cannot be decoded', async () => {
+    createFromPathMock.mockReturnValue({ isEmpty: () => true, toPNG: () => Buffer.alloc(0) })
+    expect(await readImagePngDataUrl('/x/photo.heic')).toBe('')
+    createFromPathMock.mockImplementation(() => { throw new Error('boom') })
+    expect(await readImagePngDataUrl('/x/photo.heic')).toBe('')
   })
 
   it('readTextFile reads a file as utf-8', async () => {

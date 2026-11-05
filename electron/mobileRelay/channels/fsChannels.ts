@@ -1,6 +1,6 @@
 import { registerChannel } from '../dispatch'
 import {
-  buildTree, readTextFile, readImageDataUrl, pathExists, getHomeDir,
+  buildTree, readTextFile, readImageDataUrl, readImagePngDataUrl, pathExists, getHomeDir,
   writeFile, mkdir, renamePath, trashPath, listAllFiles, searchText,
   copyInto, moveInto,
 } from '../../fsOps'
@@ -16,6 +16,7 @@ export function registerFsRelayChannels(): void {
   registerChannel('fs:readDir', (path: string) => buildTree(path))
   registerChannel('fs:readFile', (path: string) => readTextFile(path))
   registerChannel('fs:readImageDataUrl', (path: string) => readImageDataUrl(path))
+  registerChannel('fs:readImagePngDataUrl', (path: string) => readImagePngDataUrl(path))
   registerChannel('fs:exists', (path: string) => pathExists(path))
   registerChannel('fs:homeDir', () => getHomeDir())
   registerChannel('fs:writeFile', (path: string, content: string) => writeFile(path, content))
