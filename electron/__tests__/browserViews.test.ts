@@ -400,6 +400,24 @@ describe('BrowserViewManager Claude-controlled tab (VIDE-53)', () => {
     expect(claudeTabView).not.toBe(userTabView)
     expect(win.contentView.addChildView).toHaveBeenCalledTimes(2)
   })
+
+  it('listUserTabs skips tabs whose webContents is gone instead of throwing', () => {
+    const manager = new BrowserViewManager()
+    manager.registerHandlers()
+    const win = fakeWin(30)
+    winsById.set(30, win)
+
+    handlers['browserView:create']({ sender: win }, 'live', 'https://example.com')
+    const live = lastCreatedView()
+    live.webContents.getURL = vi.fn(() => 'https://example.com/')
+    live.webContents.getTitle = vi.fn(() => 'Example')
+    handlers['browserView:create']({ sender: win }, 'destroyed', 'https://example.org')
+    lastCreatedView().webContents.isDestroyed = vi.fn(() => true)
+    handlers['browserView:create']({ sender: win }, 'gone', 'https://example.net')
+    ;(lastCreatedView() as any).webContents = undefined
+
+    expect(manager.listUserTabs(30)).toEqual([{ id: 'live', url: 'https://example.com/', title: 'Example' }])
+  })
 })
 
 describe('BrowserViewManager find in page', () => {

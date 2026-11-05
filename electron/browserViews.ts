@@ -738,6 +738,10 @@ export class BrowserViewManager {
     for (const [id, entry] of entries) {
       if (id === CLAUDE_TAB_ID) continue
       const wc = entry.view.webContents
+      // A page that closes itself (window.close()) destroys its webContents
+      // without going through destroy(), leaving a stale entry whose
+      // webContents is gone — skip it rather than fail the whole listing.
+      if (!wc || wc.isDestroyed()) continue
       result.push({ id, url: wc.getURL(), title: wc.getTitle() })
     }
     return result
