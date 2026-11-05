@@ -38,7 +38,15 @@ export type BrowserViewEvent =
   | { type: 'did-fail-load'; errorDescription: string }
   | { type: 'dom-ready'; webContentsId: number }
   | { type: 'zoom-changed'; level: number }
-  | { type: 'open-in-new-tab'; url: string }
+  // tabId set: main already created the view (a script-opened window that
+  // keeps its window.opener link) under that id, and the renderer must use it
+  // for the new tab so browserView:create adopts the existing view.
+  | { type: 'open-in-new-tab'; url: string; tabId?: string }
+  // The page closed itself (window.close(), e.g. an OAuth popup once sign-in
+  // completes); the renderer should close the tab.
+  | { type: 'closed-by-page' }
+  | { type: 'find-requested' }
+  | { type: 'find-result'; activeMatchOrdinal: number; matches: number }
 
 export interface NetworkLogEntry {
   requestId: string
@@ -194,6 +202,23 @@ export class BrowserViewManager {
       await getBrowserSession().clearStorageData({ storages: ['cookies'] })
       this.get(this.winIdOf(event), id)?.webContents.reload()
     })
+    ipcMain.handle(
+      'browserView:find',
+      (event, id: string, text: string, options?: { forward?: boolean; findNext?: boolean }) => {
+        if (!text) return
+        this.get(this.winIdOf(event), id)?.webContents.findInPage(text, options)
+      }
+    )
+    ipcMain.handle('browserView:stopFind', (event, id: string, refocus = true) => {
+      const wc = this.get(this.winIdOf(event), id)?.webContents
+      if (!wc) return
+      wc.stopFindInPage('clearSelection')
+      // The find box lives in the app's own DOM, which holds focus while it is
+      // open; on close, hand focus back to the page so Escape lands where the
+      // user expects. Not when the box was merely emptied: the user is still
+      // typing in it, and refocusing would send the next keystroke to the page.
+      if (refocus) wc.focus()
+    })
     ipcMain.handle('browserView:destroy', (event, id: string) => {
       const win = BrowserWindow.fromWebContents(event.sender)
       if (win) this.destroy(win, id)
@@ -230,14 +255,40 @@ export class BrowserViewManager {
         session: getBrowserSession(),
       },
     })
-    view.setBackgroundColor('#1e1e1e')
     view.webContents.loadURL(url)
-    this.wireEvents(win, id, view)
-
-    win.contentView.addChildView(view)
-    entries.set(id, { view, attached: true, mobileMode: false, consoleLogs: [], networkLog: [] })
-    if (id === CLAUDE_TAB_ID) this.attachNetworkDebugger(win.id, id, view.webContents)
+    this.register(win, id, view)
     return view.webContents.id
+  }
+
+  private register(win: BrowserWindow, id: string, view: WebContentsView): void {
+    view.setBackgroundColor('#1e1e1e')
+    this.wireEvents(win, id, view)
+    win.contentView.addChildView(view)
+    this.entriesFor(win.id).set(id, { view, attached: true, mobileMode: false, consoleLogs: [], networkLog: [] })
+    if (id === CLAUDE_TAB_ID) this.attachNetworkDebugger(win.id, id, view.webContents)
+  }
+
+  // A window the page opened itself (window.open, target="_blank"). Chromium
+  // builds its webContents and hands us the options; adopting that into a
+  // WebContentsView, rather than denying it and loading the url in a fresh
+  // view, keeps the window.opener link. OAuth/SSO popups depend on it: the
+  // popup posts the result back through window.opener and then calls
+  // window.close(). A denied window also makes window.open() return null,
+  // which many sign-in pages treat as "popup blocked" (VIDE-18).
+  private adoptOpenedWindow(
+    win: BrowserWindow,
+    openerId: string,
+    options: Electron.BrowserWindowConstructorOptions,
+    url: string
+  ): Electron.WebContents {
+    const tabId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+    const view = new WebContentsView(options as Electron.WebContentsViewConstructorOptions)
+    this.register(win, tabId, view)
+    // Sent as the opener's event (its BrowserTab is the one listening).
+    // The view starts at zero bounds until the new tab mounts and pushes
+    // real ones; its browserView:create call finds this entry and adopts it.
+    this.sendEvent(win, openerId, { type: 'open-in-new-tab', url, tabId })
+    return view.webContents
   }
 
   private sendEvent(win: BrowserWindow, id: string, payload: BrowserViewEvent): void {
@@ -248,12 +299,27 @@ export class BrowserViewManager {
     const wc = view.webContents
 
     // Links/scripts that would normally pop a real OS window (target="_blank",
-    // window.open, ctrl/cmd-click) get deny'd here — WebContentsView has no
-    // window of its own to pop one into anyway — and handed to the renderer
-    // instead, which opens it as a new browser tab in the app's own tab strip.
-    wc.setWindowOpenHandler((details) => {
-      this.sendEvent(win, id, { type: 'open-in-new-tab', url: details.url })
-      return { action: 'deny' }
+    // window.open, ctrl/cmd-click) open as a new browser tab in the app's own
+    // tab strip instead. The new page's webContents is still created by
+    // Chromium (see adoptOpenedWindow) so window.opener keeps working.
+    wc.setWindowOpenHandler((details) => ({
+      action: 'allow',
+      // A tab, not a child window: closing the page that opened it must not
+      // close it too.
+      outlivesOpener: true,
+      createWindow: (options) => this.adoptOpenedWindow(win, id, options, details.url),
+    }))
+
+    // window.close() from the page destroys its webContents. Our own destroy()
+    // removes the entry first, so a still-registered view here means the page
+    // closed itself: drop it and let the renderer close the tab.
+    wc.once('destroyed', () => {
+      const entries = this.viewsByWindow.get(win.id)
+      const entry = entries?.get(id)
+      if (!entry || entry.view !== view) return
+      if (entry.attached && !win.isDestroyed()) win.contentView.removeChildView(view)
+      entries!.delete(id)
+      this.sendEvent(win, id, { type: 'closed-by-page' })
     })
 
     wc.on('did-start-loading', () => this.sendEvent(win, id, { type: 'did-start-loading' }))
@@ -281,6 +347,13 @@ export class BrowserViewManager {
       })
     )
     wc.on('page-title-updated', (_e, title) => this.sendEvent(win, id, { type: 'page-title-updated', title }))
+    wc.on('found-in-page', (_e, result) =>
+      this.sendEvent(win, id, {
+        type: 'find-result',
+        activeMatchOrdinal: result.activeMatchOrdinal,
+        matches: result.matches,
+      })
+    )
     // Buffered per-view rather than forwarded live — only the Claude tab's
     // buffer actually gets read (via getClaudeTabConsoleLogs), but wiring it
     // for every view uniformly is simpler than a separate code path just for
@@ -328,6 +401,15 @@ export class BrowserViewManager {
       } else if (input.key === '0') {
         event.preventDefault()
         this.setZoom(win.id, id, 0)
+      } else if (input.key.toLowerCase() === 'f' && (process.platform === 'darwin' ? input.meta : input.control)) {
+        // Only the platform's own find chord: on macOS, Ctrl+F is "cursor
+        // forward" in text fields and must reach the page.
+        // Keystrokes inside the page never reach the renderer's keydown, so
+        // Cmd/Ctrl+F is caught here. Focus moves to the app's DOM first so the
+        // find box's input can take it, then the renderer opens the box.
+        event.preventDefault()
+        win.webContents.focus()
+        this.sendEvent(win, id, { type: 'find-requested' })
       } else if (input.key.toLowerCase() === 'r' && (process.platform === 'darwin' ? input.meta : input.control)) {
         // Reload just this page. preventDefault also stops the app menu's
         // Cmd+R "Reload Window" accelerator from reloading the whole window.
@@ -707,6 +789,10 @@ export class BrowserViewManager {
     for (const [id, entry] of entries) {
       if (id === CLAUDE_TAB_ID) continue
       const wc = entry.view.webContents
+      // A page that closes itself (window.close()) destroys its webContents
+      // without going through destroy(), leaving a stale entry whose
+      // webContents is gone — skip it rather than fail the whole listing.
+      if (!wc || wc.isDestroyed()) continue
       result.push({ id, url: wc.getURL(), title: wc.getTitle() })
     }
     return result

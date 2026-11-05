@@ -37,6 +37,7 @@ function fakeWebContentsView() {
       loadURL: vi.fn(),
       setWindowOpenHandler: vi.fn(),
       on: vi.fn(),
+      once: vi.fn(),
       getZoomLevel: vi.fn(() => 0),
       isDestroyed: vi.fn(() => false),
       close: vi.fn(),
@@ -399,5 +400,173 @@ describe('BrowserViewManager Claude-controlled tab (VIDE-53)', () => {
     // the ipc handler, the Claude tab via navigateClaudeTab
     expect(claudeTabView).not.toBe(userTabView)
     expect(win.contentView.addChildView).toHaveBeenCalledTimes(2)
+  })
+
+  it('listUserTabs skips tabs whose webContents is gone instead of throwing', () => {
+    const manager = new BrowserViewManager()
+    manager.registerHandlers()
+    const win = fakeWin(30)
+    winsById.set(30, win)
+
+    handlers['browserView:create']({ sender: win }, 'live', 'https://example.com')
+    const live = lastCreatedView()
+    live.webContents.getURL = vi.fn(() => 'https://example.com/')
+    live.webContents.getTitle = vi.fn(() => 'Example')
+    handlers['browserView:create']({ sender: win }, 'destroyed', 'https://example.org')
+    lastCreatedView().webContents.isDestroyed = vi.fn(() => true)
+    handlers['browserView:create']({ sender: win }, 'gone', 'https://example.net')
+    ;(lastCreatedView() as any).webContents = undefined
+
+    expect(manager.listUserTabs(30)).toEqual([{ id: 'live', url: 'https://example.com/', title: 'Example' }])
+  })
+})
+
+describe('BrowserViewManager pages opening new windows (VIDE-18)', () => {
+  function lastCreatedView() {
+    const created = (WebContentsView as unknown as ReturnType<typeof vi.fn>).mock.results
+    return created[created.length - 1].value
+  }
+  function openHandlerOf(view: any) {
+    return view.webContents.setWindowOpenHandler.mock.calls[0][0]
+  }
+  function destroyedListenerOf(view: any) {
+    return view.webContents.once.mock.calls.find((c: any[]) => c[0] === 'destroyed')[1]
+  }
+
+  it('allows window.open, adopts the opened webContents into a new tab view, and tells the opener tab', () => {
+    const manager = new BrowserViewManager()
+    manager.registerHandlers()
+    const win = fakeWin(40)
+    handlers['browserView:create']({ sender: win }, 'opener', 'https://app.example.com')
+    const openerView = lastCreatedView()
+
+    const response = openHandlerOf(openerView)({ url: 'https://idp.example.com/login', disposition: 'new-window' })
+    expect(response.action).toBe('allow')
+    expect(response.outlivesOpener).toBe(true)
+
+    const options = { webContents: { fake: true }, webPreferences: {} }
+    const openedWc = response.createWindow(options)
+    const popupView = lastCreatedView()
+    expect(vi.mocked(WebContentsView)).toHaveBeenLastCalledWith(options)
+    expect(openedWc).toBe(popupView.webContents)
+    // Chromium already navigates the opened window; we must not load it again.
+    expect(popupView.webContents.loadURL).not.toHaveBeenCalled()
+
+    const [channel, openerId, event] = win.webContents.send.mock.calls.at(-1)! as [string, string, any]
+    expect(channel).toBe('browserView:event')
+    expect(openerId).toBe('opener')
+    expect(event).toMatchObject({ type: 'open-in-new-tab', url: 'https://idp.example.com/login' })
+    expect(typeof event.tabId).toBe('string')
+
+    // The renderer's new tab then calls create with that id and gets the
+    // already-open view back instead of a fresh one.
+    const wcId = handlers['browserView:create']({ sender: win }, event.tabId, 'https://idp.example.com/login')
+    expect(wcId).toBe(popupView.webContents.id)
+    expect(lastCreatedView()).toBe(popupView)
+  })
+
+  it('reports closed-by-page when the page closes itself, but not when the app destroys the tab', () => {
+    const manager = new BrowserViewManager()
+    manager.registerHandlers()
+    const win = fakeWin(41)
+    handlers['browserView:create']({ sender: win }, 'a', 'https://a.example.com')
+    const viewA = lastCreatedView()
+    handlers['browserView:create']({ sender: win }, 'b', 'https://b.example.com')
+    const viewB = lastCreatedView()
+
+    destroyedListenerOf(viewA)()
+    expect(win.webContents.send).toHaveBeenLastCalledWith('browserView:event', 'a', { type: 'closed-by-page' })
+    expect(win.contentView.removeChildView).toHaveBeenCalledWith(viewA)
+
+    win.webContents.send.mockClear()
+    handlers['browserView:destroy']({ sender: win }, 'b')
+    destroyedListenerOf(viewB)()
+    expect(win.webContents.send).not.toHaveBeenCalledWith('browserView:event', 'b', { type: 'closed-by-page' })
+  })
+})
+
+describe('BrowserViewManager find in page', () => {
+  function lastCreatedView() {
+    const created = (WebContentsView as unknown as ReturnType<typeof vi.fn>).mock.results
+    return created[created.length - 1].value
+  }
+
+  function setupFind(winId: number) {
+    const manager = new BrowserViewManager()
+    manager.registerHandlers()
+    const win = fakeWin(winId) as any
+    win.webContents.focus = vi.fn()
+    winsById.set(winId, win)
+    handlers['browserView:create']({ sender: win }, 'tab-1', 'https://example.com')
+    const view = lastCreatedView()
+    view.webContents.findInPage = vi.fn()
+    view.webContents.stopFindInPage = vi.fn()
+    view.webContents.focus = vi.fn()
+    const listener = (event: string) =>
+      view.webContents.on.mock.calls.find((c: any[]) => c[0] === event)![1] as (...a: any[]) => void
+    return { win, view, listener }
+  }
+
+  it('browserView:find forwards text and options to findInPage and ignores empty text', () => {
+    const { win, view } = setupFind(40)
+    handlers['browserView:find']({ sender: win }, 'tab-1', 'foo', { forward: false, findNext: true })
+    expect(view.webContents.findInPage).toHaveBeenCalledWith('foo', { forward: false, findNext: true })
+    handlers['browserView:find']({ sender: win }, 'tab-1', '')
+    expect(view.webContents.findInPage).toHaveBeenCalledTimes(1)
+  })
+
+  it('browserView:stopFind clears the selection and refocuses the page', () => {
+    const { win, view } = setupFind(41)
+    handlers['browserView:stopFind']({ sender: win }, 'tab-1')
+    expect(view.webContents.stopFindInPage).toHaveBeenCalledWith('clearSelection')
+    expect(view.webContents.focus).toHaveBeenCalled()
+  })
+
+  it('browserView:stopFind with refocus=false leaves focus in the find box', () => {
+    const { win, view } = setupFind(45)
+    handlers['browserView:stopFind']({ sender: win }, 'tab-1', false)
+    expect(view.webContents.stopFindInPage).toHaveBeenCalledWith('clearSelection')
+    expect(view.webContents.focus).not.toHaveBeenCalled()
+  })
+
+  it('forwards found-in-page results to the renderer', () => {
+    const { win, listener } = setupFind(42)
+    listener('found-in-page')({}, { activeMatchOrdinal: 3, matches: 7 })
+    expect(win.webContents.send).toHaveBeenCalledWith('browserView:event', 'tab-1', {
+      type: 'find-result',
+      activeMatchOrdinal: 3,
+      matches: 7,
+    })
+  })
+
+  // The platform's find chord: Cmd on macOS, Ctrl elsewhere.
+  const isDarwin = process.platform === 'darwin'
+  const findChord = { meta: isDarwin, control: !isDarwin }
+  const otherChord = { meta: !isDarwin, control: isDarwin }
+
+  it('Cmd/Ctrl+F inside the page is swallowed and asks the renderer to open find', () => {
+    const { win, listener } = setupFind(43)
+    const preventDefault = vi.fn()
+    listener('before-input-event')({ preventDefault }, { type: 'keyDown', key: 'f', ...findChord, shift: false, alt: false })
+    expect(preventDefault).toHaveBeenCalled()
+    expect(win.webContents.focus).toHaveBeenCalled()
+    expect(win.webContents.send).toHaveBeenCalledWith('browserView:event', 'tab-1', { type: 'find-requested' })
+  })
+
+  it('the other platform\'s modifier + F is left to the page (Ctrl+F is cursor-forward on macOS)', () => {
+    const { win, listener } = setupFind(46)
+    const preventDefault = vi.fn()
+    listener('before-input-event')({ preventDefault }, { type: 'keyDown', key: 'f', ...otherChord, shift: false, alt: false })
+    expect(preventDefault).not.toHaveBeenCalled()
+    expect(win.webContents.send).not.toHaveBeenCalled()
+  })
+
+  it('plain F and Cmd+Shift+F are left to the page', () => {
+    const { win, listener } = setupFind(44)
+    const preventDefault = vi.fn()
+    listener('before-input-event')({ preventDefault }, { type: 'keyDown', key: 'f', meta: false, control: false, shift: false, alt: false })
+    listener('before-input-event')({ preventDefault }, { type: 'keyDown', key: 'f', ...findChord, shift: true, alt: false })
+    expect(preventDefault).not.toHaveBeenCalled()
+    expect(win.webContents.send).not.toHaveBeenCalled()
   })
 })

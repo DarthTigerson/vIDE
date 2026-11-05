@@ -1,5 +1,5 @@
 import { useNativeViewCoverStore } from '@/lib/nativeViewCover'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useBrowserStore } from '@/stores/browserStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { buildBrowserPath } from '@/components/Settings/paths'
@@ -14,6 +14,8 @@ import { BrowserLandingPage } from './BrowserLandingPage'
 import { StarIcon } from './StarIcon'
 import { ClearBrowsingDataModal } from './ClearBrowsingDataModal'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
+import { useStatusMessageStore } from '@/stores/statusMessageStore'
+import { isMac } from '@/lib/platform'
 
 interface Props {
   browserId: string
@@ -55,10 +57,18 @@ export function BrowserTab({ browserId }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const toggleButtonRef = useRef<HTMLButtonElement>(null)
-  const [deviceMenuOpen, setDeviceMenuOpen] = useState(false)
-  useCoverNativeViews(deviceMenuOpen)
+  // The ⋮ row's two dropdowns (device on the left, clear data on the right).
+  // Only one is open at a time; either covers the native page view, which
+  // would otherwise draw over the menu.
+  const [openDropdown, setOpenDropdown] = useState<'device' | 'clear' | null>(null)
+  useCoverNativeViews(openDropdown !== null)
   const deviceButtonRef = useRef<HTMLButtonElement>(null)
+  const clearButtonRef = useRef<HTMLButtonElement>(null)
   const [clearDataOpen, setClearDataOpen] = useState(false)
+  const findInputRef = useRef<HTMLInputElement>(null)
+  const [findOpen, setFindOpen] = useState(false)
+  const [findText, setFindText] = useState('')
+  const [findResult, setFindResult] = useState<{ active: number; total: number } | null>(null)
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -134,8 +144,25 @@ export function BrowserTab({ browserId }: Props) {
         case 'zoom-changed':
           useBrowserStore.getState().updateTab(browserId, { zoomLevel: event.level })
           break
+        case 'closed-by-page':
+          // The page called window.close() (e.g. an OAuth popup finishing
+          // sign-in); main has already dropped the view, so the unmount
+          // cleanup's browserViewDestroy is a harmless no-op.
+          useEditorStore.getState().closeTabEverywhere(buildBrowserPath(browserId))
+          break
+        case 'find-requested':
+          setFindOpen(true)
+          // The input may already be mounted (box open, focus in the page).
+          findInputRef.current?.focus()
+          findInputRef.current?.select()
+          break
+        case 'find-result':
+          setFindResult({ active: event.activeMatchOrdinal, total: event.matches })
+          break
         case 'open-in-new-tab': {
-          const newId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+          // event.tabId: main already holds the opened page's view under that
+          // id (keeping window.opener), and browserViewCreate will adopt it.
+          const newId = event.tabId ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
           useBrowserStore.getState().ensureTab(newId, event.url)
           useEditorStore
             .getState()
@@ -287,19 +314,20 @@ export function BrowserTab({ browserId }: Props) {
   }
 
   useEffect(() => {
-    if (!deviceMenuOpen) return
+    if (!openDropdown) return
     const close = (e: Event) => {
-      if (deviceButtonRef.current?.contains(e.target as Node)) return
-      setDeviceMenuOpen(false)
+      const target = e.target as Node
+      if (deviceButtonRef.current?.contains(target) || clearButtonRef.current?.contains(target)) return
+      setOpenDropdown(null)
     }
-    const closeOnEscape = (e: KeyboardEvent) => { if (e.key === 'Escape') setDeviceMenuOpen(false) }
+    const closeOnEscape = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpenDropdown(null) }
     window.addEventListener('click', close)
     window.addEventListener('keydown', closeOnEscape)
     return () => {
       window.removeEventListener('click', close)
       window.removeEventListener('keydown', closeOnEscape)
     }
-  }, [deviceMenuOpen])
+  }, [openDropdown])
 
   // Handles both "still on the landing page" (creates the native view for
   // the first time) and "already browsing" (plain navigate) with the same
@@ -378,16 +406,64 @@ export function BrowserTab({ browserId }: Props) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [isFullscreen])
 
-  function toggleMobileMode() {
-    const next = !mobileMode
-    useBrowserStore.getState().updateTab(browserId, { mobileMode: next })
-    window.api.browserViewSetMobileMode(browserId, next, next ? mobileDevice : undefined)
+  useEffect(() => {
+    if (findOpen) {
+      findInputRef.current?.focus()
+      findInputRef.current?.select()
+    }
+  }, [findOpen])
+
+  function openFind() {
+    if (!url) return
+    setFindOpen(true)
+    findInputRef.current?.focus()
+    findInputRef.current?.select()
   }
 
-  function handleDeviceChange(deviceId: string) {
-    const device = getMobileDevice(deviceId)
-    useBrowserStore.getState().updateTab(browserId, { mobileDeviceId: deviceId })
-    if (mobileMode) window.api.browserViewSetMobileMode(browserId, true, device)
+  function closeFind() {
+    setFindOpen(false)
+    setFindResult(null)
+    window.api.browserViewStopFind(browserId)
+  }
+
+  function handleFindChange(text: string) {
+    setFindText(text)
+    if (!text) {
+      setFindResult(null)
+      // Keep focus in the find box: the user is still typing in it.
+      window.api.browserViewStopFind(browserId, false)
+      return
+    }
+    window.api.browserViewFind(browserId, text)
+  }
+
+  function findStep(forward: boolean) {
+    if (!findText) return
+    window.api.browserViewFind(browserId, findText, { forward, findNext: true })
+  }
+
+  // null = Desktop (mobile view off); a device id turns mobile view on as that device.
+  function selectDevice(deviceId: string | null) {
+    setOpenDropdown(null)
+    if (deviceId === null) {
+      if (!mobileMode) return
+      useBrowserStore.getState().updateTab(browserId, { mobileMode: false })
+      window.api.browserViewSetMobileMode(browserId, false, undefined)
+      return
+    }
+    useBrowserStore.getState().updateTab(browserId, { mobileMode: true, mobileDeviceId: deviceId })
+    window.api.browserViewSetMobileMode(browserId, true, getMobileDevice(deviceId))
+  }
+
+  async function clearOne(kind: 'cache' | 'cookies' | 'history') {
+    setOpenDropdown(null)
+    if (kind === 'cache') await window.api.browserViewClearCache(browserId)
+    if (kind === 'cookies') await window.api.browserViewClearCookies(browserId)
+    if (kind === 'history') {
+      useBrowserRecentStore.getState().clear()
+      useBrowserClosedTabsStore.getState().clear()
+    }
+    useStatusMessageStore.getState().show(`Cleared ${kind}`)
   }
 
   useEffect(() => {
@@ -395,7 +471,17 @@ export function BrowserTab({ browserId }: Props) {
   }, [url])
 
   return (
-    <div className="h-full w-full flex flex-col bg-bg overflow-hidden">
+    <div
+      className="h-full w-full flex flex-col bg-bg overflow-hidden"
+      // Focus in the toolbar/find box is DOM focus, so Cmd/Ctrl+F is seen here;
+      // focus inside the page itself is handled in the main process instead.
+      onKeyDown={(e) => {
+        if ((isMac ? e.metaKey : e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f') {
+          e.preventDefault()
+          openFind()
+        }
+      }}
+    >
       {!isFullscreen && (
       <>
       <div className="flex items-center gap-1 px-2 h-9 border-b border-border shrink-0 bg-tab-bar">
@@ -472,114 +558,221 @@ export function BrowserTab({ browserId }: Props) {
         </button>
       </div>
 
-      {menuOpen && (
+      {(menuOpen || findOpen) && (
         <div
           ref={menuRef}
-          className="flex items-center justify-between gap-1.5 border-b border-border bg-tab-bar px-2 py-1.5 shrink-0"
+          className="flex items-center justify-between gap-2.5 border-b border-border bg-tab-bar px-2 py-1.5 shrink-0"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center rounded-full border border-border bg-bg overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setClearDataOpen(true)}
-              className="flex h-6 items-center justify-center whitespace-nowrap px-3 text-xs text-fg-muted hover:text-fg hover:bg-white/5"
-            >
-              Clear browsing data…
-            </button>
-          </div>
+          {/* Left: view preferences (device, zoom, fullscreen). */}
           <div className="flex items-center gap-1.5">
-          <div className="relative flex items-center">
+            <div className="relative flex items-center">
+              <div className="flex items-center rounded-full border border-border bg-bg">
+                <button
+                  ref={deviceButtonRef}
+                  type="button"
+                  aria-label="Device"
+                  aria-haspopup="menu"
+                  aria-expanded={openDropdown === 'device'}
+                  title="Device"
+                  onClick={() => setOpenDropdown((open) => (open === 'device' ? null : 'device'))}
+                  className={
+                    mobileMode
+                      ? 'flex h-6 items-center gap-1 whitespace-nowrap rounded-full px-2 text-xs text-accent hover:bg-white/5'
+                      : 'flex h-6 items-center gap-1 whitespace-nowrap rounded-full px-2 text-xs text-fg-muted hover:text-fg hover:bg-white/5'
+                  }
+                >
+                  {mobileMode ? <MobileIcon /> : <DesktopIcon />}
+                  <span className="max-w-[8rem] truncate">{mobileMode ? mobileDevice.label : 'Desktop'}</span>
+                  <CaretIcon />
+                </button>
+              </div>
+              {openDropdown === 'device' && (
+                <div
+                  role="menu"
+                  className="absolute left-0 top-7 z-10 min-w-max overflow-hidden rounded border border-border bg-bg p-1 shadow-lg"
+                >
+                  <DropdownItem checked={!mobileMode} onClick={() => selectDevice(null)}>
+                    Desktop
+                  </DropdownItem>
+                  {MOBILE_DEVICES.map((d) => (
+                    <DropdownItem
+                      key={d.id}
+                      checked={mobileMode && mobileDevice.id === d.id}
+                      hint={`${d.width}px`}
+                      onClick={() => selectDevice(d.id)}
+                    >
+                      {d.label}
+                    </DropdownItem>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="flex items-center rounded-full border border-border bg-bg overflow-hidden">
               <button
-                ref={deviceButtonRef}
                 type="button"
-                aria-label="Mobile device"
-                aria-expanded={deviceMenuOpen}
-                onClick={() => setDeviceMenuOpen((open) => !open)}
-                className={
-                  mobileMode
-                    ? 'h-6 whitespace-nowrap border-r border-border bg-bg px-2 text-xs text-fg-muted hover:text-fg'
-                    : 'h-6 whitespace-nowrap border-r border-border bg-bg px-2 text-xs text-fg-subtle hover:text-fg-muted'
-                }
+                aria-label="Zoom out"
+                title="Zoom out"
+                onClick={() => window.api.browserViewZoomOut(browserId)}
+                className="flex h-6 w-7 items-center justify-center text-fg-muted hover:text-fg hover:bg-white/5"
               >
-                {mobileDevice.label}
+                <MinusIcon />
               </button>
               <button
                 type="button"
-                aria-label="Toggle mobile view"
-                aria-pressed={mobileMode}
-                title="Toggle mobile view"
-                onClick={toggleMobileMode}
+                aria-label="Reset zoom"
+                title="Reset zoom"
+                onClick={() => window.api.browserViewZoomReset(browserId)}
+                className="h-6 min-w-[3.25rem] border-x border-border px-1 text-xs tabular-nums text-fg-muted hover:text-fg hover:bg-white/5"
+              >
+                {zoomPercent}%
+              </button>
+              <button
+                type="button"
+                aria-label="Zoom in"
+                title="Zoom in"
+                onClick={() => window.api.browserViewZoomIn(browserId)}
+                className="flex h-6 w-7 items-center justify-center text-fg-muted hover:text-fg hover:bg-white/5"
+              >
+                <PlusIcon />
+              </button>
+            </div>
+            <div className="flex items-center rounded-full border border-border bg-bg overflow-hidden">
+              <button
+                type="button"
+                aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                aria-pressed={isFullscreen}
+                title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                onClick={() => useBrowserStore.getState().toggleFullscreen(browserId)}
                 className={
-                  mobileMode
+                  isFullscreen
                     ? 'flex h-6 w-7 items-center justify-center bg-accent/15 text-accent'
                     : 'flex h-6 w-7 items-center justify-center text-fg-muted hover:text-fg hover:bg-white/5'
                 }
               >
-                <MobileIcon />
+                <FullscreenIcon active={isFullscreen} />
               </button>
             </div>
-            {deviceMenuOpen && (
-              <div className="absolute right-0 top-7 z-10 min-w-max overflow-hidden rounded border border-border bg-bg shadow-lg">
-                {MOBILE_DEVICES.map((d) => (
-                  <button
-                    key={d.id}
-                    type="button"
-                    onClick={() => {
-                      handleDeviceChange(d.id)
-                      setDeviceMenuOpen(false)
-                    }}
-                    className="block w-full whitespace-nowrap px-3 py-1.5 text-left text-xs text-fg-muted hover:bg-white/5 hover:text-fg"
-                  >
-                    {d.label}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
-          <div className="flex items-center rounded-full border border-border bg-bg overflow-hidden">
-            <button
-              type="button"
-              aria-label="Zoom out"
-              onClick={() => window.api.browserViewZoomOut(browserId)}
-              className="flex h-6 w-7 items-center justify-center text-fg-muted hover:text-fg hover:bg-white/5"
-            >
-              <MinusIcon />
-            </button>
-            <button
-              type="button"
-              aria-label="Reset zoom"
-              title="Reset zoom"
-              onClick={() => window.api.browserViewZoomReset(browserId)}
-              className="h-6 min-w-[3.25rem] border-x border-border px-1 text-xs tabular-nums text-fg-muted hover:text-fg hover:bg-white/5"
-            >
-              {zoomPercent}%
-            </button>
-            <button
-              type="button"
-              aria-label="Zoom in"
-              onClick={() => window.api.browserViewZoomIn(browserId)}
-              className="flex h-6 w-7 items-center justify-center text-fg-muted hover:text-fg hover:bg-white/5"
-            >
-              <PlusIcon />
-            </button>
-          </div>
-          <div className="flex items-center rounded-full border border-border bg-bg overflow-hidden">
-            <button
-              type="button"
-              aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-              aria-pressed={isFullscreen}
-              title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-              onClick={() => useBrowserStore.getState().toggleFullscreen(browserId)}
+
+          {/* Right: page functions (find, clear data). Find sits on the inner
+              edge so it grows leftwards into the gap when it opens. */}
+          <div className="flex min-w-0 items-center justify-end gap-1.5">
+            <div
               className={
-                isFullscreen
-                  ? 'flex h-6 w-7 items-center justify-center bg-accent/15 text-accent'
-                  : 'flex h-6 w-7 items-center justify-center text-fg-muted hover:text-fg hover:bg-white/5'
+                findOpen
+                  ? 'flex h-6 min-w-0 flex-[0_1_19rem] items-center rounded-full border border-border bg-bg'
+                  : 'flex h-6 items-center rounded-full border border-border bg-bg'
               }
             >
-              <FullscreenIcon active={isFullscreen} />
-            </button>
-          </div>
+              <button
+                type="button"
+                aria-label="Find in page"
+                aria-expanded={findOpen}
+                title="Find in page"
+                disabled={!url}
+                onClick={() => (findOpen ? closeFind() : openFind())}
+                className={
+                  findOpen
+                    ? 'flex h-6 w-7 shrink-0 items-center justify-center rounded-full text-accent hover:bg-white/5'
+                    : 'flex h-6 w-7 shrink-0 items-center justify-center rounded-full text-fg-muted hover:text-fg hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent'
+                }
+              >
+                <SearchIcon />
+              </button>
+              {findOpen && (
+                <>
+                  <input
+                    ref={findInputRef}
+                    type="text"
+                    aria-label="Find text"
+                    placeholder="Find in page"
+                    spellCheck={false}
+                    value={findText}
+                    onChange={(e) => handleFindChange(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        findStep(!e.shiftKey)
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        closeFind()
+                      }
+                    }}
+                    className="h-6 min-w-[3rem] flex-1 bg-transparent px-0.5 text-xs text-fg placeholder:text-fg-subtle outline-none"
+                  />
+                  <span className="shrink-0 whitespace-nowrap pr-1 text-[11px] tabular-nums text-fg-muted">
+                    {findText && findResult ? (findResult.total === 0 ? 'No results' : `${findResult.active} of ${findResult.total}`) : ''}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Previous match"
+                    title="Previous match (Shift+Enter)"
+                    disabled={!findText}
+                    onClick={() => findStep(false)}
+                    className="flex h-6 w-6 shrink-0 items-center justify-center text-fg-muted hover:text-fg hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent"
+                  >
+                    <ChevronIcon direction="up" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Next match"
+                    title="Next match (Enter)"
+                    disabled={!findText}
+                    onClick={() => findStep(true)}
+                    className="flex h-6 w-6 shrink-0 items-center justify-center text-fg-muted hover:text-fg hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent"
+                  >
+                    <ChevronIcon direction="down" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Close find"
+                    title="Close (Esc)"
+                    onClick={closeFind}
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-r-full text-fg-muted hover:text-fg hover:bg-white/5"
+                  >
+                    <CloseIcon />
+                  </button>
+                </>
+              )}
+            </div>
+            <div className="relative flex items-center">
+              <div className="flex items-center rounded-full border border-border bg-bg">
+                <button
+                  ref={clearButtonRef}
+                  type="button"
+                  aria-label="Clear browsing data"
+                  aria-haspopup="menu"
+                  aria-expanded={openDropdown === 'clear'}
+                  title="Clear browsing data"
+                  onClick={() => setOpenDropdown((open) => (open === 'clear' ? null : 'clear'))}
+                  className="flex h-6 items-center gap-1 rounded-full px-2 text-fg-muted hover:text-fg hover:bg-white/5"
+                >
+                  <TrashIcon />
+                  <CaretIcon />
+                </button>
+              </div>
+              {openDropdown === 'clear' && (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-7 z-10 min-w-max overflow-hidden rounded border border-border bg-bg p-1 shadow-lg"
+                >
+                  <DropdownItem onClick={() => clearOne('cache')}>Clear cache</DropdownItem>
+                  <DropdownItem onClick={() => clearOne('cookies')}>Clear cookies</DropdownItem>
+                  <DropdownItem onClick={() => clearOne('history')}>Clear history</DropdownItem>
+                  <div className="mx-0.5 my-1 h-px bg-border" />
+                  <DropdownItem
+                    onClick={() => {
+                      setOpenDropdown(null)
+                      setClearDataOpen(true)
+                    }}
+                  >
+                    Choose what to clear…
+                  </DropdownItem>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -664,6 +857,82 @@ function MobileIcon() {
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect x="7" y="2" width="10" height="20" rx="2" stroke="currentColor" strokeWidth="2" />
       <line x1="11" y1="18" x2="13" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function DropdownItem({
+  checked,
+  hint,
+  onClick,
+  children,
+}: {
+  checked?: boolean
+  hint?: string
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      role={checked === undefined ? 'menuitem' : 'menuitemradio'}
+      aria-checked={checked}
+      onClick={onClick}
+      className="flex w-full items-center gap-2 whitespace-nowrap rounded px-2 py-1.5 text-left text-xs text-fg-muted hover:bg-white/5 hover:text-fg"
+    >
+      {checked !== undefined && <span className="w-3 shrink-0 text-center text-accent">{checked ? '✓' : ''}</span>}
+      <span>{children}</span>
+      {hint && <span className="ml-auto pl-4 tabular-nums text-fg-subtle">{hint}</span>}
+    </button>
+  )
+}
+
+function DesktopIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="3" y="4" width="18" height="12" rx="1.5" stroke="currentColor" strokeWidth="2" />
+      <path d="M9 20h6M12 16v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function CaretIcon() {
+  return (
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="opacity-70">
+      <path d="M5 9l7 7 7-7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function SearchIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" strokeWidth="2" />
+      <path d="M15.5 15.5L20 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function TrashIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 7h16M10 7V4.5h4V7M6.5 7l.9 12.5a1 1 0 0 0 1 .9h7.2a1 1 0 0 0 1-.9L17.5 7M10.5 11v5.5M13.5 11v5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function ChevronIcon({ direction }: { direction: 'up' | 'down' }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d={direction === 'up' ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function CloseIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
     </svg>
   )
 }
