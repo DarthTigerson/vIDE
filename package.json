@@ -6,7 +6,9 @@
   "license": "MIT",
   "main": "out/main/index.js",
   "scripts": {
+    "predev": "node scripts/ensure-deps.mjs",
     "dev": "electron-vite dev",
+    "prebuild": "node scripts/ensure-deps.mjs",
     "build": "electron-vite build",
     "build:mobile": "electron-vite build --mode mobile",
     "preview": "electron-vite preview",
