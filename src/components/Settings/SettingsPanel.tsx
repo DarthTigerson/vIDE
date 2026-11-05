@@ -5,11 +5,13 @@ import {
   BROWSER_SETTINGS_TAB_PATH, CLAUDE_SETTINGS_TAB_PATH, BRIDGE_SETTINGS_TAB_PATH, GRAPHIFY_SETTINGS_TAB_PATH,
   JIRA_SETTINGS_TAB_PATH, DOCKER_SETTINGS_TAB_PATH, MOBILE_SETTINGS_TAB_PATH, NOTES_SETTINGS_TAB_PATH, SCRIPTS_SETTINGS_TAB_PATH,
   TODO_SETTINGS_TAB_PATH, LLAMA_SETTINGS_TAB_PATH, ABOUT_SETTINGS_TAB_PATH,
+  IMAGE_VIEWER_SETTINGS_TAB_PATH,
 } from './paths'
 import {
   SettingsIcon, EditorIcon, DisplaySettingsIcon, FilesIcon, ClaudeIcon, BridgeIcon, GitIcon, DockerIcon,
   BrowserIcon, JiraIcon, GraphIcon, PhoneIcon, NotesIcon, ScriptsIcon, TodoIcon, LlamaIcon,
 } from '@/components/ActivityBar/ActivityBar'
+import { ImageViewerIcon } from '@/components/Viewer/extensionIcons'
 
 interface NavItem {
   path: string
@@ -63,6 +65,12 @@ const NAV_GROUPS: NavGroup[] = [
       { path: SCRIPTS_SETTINGS_TAB_PATH, label: 'Scripts', icon: <ScriptsIcon /> },
       { path: TODO_SETTINGS_TAB_PATH, label: 'To Do', icon: <TodoIcon /> },
       { path: JIRA_SETTINGS_TAB_PATH, label: 'Jira', icon: <JiraIcon /> },
+    ],
+  },
+  {
+    label: 'Extensions',
+    items: [
+      { path: IMAGE_VIEWER_SETTINGS_TAB_PATH, label: 'Image Viewer', icon: <ImageViewerIcon /> },
     ],
   },
 ]

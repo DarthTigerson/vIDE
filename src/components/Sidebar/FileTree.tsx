@@ -1,3 +1,4 @@
+import { openFile } from '@/lib/openFile'
 import type { MouseEvent } from 'react'
 import { useEffect } from 'react'
 import type { FileNode } from '@/types/index'
@@ -157,31 +158,9 @@ export function FileTree({
       } else {
         await expandDir(node.path)
       }
-    } else if (isImageFile(node.name)) {
-      select(node.path)
-      openTab({ path: buildImagePreviewPath(node.path), content: '', dirty: false })
-    } else if (isMarkdownFile(node.name)) {
-      select(node.path)
-      const mode = useEditorSettingsStore.getState().markdownOpenMode
-      if (mode === 'preview') {
-        openTab({ path: buildMarkdownPreviewPath(node.path), content: '', dirty: false })
-        return
-      }
-      const content = await window.api.readFile(node.path)
-      openTab({ path: node.path, content, dirty: false })
-      if (mode === 'split') {
-        const landedPaneId = useEditorStore.getState().activePaneId
-        openTabInNewSplitPane(
-          { path: buildMarkdownPreviewPath(node.path), content: '', dirty: false },
-          landedPaneId,
-          'horizontal',
-          'after'
-        )
-      }
     } else {
       select(node.path)
-      const content = await window.api.readFile(node.path)
-      openTab({ path: node.path, content, dirty: false })
+      await openFile(node.path, { markdownMode: useEditorSettingsStore.getState().markdownOpenMode })
     }
   }
 

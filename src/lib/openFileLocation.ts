@@ -1,5 +1,7 @@
 import { useEditorStore } from '@/stores/editorStore'
+import { openFile } from '@/lib/openFile'
 
+// Opens through openFile's routing, so images get their viewer rather than text.
 // Shared by lspClient.ts (cross-file go-to-definition) and the Claude
 // terminal's clickable file paths — both need "open this absolute path,
 // reusing an already-open tab if there is one, then jump to a location."
@@ -15,15 +17,13 @@ export async function openFileAtLocation(
   searchTerm = '',
   { stayInActivePane = false }: { stayInActivePane?: boolean } = {},
 ): Promise<void> {
-  const { tabs } = useEditorStore.getState()
-  const existingTab = tabs.find((t) => t.path === path)
-  const tab = existingTab
-    ? { path: existingTab.path, content: existingTab.content, dirty: existingTab.dirty }
-    : { path, content: await window.api.readFile(path), dirty: false }
-  const editor = useEditorStore.getState()
-  if (stayInActivePane) editor.openTabInPane(tab, editor.activePaneId)
-  else editor.openTab(tab)
-  if (line !== undefined) {
+  // A jump to a line needs text, so an SVG opens as source then; an image
+  // just opens its viewer and the location is ignored.
+  const route = await openFile(path, {
+    source: line !== undefined,
+    paneId: stayInActivePane ? useEditorStore.getState().activePaneId : undefined,
+  })
+  if (line !== undefined && route.tabPath === path) {
     useEditorStore.getState().setRevealRequest({ path, line, col: col ?? 1, searchTerm })
   }
 }

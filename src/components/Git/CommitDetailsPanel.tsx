@@ -1,3 +1,4 @@
+import { openFile } from '@/lib/openFile'
 import { useEffect, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { useEditorStore } from '@/stores/editorStore'
@@ -109,8 +110,7 @@ export function CommitDetailsPanel({ cwd, commit, onClose }: {
 
   async function openCurrentFile(path: string) {
     const fullPath = `${cwd}/${path}`
-    const content = await window.api.readFile(fullPath)
-    useEditorStore.getState().openTab({ path: fullPath, content, dirty: false })
+    await openFile(fullPath)
   }
 
   function revealInFileTree(path: string) {

@@ -1,4 +1,5 @@
 const IMAGE_PREVIEW_PREFIX = 'image-preview://'
+const EXTENSION_OFF_PREFIX = 'extension-off://'
 const MARKDOWN_PREVIEW_PREFIX = 'markdown-preview://'
 
 export function isImagePreviewTab(path: string): boolean {
@@ -23,4 +24,20 @@ export function buildMarkdownPreviewPath(filePath: string): string {
 
 export function parseMarkdownPreviewPath(tabPath: string): string {
   return tabPath.slice(MARKDOWN_PREVIEW_PREFIX.length)
+}
+
+// The notice tab shown instead of a viewer when its extension is turned off.
+// The extension id has no '/', so everything after the first one is the file.
+export function isExtensionOffTab(path: string): boolean {
+  return path.startsWith(EXTENSION_OFF_PREFIX)
+}
+
+export function buildExtensionOffPath(extensionId: string, filePath: string): string {
+  return `${EXTENSION_OFF_PREFIX}${extensionId}/${filePath}`
+}
+
+export function parseExtensionOffPath(tabPath: string): { extensionId: string; filePath: string } {
+  const rest = tabPath.slice(EXTENSION_OFF_PREFIX.length)
+  const slash = rest.indexOf('/')
+  return { extensionId: rest.slice(0, slash), filePath: rest.slice(slash + 1) }
 }

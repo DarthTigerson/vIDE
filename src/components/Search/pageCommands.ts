@@ -23,6 +23,7 @@ import {
   NOTES_SETTINGS_TAB_PATH,
   SCRIPTS_SETTINGS_TAB_PATH,
   LLAMA_SETTINGS_TAB_PATH,
+  IMAGE_VIEWER_SETTINGS_TAB_PATH,
   USAGE_GRAPH_TAB_PATH,
   ALARMS_TAB_PATH,
   GRAPHIFY_GRAPH_TAB_PATH,
@@ -59,6 +60,7 @@ export const SETTINGS_PAGES: SettingsPage[] = [
   { id: 'settings-notes', label: 'Settings: Notes', path: NOTES_SETTINGS_TAB_PATH, keywords: ['markdown'] },
   { id: 'settings-scripts', label: 'Settings: Scripts', path: SCRIPTS_SETTINGS_TAB_PATH, keywords: ['routine', 'shell', 'mcp'] },
   { id: 'settings-llama', label: 'Settings: Llama', path: LLAMA_SETTINGS_TAB_PATH, keywords: ['local', 'model', 'llm'] },
+  { id: 'settings-image-viewer', label: 'Settings: Image Viewer', path: IMAGE_VIEWER_SETTINGS_TAB_PATH, description: 'Open images in a viewer', keywords: ['extension', 'png', 'jpg', 'photo', 'picture', 'tiff', 'heic'] },
 ]
 
 export function pageCommands(): Command[] {
