@@ -138,6 +138,12 @@ export function BrowserTab({ browserId }: Props) {
         case 'zoom-changed':
           useBrowserStore.getState().updateTab(browserId, { zoomLevel: event.level })
           break
+        case 'closed-by-page':
+          // The page called window.close() (e.g. an OAuth popup finishing
+          // sign-in); main has already dropped the view, so the unmount
+          // cleanup's browserViewDestroy is a harmless no-op.
+          useEditorStore.getState().closeTabEverywhere(buildBrowserPath(browserId))
+          break
         case 'find-requested':
           setFindOpen(true)
           // The input may already be mounted (box open, focus in the page).
@@ -148,7 +154,9 @@ export function BrowserTab({ browserId }: Props) {
           setFindResult({ active: event.activeMatchOrdinal, total: event.matches })
           break
         case 'open-in-new-tab': {
-          const newId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+          // event.tabId: main already holds the opened page's view under that
+          // id (keeping window.opener), and browserViewCreate will adopt it.
+          const newId = event.tabId ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
           useBrowserStore.getState().ensureTab(newId, event.url)
           useEditorStore
             .getState()
