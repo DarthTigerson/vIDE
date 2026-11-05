@@ -4,7 +4,7 @@ import { registerClaudeRelayChannels } from '../channels/claudeChannels'
 
 describe('claudeChannels', () => {
   const fakeWin = { id: 1 } as never
-  const claudeManager = { spawn: vi.fn(), write: vi.fn(), resize: vi.fn(), kill: vi.fn() }
+  const claudeManager = { spawnPrepared: vi.fn(), write: vi.fn(), resize: vi.fn(), kill: vi.fn() }
 
   beforeEach(() => {
     resetChannelsForTest()
@@ -12,9 +12,9 @@ describe('claudeChannels', () => {
     registerClaudeRelayChannels(claudeManager as never, fakeWin)
   })
 
-  it('maps claude:spawn to claudeManager.spawn with the paired window', async () => {
+  it('maps claude:spawn to claudeManager.spawnPrepared (multi-repo check + vCloak) with the paired window', async () => {
     await dispatch({ type: 'invoke', id: '1', method: 'claude:spawn', args: ['/repo', 'claude', 'resume', 'rocky'] })
-    expect(claudeManager.spawn).toHaveBeenCalledWith(fakeWin, '/repo', 'claude', 'resume', 'rocky')
+    expect(claudeManager.spawnPrepared).toHaveBeenCalledWith(fakeWin, '/repo', 'claude', 'resume', 'rocky')
   })
 
   it('maps claude:write (send-type) to claudeManager.write', async () => {

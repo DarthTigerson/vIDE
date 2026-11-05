@@ -1,9 +1,10 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu, webContents, nativeImage, screen } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, Menu, webContents, nativeImage, screen, safeStorage } from 'electron'
 import { basename, join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import { access, cp } from 'fs/promises'
 import { PtyManager } from './pty'
 import { ClaudeManager } from './claude'
+import { VcloakManager } from './vcloak'
 import { BrowserBridge } from './browserBridge'
 import { GitRunner } from './gitRunner'
 import { GraphifyManager } from './graphify'
@@ -215,6 +216,7 @@ app.on('before-quit', () => {
 // after before-quit, and that would leave autocomplete dead but "running".
 app.on('will-quit', () => {
   autocompleteMgr?.dispose()
+  void vcloakMgr?.dispose()
 })
 // Windows whose renderer has stopped responding, so reloadAllWindows() knows
 // to crash them first — a reload request alone never gets through to a hung
@@ -811,6 +813,7 @@ async function buildMenu(): Promise<void> {
 
 let ptyMgr: PtyManager
 let claudeMgr: ClaudeManager
+let vcloakMgr: VcloakManager | undefined
 let gitWatcher: GitWatcher
 let dockerWatcher: DockerWatcher
 let fileWatcher: FileWatcher
@@ -863,7 +866,20 @@ app.whenReady().then(async () => {
   registerScriptRunRoute(browserBridge, ptyMgr)
   // claude-sessions/ is machine-local (transcripts live in this machine's
   // ~/.claude) — deliberately not part of vIDE Sync.
-  claudeMgr = new ClaudeManager(browserBridge, join(app.getPath('userData'), 'claude-sessions'))
+  // vCloak (VIDE-28..35): masks company repo paths before Claude traffic
+  // leaves the machine. Settings and aliases sealed with the OS keychain.
+  vcloakMgr = new VcloakManager({
+    dir: join(app.getPath('userData'), 'vcloak'),
+    sealer: {
+      available: () => safeStorage.isEncryptionAvailable(),
+      seal: (plain) => safeStorage.encryptString(plain),
+      open: (sealed) => safeStorage.decryptString(sealed),
+    },
+    rgPath: () => import('@vscode/ripgrep').then(({ rgPath }) => rgPath.replace(/app\.asar([\\/])/, 'app.asar.unpacked$1')),
+  })
+  vcloakMgr.registerHandlers(ipcMain)
+  await vcloakMgr.init()
+  claudeMgr = new ClaudeManager(browserBridge, join(app.getPath('userData'), 'claude-sessions'), vcloakMgr)
   claudeMgr.registerHandlers()
   const gitRunner = new GitRunner()
   gitRunner.registerHandlers()

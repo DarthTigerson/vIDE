@@ -38,6 +38,7 @@ import {
   CostIcon,
   UsageGraphIcon,
   NotesIcon,
+  ShieldIcon,
   ScriptsIcon,
   LlamaIcon,
   AllAppsIcon,
@@ -126,6 +127,8 @@ import { ConfirmDiscardScratchModal } from './components/Editor/ConfirmDiscardSc
 import { buildTerminalPath, buildBrowserPath, JIRA_SETTINGS_TAB_PATH, GIT_SETTINGS_TAB_PATH, USAGE_GRAPH_TAB_PATH } from './components/Settings/paths'
 import { TodoPanel } from './components/Todo/TodoPanel'
 import { NotesPanel } from './components/Notes/NotesPanel'
+import { VcloakPanel } from './components/Vcloak/VcloakPanel'
+import { useVcloakStore } from './stores/vcloakStore'
 import { ScriptsPanel } from './components/Scripts/ScriptsPanel'
 import { useScriptsStore } from './stores/scriptsStore'
 import { useScriptsSettingsStore } from './stores/scriptsSettingsStore'
@@ -191,6 +194,7 @@ const DISABLED_APP_LABELS: Record<Exclude<MovableAppId, 'git-remote'>, { title: 
   notes: { title: 'Notes', icon: <NotesIcon /> },
   scripts: { title: 'Scripts', icon: <ScriptsIcon /> },
   jira: { title: 'Jira', icon: <JiraIcon /> },
+  vcloak: { title: 'vCloak', icon: <ShieldIcon /> },
 }
 
 function openAppSettings(id: MovableAppId) {
@@ -220,13 +224,13 @@ export default function App() {
     running: isLlamaKind(o.kind) ? Boolean(llamaRuns[llamaModelId(o.kind)]?.running) : undefined,
   }))
   const repoName = projectRoot ? projectRoot.split('/').pop() : null
-  const [leftPanel, setLeftPanel] = useState<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'scripts' | 'llama' | 'settings' | 'apps' | null>('files')
+  const [leftPanel, setLeftPanel] = useState<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'scripts' | 'vcloak' | 'llama' | 'settings' | 'apps' | null>('files')
   const appFavorites = useAppFavoritesStore((s) => s.favorites)
   const placeFavorite = useAppFavoritesStore((s) => s.place)
   const unfavoriteApp = useAppFavoritesStore((s) => s.unfavorite)
   // The bar's temporary slot: the last unfavorited app that was opened.
   const lastTemporaryAppRef = useRef<string | null>(null)
-  const lastLeftPanelRef = useRef<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'scripts' | 'llama' | 'settings' | 'apps'>('files')
+  const lastLeftPanelRef = useRef<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'scripts' | 'vcloak' | 'llama' | 'settings' | 'apps'>('files')
   const [sidebarRem, setSidebarRem] = useState(() => loadRem(SIDEBAR_WIDTH_KEY, SIDEBAR_PANEL))
   const [chatRem, setChatRem] = useState(() => loadRem(CHAT_WIDTH_KEY, CHAT_PANEL))
   // The panel group's width and the root font size: the two numbers needed to
@@ -343,6 +347,9 @@ export default function App() {
   const mobileDefaultMode = useMobileSettingsStore((s) => s.defaultMode)
   const todoEnabled = useTodoSettingsStore((s) => s.enabled)
   const notesEnabled = useNotesSettingsStore((s) => s.enabled)
+  const vcloakEnabled = useVcloakStore((s) => s.state?.config.enabled ?? false)
+  const vcloakLoaded = useVcloakStore((s) => s.state !== null)
+  useEffect(() => { void useVcloakStore.getState().load() }, [])
   const scriptsEnabled = useScriptsSettingsStore((s) => s.enabled)
   const llamaEnabled = useLlamaSettingsStore((s) => s.enabled)
   const runningLlamaCount = useRunningLlamaCount(llamaEnabled)
@@ -1056,6 +1063,13 @@ export default function App() {
               active: leftPanel === 'notes',
               onClick: togglePanel('notes'),
             } : null,
+            vcloak: vcloakEnabled ? {
+              id: 'vcloak',
+              icon: <ShieldIcon />,
+              title: 'vCloak',
+              active: leftPanel === 'vcloak',
+              onClick: togglePanel('vcloak'),
+            } : null,
             scripts: scriptsEnabled ? {
               id: 'scripts',
               icon: <ScriptsIcon />,
@@ -1124,6 +1138,8 @@ export default function App() {
           const appEnabled: Partial<Record<MovableAppId, boolean>> = {
             docker: dockerEnabled, llama: llamaEnabled, mobile: mobileEnabled, graphify: graphifyEnabled,
             todos: todoEnabled, notes: notesEnabled, scripts: scriptsEnabled, jira: jiraEnabled,
+            // Off by default; undefined until the state loads so it doesn't flash in Disabled.
+            vcloak: vcloakLoaded ? vcloakEnabled : undefined,
           }
           const disabledAppEntries = MOVABLE_APP_IDS.filter((id): id is keyof typeof DISABLED_APP_LABELS => appEnabled[id] === false).map((id) => ({
             id,
@@ -1181,7 +1197,7 @@ export default function App() {
           >
             {(() => {
               const activeLeftPanel = leftPanel ?? lastLeftPanelRef.current
-              return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'search' ? <SearchPanel /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'docker' ? <DockerPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : activeLeftPanel === 'todos' ? <TodoPanel /> : activeLeftPanel === 'notes' ? <NotesPanel /> : activeLeftPanel === 'scripts' ? <ScriptsPanel /> : activeLeftPanel === 'llama' ? <LlamaPanel /> : activeLeftPanel === 'apps' ? (
+              return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'search' ? <SearchPanel /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'docker' ? <DockerPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : activeLeftPanel === 'todos' ? <TodoPanel /> : activeLeftPanel === 'notes' ? <NotesPanel /> : activeLeftPanel === 'vcloak' ? <VcloakPanel /> : activeLeftPanel === 'scripts' ? <ScriptsPanel /> : activeLeftPanel === 'llama' ? <LlamaPanel /> : activeLeftPanel === 'apps' ? (
                 <AllAppsPanel
                   apps={allAppsEntries}
                   disabledApps={disabledAppEntries}

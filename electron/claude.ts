@@ -5,6 +5,7 @@ import { join } from 'path'
 import { getMobileBroadcaster } from './mobile'
 import { ROCKY_FLAGS, ROCKY_SETTINGS, rockySpawnEnv } from './rocky'
 import { isMultiRepoProject, MULTI_REPO_PATHS_PROMPT } from './multiRepoPaths'
+import type { SpawnCloak } from './vcloak'
 
 type SessionMode = 'attach' | 'new' | 'continue' | 'resume'
 
@@ -90,6 +91,11 @@ interface BrowserBridgeLike {
   getSpawnEnv(windowId: number): Record<string, string>
 }
 
+// vCloak (VIDE-33): routes the session through the local masking gateway.
+interface CloakLike {
+  prepareSpawn(cwd: string): Promise<SpawnCloak>
+}
+
 function newInstanceState(): InstanceState {
   return { lastInputAt: 0, busy: false, busyChunkCount: 0 }
 }
@@ -99,7 +105,7 @@ export class ClaudeManager {
 
   // sessionDir enables session restore (see SESSION_HOOK_SETTINGS); without
   // it every spawn behaves exactly as before.
-  constructor(private browserBridge?: BrowserBridgeLike, private sessionDir?: string) {
+  constructor(private browserBridge?: BrowserBridgeLike, private sessionDir?: string, private cloak?: CloakLike) {
     if (sessionDir) mkdirSync(sessionDir, { recursive: true })
   }
 
@@ -107,8 +113,7 @@ export class ClaudeManager {
     ipcMain.handle('claude:spawn', async (event, cwd: string, instanceId: string, mode: SessionMode = 'attach', kind?: string) => {
       const win = BrowserWindow.fromWebContents(event.sender)
       if (!win) return
-      const multiRepo = await isMultiRepoProject(cwd)
-      if (!win.isDestroyed()) this.spawn(win, cwd, instanceId, mode, kind, multiRepo)
+      await this.spawnPrepared(win, cwd, instanceId, mode, kind)
     })
 
     ipcMain.on('claude:write', (event, instanceId: string, data: string) => {
@@ -127,11 +132,26 @@ export class ClaudeManager {
     })
   }
 
+  // Every entry point (window IPC, mobile relay) starts sessions here, so
+  // none can skip the multi-repo check or vCloak.
+  async spawnPrepared(win: BrowserWindow, cwd: string, instanceId: string, mode: SessionMode = 'attach', kind?: string): Promise<void> {
+    const [multiRepo, cloak] = await Promise.all([
+      isMultiRepoProject(cwd),
+      this.cloak ? this.cloak.prepareSpawn(cwd).catch((): SpawnCloak => ({ ok: false, error: 'vCloak failed to prepare this session.' })) : Promise.resolve(null),
+    ])
+    if (!win.isDestroyed()) this.spawn(win, cwd, instanceId, mode, kind, multiRepo, cloak)
+  }
+
   // `kind` is the renderer's AssistantKind; 'rocky' (Rocky Code, VIDE-108)
   // is the same CLI plus ROCKY_FLAGS, on every mode including restore.
   // multiRepo adds MULTI_REPO_PATHS_PROMPT, on every mode too: the CLI
   // re-renders its system prompt from the current flags.
-  spawn(win: BrowserWindow, cwd: string, instanceId: string, mode: SessionMode = 'attach', kind?: string, multiRepo = false): void {
+  spawn(win: BrowserWindow, cwd: string, instanceId: string, mode: SessionMode = 'attach', kind?: string, multiRepo = false, cloak?: SpawnCloak): void {
+    // A direct call that skipped vCloak gets rerouted through it
+    if (this.cloak && cloak === undefined) {
+      void this.spawnPrepared(win, cwd, instanceId, mode, kind)
+      return
+    }
     const rocky = kind === 'rocky'
     const state = this.stateFor(win.id)
     const inst = state.instances.get(instanceId) ?? newInstanceState()
@@ -144,6 +164,14 @@ export class ClaudeManager {
     inst.proc?.kill()
     inst.proc = undefined
     inst.cwd = undefined
+
+    // vCloak on but unable to protect this session: refuse to start it
+    if (cloak && !cloak.ok) {
+      const message = `\r\nvCloak blocked this Claude session: ${cloak.error}\r\nFix it in Settings > vCloak, then start a new session.\r\n`
+      if (!win.isDestroyed()) win.webContents.send('claude:data', instanceId, message)
+      getMobileBroadcaster().emit('claude:data', instanceId, message)
+      return
+    }
 
     try {
       const shell = process.env.SHELL ?? '/bin/zsh'
@@ -165,10 +193,19 @@ export class ClaudeManager {
         selectedMode === 'attach' && sessionFile ? restoreCommand(sessionFile) : COMMANDS[selectedMode === 'attach' ? 'new' : selectedMode]
       // One --settings for everything; it is single-quoted in the shell
       // command, so nothing in it may contain an apostrophe.
-      const settings = { ...(sessionFile ? SESSION_HOOK_SETTINGS : {}), ...(rocky ? ROCKY_SETTINGS : {}) }
+      // vCloak's base URL goes in --settings env: CLI settings outrank a
+      // repo's .claude/settings.json, so a project cannot redirect traffic
+      // around the gateway. The token travels only in the process env.
+      const settings = {
+        ...(sessionFile ? SESSION_HOOK_SETTINGS : {}),
+        ...(rocky ? ROCKY_SETTINGS : {}),
+        ...(cloak?.ok ? { env: { ANTHROPIC_BASE_URL: cloak.url } } : {}),
+      }
       if (Object.keys(settings).length > 0) baseCommand += ` --settings '${JSON.stringify(settings)}'`
       if (rocky) baseCommand += ` ${ROCKY_FLAGS}`
       else if (multiRepo) baseCommand += ' --append-system-prompt "$VIDE_PATHS_PROMPT"'
+      // Re-exported after the login shell's rc files, which could override them
+      if (cloak?.ok) baseCommand = `export ANTHROPIC_BASE_URL="$VIDE_CLOAK_URL" ANTHROPIC_CUSTOM_HEADERS="$VIDE_CLOAK_HEADERS"; ${baseCommand}`
       const command = shimEnv ? `export PATH="${shimEnv.VIDE_BROWSER_SHIM_BIN}:$PATH"; ${baseCommand}` : baseCommand
       const proc = pty.spawn(shell, ['-lic', command], {
         name: 'xterm-color',
@@ -181,6 +218,7 @@ export class ClaudeManager {
           ...(sessionFile ? { VIDE_CLAUDE_SESSION_FILE: sessionFile } : {}),
           ...(rocky ? rockySpawnEnv(multiRepo ? MULTI_REPO_PATHS_PROMPT : undefined) : {}),
           ...(!rocky && multiRepo ? { VIDE_PATHS_PROMPT: MULTI_REPO_PATHS_PROMPT } : {}),
+          ...(cloak?.ok ? { VIDE_CLOAK_URL: cloak.url, VIDE_CLOAK_HEADERS: cloak.headers } : {}),
         },
       })
       inst.proc = proc

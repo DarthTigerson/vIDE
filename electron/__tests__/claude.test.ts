@@ -626,3 +626,53 @@ describe('ClaudeManager Rocky Code launch', () => {
     })
   })
 })
+
+describe('ClaudeManager with vCloak (VIDE-33)', () => {
+  beforeEach(() => {
+    spawnMock.mockReset()
+    spawnMock.mockImplementation(() => fakePty())
+  })
+
+  it('refuses to start the session when vCloak cannot protect it', async () => {
+    const cloak = { prepareSpawn: vi.fn(async () => ({ ok: false as const, error: 'gateway down' })) }
+    const manager = new ClaudeManager(undefined, undefined, cloak)
+    manager.registerHandlers()
+    const win = fakeWin(41)
+    await handlers['claude:spawn']({ sender: win }, '/repo', 'a', 'new')
+    expect(spawnMock).not.toHaveBeenCalled()
+    const sent = (win.webContents.send as ReturnType<typeof vi.fn>).mock.calls.map((c: unknown[]) => String(c[2])).join('')
+    expect(sent).toContain('vCloak blocked this Claude session: gateway down')
+  })
+
+  it('routes the session through the gateway: URL in --settings env, token only in process env', async () => {
+    const cloak = { prepareSpawn: vi.fn(async () => ({ ok: true as const, url: 'http://127.0.0.1:5555', headers: 'x-vcloak-token: abc' })) }
+    const manager = new ClaudeManager(undefined, undefined, cloak)
+    manager.registerHandlers()
+    await handlers['claude:spawn']({ sender: fakeWin(42) }, '/repo', 'b', 'new')
+    const [, args, opts] = spawnMock.mock.calls[0]
+    const command = args[1] as string
+    expect(command).toContain('"env":{"ANTHROPIC_BASE_URL":"http://127.0.0.1:5555"}')
+    expect(command).toContain('export ANTHROPIC_BASE_URL="$VIDE_CLOAK_URL" ANTHROPIC_CUSTOM_HEADERS="$VIDE_CLOAK_HEADERS"')
+    expect(command).not.toContain('abc')
+    expect(opts.env.VIDE_CLOAK_HEADERS).toBe('x-vcloak-token: abc')
+  })
+
+  it('reroutes a direct spawn() call through vCloak', async () => {
+    const cloak = { prepareSpawn: vi.fn(async () => ({ ok: false as const, error: 'nope' })) }
+    const manager = new ClaudeManager(undefined, undefined, cloak)
+    manager.spawn(fakeWin(43) as never, '/repo', 'c', 'new')
+    await new Promise((r) => setTimeout(r, 0))
+    expect(cloak.prepareSpawn).toHaveBeenCalledWith('/repo')
+    expect(spawnMock).not.toHaveBeenCalled()
+  })
+
+  it('runs exactly as before when vCloak is off', async () => {
+    const cloak = { prepareSpawn: vi.fn(async () => null) }
+    const manager = new ClaudeManager(undefined, undefined, cloak)
+    manager.registerHandlers()
+    await handlers['claude:spawn']({ sender: fakeWin(44) }, '/repo', 'd', 'new')
+    const [, args, opts] = spawnMock.mock.calls[0]
+    expect(args[1]).not.toContain('VIDE_CLOAK')
+    expect(opts.env.VIDE_CLOAK_URL).toBeUndefined()
+  })
+})
