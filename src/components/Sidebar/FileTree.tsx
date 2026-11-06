@@ -1,4 +1,5 @@
 import type { MouseEvent } from 'react'
+import { useEffect } from 'react'
 import type { FileNode } from '@/types/index'
 import { useFileStore } from '@/stores/fileStore'
 import { useEditorStore } from '@/stores/editorStore'
@@ -20,6 +21,7 @@ import { isIgnoredPath } from '@/lib/gitIgnore'
 import { FileIcon, FolderIcon } from './FileIcon'
 import { isExternalFileDrag } from './treeUtils'
 import { useGitTreeDecorations } from './useGitTreeDecorations'
+import { lookupGitDecoration } from '@/lib/gitTreeStatus'
 import { useGeneralSettingsStore } from '@/stores/generalSettingsStore'
 import { treeRowDropTargetClass } from '@/components/ui/panelDrop'
 import { isRuleHidden, isTreeVisible, relativePath } from '@/lib/treeHiding'
@@ -135,6 +137,17 @@ export function FileTree({
               : activeTabPath
   const createPromptHere = prompt && !prompt.node && prompt.directory === directoryPath
 
+  // Scroll the active file's row into view from the tree level that renders
+  // it, so this runs after the row has actually committed — including when
+  // Sidebar's auto-expand only just loaded its ancestors. Keyed on the
+  // boolean (not `nodes`) so a tree refresh doesn't yank the scroll back.
+  // 'nearest' leaves an already-visible row where it is.
+  const rendersActiveFile = !!activeFilePath && nodes.some((n) => n.path === activeFilePath)
+  useEffect(() => {
+    if (!rendersActiveFile || !activeFilePath) return
+    document.getElementById(`file-tree-node:${activeFilePath}`)?.scrollIntoView({ block: 'nearest' })
+  }, [activeFilePath, rendersActiveFile])
+
   async function handleClick(node: FileNode) {
     useFileStore.getState().clearRevealedPath()
     if (node.isDirectory) {
@@ -195,9 +208,7 @@ export function FileTree({
         // (an aggregate, so no single-letter badge); files show their own
         // status's color + letter directly. Both come from the same
         // memoized per-repo lookup — no recompute or tree walk per row.
-        const gitDecoration = node.isDirectory
-          ? folderGitAggregates.get(node.path)
-          : fileGitDecorations.get(node.path)
+        const gitDecoration = lookupGitDecoration(node.path, node.isDirectory, fileGitDecorations, folderGitAggregates)
         return (
           <li key={node.path}>
             {prompt?.kind === 'rename' && prompt.node?.path === node.path ? (

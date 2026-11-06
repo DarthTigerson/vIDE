@@ -3,6 +3,7 @@ import { WelcomeStep } from './WelcomeStep'
 import { ThemeStep } from './ThemeStep'
 import { AssistantsStep } from './AssistantsStep'
 import { FeaturesStep } from './FeaturesStep'
+import { EditorStep } from './EditorStep'
 import { GitIdentityStep } from './GitIdentityStep'
 import { PermissionsStep } from './PermissionsStep'
 import { DoneStep } from './DoneStep'
@@ -14,6 +15,7 @@ const STEP_COMPONENTS = {
   theme: ThemeStep,
   assistants: AssistantsStep,
   features: FeaturesStep,
+  editor: EditorStep,
   git: GitIdentityStep,
   permissions: PermissionsStep,
   videsync: VIDESyncStep,

@@ -254,7 +254,7 @@ declare global {
       // null on a machine without a battery (iMac, desktop PC).
       getBatteryStatus: () => Promise<{ percent: number; charging: boolean; pluggedIn: boolean; minutesLeft: number | null } | null>
       fsWatchRoot: (cwd: string | null) => void
-      onFsChanged: (cb: (cwd: string) => void) => () => void
+      onFsChanged: (cb: (cwd: string, paths?: string[]) => void) => () => void
 
       gitBranch: (cwd: string) => Promise<string | null>
       gitAheadBehind: (cwd: string) => Promise<GitAheadBehind | null>

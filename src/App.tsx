@@ -5,6 +5,7 @@ import { ImperativePanelHandle, Panel, PanelGroup, PanelResizeHandle } from 'rea
 import { SIDEBAR_PANEL, CHAT_PANEL, clampRem, remToPercent, percentToRem, percentLimits, loadRem } from '@/lib/remPanelSize'
 import { openNewBrowserTab } from '@/lib/openBrowserTab'
 import { syncOpenTabsFromDisk } from '@/lib/syncOpenTabsFromDisk'
+import { refreshRepoStatuses } from '@/lib/refreshRepoStatuses'
 import { restoreEditorSession, startEditorSessionPersistence } from '@/lib/editorSession'
 import { resetBottomTerminal, restoreBottomTerminal, startBottomTerminalPersistence } from '@/lib/bottomTerminalSession'
 import { useBottomTerminalStore } from '@/stores/bottomTerminalStore'
@@ -679,10 +680,10 @@ export default function App() {
     // Same reasoning applies to any open editor tab for that file: without
     // this, the tab shows stale content until closed and reopened, and
     // autosave will happily write that stale content back over the change.
-    return window.api.onFsChanged((cwd) => {
+    return window.api.onFsChanged((cwd, paths) => {
       if (cwd === useFileStore.getState().projectRoot) {
         useFileStore.getState().refreshTree()
-        useGitStore.getState().refreshStatus(cwd)
+        refreshRepoStatuses(cwd, paths)
         syncOpenTabsFromDisk()
       }
     })
