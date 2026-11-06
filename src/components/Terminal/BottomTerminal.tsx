@@ -3,6 +3,7 @@ import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { useBottomTerminalStore } from '@/stores/bottomTerminalStore'
 import { useScriptsStore } from '@/stores/scriptsStore'
 import { TerminalTab } from './TerminalTab'
+import { BOTTOM_TERMINAL_SIDE_ATTR } from '@/lib/bottomTerminalFocus'
 import { BottomTerminalTabMenu } from './BottomTerminalTabMenu'
 
 const DRAG_TYPE = 'application/x-vide-bottom-terminal'
@@ -118,7 +119,7 @@ function Side({ side, ids, last, drag }: { side: number; ids: string[]; last: bo
   }
 
   return (
-    <div className="flex h-full flex-col" onMouseDown={() => store().setFocusedSide(side)}>
+    <div className="flex h-full flex-col" {...{ [BOTTOM_TERMINAL_SIDE_ATTR]: side }} onMouseDown={() => store().setFocusedSide(side)}>
       <div className="flex shrink-0 select-none border-b border-border bg-tab-bar">
         <div
           className={`flex min-w-0 flex-1 overflow-x-auto ${target?.kind === 'strip' ? 'bg-accent/5' : ''}`}

@@ -9,6 +9,7 @@ import { refreshRepoStatuses } from '@/lib/refreshRepoStatuses'
 import { restoreEditorSession, startEditorSessionPersistence } from '@/lib/editorSession'
 import { resetBottomTerminal, restoreBottomTerminal, startBottomTerminalPersistence } from '@/lib/bottomTerminalSession'
 import { useBottomTerminalStore } from '@/stores/bottomTerminalStore'
+import { focusedBottomTerminalSide } from '@/lib/bottomTerminalFocus'
 import { BottomTerminal } from './components/Terminal/BottomTerminal'
 import { formatMemory, memoryRows } from '@/lib/memoryBreakdown'
 import { Sidebar } from './components/Sidebar/Sidebar'
@@ -803,6 +804,14 @@ export default function App() {
   const pendingPinnedCloseRef = useRef<PendingClose | null>(null)
   useEffect(() => {
     return window.api.onMenuCloseActiveTab(() => {
+      // A focused bottom terminal owns Cmd+W: close its tab, not the editor's.
+      const side = focusedBottomTerminalSide(document.activeElement)
+      if (side !== null) {
+        const bottom = useBottomTerminalStore.getState()
+        const id = bottom.active[side]
+        if (id) bottom.closeTerminal(id)
+        return
+      }
       const { activePaneId, paneTabs, pinnedPaths } = useEditorStore.getState()
       const path = paneTabs[activePaneId]
       if (!path) return
