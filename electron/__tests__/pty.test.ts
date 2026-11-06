@@ -122,3 +122,32 @@ describe('PtyManager.watch', () => {
     expect(onData).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('PtyManager env hook', () => {
+  beforeEach(() => {
+    spawnMock.mockReset()
+  })
+
+  it('merges the hook environment into the spawned terminal', () => {
+    const manager = new PtyManager()
+    manager.setEnvHook(() => ({ ANTHROPIC_BASE_URL: 'http://127.0.0.1:1/t/x/anthropic', VIDE_VCLOAK: '1' }))
+    manager.registerHandlers()
+    spawnMock.mockReturnValueOnce(fakePty())
+
+    handlers['term:spawn']({ sender: fakeWin(1) }, 'term-1', '/project/a')
+
+    expect(spawnMock.mock.calls[0][2].env).toMatchObject({ ANTHROPIC_BASE_URL: 'http://127.0.0.1:1/t/x/anthropic', VIDE_VCLOAK: '1' })
+  })
+
+  it('still spawns when the hook throws', () => {
+    const manager = new PtyManager()
+    manager.setEnvHook(() => { throw new Error('boom') })
+    manager.registerHandlers()
+    spawnMock.mockReturnValueOnce(fakePty())
+
+    handlers['term:spawn']({ sender: fakeWin(1) }, 'term-1', '/project/a')
+
+    expect(spawnMock).toHaveBeenCalledTimes(1)
+    expect(spawnMock.mock.calls[0][2].env).not.toHaveProperty('VIDE_VCLOAK')
+  })
+})
