@@ -15,6 +15,8 @@ import {
   parseImagePreviewPath,
   isMarkdownPreviewTab,
   parseMarkdownPreviewPath,
+  isSvgViewerTab,
+  parseSvgViewerPath,
   buildMarkdownPreviewPath,
 } from '@/components/Viewer/paths'
 import { isImageFile, isMarkdownFile } from '@/lib/fileKinds'
@@ -133,6 +135,8 @@ export function FileTree({
           ? parseImagePreviewPath(activeTabPath)
           : isMarkdownPreviewTab(activeTabPath)
             ? parseMarkdownPreviewPath(activeTabPath)
+            : isSvgViewerTab(activeTabPath)
+              ? parseSvgViewerPath(activeTabPath)
             : activeTabPath.includes('://')
               ? null
               : activeTabPath
@@ -160,7 +164,8 @@ export function FileTree({
       }
     } else {
       select(node.path)
-      await openFile(node.path, { markdownMode: useEditorSettingsStore.getState().markdownOpenMode })
+      const { markdownOpenMode, svgOpenMode } = useEditorSettingsStore.getState()
+      await openFile(node.path, { markdownMode: markdownOpenMode, svgMode: svgOpenMode })
     }
   }
 

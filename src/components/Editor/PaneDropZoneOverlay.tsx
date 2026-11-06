@@ -32,7 +32,9 @@ export function useCoverNativeViewsWhileDragging(): void {
 // Drops a file dragged from the file tree. A file already open in some pane
 // moves like a dragged tab from that pane; otherwise it opens fresh.
 async function dropFile(path: string, paneId: string, zone: DropZone) {
-  const tabPath = routeFile(path, { markdownMode: useEditorSettingsStore.getState().markdownOpenMode }).tabPath
+  const { markdownOpenMode, svgOpenMode } = useEditorSettingsStore.getState()
+  const modes = { markdownMode: markdownOpenMode, svgMode: svgOpenMode }
+  const tabPath = routeFile(path, modes).tabPath
   const before = useEditorStore.getState()
   const sourcePaneId = collectPaneIds(before.layout).find((pid) => (before.paneTabLists[pid] ?? []).includes(tabPath))
   const split = zone === 'center' ? null : SPLIT_FOR_ZONE[zone]
@@ -42,7 +44,7 @@ async function dropFile(path: string, paneId: string, zone: DropZone) {
     else before.setPaneActive(paneId, tabPath)
     return
   }
-  const tab = await resolveFileTab(path, { markdownMode: useEditorSettingsStore.getState().markdownOpenMode })
+  const tab = await resolveFileTab(path, modes)
   const store = useEditorStore.getState()
   if (split) store.openTabInNewSplitPane(tab, paneId, split.direction, split.placement)
   else store.openTabInPane(tab, paneId)

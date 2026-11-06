@@ -12,6 +12,7 @@ const KEYS = {
   autoSaveEnabled: 'vide:editor:autoSaveEnabled',
   wordWrapEnabled: 'vide:editor:wordWrapEnabled',
   markdownOpenMode: 'vide:editor:markdownOpenMode',
+  svgOpenMode: 'vide:editor:svgOpenMode',
   // Git blame settings live on Settings > Git, so they use the vide:git: prefix
   // to sync in vIDE Sync's Git category rather than General (vide:editor:).
   blameAnnotationsEnabled: 'vide:git:blameAnnotationsEnabled',
@@ -65,6 +66,9 @@ interface EditorSettingsStore {
   // actions always ignore this and do exactly what they say.
   markdownOpenMode: MarkdownOpenMode
   setMarkdownOpenMode: (value: MarkdownOpenMode) => void
+  // The same for .svg files, but defaulting to the rendered viewer.
+  svgOpenMode: MarkdownOpenMode
+  setSvgOpenMode: (value: MarkdownOpenMode) => void
   // Current-line git-blame annotation (end-of-line author/date/summary,
   // GitLens-style) - on by default, matching the feature's original
   // always-on behavior.
@@ -113,6 +117,13 @@ export const useEditorSettingsStore = create<EditorSettingsStore>((set, get) => 
   setMarkdownOpenMode: (value) => {
     localStorage.setItem(KEYS.markdownOpenMode, value)
     set({ markdownOpenMode: value })
+  },
+
+  svgOpenMode: getMarkdownOpenMode(KEYS.svgOpenMode, 'preview'),
+
+  setSvgOpenMode: (value) => {
+    localStorage.setItem(KEYS.svgOpenMode, value)
+    set({ svgOpenMode: value })
   },
 
   blameAnnotationsEnabled: getBool(KEYS.blameAnnotationsEnabled, true),

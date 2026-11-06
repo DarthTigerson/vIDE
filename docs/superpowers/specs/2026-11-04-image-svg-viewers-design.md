@@ -16,15 +16,12 @@ search) reads every file as text. Other entry points may have the same gap.
    All Apps; dropped on 2026-11-06 because turning a viewer off saves no
    resources, it only makes opening an image worse. The viewer costs nothing
    until an image is opened.)
-2. **SVG offers every view mode, the user picks.** Modes:
-   - `preview`: rendered only.
-   - `toggle`: rendered, with a button to switch to the editable XML source
-     and back (like the markdown preview/editor pair).
-   - `split`: rendered preview beside the editable source, preview updating
-     live from the unsaved buffer.
-   The default mode lives in Settings > Editor, next to the markdown open
-   mode (default `toggle`). Every SVG tab also has a small mode switcher so
-   the user can change mode for that tab at any time.
+2. **SVG works exactly like Markdown, but opens the picture first.**
+   Settings > Editor › "Open .svg files in" offers Editor, Preview, or Both
+   (editor left, preview right), default **Preview**. The breadcrumb bar shows
+   "Open Preview" on the source tab and "Open SVG File" on the viewer tab, each
+   opening the other half in a split. Right-click offers "View in SVG Viewer"
+   and "Open / Edit". The preview follows the unsaved buffer live.
 3. **Binary images are never loaded into Monaco.**
 
 ## Design
@@ -40,8 +37,8 @@ search) reads every file as text. Other entry points may have the same gap.
   them to PNG with `nativeImage` (`readImagePngDataUrl` in
   `electron/fsOps.ts`). When the OS cannot decode the file (e.g. HEIC on
   Linux) the viewer says the preview is unavailable.
-- **SVG viewer**: new viewer component and tab path kind (alongside the
-  image-preview one). Preview renders the SVG via an `<img>` data/blob URL
+- **SVG viewer**: `SvgViewer` on an `svg-viewer://` tab, the SVG counterpart
+  of `markdown-preview://`. Preview renders the SVG via an `<img>` data/blob URL
   (no inline SVG in the DOM, so scripts inside the SVG never run). Source
   editing uses the normal editor tab for the file so save, dirty state and
   git gutter keep working.

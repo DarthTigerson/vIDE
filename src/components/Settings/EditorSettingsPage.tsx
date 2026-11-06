@@ -17,6 +17,8 @@ export function EditorSettingsPage() {
   const setWordWrapEnabled = useEditorSettingsStore((s) => s.setWordWrapEnabled)
   const markdownOpenMode = useEditorSettingsStore((s) => s.markdownOpenMode)
   const setMarkdownOpenMode = useEditorSettingsStore((s) => s.setMarkdownOpenMode)
+  const svgOpenMode = useEditorSettingsStore((s) => s.svgOpenMode)
+  const setSvgOpenMode = useEditorSettingsStore((s) => s.setSvgOpenMode)
   const refreshLspStatus = useLspStatusStore((s) => s.refresh)
 
   useEffect(() => {
@@ -55,6 +57,26 @@ export function EditorSettingsPage() {
                 id="markdown-open-mode"
                 value={markdownOpenMode}
                 onChange={(v) => setMarkdownOpenMode(v as MarkdownOpenMode)}
+                options={[
+                  { value: 'editor', label: 'Editor' },
+                  { value: 'preview', label: 'Preview' },
+                  { value: 'split', label: 'Both (editor left, preview right)' },
+                ]}
+              />
+            </div>
+          </SettingRow>
+        </FeatureBlock>
+
+        <FeatureBlock
+          title="SVG files"
+          description="What clicking a .svg file in the file tree does. The right-click menu's Open / Edit and View in SVG Viewer always do exactly what they say."
+        >
+          <SettingRow label="Open .svg files in" htmlFor="svg-open-mode">
+            <div className="w-56">
+              <Select
+                id="svg-open-mode"
+                value={svgOpenMode}
+                onChange={(v) => setSvgOpenMode(v as MarkdownOpenMode)}
                 options={[
                   { value: 'editor', label: 'Editor' },
                   { value: 'preview', label: 'Preview' },

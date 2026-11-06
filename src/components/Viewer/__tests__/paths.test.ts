@@ -6,6 +6,9 @@ import {
   isMarkdownPreviewTab,
   buildMarkdownPreviewPath,
   parseMarkdownPreviewPath,
+  isSvgViewerTab,
+  buildSvgViewerPath,
+  parseSvgViewerPath,
 } from '../paths'
 
 describe('image preview virtual tab paths', () => {
@@ -43,5 +46,14 @@ describe('markdown preview virtual tab paths', () => {
   it('round-trips build -> parse', () => {
     const built = buildMarkdownPreviewPath('/proj/README.md')
     expect(parseMarkdownPreviewPath(built)).toBe('/proj/README.md')
+  })
+})
+
+describe('svg viewer virtual tab paths', () => {
+  it('round-trips an svg viewer path', () => {
+    const built = buildSvgViewerPath('/proj/logo.svg')
+    expect(isSvgViewerTab(built)).toBe(true)
+    expect(isSvgViewerTab('/proj/logo.svg')).toBe(false)
+    expect(parseSvgViewerPath(built)).toBe('/proj/logo.svg')
   })
 })

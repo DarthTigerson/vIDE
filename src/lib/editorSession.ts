@@ -4,7 +4,9 @@ import { useFileStore } from '@/stores/fileStore'
 import {
   isImagePreviewTab,
   isMarkdownPreviewTab,
+  isSvgViewerTab,
   parseImagePreviewPath,
+  parseSvgViewerPath,
   parseMarkdownPreviewPath,
 } from '@/components/Viewer/paths'
 import { isTerminalTab } from '@/components/Settings/paths'
@@ -21,6 +23,7 @@ const SAVE_DEBOUNCE_MS = 500
 export function fileBehindTab(path: string): string | null {
   if (isImagePreviewTab(path)) return parseImagePreviewPath(path)
   if (isMarkdownPreviewTab(path)) return parseMarkdownPreviewPath(path)
+  if (isSvgViewerTab(path)) return parseSvgViewerPath(path)
   return path.startsWith('/') ? path : null
 }
 

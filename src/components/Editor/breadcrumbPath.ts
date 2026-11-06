@@ -5,6 +5,7 @@ import {
 import {
   isMarkdownPreviewTab, parseMarkdownPreviewPath,
   isImagePreviewTab, parseImagePreviewPath,
+  isSvgViewerTab, parseSvgViewerPath,
 } from '@/components/Viewer/paths'
 
 function joinPath(root: string, rel: string): string {
@@ -19,6 +20,7 @@ function joinPath(root: string, rel: string): string {
 export function breadcrumbPathForTab(tabPath: string, isPlainFileTab: boolean): string | null {
   if (isPlainFileTab) return tabPath
   if (isMarkdownPreviewTab(tabPath)) return parseMarkdownPreviewPath(tabPath)
+  if (isSvgViewerTab(tabPath)) return parseSvgViewerPath(tabPath)
   if (isGitDiffTab(tabPath)) {
     const { repoRoot, path } = parseGitDiffPath(tabPath)
     return joinPath(repoRoot, path)

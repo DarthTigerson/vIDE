@@ -124,10 +124,14 @@ import {
   isMarkdownPreviewTab,
   buildMarkdownPreviewPath,
   parseMarkdownPreviewPath,
+  isSvgViewerTab,
+  buildSvgViewerPath,
+  parseSvgViewerPath,
 } from '@/components/Viewer/paths'
 import { ImageViewer } from '@/components/Viewer/ImageViewer'
 import { MarkdownViewer } from '@/components/Viewer/MarkdownViewer'
-import { isMarkdownFile } from '@/lib/fileKinds'
+import { SvgViewer } from '@/components/Viewer/SvgViewer'
+import { isMarkdownFile, isSvgFile } from '@/lib/fileKinds'
 import type { GitDiffContent } from '@/types/index'
 import { isVirtualTab, isReadOnlyTab } from '@/lib/tabKinds'
 import { focusedBottomTerminalSide } from '@/lib/bottomTerminalFocus'
@@ -336,12 +340,14 @@ function EditorLayout({ node }: { node: EditorLayoutNode }) {
   )
 }
 
-// Sits at the right edge of the breadcrumb bar for .md files, letting the
-// user split code and rendered preview side by side — always landing on
-// code-left/preview-right regardless of which side the button was pressed
-// from, per openTabInNewSplitPane's placement argument below.
-function MarkdownModeToggleButton({ filePath, mode, paneId }: {
+// Sits at the right edge of the breadcrumb bar for .md and .svg files,
+// letting the user split code and rendered preview side by side — always
+// landing on code-left/preview-right regardless of which side the button was
+// pressed from, per openTabInNewSplitPane's placement argument below.
+function PreviewModeToggleButton({ filePath, previewPath, sourceLabel, mode, paneId }: {
   filePath: string
+  previewPath: string
+  sourceLabel: string
   mode: 'editor' | 'preview'
   paneId: string
 }) {
@@ -350,7 +356,7 @@ function MarkdownModeToggleButton({ filePath, mode, paneId }: {
   async function handleClick() {
     if (mode === 'editor') {
       openTabInNewSplitPane(
-        { path: buildMarkdownPreviewPath(filePath), content: '', dirty: false },
+        { path: previewPath, content: '', dirty: false },
         paneId,
         'horizontal',
         'after'
@@ -367,7 +373,7 @@ function MarkdownModeToggleButton({ filePath, mode, paneId }: {
       onClick={handleClick}
       className="px-2.5 h-full border-l border-border bg-white/5 text-[0.6875rem] font-medium text-fg-muted hover:text-fg hover:bg-accent/20 transition-colors"
     >
-      {mode === 'editor' ? 'Open Preview' : 'Open MD File'}
+      {mode === 'editor' ? 'Open Preview' : sourceLabel}
     </button>
   )
 }
@@ -485,6 +491,7 @@ function EditorPane({ paneId }: { paneId: string }) {
   const isDockerLogs = !!activeTab && isDockerLogsTab(activeTab.path)
   const isImagePreview = !!activeTab && isImagePreviewTab(activeTab.path)
   const isMarkdownPreview = !!activeTab && isMarkdownPreviewTab(activeTab.path)
+  const isSvgViewer = !!activeTab && isSvgViewerTab(activeTab.path)
   // Tabs that encode their real file path in a scheme (markdown-preview://,
   // git-diff://, git-commit-diff://) get it parsed back out by
   // breadcrumbPathForTab, so the breadcrumb shows there too. Image previews
@@ -494,7 +501,7 @@ function EditorPane({ paneId }: { paneId: string }) {
     !isVirtual && !isTerminal && !isBrowser &&
     !isDiff && !isCommitDiff && !isGitLog && !isGitGraph && !isGitBranchDiff &&
     !isGraphifyGraph && !isUsageGraph && !isAlarms && !isUpdate && !isTodoBoard && !isScript && !isTodoDetail && !isTodoTrash &&
-    !isLlamaModel && !isDockerLogs && !isImagePreview && !isMarkdownPreview &&
+    !isLlamaModel && !isDockerLogs && !isImagePreview && !isMarkdownPreview && !isSvgViewer &&
     // A scratch tab has no file on disk yet, so there is no path to show —
     // without this the breadcrumb splits 'scratch://<uuid>' on '/' and
     // renders the scheme and the uuid as if they were folders.
@@ -644,9 +651,19 @@ function EditorPane({ paneId }: { paneId: string }) {
             projectRoot={projectRoot}
             right={
               isMarkdownFile(breadcrumbFilePath) ? (
-                <MarkdownModeToggleButton
+                <PreviewModeToggleButton
                   filePath={breadcrumbFilePath}
+                  previewPath={buildMarkdownPreviewPath(breadcrumbFilePath)}
+                  sourceLabel="Open MD File"
                   mode={isMarkdownPreview ? 'preview' : 'editor'}
+                  paneId={paneId}
+                />
+              ) : isSvgFile(breadcrumbFilePath) ? (
+                <PreviewModeToggleButton
+                  filePath={breadcrumbFilePath}
+                  previewPath={buildSvgViewerPath(breadcrumbFilePath)}
+                  sourceLabel="Open SVG File"
+                  mode={isSvgViewer ? 'preview' : 'editor'}
                   paneId={paneId}
                 />
               ) : diffFilePathForTab(activeTab?.path ?? '') ? (
@@ -749,6 +766,8 @@ function EditorPane({ paneId }: { paneId: string }) {
           <ImageViewer key={activeTab.path} path={parseImagePreviewPath(activeTab.path)} />
         ) : isMarkdownPreview ? (
           <MarkdownViewer key={activeTab.path} path={parseMarkdownPreviewPath(activeTab.path)} />
+        ) : isSvgViewer ? (
+          <SvgViewer key={activeTab.path} path={parseSvgViewerPath(activeTab.path)} />
         ) : (isDiff || isCommitDiff) ? (
           <div className="h-full overflow-hidden">
             {diffContent && (
