@@ -1,30 +1,66 @@
-import { clipboard } from 'electron'
+import { clipboard, ClipboardItem } from 'electron'
 import {
   toFileUrl, encodeGnomeCopiedFiles, decodeGnomeCopiedFiles,
   decodeUriList, decodeFilenamesPlist, decodeFileUrl,
   type ClipboardFiles, type ClipboardMode,
 } from './fileClipboardFormats'
 
-// Electron's writeBuffer replaces the whole clipboard, so only one format can
-// be written per call. Copy/Cut in the tree is single-item, so on macOS the
-// first path as public.file-url is all Finder needs; macOS has no OS-level cut,
-// so `mode` is ignored there (vIDE remembers the cut itself).
-export function writeClipboardFiles(paths: string[], mode: ClipboardMode): void {
+// Electron 44 replaced the synchronous writeBuffer/readBuffer with the
+// promise-based read()/write(). Platform-specific formats are addressed as
+// `electron application/osclipboard;format="<name>"`, and `text/uri-list` maps
+// to the OS's native file references (public.file-url / NSFilenamesPboardType
+// on macOS), so Finder sees the files without a hand-written pasteboard type.
+const rawFormat = (name: string): string => `electron application/osclipboard;format="${name}"`
+
+// Copy/Cut in the tree is single-item, but a uri-list carries all the paths.
+// macOS has no OS-level cut, so `mode` is ignored there (vIDE remembers the
+// cut itself); Linux file managers read the cut/copy flag from
+// x-special/gnome-copied-files, written alongside the uri-list.
+export async function writeClipboardFiles(paths: string[], mode: ClipboardMode): Promise<void> {
   if (paths.length === 0) return
+  const uriList = paths.map(toFileUrl).join('\r\n')
   if (process.platform === 'darwin') {
-    clipboard.writeBuffer('public.file-url', Buffer.from(toFileUrl(paths[0]), 'utf8'))
+    await clipboard.write([new ClipboardItem({ 'text/uri-list': uriList })])
   } else {
-    clipboard.writeBuffer('x-special/gnome-copied-files', Buffer.from(encodeGnomeCopiedFiles(paths, mode), 'utf8'))
+    await clipboard.write([
+      new ClipboardItem({
+        [rawFormat('x-special/gnome-copied-files')]: encodeGnomeCopiedFiles(paths, mode),
+        'text/uri-list': uriList,
+      }),
+    ])
   }
 }
 
-function readText(format: string): string {
-  return clipboard.readBuffer(format).toString('utf8')
+async function readText(...formats: string[]): Promise<string> {
+  let items: Electron.ClipboardItem[]
+  try {
+    items = await clipboard.read()
+  } catch {
+    return ''
+  }
+  for (const format of formats) {
+    for (const item of items) {
+      if (!item.types.includes(format)) continue
+      try {
+        return await ((await item.getType(format)) as Blob).text()
+      } catch {
+        // Not readable as text; try the next candidate.
+      }
+    }
+  }
+  return ''
 }
 
-export function readClipboardFiles(): ClipboardFiles | null {
+export async function readClipboardFiles(): Promise<ClipboardFiles | null> {
   if (process.platform === 'darwin') {
-    return decodeFilenamesPlist(readText('NSFilenamesPboardType')) ?? decodeFileUrl(readText('public.file-url'))
+    return (
+      decodeFilenamesPlist(await readText(rawFormat('NSFilenamesPboardType'))) ??
+      decodeFileUrl(await readText(rawFormat('public.file-url'))) ??
+      decodeUriList(await readText('text/uri-list'))
+    )
   }
-  return decodeGnomeCopiedFiles(readText('x-special/gnome-copied-files')) ?? decodeUriList(readText('text/uri-list'))
+  return (
+    decodeGnomeCopiedFiles(await readText(rawFormat('x-special/gnome-copied-files'))) ??
+    decodeUriList(await readText('text/uri-list'))
+  )
 }

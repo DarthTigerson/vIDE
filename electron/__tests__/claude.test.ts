@@ -447,8 +447,13 @@ describe('ClaudeManager session restore', () => {
   beforeEach(() => {
     spawnMock.mockReset()
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vide-claude-sessions-'))
+    // spawn() forwards process.env, so a run from inside a vIDE Claude panel
+    // would otherwise see that panel's own session file here.
+    vi.stubEnv('VIDE_CLAUDE_SESSION_FILE', '')
+    delete process.env.VIDE_CLAUDE_SESSION_FILE
   })
   afterEach(() => {
+    vi.unstubAllEnvs()
     fs.rmSync(dir, { recursive: true, force: true })
   })
 

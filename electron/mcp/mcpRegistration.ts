@@ -2,6 +2,7 @@ import { app, ipcMain } from 'electron'
 import { execFile } from 'child_process'
 import { join } from 'path'
 import { mkdir, writeFile } from 'fs/promises'
+import { isIsolatedDevProfile } from '../devProfile'
 
 export const MCP_SERVER_NAME = 'vide-todos'
 export const NOTES_MCP_SERVER_NAME = 'vide-notes'
@@ -17,6 +18,18 @@ function run(command: string, args: string[]): Promise<{ stdout: string; stderr:
       else resolve({ stdout: String(stdout), stderr: String(stderr) })
     })
   })
+}
+
+// Every `claude mcp ...` / `claude plugin ...` call writes the user's global
+// Claude Code config, shared with the installed vIDE. An isolated dev build
+// (see devProfile.ts) skips them, so testing a branch cannot repoint the real
+// app's MCP servers at the dev binary and dev data dir (VIDE-24).
+function runClaude(claudeBin: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
+  if (isIsolatedDevProfile()) {
+    console.log(`[dev-profile] Skipped global Claude Code config change: claude ${args.slice(0, 3).join(' ')}`)
+    return Promise.resolve({ stdout: '', stderr: '' })
+  }
+  return run(claudeBin, args)
 }
 
 function shQuote(value: string): string {
@@ -100,11 +113,11 @@ export async function enableTodoEnforcerPlugin(): Promise<void> {
   await writeEnforcerPluginFiles()
   const claudeBin = await resolveClaudeBinary()
   try {
-    await run(claudeBin, ['plugin', 'marketplace', 'add', enforcerMarketplaceDir()])
+    await runClaude(claudeBin, ['plugin', 'marketplace', 'add', enforcerMarketplaceDir()])
   } catch {
     // already added — fine, installing below still picks up any file changes
   }
-  await run(claudeBin, [
+  await runClaude(claudeBin, [
     'plugin',
     'install',
     `${ENFORCER_PLUGIN_NAME}@${ENFORCER_MARKETPLACE_NAME}`,
@@ -118,7 +131,7 @@ export async function enableTodoEnforcerPlugin(): Promise<void> {
 export async function disableTodoEnforcerPlugin(): Promise<void> {
   try {
     const claudeBin = await resolveClaudeBinary()
-    await run(claudeBin, ['plugin', 'uninstall', `${ENFORCER_PLUGIN_NAME}@${ENFORCER_MARKETPLACE_NAME}`])
+    await runClaude(claudeBin, ['plugin', 'uninstall', `${ENFORCER_PLUGIN_NAME}@${ENFORCER_MARKETPLACE_NAME}`])
   } catch {
     // ignore — nothing to clean up, or claude isn't on PATH anymore
   }
@@ -137,9 +150,9 @@ function scriptPath(): string {
 export async function enableTodoMcp(): Promise<void> {
   const claudeBin = await resolveClaudeBinary()
   // Remove first so re-enabling always works even if already registered
-  try { await run(claudeBin, ['mcp', 'remove', MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
+  try { await runClaude(claudeBin, ['mcp', 'remove', MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
   try {
-    await run(claudeBin, [
+    await runClaude(claudeBin, [
       'mcp',
       'add',
       MCP_SERVER_NAME,
@@ -164,7 +177,7 @@ export async function enableTodoMcp(): Promise<void> {
 export async function disableTodoMcp(): Promise<void> {
   try {
     const claudeBin = await resolveClaudeBinary()
-    await run(claudeBin, ['mcp', 'remove', MCP_SERVER_NAME, '--scope', 'user'])
+    await runClaude(claudeBin, ['mcp', 'remove', MCP_SERVER_NAME, '--scope', 'user'])
   } catch {
     // ignore — nothing to clean up, or claude isn't on PATH anymore
   }
@@ -193,9 +206,9 @@ function notesMcpScriptPath(): string {
 export async function enableNotesMcp(): Promise<void> {
   const claudeBin = await resolveClaudeBinary()
   // Remove first so re-enabling always works even if already registered
-  try { await run(claudeBin, ['mcp', 'remove', NOTES_MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
+  try { await runClaude(claudeBin, ['mcp', 'remove', NOTES_MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
   try {
-    await run(claudeBin, [
+    await runClaude(claudeBin, [
       'mcp',
       'add',
       NOTES_MCP_SERVER_NAME,
@@ -218,7 +231,7 @@ export async function enableNotesMcp(): Promise<void> {
 export async function disableNotesMcp(): Promise<void> {
   try {
     const claudeBin = await resolveClaudeBinary()
-    await run(claudeBin, ['mcp', 'remove', NOTES_MCP_SERVER_NAME, '--scope', 'user'])
+    await runClaude(claudeBin, ['mcp', 'remove', NOTES_MCP_SERVER_NAME, '--scope', 'user'])
   } catch {
     // ignore
   }
@@ -240,9 +253,9 @@ function browserMcpScriptPath(): string {
 export async function enableBrowserMcp(): Promise<void> {
   const claudeBin = await resolveClaudeBinary()
   // Remove first so re-enabling always works even if already registered
-  try { await run(claudeBin, ['mcp', 'remove', BROWSER_MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
+  try { await runClaude(claudeBin, ['mcp', 'remove', BROWSER_MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
   try {
-    await run(claudeBin, [
+    await runClaude(claudeBin, [
       'mcp',
       'add',
       BROWSER_MCP_SERVER_NAME,
@@ -265,7 +278,7 @@ export async function enableBrowserMcp(): Promise<void> {
 export async function disableBrowserMcp(): Promise<void> {
   try {
     const claudeBin = await resolveClaudeBinary()
-    await run(claudeBin, ['mcp', 'remove', BROWSER_MCP_SERVER_NAME, '--scope', 'user'])
+    await runClaude(claudeBin, ['mcp', 'remove', BROWSER_MCP_SERVER_NAME, '--scope', 'user'])
   } catch {
     // ignore
   }
@@ -286,9 +299,9 @@ function scriptsMcpScriptPath(): string {
 // vide-browser) only when spawned by a vIDE Claude panel.
 export async function enableScriptsMcp(): Promise<void> {
   const claudeBin = await resolveClaudeBinary()
-  try { await run(claudeBin, ['mcp', 'remove', SCRIPTS_MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
+  try { await runClaude(claudeBin, ['mcp', 'remove', SCRIPTS_MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
   try {
-    await run(claudeBin, [
+    await runClaude(claudeBin, [
       'mcp',
       'add',
       SCRIPTS_MCP_SERVER_NAME,
@@ -311,7 +324,7 @@ export async function enableScriptsMcp(): Promise<void> {
 export async function disableScriptsMcp(): Promise<void> {
   try {
     const claudeBin = await resolveClaudeBinary()
-    await run(claudeBin, ['mcp', 'remove', SCRIPTS_MCP_SERVER_NAME, '--scope', 'user'])
+    await runClaude(claudeBin, ['mcp', 'remove', SCRIPTS_MCP_SERVER_NAME, '--scope', 'user'])
   } catch {
     // ignore
   }
@@ -332,9 +345,9 @@ function searchMcpScriptPath(): string {
 // script. Available in every vIDE-launched Claude session.
 export async function enableSearchMcp(): Promise<void> {
   const claudeBin = await resolveClaudeBinary()
-  try { await run(claudeBin, ['mcp', 'remove', SEARCH_MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
+  try { await runClaude(claudeBin, ['mcp', 'remove', SEARCH_MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
   try {
-    await run(claudeBin, [
+    await runClaude(claudeBin, [
       'mcp',
       'add',
       SEARCH_MCP_SERVER_NAME,
@@ -355,7 +368,7 @@ export async function enableSearchMcp(): Promise<void> {
 export async function disableSearchMcp(): Promise<void> {
   try {
     const claudeBin = await resolveClaudeBinary()
-    await run(claudeBin, ['mcp', 'remove', SEARCH_MCP_SERVER_NAME, '--scope', 'user'])
+    await runClaude(claudeBin, ['mcp', 'remove', SEARCH_MCP_SERVER_NAME, '--scope', 'user'])
   } catch {
     // ignore
   }
@@ -375,9 +388,9 @@ function docsMcpScriptPath(): string {
 // launch, which also keeps the script path current across dev/packaged runs.
 export async function enableDocsMcp(): Promise<void> {
   const claudeBin = await resolveClaudeBinary()
-  try { await run(claudeBin, ['mcp', 'remove', DOCS_MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
+  try { await runClaude(claudeBin, ['mcp', 'remove', DOCS_MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
   try {
-    await run(claudeBin, [
+    await runClaude(claudeBin, [
       'mcp',
       'add',
       DOCS_MCP_SERVER_NAME,
