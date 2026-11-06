@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Terminal as XTerm } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
@@ -16,6 +16,7 @@ import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
 import { agentLabel, isBridgeLike, isClaudeLike, isLlamaKind, isTerminalKind, llamaConnectionFor, llamaModelId } from '@/lib/agentKinds'
 import type { AssistantKind } from '@/types/api'
 import { TerminalTab } from '@/components/Terminal/TerminalTab'
+import { TerminalContextMenu } from '@/components/Terminal/TerminalContextMenu'
 import { liveTerminals } from '@/lib/liveTerminals'
 import { PTY_XTERM_OPTIONS } from '@/lib/ptyXtermOptions'
 import { UsagePanel } from '@/components/UsagePanel/UsagePanel'
@@ -127,6 +128,16 @@ export function Chat() {
   const activeInstanceRef = useRef<string>(activeInstanceId)
   const isFirstRestart = useRef(true)
   const seenFocusTokenRef = useRef(focusToken)
+  const [menu, setMenu] = useState<{ x: number; y: number; selection: string; instanceId: string } | null>(null)
+  const closeMenu = useCallback(() => setMenu(null), [])
+  const pasteIntoClaude = useCallback((text: string) => {
+    const xterm = menu ? terminalsRef.current[menu.instanceId]?.xterm : undefined
+    if (!xterm) return
+    // xterm.paste wraps in bracketed-paste markers when Claude Code asked for
+    // them and routes through onData, same as a keyboard paste.
+    xterm.paste(text)
+    xterm.focus()
+  }, [menu])
 
   useEffect(() => {
     activeInstanceRef.current = activeInstanceId
@@ -398,7 +409,27 @@ export function Chat() {
             ref={containerRef}
             className="flex-1 overflow-hidden p-1"
             style={{ display: isBridgeLikeActive || isTerminalActive ? 'none' : 'block' }}
+            onContextMenu={(event) => {
+              event.preventDefault()
+              const instanceId = activeInstanceRef.current
+              const xterm = terminalsRef.current[instanceId]?.xterm
+              if (!xterm) return
+              // Read after xterm's own right-click handling; joined so a path
+              // or URL Claude Code wrapped across rows copies as one line.
+              const selection = xterm.hasSelection() ? joinedSelectionText(xterm) : ''
+              setMenu({ x: event.clientX, y: event.clientY, selection, instanceId })
+            }}
           />
+          {menu && (
+            <TerminalContextMenu
+              x={menu.x}
+              y={menu.y}
+              selection={menu.selection}
+              onPaste={pasteIntoClaude}
+              copyPasteOnly
+              onClose={closeMenu}
+            />
+          )}
           {/* Every terminal session stays mounted (hidden when inactive) so
               its output keeps streaming in while another session is shown. */}
           {terminalSessions.map((inst) => (

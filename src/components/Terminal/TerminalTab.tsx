@@ -50,6 +50,12 @@ export function TerminalTab({ terminalId, isStillOpen }: Props) {
   const font = useDisplayStore((s) => s.font)
   const [menu, setMenu] = useState<{ x: number; y: number; selection: string } | null>(null)
   const closeMenu = useCallback(() => setMenu(null), [])
+  const pasteIntoTerminal = useCallback((text: string) => {
+    const xterm = instanceRef.current?.xterm
+    if (!xterm) return
+    xterm.paste(text)
+    xterm.focus()
+  }, [])
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -180,7 +186,7 @@ export function TerminalTab({ terminalId, isStillOpen }: Props) {
           setMenu({ x: event.clientX, y: event.clientY, selection })
         }}
       />
-      {menu && <TerminalContextMenu x={menu.x} y={menu.y} selection={menu.selection} terminalId={terminalId} onClose={closeMenu} />}
+      {menu && <TerminalContextMenu x={menu.x} y={menu.y} selection={menu.selection} terminalId={terminalId} onPaste={pasteIntoTerminal} onClose={closeMenu} />}
     </>
   )
 }

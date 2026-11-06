@@ -34,13 +34,19 @@ function MenuButton({ children, hint, disabled, onClick }: {
 
 // Right-click menu for a terminal tab. `selection` is read by the caller at
 // the moment the menu opens, so the actions act on what was highlighted then.
+// `onPaste` is set only for terminals that take input (not the Docker log
+// view); it receives the clipboard text, which the caller hands to
+// `xterm.paste()` so bracketed paste works like a keyboard paste.
 // `terminalId` is set only for real shells — it adds the Scripts submenu,
 // which types the picked script into this terminal (not the Docker log view).
-export function TerminalContextMenu({ x, y, selection, terminalId, onClose }: {
+// `copyPasteOnly` drops Send to Claude and Scripts (the Claude panel itself).
+export function TerminalContextMenu({ x, y, selection, terminalId, onPaste, copyPasteOnly, onClose }: {
   x: number
   y: number
   selection: string
   terminalId?: string
+  onPaste?: (text: string) => void
+  copyPasteOnly?: boolean
   onClose: () => void
 }) {
   useCoverNativeViews()
@@ -82,7 +88,19 @@ export function TerminalContextMenu({ x, y, selection, terminalId, onClose }: {
       >
         Copy
       </MenuButton>
-      <MenuButton
+      {onPaste && (
+        <MenuButton
+          onClick={() => {
+            onClose()
+            navigator.clipboard.readText()
+              .then((text) => { if (text) onPaste(text) })
+              .catch((error) => console.error('Paste from clipboard failed', error))
+          }}
+        >
+          Paste
+        </MenuButton>
+      )}
+      {!copyPasteOnly && <MenuButton
         disabled={!hasSelection}
         hint={SEND_HINT}
         onClick={() => {
@@ -91,8 +109,8 @@ export function TerminalContextMenu({ x, y, selection, terminalId, onClose }: {
         }}
       >
         Send to Claude
-      </MenuButton>
-      {terminalId && (
+      </MenuButton>}
+      {terminalId && !copyPasteOnly && (
         <>
           <div className="my-1 h-px bg-border" />
           <ScriptsSubmenu
