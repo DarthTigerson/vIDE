@@ -349,7 +349,9 @@ export default function App() {
   const runningLlamaCount = useRunningLlamaCount(llamaEnabled)
   useLlamaAvailability(llamaEnabled)
   const graphifyEnabled = useGraphifySettingsStore((s) => s.enabled)
-  const bottomTerminalEnabled = useBottomTerminalStore((s) => s.enabled)
+  // Hidden while it holds no terminals; the next one opened (Cmd+T, the
+  // sidebar's button) is routed down here and brings the panel back.
+  const bottomTerminalEnabled = useBottomTerminalStore((s) => s.enabled && s.sides.some((ids) => ids.length > 0))
   // Not subscribed: it only seeds the panel's height when the panel mounts,
   // and resizing shouldn't re-render the whole app.
   const bottomTerminalSize = useBottomTerminalStore.getState().size

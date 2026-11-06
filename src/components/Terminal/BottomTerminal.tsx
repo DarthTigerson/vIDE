@@ -209,20 +209,8 @@ function Side({ side, ids, last, drag }: { side: number; ids: string[]; last: bo
         )}
       </div>
       <div ref={bodyRef} className="relative min-h-0 flex-1">
-        {activeId ? (
-          <TerminalTab key={activeId} terminalId={activeId} />
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-xs text-fg-muted">
-            <span>No terminals</span>
-            <button
-              type="button"
-              className="rounded-md border border-border px-3 py-1.5 text-fg transition-colors hover:border-fg-subtle"
-              onClick={() => store().newTerminal(side)}
-            >
-              New terminal
-            </button>
-          </div>
-        )}
+        {/* No empty state: App hides the whole panel once no terminals are left. */}
+        {activeId && <TerminalTab key={activeId} terminalId={activeId} />}
         {/* Over the terminal only while a tab is dragged, like the editor's
             PaneDropZoneOverlay: xterm would otherwise swallow the drop. */}
         <div

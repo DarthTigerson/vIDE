@@ -59,13 +59,13 @@ describe('BottomTerminal', () => {
     expect(useBottomTerminalStore.getState().sides).toHaveLength(1)
   })
 
-  it('closes a tab from its ×, and offers a new terminal once empty', () => {
+  it('closes a tab from its ×, leaving no empty-state placeholder once empty', () => {
     render(<BottomTerminal />)
     fireEvent.click(screen.getAllByRole('button', { name: 'Close Terminal' })[0])
     fireEvent.click(screen.getAllByRole('button', { name: 'Close Terminal' })[0])
-    expect(screen.getByText('No terminals')).toBeTruthy()
-    fireEvent.click(screen.getByText('New terminal'))
-    expect(useBottomTerminalStore.getState().sides[0]).toHaveLength(1)
+    expect(useBottomTerminalStore.getState().sides).toEqual([[]])
+    expect(screen.queryByText('No terminals')).toBeNull()
+    expect(screen.queryAllByTestId('terminal')).toHaveLength(0)
   })
 
   it('reorders tabs by dragging one onto another', () => {

@@ -222,6 +222,14 @@ describe('restoring a project', () => {
     expect(useEditorStore.getState().paneTabLists['pane-1']).toEqual(['/a.ts'])
   })
 
+  it('comes back empty (and so hidden) when saved with no terminals', () => {
+    twoPanes(['/a.ts'], [])
+    useBottomTerminalStore.getState().hydrate({ enabled: true, sides: [[]], active: [null], origins: {}, size: 30 })
+    const state = useBottomTerminalStore.getState()
+    expect(state.enabled).toBe(true)
+    expect(state.sides).toEqual([[]])
+  })
+
   it('ignores a malformed or switched-off slice', () => {
     twoPanes([term('t1')], [])
     useBottomTerminalStore.getState().hydrate({ enabled: 'yes', sides: 'nope' })

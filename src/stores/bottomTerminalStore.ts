@@ -253,10 +253,9 @@ export const useBottomTerminalStore = create<BottomTerminalState>((set, get) => 
           size: typeof saved.size === 'number' && saved.size > 0 ? saved.size : DEFAULT_BOTTOM_TERMINAL_SIZE,
         })
       }
-      if (get().enabled) {
-        absorbEditorTerminals()
-        if (get().sides.every((ids) => ids.length === 0)) get().newTerminal(0)
-      }
+      // No fresh terminal when it comes back empty: an empty panel stays
+      // hidden until one is opened (only switching it on starts one).
+      if (get().enabled) absorbEditorTerminals()
     },
 
     reset: () => set({ ...emptyState(), size: DEFAULT_BOTTOM_TERMINAL_SIZE }),
