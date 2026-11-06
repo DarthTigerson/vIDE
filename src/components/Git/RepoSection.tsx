@@ -585,7 +585,11 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
                 aria-label={`${unpushedCount} commit${unpushedCount === 1 ? '' : 's'} to push`}
                 className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full border border-black/30 bg-black/15 px-1 text-[0.625rem] font-bold leading-none"
               >
-                {unpushedCount}
+                {/* Center the digit's ink (cap height to baseline), not its
+                    line box: SF Mono's line box sits the digit visibly high
+                    once the display size drops below ~9 and the badge is
+                    only a few pixels tall. */}
+                <span className="block [text-box:trim-both_cap_alphabetic]">{unpushedCount}</span>
               </span>
             )}
           >
