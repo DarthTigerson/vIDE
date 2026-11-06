@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useEditorStore } from '@/stores/editorStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useBrowserStore } from '@/stores/browserStore'
@@ -11,6 +11,7 @@ import { isTerminalTab, getTerminalId, isBrowserTab, getBrowserId, isTodoBoardTa
 import { useLlamaModelsStore } from '@/stores/llamaModelsStore'
 import { isCompactTabStrip, orderTabsForDisplay, truncateTabLabel } from './tabDisplay'
 import { TabContextMenu } from './TabContextMenu'
+import { TabTooltip } from './TabTooltip'
 import { useTabContextMenuStore } from '@/stores/tabContextMenuStore'
 import { useTabDragStore } from '@/stores/tabDragStore'
 import { isScratchTab } from './paths'
@@ -62,6 +63,16 @@ export function TabBar({ paneId }: { paneId: string }) {
     observer.observe(el)
     stripObserverRef.current = observer
   }, [])
+  // Full name on hover, only when the tab can't show it itself (icon-only, or
+  // the label is truncated). After a short delay, like a native tooltip.
+  const [hoverTip, setHoverTip] = useState<{ label: string; anchor: DOMRect } | null>(null)
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const clearHoverTip = useCallback(() => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
+    hoverTimerRef.current = null
+    setHoverTip(null)
+  }, [])
+  useEffect(() => clearHoverTip, [clearHoverTip])
   const contextMenu =
     openContextMenu?.paneId === paneId
       ? { x: openContextMenu.x, y: openContextMenu.y, path: openContextMenu.path }
@@ -137,7 +148,19 @@ export function TabBar({ paneId }: { paneId: string }) {
             // only then does the strip scroll. The name truncates with an
             // ellipsis and the full name is on hover. With too many tabs for
             // any name to be readable, inactive tabs shrink to just their icon.
-            title={iconOnly ? name : undefined}
+            onMouseEnter={(e) => {
+              const tabEl = e.currentTarget
+              clearHoverTip()
+              hoverTimerRef.current = setTimeout(() => {
+                const labelEl = tabEl.querySelector<HTMLElement>('[data-tab-label]')
+                const truncated = !!labelEl && labelEl.scrollWidth > labelEl.clientWidth
+                if (iconOnly || truncated) {
+                  setHoverTip({ label: name, anchor: tabEl.getBoundingClientRect() })
+                }
+              }, 500)
+            }}
+            onMouseLeave={clearHoverTip}
+            onMouseDown={clearHoverTip}
             className={`relative flex shrink items-center gap-1.5 px-3 py-1.5 border-r border-border whitespace-nowrap text-sm max-w-[220px] ${
               iconOnly ? 'min-w-[2.75rem]' : 'min-w-[4.5rem]'
             } ${
@@ -164,6 +187,7 @@ export function TabBar({ paneId }: { paneId: string }) {
               openTabContextMenu(paneId, tab.path, e.clientX, e.clientY)
             }}
             onDragStart={(e) => {
+              clearHoverTip()
               e.dataTransfer.effectAllowed = 'move'
               e.dataTransfer.setData('text/plain', tab.path)
               e.dataTransfer.setData('application/x-vide-pane', paneId)
@@ -207,7 +231,7 @@ export function TabBar({ paneId }: { paneId: string }) {
               />
             )}
             {isBrowser ? <BrowserTabIcon /> : <FileIcon name={name} />}
-            <span className={`min-w-0 truncate ${iconOnly ? 'hidden' : ''}`} title={name}>
+            <span data-tab-label className={`min-w-0 truncate ${iconOnly ? 'hidden' : ''}`}>
               {displayName}
             </span>
             {tab.missing && !iconOnly && (
@@ -259,6 +283,7 @@ export function TabBar({ paneId }: { paneId: string }) {
         title="Double-click for a new file"
         onDoubleClick={() => openScratchTab(paneId)}
       />
+      {hoverTip && !contextMenu && <TabTooltip label={hoverTip.label} anchor={hoverTip.anchor} />}
       {contextMenu && (
         <TabContextMenu
           x={contextMenu.x}

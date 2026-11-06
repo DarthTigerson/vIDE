@@ -1,6 +1,6 @@
 /// <reference types="@testing-library/jest-dom" />
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { render, screen, cleanup, act } from '@testing-library/react'
+import { render, screen, cleanup, act, fireEvent } from '@testing-library/react'
 import { TabBar } from '../TabBar'
 import { useEditorStore } from '@/stores/editorStore'
 import { useBrowserStore } from '@/stores/browserStore'
@@ -50,7 +50,6 @@ describe('TabBar — tab sizing', () => {
     render(<TabBar paneId="pane-1" />)
     const label = screen.getByText('A very long page title that will not fit')
     expect(label).toHaveClass('truncate')
-    expect(label).toHaveAttribute('title', 'A very long page title that will not fit')
     const tab = label.parentElement!
     expect(tab.className).toContain('max-w-[220px]')
     expect(tab.className).toContain('min-w-[4.5rem]')
@@ -68,7 +67,6 @@ describe('TabBar — tab sizing', () => {
     render(<TabBar paneId="pane-1" />)
     const label = screen.getByText('readme.txt')
     expect(label).toHaveClass('truncate')
-    expect(label).toHaveAttribute('title', 'readme.txt')
     expect(label.parentElement!.className).toContain('max-w-[220px]')
     expect(label.parentElement!.className).toContain('min-w-[4.5rem]')
   })
@@ -103,9 +101,37 @@ describe('TabBar — icon-only tabs when crowded', () => {
     renderWithStripWidth(200) // ~67px per tab
     expect(screen.getByText('beta.ts')).toHaveClass('hidden')
     expect(screen.getByLabelText('Close beta.ts')).toHaveClass('hidden')
-    expect(screen.getByText('beta.ts').parentElement).toHaveAttribute('title', 'beta.ts')
     expect(screen.getByText('alpha.ts')).not.toHaveClass('hidden')
     expect(screen.getByLabelText('Close alpha.ts')).not.toHaveClass('hidden')
+  })
+
+  it('shows the full name in a vIDE tooltip (not a native title) when hovering an icon-only tab', () => {
+    vi.useFakeTimers()
+    try {
+      renderWithStripWidth(200)
+      const beta = screen.getByText('beta.ts').parentElement!
+      expect(beta).not.toHaveAttribute('title')
+      fireEvent.mouseEnter(beta)
+      expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+      act(() => { vi.advanceTimersByTime(500) })
+      expect(screen.getByRole('tooltip')).toHaveTextContent('beta.ts')
+      fireEvent.mouseLeave(beta)
+      expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('shows no tooltip for a tab whose name already fits', () => {
+    vi.useFakeTimers()
+    try {
+      renderWithStripWidth(600)
+      fireEvent.mouseEnter(screen.getByText('beta.ts').parentElement!)
+      act(() => { vi.advanceTimersByTime(500) })
+      expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('keeps names on every tab while there is room', () => {
