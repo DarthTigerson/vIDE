@@ -11,12 +11,21 @@ export function focusedBottomTerminalSide(active: Element | null): number | null
   return Number.isInteger(side) ? side : null
 }
 
-// Where keyboard focus goes after Cmd+W closes a bottom terminal: the side's
-// next active terminal (or a neighbouring side's), else the active editor
+// Plain terminal sessions in the agent panel carry this with their session
+// id. Claude sessions deliberately don't: they run in a terminal too, but
+// Cmd+W must never close one.
+export const AGENT_TERMINAL_SESSION_ATTR = 'data-agent-terminal-session'
+
+export function focusedAgentTerminalSession(active: Element | null): string | null {
+  return active?.closest(`[${AGENT_TERMINAL_SESSION_ATTR}]`)?.getAttribute(AGENT_TERMINAL_SESSION_ATTR) || null
+}
+
+// Where keyboard focus goes after Cmd+W closes a terminal (bottom panel or
+// agent-panel terminal session): the next terminal, else the active editor
 // pane. Without this the closed xterm takes focus down with it, focus falls
 // to <body>, and the next Cmd+W no longer knows it was in the terminal.
 // Deferred two frames so React has mounted the newly active TerminalTab.
-export function focusAfterBottomTerminalClose(deps: {
+export function focusAfterTerminalClose(deps: {
   nextTerminalId: () => string | null
   focusTerminal: (id: string) => void
   activePaneId: () => string

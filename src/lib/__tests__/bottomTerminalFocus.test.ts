@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { focusedBottomTerminalSide, focusAfterBottomTerminalClose, BOTTOM_TERMINAL_SIDE_ATTR } from '../bottomTerminalFocus'
+import { focusedBottomTerminalSide, focusedAgentTerminalSession, focusAfterTerminalClose, BOTTOM_TERMINAL_SIDE_ATTR, AGENT_TERMINAL_SESSION_ATTR } from '../bottomTerminalFocus'
 
 afterEach(() => { document.body.innerHTML = '' })
 
@@ -17,12 +17,12 @@ describe('focusedBottomTerminalSide', () => {
   })
 })
 
-describe('focusAfterBottomTerminalClose', () => {
+describe('focusAfterTerminalClose', () => {
   const flushFrames = () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 0))))
 
   it('focuses the next terminal when one is left', async () => {
     const focusTerminal = vi.fn()
-    focusAfterBottomTerminalClose({ nextTerminalId: () => 'b', focusTerminal, activePaneId: () => 'pane-1' })
+    focusAfterTerminalClose({ nextTerminalId: () => 'b', focusTerminal, activePaneId: () => 'pane-1' })
     await flushFrames()
     expect(focusTerminal).toHaveBeenCalledWith('b')
   })
@@ -30,9 +30,22 @@ describe('focusAfterBottomTerminalClose', () => {
   it('falls back to the active editor pane when no terminal is left', async () => {
     document.body.innerHTML = `<div data-pane-id="pane-2"><textarea id="monaco"></textarea></div>`
     const focusTerminal = vi.fn()
-    focusAfterBottomTerminalClose({ nextTerminalId: () => null, focusTerminal, activePaneId: () => 'pane-2' })
+    focusAfterTerminalClose({ nextTerminalId: () => null, focusTerminal, activePaneId: () => 'pane-2' })
     await flushFrames()
     expect(focusTerminal).not.toHaveBeenCalled()
     expect(document.activeElement?.id).toBe('monaco')
+  })
+})
+
+describe('focusedAgentTerminalSession', () => {
+  it('returns the terminal session holding focus', () => {
+    document.body.innerHTML = `<div ${AGENT_TERMINAL_SESSION_ATTR}="term-3"><textarea id="t"></textarea></div>`
+    expect(focusedAgentTerminalSession(document.getElementById('t'))).toBe('term-3')
+  })
+
+  it('is null for an unmarked (Claude) session or no focus', () => {
+    document.body.innerHTML = `<div><textarea id="claude"></textarea></div>`
+    expect(focusedAgentTerminalSession(document.getElementById('claude'))).toBeNull()
+    expect(focusedAgentTerminalSession(null)).toBeNull()
   })
 })

@@ -17,6 +17,7 @@ import { agentLabel, isBridgeLike, isClaudeLike, isLlamaKind, isTerminalKind, ll
 import type { AssistantKind } from '@/types/api'
 import { TerminalTab } from '@/components/Terminal/TerminalTab'
 import { TerminalContextMenu } from '@/components/Terminal/TerminalContextMenu'
+import { AGENT_TERMINAL_SESSION_ATTR } from '@/lib/bottomTerminalFocus'
 import { liveTerminals } from '@/lib/liveTerminals'
 import { PTY_XTERM_OPTIONS } from '@/lib/ptyXtermOptions'
 import { UsagePanel } from '@/components/UsagePanel/UsagePanel'
@@ -437,6 +438,7 @@ export function Chat() {
               key={inst.id}
               className="flex-1 overflow-hidden"
               style={{ display: inst.id === activeInstanceId ? 'block' : 'none' }}
+              {...{ [AGENT_TERMINAL_SESSION_ATTR]: inst.id }}
             >
               <TerminalTab
                 terminalId={inst.id}
