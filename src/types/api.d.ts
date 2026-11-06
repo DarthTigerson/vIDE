@@ -11,6 +11,7 @@ import type { LlamaLaunchConfig } from '../../electron/llama'
 import type { OnboardingStatus, GitIdentity } from '../../electron/onboarding'
 import type { ConfigRepoSettings } from '../../electron/configRepo'
 import type { SearchHit, SearchOptions, SearchBatch, SearchDone } from '../../electron/searchTypes'
+import type { VcloakConfig, VcloakState, VcloakSetConfigResult, VcloakPreviewResult, VcloakRepoRow } from '../../electron/vcloak/types'
 import type { Script } from '../../electron/scriptsData'
 import type { ScriptTags } from '../../electron/scriptTags'
 
@@ -525,6 +526,14 @@ declare global {
       onLlamaInstallProgress: (cb: (received: number, total: number) => void) => () => void
       onLlamaData: (cb: (id: string, data: string) => void) => () => void
       onLlamaExit: (cb: (id: string, code: number) => void) => () => void
+
+      vcloakGetState: () => Promise<VcloakState>
+      vcloakSetConfig: (patch: Partial<VcloakConfig>) => Promise<VcloakSetConfigResult>
+      vcloakPreview: (text: string) => Promise<VcloakPreviewResult>
+      vcloakGenerateDecoy: (real: string) => Promise<string>
+      vcloakRescan: (cwd?: string) => Promise<VcloakState>
+      vcloakClearAliases: () => Promise<VcloakState>
+      vcloakListRepos: () => Promise<VcloakRepoRow[]>
 
       lspDetectAll: () => Promise<Record<LspServerId, DetectResult & { label: string; ramEstimate: string }>>
       lspInstall: (id: string) => Promise<void>

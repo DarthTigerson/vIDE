@@ -12,6 +12,8 @@ import { trimToolPayloads } from './bridgeTrim'
 import { ThinkTagSplitter } from './bridgeReasoning'
 import { AUTO_COMPACT_RATIO, compactMessages, fetchContextWindow, isContextOverflow, summarize, wrapSummary } from './bridgeCompact'
 import { requestDispatcher } from './bridgeHttp'
+import { OpenAiChatUnmasker } from './vcloak/streams'
+import type { BridgeCloak, TextCloak } from './vcloak'
 import { minimatch } from 'minimatch'
 
 const execFileAsync = promisify(execFile)
@@ -475,7 +477,23 @@ export class BridgeManager {
 
   // Without a context (tests, or before main.ts wires one in) only the
   // self-contained groups (search, docs) are available.
+  // vCloak: masks repository names and paths before a request leaves the Mac
+  private cloakSource: { forBridge(cwd?: string): Promise<BridgeCloak> } | null = null
+  private cwdByConv = new Map<string, string>()
+
   constructor(private videCtx?: VideToolContext) {}
+
+  setCloak(source: { forBridge(cwd?: string): Promise<BridgeCloak> } | null): void {
+    this.cloakSource = source
+  }
+
+  // null = send as is; throws with a user-facing message when vCloak blocks
+  private async cloakFor(cwd?: string): Promise<TextCloak | null> {
+    const c = this.cloakSource ? await this.cloakSource.forBridge(cwd) : null
+    if (c === null) return null
+    if (!c.ok) throw new Error(`vCloak blocked this Bridge request: ${c.error}`)
+    return c.cloak
+  }
 
   private videToolsFor(settings: BridgeSettings, windowId: number): VideToolSet {
     const requested = settings.videTools ?? ALL_VIDE_TOOL_GROUPS
@@ -607,6 +625,7 @@ export class BridgeManager {
     const key = convKey(win.id, sessionId)
     // A new send supersedes any stale run still suspended on this key.
     this.cancelConv(key)
+    this.cwdByConv.set(key, cwd)
     if (settings.reasoningEffort) this.effortByConv.set(key, settings.reasoningEffort)
     else this.effortByConv.delete(key)
     const run = Symbol('bridge-run')
@@ -760,7 +779,7 @@ export class BridgeManager {
     this.controllerByConv.set(key, controller)
     let summary: string
     try {
-      summary = await summarize(settings, messages, contextWindow, controller.signal)
+      summary = await summarize(settings, messages, contextWindow, controller.signal, undefined, await this.cloakFor(this.cwdByConv.get(key)))
     } catch (err) {
       if ((err as Error).name !== 'AbortError') emit({ type: 'error', message: `Compaction failed: ${(err as Error).message}` })
       return false
@@ -776,7 +795,7 @@ export class BridgeManager {
   async compact(payload: BridgeCompactPayload): Promise<{ ok: true; summary: string; content: string } | { ok: false; error: string }> {
     try {
       const contextWindow = await fetchContextWindow(payload.settings.endpoint, payload.settings.apiKey)
-      const summary = await summarize(payload.settings, payload.messages, contextWindow, undefined, payload.focus)
+      const summary = await summarize(payload.settings, payload.messages, contextWindow, undefined, payload.focus, await this.cloakFor())
       return { ok: true, summary, content: wrapSummary(summary) }
     } catch (err) {
       return { ok: false, error: (err as Error).message }
@@ -947,6 +966,26 @@ export class BridgeManager {
     const controller = new AbortController()
     this.controllerByConv.set(key, controller)
 
+    let cloak: TextCloak | null
+    let body: string
+    try {
+      cloak = await this.cloakFor(this.cwdByConv.get(key))
+      const effort = this.effortByConv.get(key)
+      const payload = {
+        model: settings.modelId,
+        messages,
+        tools,
+        stream: true,
+        stream_options: { include_usage: true },
+        ...(effort ? { reasoning_effort: effort } : {}),
+      }
+      body = JSON.stringify(cloak ? cloak.maskBody(payload) : payload)
+    } catch (err) {
+      const message = (err as Error).message
+      emit({ type: 'error', message: message.startsWith('vCloak') ? message : `vCloak blocked this Bridge request: ${message}` })
+      return null
+    }
+
     let response: Response
     try {
       const reqHeaders: Record<string, string> = {
@@ -954,18 +993,10 @@ export class BridgeManager {
         Authorization: `Bearer ${settings.apiKey}`,
       }
       if (settings.sessionId) reqHeaders['X-Bridge-Session-ID'] = settings.sessionId
-      const effort = this.effortByConv.get(key)
       response = await fetch(`${settings.endpoint}/chat/completions`, {
         method: 'POST',
         headers: reqHeaders,
-        body: JSON.stringify({
-          model: settings.modelId,
-          messages,
-          tools,
-          stream: true,
-          stream_options: { include_usage: true },
-          ...(effort ? { reasoning_effort: effort } : {}),
-        }),
+        body,
         signal: controller.signal,
         dispatcher: requestDispatcher(settings.requestTimeoutMs),
       } as RequestInit)
@@ -992,6 +1023,8 @@ export class BridgeManager {
 
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
+    // vCloak: aliases in the reply are swapped back before anything parses them
+    const unmasker = cloak ? new OpenAiChatUnmasker((s) => cloak!.unmaskText(s)) : null
     let buffer = ''
     let content = ''
     let usedTokens: number | undefined
@@ -1010,40 +1043,55 @@ export class BridgeManager {
       }
     }
 
+    const handleChunk = (chunk: NonNullable<ReturnType<typeof parseSSEChunk>>) => {
+      if (chunk.usage?.prompt_tokens !== undefined) {
+        usedTokens = chunk.usage.prompt_tokens + (chunk.usage.completion_tokens ?? 0)
+        completionTokens = chunk.usage.completion_tokens
+      }
+      if (chunk.timings?.predicted_per_second) serverTokensPerSecond = chunk.timings.predicted_per_second
+      const delta = chunk.choices?.[0]?.delta
+      if (delta && (delta.content || delta.reasoning_content || delta.reasoning || delta.tool_calls)) {
+        lastTokenAt = Date.now()
+        firstTokenAt ??= lastTokenAt
+      }
+      const reasoningDelta = delta?.reasoning_content ?? delta?.reasoning
+      if (reasoningDelta) emit({ type: 'reasoning-delta', delta: reasoningDelta })
+      if (delta?.content) emitSplit(thinkSplitter.push(delta.content))
+      if (delta?.tool_calls) {
+        for (const tc of delta.tool_calls) {
+          const acc = toolCallAccs[tc.index] ?? { id: '', name: '', args: '' }
+          if (tc.id) acc.id = tc.id
+          if (tc.function?.name) acc.name = tc.function.name
+          if (tc.function?.arguments) acc.args += tc.function.arguments
+          toolCallAccs[tc.index] = acc
+        }
+      }
+    }
+
     try {
       while (true) {
         const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
+        if (done) {
+          if (unmasker) {
+            // Text vCloak held back at the end of the stream
+            buffer += unmasker.push(decoder.decode()) + unmasker.end()
+            for (const line of buffer.split('\n\n')) {
+              const chunk = line ? parseSSEChunk(line) : null
+              if (chunk) handleChunk(chunk)
+            }
+            buffer = ''
+          }
+          break
+        }
+        const text = decoder.decode(value, { stream: true })
+        buffer += unmasker ? unmasker.push(text) : text
 
         const lines = buffer.split('\n\n')
         buffer = lines.pop() ?? ''
 
         for (const line of lines) {
           const chunk = parseSSEChunk(line)
-          if (!chunk) continue
-          if (chunk.usage?.prompt_tokens !== undefined) {
-            usedTokens = chunk.usage.prompt_tokens + (chunk.usage.completion_tokens ?? 0)
-            completionTokens = chunk.usage.completion_tokens
-          }
-          if (chunk.timings?.predicted_per_second) serverTokensPerSecond = chunk.timings.predicted_per_second
-          const delta = chunk.choices?.[0]?.delta
-          if (delta && (delta.content || delta.reasoning_content || delta.reasoning || delta.tool_calls)) {
-            lastTokenAt = Date.now()
-            firstTokenAt ??= lastTokenAt
-          }
-          const reasoningDelta = delta?.reasoning_content ?? delta?.reasoning
-          if (reasoningDelta) emit({ type: 'reasoning-delta', delta: reasoningDelta })
-          if (delta?.content) emitSplit(thinkSplitter.push(delta.content))
-          if (delta?.tool_calls) {
-            for (const tc of delta.tool_calls) {
-              const acc = toolCallAccs[tc.index] ?? { id: '', name: '', args: '' }
-              if (tc.id) acc.id = tc.id
-              if (tc.function?.name) acc.name = tc.function.name
-              if (tc.function?.arguments) acc.args += tc.function.arguments
-              toolCallAccs[tc.index] = acc
-            }
-          }
+          if (chunk) handleChunk(chunk)
         }
       }
       emitSplit(thinkSplitter.flush())

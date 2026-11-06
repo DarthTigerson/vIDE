@@ -59,6 +59,11 @@ export const EXCLUDED_CHANNELS = new Set<string>([
   // Local Llama server lifecycle — starts/stops a long-running model process (and reads its memory use and output log) on this machine
   'graphify:getInstall', 'graphify:install', 'llama:isAvailable', 'llama:start', 'llama:stop', 'llama:getMemoryUsage', 'llama:getLog', 'llama:getInstall', 'llama:install',
 
+  // vCloak security settings: desktop only, so a paired phone can never turn
+  // masking off, change what is hidden, or read the real/alias mapping
+  'vcloak:getState', 'vcloak:setConfig', 'vcloak:preview', 'vcloak:generateDecoy',
+  'vcloak:rescan', 'vcloak:clearAliases', 'vcloak:listRepos',
+
   // App-level operations
   'update:restart',  // quits the desktop app
   'app:restart',  // relaunches the desktop app

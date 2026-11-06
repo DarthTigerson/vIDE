@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { LlamaLaunchConfig, LlamaInstallInfo } from './llama'
+import type { VcloakConfig, VcloakState, VcloakSetConfigResult, VcloakPreviewResult, VcloakRepoRow } from './vcloak/types'
 import type { AutocompleteRuntimeState, AutocompleteSource } from './autocomplete/types'
 
 contextBridge.exposeInMainWorld('api', {
@@ -594,6 +595,13 @@ contextBridge.exposeInMainWorld('api', {
   llamaGetLog: (id: string) => ipcRenderer.invoke('llama:getLog', id) as Promise<{ running: boolean; output: string } | null>,
   llamaGetInstall: () => ipcRenderer.invoke('llama:getInstall') as Promise<LlamaInstallInfo>,
   llamaInstall: () => ipcRenderer.invoke('llama:install') as Promise<{ ok: true; path: string } | { ok: false; error: string }>,
+  vcloakGetState: () => ipcRenderer.invoke('vcloak:getState') as Promise<VcloakState>,
+  vcloakSetConfig: (patch: Partial<VcloakConfig>) => ipcRenderer.invoke('vcloak:setConfig', patch) as Promise<VcloakSetConfigResult>,
+  vcloakPreview: (text: string) => ipcRenderer.invoke('vcloak:preview', text) as Promise<VcloakPreviewResult>,
+  vcloakGenerateDecoy: (real: string) => ipcRenderer.invoke('vcloak:generateDecoy', real) as Promise<string>,
+  vcloakRescan: (cwd?: string) => ipcRenderer.invoke('vcloak:rescan', cwd) as Promise<VcloakState>,
+  vcloakClearAliases: () => ipcRenderer.invoke('vcloak:clearAliases') as Promise<VcloakState>,
+  vcloakListRepos: () => ipcRenderer.invoke('vcloak:listRepos') as Promise<VcloakRepoRow[]>,
   onLlamaInstallProgress: (cb: (received: number, total: number) => void) => {
     const handler = (_: Electron.IpcRendererEvent, received: number, total: number) => cb(received, total)
     ipcRenderer.on('llama:installProgress', handler)

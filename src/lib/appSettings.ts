@@ -9,6 +9,7 @@ import {
   NOTES_SETTINGS_TAB_PATH,
   SCRIPTS_SETTINGS_TAB_PATH,
   TODO_SETTINGS_TAB_PATH,
+  VCLOAK_SETTINGS_TAB_PATH,
 } from '@/components/Settings/paths'
 import { useDockerSettingsStore } from '@/stores/dockerSettingsStore'
 import { useGraphifySettingsStore } from '@/stores/graphifySettingsStore'
@@ -18,6 +19,8 @@ import { useMobileSettingsStore } from '@/stores/mobileSettingsStore'
 import { useNotesSettingsStore } from '@/stores/notesSettingsStore'
 import { useScriptsSettingsStore } from '@/stores/scriptsSettingsStore'
 import { useTodoSettingsStore } from '@/stores/todoSettingsStore'
+import { useVcloakStore } from '@/stores/vcloakStore'
+import { useEditorStore } from '@/stores/editorStore'
 
 // The settings page each app's right-click "Settings" opens. The GitHub/GitLab
 // app is configured from Settings: Git (its remote URL lives there).
@@ -31,6 +34,7 @@ export const APP_SETTINGS_PATHS: Record<MovableAppId, string> = {
   scripts: SCRIPTS_SETTINGS_TAB_PATH,
   'git-remote': GIT_SETTINGS_TAB_PATH,
   jira: JIRA_SETTINGS_TAB_PATH,
+  vcloak: VCLOAK_SETTINGS_TAB_PATH,
 }
 
 // Sets an app's Enable switch, the same as flipping it on its settings page.
@@ -46,6 +50,12 @@ export function appEnabledSetter(id: MovableAppId): ((enabled: boolean) => void)
     case 'notes': return useNotesSettingsStore.getState().setEnabled
     case 'scripts': return useScriptsSettingsStore.getState().setEnabled
     case 'jira': return useJiraSettingsStore.getState().setEnabled
+    case 'vcloak': return (enabled: boolean) => {
+      // Fire and forget; on an error (e.g. root not set) open the settings so it can be fixed.
+      void useVcloakStore.getState().setEnabled(enabled).then((err) => {
+        if (err) useEditorStore.getState().openTab({ path: VCLOAK_SETTINGS_TAB_PATH, content: '', dirty: false })
+      })
+    }
     case 'git-remote': return null
   }
 }

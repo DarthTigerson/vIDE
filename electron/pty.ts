@@ -28,6 +28,12 @@ export class PtyManager {
   // path), keyed `${winId}:${id}`. Can be added before the renderer spawns
   // the PTY, so nothing the script prints is missed.
   private watchers = new Map<string, Set<PtyWatcher>>()
+  // Extra environment for new terminals (vCloak routing); read at spawn time
+  private envHook: (() => Record<string, string>) | null = null
+
+  setEnvHook(hook: (() => Record<string, string>) | null): void {
+    this.envHook = hook
+  }
 
   watch(winId: number, id: string, onData: (data: string) => void, onExit: () => void): () => void {
     const key = `${winId}:${id}`
@@ -81,6 +87,11 @@ export class PtyManager {
     const env = { ...(process.env as Record<string, string>) }
     delete env.EDITOR
     delete env.VISUAL
+    try {
+      Object.assign(env, this.envHook?.() ?? {})
+    } catch {
+      // a failing hook must not stop the terminal from opening
+    }
     const proc = pty.spawn(shell, [], {
       name: 'xterm-color',
       cols: 80,
