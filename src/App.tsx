@@ -9,7 +9,8 @@ import { refreshRepoStatuses } from '@/lib/refreshRepoStatuses'
 import { restoreEditorSession, startEditorSessionPersistence } from '@/lib/editorSession'
 import { resetBottomTerminal, restoreBottomTerminal, startBottomTerminalPersistence } from '@/lib/bottomTerminalSession'
 import { useBottomTerminalStore } from '@/stores/bottomTerminalStore'
-import { focusedBottomTerminalSide } from '@/lib/bottomTerminalFocus'
+import { focusedBottomTerminalSide, focusAfterBottomTerminalClose } from '@/lib/bottomTerminalFocus'
+import { liveTerminals } from '@/lib/liveTerminals'
 import { BottomTerminal } from './components/Terminal/BottomTerminal'
 import { formatMemory, memoryRows } from '@/lib/memoryBreakdown'
 import { Sidebar } from './components/Sidebar/Sidebar'
@@ -809,7 +810,18 @@ export default function App() {
       if (side !== null) {
         const bottom = useBottomTerminalStore.getState()
         const id = bottom.active[side]
-        if (id) bottom.closeTerminal(id)
+        if (id) {
+          bottom.setFocusedSide(side)
+          bottom.closeTerminal(id)
+          focusAfterBottomTerminalClose({
+            nextTerminalId: () => {
+              const { active, focusedSide } = useBottomTerminalStore.getState()
+              return active[focusedSide] ?? active.find((a) => a) ?? null
+            },
+            focusTerminal: (next) => liveTerminals.get(next)?.xterm.focus(),
+            activePaneId: () => useEditorStore.getState().activePaneId,
+          })
+        }
         return
       }
       const { activePaneId, paneTabs, pinnedPaths } = useEditorStore.getState()

@@ -76,7 +76,8 @@ function normalize(sides: string[][], active: (string | null)[], focusedSide: nu
   return {
     sides: kept.map(({ ids }) => ids),
     active: kept.map(({ ids, active: a }) => (a && ids.includes(a) ? a : ids[ids.length - 1])),
-    focusedSide: Math.max(0, kept.findIndex(({ i }) => i === focusedSide)),
+    // The focused side, or the nearest one left of it if it was dropped.
+    focusedSide: Math.max(0, kept.reduce((at, { i }, k) => (i <= focusedSide ? k : at), -1)),
   }
 }
 

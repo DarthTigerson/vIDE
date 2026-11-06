@@ -228,6 +228,15 @@ describe('sides and tabs', () => {
     expect(useBottomTerminalStore.getState().enabled).toBe(true)
   })
 
+  it('closing a side’s last tab focuses the side to its left', () => {
+    useBottomTerminalStore.getState().split()
+    useBottomTerminalStore.getState().split()
+    const third = useBottomTerminalStore.getState().sides[2][0]
+    useBottomTerminalStore.getState().closeTerminal(third)
+    expect(useBottomTerminalStore.getState().sides).toHaveLength(2)
+    expect(useBottomTerminalStore.getState().focusedSide).toBe(1)
+  })
+
   it('merges every side into one', () => {
     useBottomTerminalStore.getState().split()
     useBottomTerminalStore.getState().split()
