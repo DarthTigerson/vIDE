@@ -1,4 +1,32 @@
 # vIDE
+## v0.2.33 (2026-11-06)
+- **Image and SVG viewers**: images open in a built-in viewer, now including TIFF and HEIC files. SVG files get their own viewer with Editor, Preview and Split modes, the same way Markdown works. Open/Edit in a right-click menu still opens the file as text
+- **Find in page for browser tabs**: ⌘F (Ctrl+F on Linux) opens a find bar in the browser's toolbar, even while focus is inside the page. The toolbar is redesigned, with the device and clear-data options moved into dropdowns
+- **Tabs size like Chrome**: every tab, file or browser, grows to fit its name up to a max width, shrinks evenly once the strip is full, and truncates with the full name on hover. When too many are open, inactive tabs collapse to just their icon. Editor tabs now use a themed tooltip instead of the system one
+- **Git changes in the scrollbar**: added, modified and deleted lines get a mark in the editor scrollbar in their gutter colour, so changes further down a long file are easy to spot and jump to
+- **Bottom terminal, up to four sides**: split the bottom terminal into as many as four sides and merge them back. The panel hides when its last terminal closes instead of showing a placeholder, ⌘W closes the focused bottom terminal (or agent terminal) tab instead of the editor tab, and focus moves to the next terminal or editor pane afterwards
+- **Paste in the terminal menu**: the terminal's right-click menu now has Paste
+- **Auto save in the setup wizard**: first-launch setup has a new Auto save step with a live demo. Auto save stays off until you turn it on
+- **Publish first for new branches**: on a branch that hasn't been pushed yet, Publish is now the main button instead of Push
+- Disabled apps in All Apps can be dragged back onto the bar to enable them, and bar, More Apps and disabled tiles each have their own look
+- Selecting a file now scrolls it into view in the Site Tree
+- Right-clicking anywhere closes any popup menu that's already open
+- Updated Electron to 45.2.3
+
+**Bug fixes**
+- Fixed sign-in popups (OAuth, SSO) failing in the built-in browser: pages opened with `window.open` or `target="_blank"` now keep their link to the page that opened them, so the login result reaches the original tab, and a popup that closes itself closes its tab
+- Fixed some pages, including Cloudflare-protected ones, rendering blank in the built-in browser
+- Fixed long paths and URLs in Claude's chat only being clickable up to the end of the first row when Claude Code wrapped them, including inside markdown tables. Copying them from the chat now gives one line instead of several
+- Fixed clicking a file path in Claude's chat doing nothing in a multi-repo project when the path was relative to a nested repo. vIDE now looks in each repo and says "File not found" if it still can't find it
+- Fixed long commands, multi-line pastes and Claude's input box getting garbled as they redraw in terminals
+- Fixed Claude drawing for 80 columns in a narrower panel until the next resize
+- Fixed a repo's Git status going stale in a folder of repos when a file changed on disk outside the selected repo, and on-disk changes now only refresh the repos they touch
+- Fixed untracked files and folders in the Site Tree looking greyed out like ignored ones
+- Fixed open subfolders showing up empty after selecting a file in another folder
+- Fixed the unpushed commit count on the Push button sitting off-centre
+- Fixed `browser_list_tabs` failing when one of the browser tabs had already closed
+
+
 ## v0.2.32 (2026-11-04)
 **Bug fixes**
 - Fixed language server installs silently failing when vIDE is launched from the Dock or Finder instead of a terminal — the app now finds npm even when it isn't on the restricted PATH Electron gets, by checking known Homebrew and nvm locations. If npm still can't be found, it downloads a private Node.js runtime into `~/.vide/lsp/node` (no admin rights needed), falls back to Homebrew or apt-get, then asks you to install Node.js manually as a last resort. Go to Definition for TypeScript, Python, JSON and YAML now also finds binaries installed via npm global even when the bin folder isn't on PATH
