@@ -216,6 +216,33 @@ describe('AllAppsPanel', () => {
       expect(list[1].onEnable).toHaveBeenCalled()
     })
 
+    it('drags a disabled app out: to More apps turns it on, to On the bar turns it on and places it', () => {
+      localStorage.setItem(ALL_APPS_DISABLED_OPEN_KEY, 'true')
+      const list = disabled()
+      const onPlace = vi.fn()
+      const onUnfavorite = vi.fn()
+      render(<AllAppsPanel apps={apps} disabledApps={list} open onPlace={onPlace} onUnfavorite={onUnfavorite} />)
+      expect(screen.getByText('Jira').closest('button')!.draggable).toBe(true)
+
+      fireEvent.drop(screen.getByRole('region', { name: 'More apps' }), { dataTransfer: dataTransfer({ [APP_DRAG_MIME]: 'jira' }) })
+      expect(list[0].onEnable).toHaveBeenCalledTimes(1)
+      expect(onUnfavorite).not.toHaveBeenCalled()
+
+      fireEvent.drop(screen.getByText('Docker'), { dataTransfer: dataTransfer({ [APP_DRAG_MIME]: 'scripts' }) })
+      expect(list[1].onEnable).toHaveBeenCalledTimes(1)
+      expect(onPlace).toHaveBeenCalledWith('scripts', 'docker')
+    })
+
+    it('outlines bar apps in the accent, leaves More apps plain, and dashes disabled ones', () => {
+      localStorage.setItem(ALL_APPS_DISABLED_OPEN_KEY, 'true')
+      renderWith()
+      const tileOf = (name: string) => screen.getByText(name).closest('button')!.querySelector('span')!
+      expect(tileOf('Docker').className).toContain('border-accent')
+      expect(tileOf('Notes').className).not.toContain('border-accent')
+      expect(tileOf('Jira').className).toContain('border-dashed')
+      expect(tileOf('Jira').className).toContain('text-fg-muted')
+    })
+
     it('shows matching disabled apps while searching, even when collapsed', () => {
       localStorage.removeItem(ALL_APPS_DISABLED_OPEN_KEY)
       renderWith()

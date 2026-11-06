@@ -143,12 +143,19 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
     }
   }
 
+  // A disabled app dragged out of Disabled is turned back on first.
+  function enableIfDisabled(id: string) {
+    disabledApps.find((app) => app.id === id)?.onEnable()
+  }
+
   function dropOnFavorites(e: React.DragEvent, beforeId: string | null) {
     e.preventDefault()
     e.stopPropagation()
     setDropZone(null)
     const id = e.dataTransfer.getData(APP_DRAG_MIME)
-    if (id && id !== beforeId) onPlace(id, beforeId)
+    if (!id || id === beforeId) return
+    enableIfDisabled(id)
+    onPlace(id, beforeId)
   }
 
   // Dropping an enabled app on Disabled turns it off. The GitHub/GitLab app
@@ -162,12 +169,14 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
   }
 
   // Everywhere outside "On the bar": a favorite dropped here comes off the
-  // bar; an unfavorited row dropped back is a no-op.
+  // bar, a disabled app is turned back on; an unfavorited row dropped back
+  // is a no-op.
   function dropElsewhere(e: React.DragEvent) {
     e.preventDefault()
     setDropZone(null)
     const id = e.dataTransfer.getData(APP_DRAG_MIME)
     if (favoriteIds.has(id)) onUnfavorite(id)
+    else enableIfDisabled(id)
   }
 
   // The row a right-click menu is open for keeps its hover look, so it's
@@ -176,10 +185,11 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
     return menu?.id === app.id ? 'text-fg bg-white/5' : 'text-fg-muted'
   }
 
-  // Not draggable: a disabled app has to be enabled before it can go on the
-  // bar. The icon is greyed out; a click turns the app back on.
+  // Dragging one to More apps turns it on, to On the bar turns it on and
+  // places it; a click also turns it on. A dashed outline and faded icon mark
+  // it as off while keeping the icon readable.
   function renderDisabledApps(list: DisabledAppEntry[]) {
-    const tile = 'bg-border text-fg-subtle opacity-60'
+    const tile = 'border border-dashed border-fg-muted text-fg-muted [&>svg]:opacity-50'
     if (viewMode === 'icons') {
       return (
         <div className="px-3 grid grid-cols-[repeat(auto-fill,minmax(4.75rem,1fr))] gap-1">
@@ -187,12 +197,15 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
             <button
               key={app.id}
               type="button"
+              draggable
+              onDragStart={(e) => startDrag(e, app.id)}
+              onDragEnd={() => setDropZone(null)}
               onClick={app.onEnable}
               onContextMenu={(e) => openDisabledMenu(e, app)}
               className={`min-w-0 h-[4.75rem] px-1 rounded-md flex flex-col items-center justify-center gap-1.5 text-[0.6875rem] hover:text-fg hover:bg-white/5 transition-colors ${menuTargetClass(app)}`}
             >
               <span className={`shrink-0 flex items-center justify-center w-10 h-10 rounded-[10px] [&>svg]:w-5 [&>svg]:h-5 ${tile}`}>{app.icon}</span>
-              <span className="max-w-full truncate">{app.title}</span>
+              <span className="max-w-full truncate opacity-70">{app.title}</span>
             </button>
           ))}
         </div>
@@ -202,18 +215,23 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
       <button
         key={app.id}
         type="button"
+        draggable
+        onDragStart={(e) => startDrag(e, app.id)}
+        onDragEnd={() => setDropZone(null)}
         onClick={app.onEnable}
         onContextMenu={(e) => openDisabledMenu(e, app)}
         className={`w-full h-9 pl-3 pr-2 flex items-center gap-2.5 text-left text-sm hover:text-fg hover:bg-white/5 transition-colors ${menuTargetClass(app)}`}
       >
         <span className={`shrink-0 flex items-center justify-center w-[1.625rem] h-[1.625rem] rounded-md [&>svg]:w-4 [&>svg]:h-4 ${tile}`}>{app.icon}</span>
-        <span className="truncate">{app.title}</span>
+        <span className="truncate opacity-70">{app.title}</span>
       </button>
     ))
   }
 
   function renderApps(list: AllAppsEntry[], favorite: boolean) {
-    const tile = favorite ? 'bg-accent/15 text-accent' : 'bg-border text-fg-muted'
+    // Bar apps: accent fill and border. More apps: plain grey (the transparent
+    // border keeps every tile the same size).
+    const tile = favorite ? 'border border-accent bg-accent/15 text-accent' : 'border border-transparent bg-border text-fg-muted'
     if (viewMode === 'icons') {
       return (
         // As many columns as the sidebar's width fits, so dragging it wider
