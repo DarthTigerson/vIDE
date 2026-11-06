@@ -7,7 +7,8 @@ import { useFileStore } from '@/stores/fileStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { useSidebarUiStore } from '@/stores/sidebarUiStore'
 import { isGitDiffTab, parseGitDiffPath, isGitCommitDiffTab, parseGitCommitDiffPath } from '@/components/Git/paths'
-import { buildImagePreviewPath, buildMarkdownPreviewPath } from '@/components/Viewer/paths'
+import { buildMarkdownPreviewPath } from '@/components/Viewer/paths'
+import { openFile } from '@/lib/openFile'
 import { isImageFile, isMarkdownFile } from '@/lib/fileKinds'
 import { FileTree, type TreePromptState } from './FileTree'
 import { ConfirmTrashModal } from '@/components/ui/ConfirmTrashModal'
@@ -238,16 +239,12 @@ export function Sidebar() {
     })
   }
 
-  async function openFile(node: FileNode) {
+  // `source`: Open / Edit asks for the editable text (an SVG's XML); a raster
+  // image has none, so it still lands in the image viewer either way.
+  async function openFromMenu(node: FileNode, source: boolean) {
     if (node.isDirectory) return
     setMenu(null)
-    const content = await window.api.readFile(node.path)
-    openTab({ path: node.path, content, dirty: false })
-  }
-
-  function openImagePreview(node: FileNode) {
-    setMenu(null)
-    openTab({ path: buildImagePreviewPath(node.path), content: '', dirty: false })
+    await openFile(node.path, { source })
   }
 
   function openMarkdownPreview(node: FileNode) {
@@ -465,14 +462,14 @@ export function Sidebar() {
               style={{ left: menu.x, top: menu.y }}
               onClick={(event) => event.stopPropagation()}
             >
-              {menu.node && !menu.node.isDirectory && (
-                <ContextMenuButton onClick={() => openFile(menu.node!)}>
-                  Open / Edit
+              {menu.node && !menu.node.isDirectory && isImageFile(menu.node.name) && (
+                <ContextMenuButton onClick={() => void openFromMenu(menu.node!, false)}>
+                  View in Image Viewer
                 </ContextMenuButton>
               )}
-              {menu.node && !menu.node.isDirectory && isImageFile(menu.node.name) && (
-                <ContextMenuButton onClick={() => openImagePreview(menu.node!)}>
-                  View in Image Viewer
+              {menu.node && !menu.node.isDirectory && (
+                <ContextMenuButton onClick={() => void openFromMenu(menu.node!, true)}>
+                  Open / Edit
                 </ContextMenuButton>
               )}
               {menu.node && !menu.node.isDirectory && isMarkdownFile(menu.node.name) && (

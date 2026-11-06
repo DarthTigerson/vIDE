@@ -135,6 +135,7 @@ export function createMobileApi(wsUrl: string) {
     readDir: invoke('fs:readDir'),
     readFile: invoke('fs:readFile'),
     readImageDataUrl: invoke('fs:readImageDataUrl'),
+    readImagePngDataUrl: invoke('fs:readImagePngDataUrl'),
     pathExists: invoke('fs:exists'),
     getHomeDir: invoke('fs:homeDir'),
     writeFile: invoke('fs:writeFile'),

@@ -1,3 +1,4 @@
+import { openFile as openFileByRoute } from '@/lib/openFile'
 import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent, MouseEvent } from 'react'
 import type { SearchHit } from '../../../electron/searchTypes'
@@ -298,8 +299,7 @@ export function SearchPanel() {
   }
 
   async function openWholeFile(path: string) {
-    const content = await window.api.readFile(path)
-    useEditorStore.getState().openTab({ path, content, dirty: false })
+    await openFileByRoute(path)
   }
 
   async function trashFile(path: string) {

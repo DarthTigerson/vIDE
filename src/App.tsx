@@ -1178,7 +1178,11 @@ export default function App() {
         <ActivityBar
           side={mirrored ? 'right' : 'left'}
           groups={primaryGroups}
-          onReorder={(dragId, targetId, placement) => placeFavorite(dragId, targetId, placement)}
+          onReorder={(dragId, targetId, placement) => {
+            // A disabled app dragged from All Apps onto the bar is turned on too.
+            disabledAppEntries.find((entry) => entry.id === dragId)?.onEnable()
+            placeFavorite(dragId, targetId, placement)
+          }}
           dragMime={APP_DRAG_MIME}
           bottomGroups={[[
             {

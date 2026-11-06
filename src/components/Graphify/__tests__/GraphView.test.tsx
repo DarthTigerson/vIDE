@@ -49,7 +49,7 @@ describe('GraphView', () => {
     vi.mocked(useEditorStore).mockImplementation((selector?: any) =>
       selector ? selector({ openTab: openTabMock } as any) : undefined
     )
-    vi.mocked(useEditorStore).getState = vi.fn(() => ({ openTab: openTabMock }))
+    vi.mocked(useEditorStore).getState = vi.fn(() => ({ openTab: openTabMock, tabs: [], activePaneId: 'pane-1' }))
     vi.mocked(useFileStore).mockImplementation((selector: any) =>
       selector({ projectRoot: '/project' })
     )

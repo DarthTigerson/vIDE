@@ -1,3 +1,4 @@
+import { openFile } from '@/lib/openFile'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react'
 import { computeGraphLayout, type PositionedNode } from './graphLayout'
@@ -103,8 +104,7 @@ function strokeStyleForConfidence(confidence: string): { strokeDasharray?: strin
 async function openNode(node: PositionedNode, projectRoot: string | null): Promise<void> {
   if (!projectRoot) return
   const absolutePath = `${projectRoot}/${node.source_file}`
-  const content = await window.api.readFile(absolutePath)
-  useEditorStore.getState().openTab({ path: absolutePath, content, dirty: false })
+  await openFile(absolutePath)
 }
 
 export function GraphView({ graph }: { graph: GraphifyGraph }) {
