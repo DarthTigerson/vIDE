@@ -11,21 +11,32 @@ beforeEach(() => {
 
 afterEach(() => cleanup())
 
+const manual = () => screen.getByRole('radio', { name: /Save when I press/ })
+const auto = () => screen.getByRole('radio', { name: /Save automatically/ })
+
 describe('EditorStep — auto save choice', () => {
-  it('starts on Off, matching the store default', () => {
+  it('starts on manual save, matching the store default', () => {
     render(<EditorStep />)
-    expect(screen.getByRole('radio', { name: 'Off' })).toHaveAttribute('aria-checked', 'true')
-    expect(screen.getByRole('radio', { name: 'On' })).toHaveAttribute('aria-checked', 'false')
+    expect(manual()).toHaveAttribute('aria-checked', 'true')
+    expect(auto()).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByTestId('autosave-demo')).toHaveTextContent('Unsaved changes')
   })
 
-  it('picking On turns auto save on, and Off turns it back off', () => {
+  it('reflects an existing user choice instead of overwriting it', () => {
+    useEditorSettingsStore.setState({ autoSaveEnabled: true })
     render(<EditorStep />)
-    fireEvent.click(screen.getByRole('radio', { name: 'On' }))
+    expect(auto()).toHaveAttribute('aria-checked', 'true')
     expect(useEditorSettingsStore.getState().autoSaveEnabled).toBe(true)
-    expect(screen.getByText('Saved automatically a moment after you stop typing.')).toBeInTheDocument()
+  })
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Off' }))
+  it('picking an option sets auto save and switches the demo', () => {
+    render(<EditorStep />)
+    fireEvent.click(auto())
+    expect(useEditorSettingsStore.getState().autoSaveEnabled).toBe(true)
+    expect(screen.getByTestId('autosave-demo')).toHaveTextContent('Saved')
+
+    fireEvent.click(manual())
     expect(useEditorSettingsStore.getState().autoSaveEnabled).toBe(false)
-    expect(screen.getByText('Unsaved until you press ⌘S.')).toBeInTheDocument()
+    expect(screen.getByTestId('autosave-demo')).toHaveTextContent('Unsaved changes')
   })
 })
