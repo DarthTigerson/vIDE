@@ -1,29 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-vi.hoisted(() => {
-  const data = new Map<string, string>()
-  ;(globalThis as { localStorage?: unknown }).localStorage = {
-    getItem: (k: string) => data.get(k) ?? null,
-    setItem: (k: string, v: string) => void data.set(k, v),
-    removeItem: (k: string) => void data.delete(k),
-  }
-})
-
-vi.mock('@/lib/notifySettingChanged', () => ({ notifySettingChanged: vi.fn() }))
-
 import { routeFile, resolveFileTab, openFile } from '../openFile'
 import { openFileAtLocation } from '../openFileLocation'
 import { useEditorStore } from '@/stores/editorStore'
-import { useExtensionsStore } from '@/stores/extensionsStore'
 
 let readFile: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
   readFile = vi.fn().mockResolvedValue('file contents')
   vi.stubGlobal('window', { api: { readFile } })
-  useExtensionsStore.setState({
-    enabled: { 'image-viewer': true },
-  })
   useEditorStore.setState({
     tabs: [],
     activeTabPath: null,
@@ -59,24 +44,13 @@ describe('routeFile', () => {
     expect(routeFile('/p/a.md', { markdownMode: 'editor' })).toEqual({ kind: 'text', tabPath: '/p/a.md' })
   })
 
-  it('routes to a notice tab when the extension is off, even for a source request', () => {
-    useExtensionsStore.getState().setEnabled('image-viewer', false)
-    expect(routeFile('/p/a.png')).toEqual({ kind: 'notice', tabPath: 'extension-off://image-viewer//p/a.png', extensionId: 'image-viewer' })
-    expect(routeFile('/p/a.tiff').kind).toBe('notice')
-    expect(routeFile('/p/a.svg').kind).toBe('notice')
-    expect(routeFile('/p/a.svg', { source: true }).kind).toBe('notice')
-    expect(routeFile('/p/a.ts').kind).toBe('text')
-  })
-
 })
 
 describe('resolveFileTab', () => {
-  it('never reads an image or notice file', async () => {
+  it('never reads an image file', async () => {
     await resolveFileTab('/p/a.png')
     await resolveFileTab('/p/a.heic')
     await resolveFileTab('/p/a.svg')
-    useExtensionsStore.getState().setEnabled('image-viewer', false)
-    await resolveFileTab('/p/b.png')
     expect(readFile).not.toHaveBeenCalled()
   })
 
@@ -95,12 +69,6 @@ describe('openFile', () => {
     await openFile('/p/b.svg')
     expect(useEditorStore.getState().paneTabLists['pane-1']).toEqual(['image-preview:///p/a.png', 'image-preview:///p/b.svg'])
     expect(readFile).not.toHaveBeenCalled()
-  })
-
-  it('opens a notice tab for a disabled extension', async () => {
-    useExtensionsStore.getState().setEnabled('image-viewer', false)
-    await openFile('/p/a.png')
-    expect(useEditorStore.getState().paneTabLists['pane-1']).toEqual(['extension-off://image-viewer//p/a.png'])
   })
 
   it('opens in the given pane', async () => {
@@ -132,12 +100,6 @@ describe('openFileAtLocation (chat links, go-to-definition, search)', () => {
     await openFileAtLocation('/p/shot.png', 4, 2)
     expect(useEditorStore.getState().paneTabLists['pane-1']).toEqual(['image-preview:///p/shot.png'])
     expect(useEditorStore.getState().revealRequest).toBeNull()
-  })
-
-  it('shows the notice for a disabled image extension', async () => {
-    useExtensionsStore.getState().setEnabled('image-viewer', false)
-    await openFileAtLocation('/p/shot.png')
-    expect(useEditorStore.getState().paneTabLists['pane-1']).toEqual(['extension-off://image-viewer//p/shot.png'])
   })
 
   it('opens an SVG as source for a line jump, and in the image viewer otherwise', async () => {

@@ -1,17 +1,9 @@
 import type { Tab } from '@/types/index'
 import { useEditorStore } from '@/stores/editorStore'
-import { useExtensionsStore } from '@/stores/extensionsStore'
-import { extensionForFile, type ExtensionId } from '@/lib/extensions'
 import { isImageFile, isMarkdownFile, isSvgFile } from '@/lib/fileKinds'
-import {
-  buildExtensionOffPath,
-  buildImagePreviewPath,
-  buildMarkdownPreviewPath,
-} from '@/components/Viewer/paths'
+import { buildImagePreviewPath, buildMarkdownPreviewPath } from '@/components/Viewer/paths'
 
-export type FileRoute =
-  | { kind: 'image' | 'markdown' | 'text'; tabPath: string }
-  | { kind: 'notice'; tabPath: string; extensionId: ExtensionId }
+export type FileRoute = { kind: 'image' | 'markdown' | 'text'; tabPath: string }
 
 // Where opening a file goes: the one decision every entry point shares (file
 // tree, drag and drop, chat/search/go-to-definition links, palette, ...), so
@@ -25,10 +17,6 @@ export interface RouteOptions {
 }
 
 export function routeFile(path: string, { source = false, markdownMode }: RouteOptions = {}): FileRoute {
-  const extension = extensionForFile(path)
-  if (extension && !useExtensionsStore.getState().isEnabled(extension.id)) {
-    return { kind: 'notice', tabPath: buildExtensionOffPath(extension.id, path), extensionId: extension.id }
-  }
   if (isImageFile(path)) {
     return source && isSvgFile(path) ? { kind: 'text', tabPath: path } : { kind: 'image', tabPath: buildImagePreviewPath(path) }
   }

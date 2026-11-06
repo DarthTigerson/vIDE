@@ -26,8 +26,6 @@ export const SCRIPTS_SETTINGS_TAB_PATH = 'settings://Scripts'
 export const LLAMA_SETTINGS_TAB_PATH = 'settings://Llama'
 // Version, update check and release history (VIDE-143).
 export const ABOUT_SETTINGS_TAB_PATH = 'settings://About'
-// Viewer extensions (VIDE-27): no activity-bar entry, just a settings page.
-export const IMAGE_VIEWER_SETTINGS_TAB_PATH = 'settings://Image Viewer'
 export const GIT_LOG_TAB_PATH = 'git-log://Git Log'
 
 export function isSettingsTab(path: string): boolean {

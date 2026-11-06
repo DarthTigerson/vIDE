@@ -50,9 +50,6 @@ import {
 import type { ActivityBarItem } from './components/ActivityBar/ActivityBar'
 import { BatteryPill } from './components/TitleBar/BatteryPill'
 import { AllAppsPanel } from './components/AllApps/AllAppsPanel'
-import { EXTENSIONS } from './lib/extensions'
-import { EXTENSION_ICONS } from './components/Viewer/extensionIcons'
-import { useExtensionsStore } from './stores/extensionsStore'
 import { useAppFavoritesStore } from './stores/appFavoritesStore'
 import { APPEND_TARGET, MOVABLE_APP_IDS, pickTemporaryApp, splitApps, type MovableAppId } from './lib/appFavorites'
 import { APP_SETTINGS_PATHS, appEnabledSetter } from './lib/appSettings'
@@ -349,8 +346,6 @@ export default function App() {
   const mobileDefaultMode = useMobileSettingsStore((s) => s.defaultMode)
   const todoEnabled = useTodoSettingsStore((s) => s.enabled)
   const notesEnabled = useNotesSettingsStore((s) => s.enabled)
-  const extensionsEnabled = useExtensionsStore((s) => s.enabled)
-  const setExtensionEnabled = useExtensionsStore((s) => s.setEnabled)
   const scriptsEnabled = useScriptsSettingsStore((s) => s.enabled)
   const llamaEnabled = useLlamaSettingsStore((s) => s.enabled)
   const runningLlamaCount = useRunningLlamaCount(llamaEnabled)
@@ -1179,14 +1174,6 @@ export default function App() {
             onEnable: () => appEnabledSetter(id)!(true),
             onSettings: () => openAppSettings(id),
           }))
-          const extensionEntries = EXTENSIONS.map((ext) => ({
-            id: ext.id,
-            title: ext.title,
-            icon: EXTENSION_ICONS[ext.id],
-            enabled: extensionsEnabled[ext.id],
-            onSetEnabled: (on: boolean) => setExtensionEnabled(ext.id, on),
-            onSettings: () => useEditorStore.getState().openTab({ path: ext.settingsPath, content: '', dirty: false }),
-          }))
           const primaryActivityBar = (
         <ActivityBar
           side={mirrored ? 'right' : 'left'}
@@ -1240,7 +1227,6 @@ export default function App() {
                 <AllAppsPanel
                   apps={allAppsEntries}
                   disabledApps={disabledAppEntries}
-                  extensions={extensionEntries}
                   open={leftPanel === 'apps'}
                   onPlace={(id, beforeId) => placeFavorite(id, beforeId ?? APPEND_TARGET, beforeId ? 'before' : 'after')}
                   onUnfavorite={unfavoriteApp}
