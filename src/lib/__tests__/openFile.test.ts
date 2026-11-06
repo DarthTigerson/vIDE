@@ -29,9 +29,16 @@ describe('routeFile', () => {
     },
   )
 
-  it('opens .svg in the image viewer, or as text when the source is wanted', () => {
-    expect(routeFile('/p/a.svg')).toEqual({ kind: 'image', tabPath: 'image-preview:///p/a.svg' })
+  it('opens .svg in the SVG viewer by default, or as text when the source is wanted', () => {
+    expect(routeFile('/p/a.svg')).toEqual({ kind: 'svg', tabPath: 'svg-viewer:///p/a.svg' })
     expect(routeFile('/p/a.svg', { source: true })).toEqual({ kind: 'text', tabPath: '/p/a.svg' })
+  })
+
+  it('follows the SVG open mode like the markdown one', () => {
+    expect(routeFile('/p/a.svg', { svgMode: 'preview' })).toEqual({ kind: 'svg', tabPath: 'svg-viewer:///p/a.svg' })
+    expect(routeFile('/p/a.svg', { svgMode: 'editor' })).toEqual({ kind: 'text', tabPath: '/p/a.svg' })
+    expect(routeFile('/p/a.svg', { svgMode: 'split' })).toEqual({ kind: 'text', tabPath: '/p/a.svg' })
+    expect(routeFile('/p/a.svg', { svgMode: 'preview', source: true })).toEqual({ kind: 'text', tabPath: '/p/a.svg' })
   })
 
   it('opens other files as text', () => {
@@ -67,7 +74,7 @@ describe('openFile', () => {
   it('opens a raster image and an SVG in the image viewer, never as text', async () => {
     await openFile('/p/a.png')
     await openFile('/p/b.svg')
-    expect(useEditorStore.getState().paneTabLists['pane-1']).toEqual(['image-preview:///p/a.png', 'image-preview:///p/b.svg'])
+    expect(useEditorStore.getState().paneTabLists['pane-1']).toEqual(['image-preview:///p/a.png', 'svg-viewer:///p/b.svg'])
     expect(readFile).not.toHaveBeenCalled()
   })
 
@@ -79,6 +86,12 @@ describe('openFile', () => {
     } as never)
     await openFile('/p/a.png', { paneId: 'pane-2' })
     expect(useEditorStore.getState().paneTabLists['pane-2']).toEqual(['image-preview:///p/a.png'])
+  })
+
+  it('splits SVG source and viewer in split mode, source left', async () => {
+    await openFile('/p/a.svg', { svgMode: 'split' })
+    const lists = Object.values(useEditorStore.getState().paneTabLists)
+    expect(lists).toEqual([['/p/a.svg'], ['svg-viewer:///p/a.svg']])
   })
 
   it('splits Markdown only in split mode', async () => {
@@ -107,7 +120,7 @@ describe('openFileAtLocation (chat links, go-to-definition, search)', () => {
     expect(useEditorStore.getState().paneTabLists['pane-1']).toEqual(['/p/a.svg'])
     expect(useEditorStore.getState().revealRequest?.path).toBe('/p/a.svg')
     await openFileAtLocation('/p/b.svg')
-    expect(useEditorStore.getState().paneTabLists['pane-1']).toContain('image-preview:///p/b.svg')
+    expect(useEditorStore.getState().paneTabLists['pane-1']).toContain('svg-viewer:///p/b.svg')
   })
 
   it('still opens code as text and reveals the line', async () => {

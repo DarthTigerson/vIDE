@@ -18,10 +18,10 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('EditorSettingsPage — feature blocks', () => {
-  it('lays the page out as five blocks', () => {
+  it('lays the page out as six blocks', () => {
     render(<EditorSettingsPage />)
     expect(screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'))).toEqual([
-      'Auto save', 'Word wrap', 'Markdown files', 'Autocomplete', 'Go to definition',
+      'Auto save', 'Word wrap', 'Markdown files', 'SVG files', 'Autocomplete', 'Go to definition',
     ])
   })
 
