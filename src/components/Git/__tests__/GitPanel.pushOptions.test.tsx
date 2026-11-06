@@ -22,7 +22,9 @@ beforeEach(() => {
   useFileStore.setState({ projectRoot: '/proj' })
   useGitReposStore.setState({ repos: ['/proj'], selectedRepo: '/proj' })
   useGitStore.setState({
-    repos: { '/proj': { ...emptyRepoGitState, status: emptyStatus, branch: 'main' } },
+    // An already-published branch: with no upstream the primary button
+    // becomes Publish and the menu drops its Publish Branch row.
+    repos: { '/proj': { ...emptyRepoGitState, status: emptyStatus, branch: 'main', aheadBehind: { ahead: 0, behind: 0 } } },
   })
   useGitSettingsStore.setState({ forceSafetyEnabled: false })
 })

@@ -180,6 +180,12 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
   // the action that applies. Treat that as "nothing pending" rather than
   // nagging with a number that doesn't exist yet.
   const unpushedCount = aheadBehind?.ahead ?? 0
+  // refresh() sets branch and aheadBehind together, so a known branch with a
+  // null aheadBehind means it has no upstream yet: Publish Branch becomes the
+  // primary one-click action instead of a Push that would just fail. A
+  // detached HEAD (branch null) keeps Push. After a successful publish,
+  // runCommand's refresh picks up the new upstream and flips this back.
+  const needsPublish = branch !== null && aheadBehind === null
   const {
     refresh,
     refreshStatus,
@@ -530,9 +536,9 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
             Pull
           </SplitCommandButton>
           <SplitCommandButton
-            label="Push"
+            label={needsPublish ? 'Publish' : 'Push'}
             disabled={remoteActionDisabled}
-            onClick={() => runOnThisRepo(() => push(repo))}
+            onClick={() => runOnThisRepo(() => (needsPublish && branch ? publishBranch(repo, branch) : push(repo)))}
             colorClassName={unpushedCount > 0 ? pendingPushColor : accentSolidColor}
             open={pushOptionsOpen}
             onToggleOptions={() => setPushOptionsOpen((v) => !v)}
@@ -541,7 +547,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
             anchorRow
             optionsChildren={
               <div className="flex flex-col gap-0.5">
-                <button
+                {!needsPublish && <button
                   type="button"
                   disabled={remoteActionDisabled || !branch}
                   onClick={() => {
@@ -553,7 +559,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
                   <span className="font-semibold">Publish Branch</span>
                   <span className="text-fg-subtle font-mono">git push -u origin {branch ?? '…'}</span>
                   <span className="text-fg-subtle">Push a new branch and set its upstream, so a plain Push works after.</span>
-                </button>
+                </button>}
                 <button
                   type="button"
                   disabled={remoteActionDisabled}
@@ -583,7 +589,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
               </span>
             )}
           >
-            Push
+            {needsPublish ? 'Publish' : 'Push'}
           </SplitCommandButton>
         </div>
         {/* A pure dropdown trigger, not a split primary/secondary action
