@@ -239,10 +239,12 @@ export function Sidebar() {
     })
   }
 
-  async function openFromMenu(node: FileNode) {
+  // `source`: Open / Edit asks for the editable text (an SVG's XML); a raster
+  // image has none, so it still lands in the image viewer either way.
+  async function openFromMenu(node: FileNode, source: boolean) {
     if (node.isDirectory) return
     setMenu(null)
-    await openFile(node.path)
+    await openFile(node.path, { source })
   }
 
   function openMarkdownPreview(node: FileNode) {
@@ -460,14 +462,14 @@ export function Sidebar() {
               style={{ left: menu.x, top: menu.y }}
               onClick={(event) => event.stopPropagation()}
             >
-              {menu.node && !menu.node.isDirectory && (
-                <ContextMenuButton onClick={() => void openFromMenu(menu.node!)}>
-                  Open / Edit
+              {menu.node && !menu.node.isDirectory && isImageFile(menu.node.name) && (
+                <ContextMenuButton onClick={() => void openFromMenu(menu.node!, false)}>
+                  View in Image Viewer
                 </ContextMenuButton>
               )}
-              {menu.node && !menu.node.isDirectory && isImageFile(menu.node.name) && (
-                <ContextMenuButton onClick={() => void openFromMenu(menu.node!)}>
-                  View in Image Viewer
+              {menu.node && !menu.node.isDirectory && (
+                <ContextMenuButton onClick={() => void openFromMenu(menu.node!, true)}>
+                  Open / Edit
                 </ContextMenuButton>
               )}
               {menu.node && !menu.node.isDirectory && isMarkdownFile(menu.node.name) && (
