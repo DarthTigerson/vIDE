@@ -99,9 +99,30 @@ describe('BottomTerminal', () => {
     rectOf(zone.parentElement!, 400, 400)
     const dt = dataTransfer()
     fireEvent.dragStart(a, { dataTransfer: dt })
+    dragAt('dragOver', zone, dt, 600)
+    dragAt('drop', zone, dt, 600)
+    expect(useBottomTerminalStore.getState().sides).toEqual([['b'], ['c', 'a']])
+  })
+
+  it('splits into a third side when a tab is dropped on another side’s right edge', () => {
+    useBottomTerminalStore.setState({ sides: [['a', 'b'], ['c']], active: ['b', 'c'] })
+    render(<BottomTerminal />)
+    const [a] = screen.getAllByTestId('bottom-terminal-tab')
+    const zone = screen.getAllByTestId('bottom-terminal-drop-zone')[1]
+    rectOf(zone.parentElement!, 400, 400)
+    const dt = dataTransfer()
+    fireEvent.dragStart(a, { dataTransfer: dt })
     dragAt('dragOver', zone, dt, 790)
     dragAt('drop', zone, dt, 790)
-    expect(useBottomTerminalStore.getState().sides).toEqual([['b'], ['c', 'a']])
+    expect(useBottomTerminalStore.getState().sides).toEqual([['b'], ['c'], ['a']])
+  })
+
+  it('disables Split right at four sides', () => {
+    useBottomTerminalStore.setState({ sides: [['a'], ['b'], ['c'], ['d']], active: ['a', 'b', 'c', 'd'] })
+    render(<BottomTerminal />)
+    expect(screen.getByRole('button', { name: 'Split right' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Merge sides' }))
+    expect(useBottomTerminalStore.getState().sides).toEqual([['a', 'b', 'c', 'd']])
   })
 
   it('opens a right-click menu on a tab', () => {

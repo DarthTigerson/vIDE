@@ -4,8 +4,8 @@ import { buildTerminalPath, getTerminalId, isTerminalTab } from '@/components/Se
 
 // The bottom terminal: a per-project switch that locks every plain terminal
 // (the editor's terminal:// tabs, never the agent bar's sessions) into one
-// panel under the editor, split into at most two sides, each with its own
-// tabs. Terminals only change owner here — TerminalTab keeps the xterm and
+// panel under the editor, split into at most MAX_BOTTOM_TERMINAL_SIDES
+// sides, each with its own tabs. Terminals only change owner here — TerminalTab keeps the xterm and
 // PTY alive across the move as long as one of the two still holds the id.
 
 export interface TerminalOrigin {
@@ -22,6 +22,7 @@ export interface BottomTerminalSnapshot {
 }
 
 export const DEFAULT_BOTTOM_TERMINAL_SIZE = 35
+export const MAX_BOTTOM_TERMINAL_SIDES = 4
 
 interface BottomTerminalState extends BottomTerminalSnapshot {
   focusedSide: number
@@ -35,11 +36,14 @@ interface BottomTerminalState extends BottomTerminalSnapshot {
   closeAll: () => void
   setActive: (side: number, id: string) => void
   setFocusedSide: (side: number) => void
+  // Adds a side with a fresh terminal right of the focused one.
   split: () => void
+  // Merges every side into one.
   unsplit: () => void
-  // Splits by moving `id` out of a lone side: to a new right side (after)
-  // or left side (before). Needs another tab to stay behind.
-  splitWith: (id: string, placement: 'before' | 'after') => void
+  // Splits by moving `id` into a new side placed after or before `side`
+  // (default: the side `id` is on). Moving a tab out of its own side needs
+  // another tab to stay behind.
+  splitWith: (id: string, placement: 'before' | 'after', side?: number) => void
   // Moves a tab to `side`, before `beforeId` (or to the end).
   moveTerminal: (id: string, side: number, beforeId?: string | null) => void
   setSize: (size: number) => void
@@ -80,7 +84,7 @@ function isSnapshot(value: unknown): value is BottomTerminalSnapshot {
   if (!value || typeof value !== 'object') return false
   const v = value as Record<string, unknown>
   return typeof v.enabled === 'boolean'
-    && Array.isArray(v.sides) && v.sides.length >= 1 && v.sides.length <= 2
+    && Array.isArray(v.sides) && v.sides.length >= 1 && v.sides.length <= MAX_BOTTOM_TERMINAL_SIDES
     && v.sides.every((ids) => Array.isArray(ids) && ids.every((id) => typeof id === 'string'))
 }
 
@@ -179,7 +183,7 @@ export const useBottomTerminalStore = create<BottomTerminalState>((set, get) => 
       set((state) => {
         if (!state.sides.some((ids) => ids.includes(id))) return state
         const origins = state.origins[id] ? { [id]: state.origins[id] } : {}
-        return { ...normalize(state.sides.map((ids) => ids.filter((x) => x === id)), [id, id], state.focusedSide), origins }
+        return { ...normalize(state.sides.map((ids) => ids.filter((x) => x === id)), state.sides.map(() => id), state.focusedSide), origins }
       })
     },
 
@@ -199,26 +203,40 @@ export const useBottomTerminalStore = create<BottomTerminalState>((set, get) => 
     },
 
     split: () => {
-      if (get().sides.length >= 2) return
+      if (get().sides.length >= MAX_BOTTOM_TERMINAL_SIDES) return
       const id = newTerminalId()
-      set((state) => ({ sides: [state.sides[0], [id]], active: [state.active[0], id], focusedSide: 1 }))
+      set((state) => {
+        const at = Math.min(state.focusedSide, state.sides.length - 1) + 1
+        const sides = [...state.sides]
+        const active = [...state.active]
+        sides.splice(at, 0, [id])
+        active.splice(at, 0, id)
+        return { sides, active, focusedSide: at }
+      })
     },
 
     unsplit: () => {
       set((state) => {
         if (state.sides.length < 2) return state
-        return { sides: [[...state.sides[0], ...state.sides[1]]], active: [state.active[0] ?? state.active[1]], focusedSide: 0 }
+        const focusedActive = state.active[state.focusedSide] ?? state.active.find((a) => a) ?? null
+        return { sides: [state.sides.flat()], active: [focusedActive], focusedSide: 0 }
       })
     },
 
-    splitWith: (id, placement) => {
+    splitWith: (id, placement, side) => {
       set((state) => {
-        if (state.sides.length !== 1 || state.sides[0].length < 2 || !state.sides[0].includes(id)) return state
-        const rest = state.sides[0].filter((x) => x !== id)
-        const restActive = state.active[0] && state.active[0] !== id ? state.active[0] : rest[rest.length - 1]
-        return placement === 'after'
-          ? { sides: [rest, [id]], active: [restActive, id], focusedSide: 1 }
-          : { sides: [[id], rest], active: [id, restActive], focusedSide: 0 }
+        if (state.sides.length >= MAX_BOTTOM_TERMINAL_SIDES) return state
+        const from = state.sides.findIndex((ids) => ids.includes(id))
+        const target = side ?? from
+        if (from === -1 || target < 0 || target >= state.sides.length) return state
+        // Splitting a tab off its own side would leave that side empty.
+        if (target === from && state.sides[from].length < 2) return state
+        const at = placement === 'after' ? target + 1 : target
+        const sides = state.sides.map((ids) => ids.filter((x) => x !== id))
+        const active = state.active.map((a) => (a === id ? null : a))
+        sides.splice(at, 0, [id])
+        active.splice(at, 0, id)
+        return normalize(sides, active, at)
       })
     },
 
