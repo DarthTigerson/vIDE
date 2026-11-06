@@ -5,6 +5,7 @@ import { flushSync } from 'react-dom'
 import './index.css'
 import { SyncSplash, swapHoldMs } from './components/BootSplash/SyncSplash'
 import { DEFAULT_SPLASH_PALETTE, loadSplashPalette } from './lib/splashPalette'
+import { installCloseMenusOnRightClick } from './lib/closeMenusOnRightClick'
 
 if (import.meta.env.VITE_MOBILE_CLIENT === 'true') {
   const { createMobileApi } = await import('./lib/mobileApiShim/createMobileApi')
@@ -42,6 +43,8 @@ if (preMountSyncResult.lastSyncAt !== null) {
 
 // Dynamic import — stores initialize NOW with the already-updated localStorage.
 const { default: App } = await import('./App')
+// A right-click anywhere closes open popup menus, like a left-click does.
+installCloseMenusOnRightClick()
 
 root.render(
   <React.StrictMode>
