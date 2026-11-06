@@ -14,10 +14,6 @@ vi.mock('../../lib/notifySettingChanged', () => ({ notifySettingChanged: vi.fn()
 import { useEditorSettingsStore } from '../editorSettingsStore'
 import { notifySettingChanged } from '../../lib/notifySettingChanged'
 
-// Read before any test's beforeEach overrides the state: these are the values
-// a fresh install starts with (empty localStorage).
-const initialState = useEditorSettingsStore.getState()
-
 describe('editorSettingsStore', () => {
   beforeEach(() => {
     Object.keys(store).forEach(k => delete store[k])
@@ -28,8 +24,8 @@ describe('editorSettingsStore', () => {
   })
 
   it('has correct defaults', () => {
-    expect(initialState.autoSaveEnabled).toBe(true)
-    expect(initialState.wordWrapEnabled).toBe(false)
+    expect(useEditorSettingsStore.getState().autoSaveEnabled).toBe(false)
+    expect(useEditorSettingsStore.getState().wordWrapEnabled).toBe(false)
   })
 
   it('has git blame on and shown in the footer by default', () => {

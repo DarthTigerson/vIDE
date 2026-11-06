@@ -92,7 +92,7 @@ interface EditorSettingsStore {
 }
 
 export const useEditorSettingsStore = create<EditorSettingsStore>((set, get) => ({
-  autoSaveEnabled: getBool(KEYS.autoSaveEnabled, true),
+  autoSaveEnabled: getBool(KEYS.autoSaveEnabled, false),
 
   setAutoSaveEnabled: (value) => {
     localStorage.setItem(KEYS.autoSaveEnabled, String(value))

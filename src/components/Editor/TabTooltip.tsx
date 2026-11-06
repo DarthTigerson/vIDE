@@ -1,12 +1,16 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useCoverNativeViews } from '@/lib/nativeViewCover'
 
 // Hover label for an editor tab, in vIDE's popover style rather than the
 // native `title` bubble: a panel dropping from the tab bar's bottom edge,
 // the mirror of FooterTooltip's tab rising from the footer. Portalled to
 // <body> with fixed positioning because the tab strip scrolls horizontally
-// (overflow-x-auto), which would clip an absolutely positioned child.
+// (overflow-x-auto), which would clip an absolutely positioned child. It drops
+// over the pane below, which may be a browser tab (a native view drawn above
+// the DOM), so it covers native views while shown.
 export function TabTooltip({ label, anchor }: { label: string; anchor: DOMRect }) {
+  useCoverNativeViews()
   const ref = useRef<HTMLDivElement>(null)
   const [left, setLeft] = useState(anchor.left)
   const [shown, setShown] = useState(false)

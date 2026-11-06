@@ -152,4 +152,17 @@ describe('Sidebar — auto-expand for the active diff tab', () => {
     })
     expect(useFileStore.getState().revealedPath).toBeNull()
   })
+
+  it('scrolls the active file row into view (nearest, so a visible row does not jump)', async () => {
+    const scrollIntoView = vi.spyOn(window.HTMLElement.prototype, 'scrollIntoView')
+    render(<Sidebar />)
+
+    act(() => {
+      useEditorStore.setState({ activeTabPath: '/proj/src/components/App.tsx' } as any)
+    })
+
+    await waitFor(() => {
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
+    })
+  })
 })

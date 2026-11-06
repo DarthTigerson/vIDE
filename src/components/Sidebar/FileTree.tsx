@@ -1,4 +1,5 @@
 import type { MouseEvent } from 'react'
+import { useEffect } from 'react'
 import type { FileNode } from '@/types/index'
 import { useFileStore } from '@/stores/fileStore'
 import { useEditorStore } from '@/stores/editorStore'
@@ -135,6 +136,17 @@ export function FileTree({
               ? null
               : activeTabPath
   const createPromptHere = prompt && !prompt.node && prompt.directory === directoryPath
+
+  // Scroll the active file's row into view from the tree level that renders
+  // it, so this runs after the row has actually committed — including when
+  // Sidebar's auto-expand only just loaded its ancestors. Keyed on the
+  // boolean (not `nodes`) so a tree refresh doesn't yank the scroll back.
+  // 'nearest' leaves an already-visible row where it is.
+  const rendersActiveFile = !!activeFilePath && nodes.some((n) => n.path === activeFilePath)
+  useEffect(() => {
+    if (!rendersActiveFile || !activeFilePath) return
+    document.getElementById(`file-tree-node:${activeFilePath}`)?.scrollIntoView({ block: 'nearest' })
+  }, [activeFilePath, rendersActiveFile])
 
   async function handleClick(node: FileNode) {
     useFileStore.getState().clearRevealedPath()
