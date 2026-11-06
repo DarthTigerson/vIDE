@@ -50,6 +50,31 @@ describe('TerminalContextMenu', () => {
   })
 })
 
+describe('TerminalContextMenu paste', () => {
+  it('has no Paste row without onPaste (e.g. the Docker log view)', () => {
+    render(<TerminalContextMenu x={10} y={10} selection="" onClose={() => {}} />)
+    expect(screen.queryByRole('button', { name: 'Paste' })).toBeNull()
+  })
+
+  it('Paste reads the clipboard, hands the text to onPaste and closes', async () => {
+    const readText = vi.fn().mockResolvedValue('git status')
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText, readText }, configurable: true })
+    const onPaste = vi.fn()
+    const onClose = vi.fn()
+    render(<TerminalContextMenu x={10} y={10} selection="" onPaste={onPaste} onClose={onClose} />)
+    const paste = screen.getByRole('button', { name: 'Paste' })
+    expect(paste).toBeEnabled()
+    fireEvent.click(paste)
+    expect(onClose).toHaveBeenCalled()
+    await vi.waitFor(() => expect(onPaste).toHaveBeenCalledWith('git status'))
+  })
+
+  it('copyPasteOnly shows only Copy and Paste', () => {
+    render(<TerminalContextMenu x={10} y={10} selection="x" terminalId="t1" onPaste={() => {}} copyPasteOnly onClose={() => {}} />)
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Copy', 'Paste'])
+  })
+})
+
 describe('TerminalContextMenu scripts submenu', () => {
   it('has no Scripts row without a terminalId (e.g. the Docker log view)', () => {
     render(<TerminalContextMenu x={10} y={10} selection="" onClose={() => {}} />)

@@ -14,6 +14,7 @@ import { buildTerminalPath } from '@/components/Settings/paths'
 import { createTerminalKeyHandler } from './terminalKeys'
 import { TerminalContextMenu } from './TerminalContextMenu'
 import { liveTerminals, type LiveTerminal as TerminalInstance } from '@/lib/liveTerminals'
+import { PTY_XTERM_OPTIONS } from '@/lib/ptyXtermOptions'
 
 interface Props {
   terminalId: string
@@ -49,6 +50,12 @@ export function TerminalTab({ terminalId, isStillOpen }: Props) {
   const font = useDisplayStore((s) => s.font)
   const [menu, setMenu] = useState<{ x: number; y: number; selection: string } | null>(null)
   const closeMenu = useCallback(() => setMenu(null), [])
+  const pasteIntoTerminal = useCallback((text: string) => {
+    const xterm = instanceRef.current?.xterm
+    if (!xterm) return
+    xterm.paste(text)
+    xterm.focus()
+  }, [])
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -70,7 +77,7 @@ export function TerminalTab({ terminalId, isStillOpen }: Props) {
         fontFamily: useDisplayStore.getState().font,
         fontSize: useInstanceFontSizeStore.getState().overrides[terminalId] ?? useFontSizeStore.getState().fontSize,
         cursorBlink: true,
-        convertEol: true,
+        ...PTY_XTERM_OPTIONS,
         // xterm.js's default (1) maps physical mouse-wheel notches almost
         // 1:1 to pixels before converting to rows, so a notched USB/Bluetooth
         // mouse (which reports far coarser, less frequent deltaY than a
@@ -179,7 +186,7 @@ export function TerminalTab({ terminalId, isStillOpen }: Props) {
           setMenu({ x: event.clientX, y: event.clientY, selection })
         }}
       />
-      {menu && <TerminalContextMenu x={menu.x} y={menu.y} selection={menu.selection} terminalId={terminalId} onClose={closeMenu} />}
+      {menu && <TerminalContextMenu x={menu.x} y={menu.y} selection={menu.selection} terminalId={terminalId} onPaste={pasteIntoTerminal} onClose={closeMenu} />}
     </>
   )
 }

@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Terminal as XTerm } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
-import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
 import { useFileStore } from '@/stores/fileStore'
 import { useClaudeStore, selectActiveSession } from '@/stores/claudeStore'
@@ -17,12 +16,15 @@ import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
 import { agentLabel, isBridgeLike, isClaudeLike, isLlamaKind, isTerminalKind, llamaConnectionFor, llamaModelId } from '@/lib/agentKinds'
 import type { AssistantKind } from '@/types/api'
 import { TerminalTab } from '@/components/Terminal/TerminalTab'
+import { TerminalContextMenu } from '@/components/Terminal/TerminalContextMenu'
+import { AGENT_TERMINAL_SESSION_ATTR } from '@/lib/bottomTerminalFocus'
 import { liveTerminals } from '@/lib/liveTerminals'
+import { PTY_XTERM_OPTIONS } from '@/lib/ptyXtermOptions'
 import { UsagePanel } from '@/components/UsagePanel/UsagePanel'
 import { CostPanel } from '@/components/UsagePanel/CostPanel'
 import { isShiftEnterKeydown, SHIFT_ENTER_SEQUENCE } from './shiftEnterSequence'
 import { wrapBracketedPaste } from '@/lib/sendSelectionToAssistant'
-import { createFilePathLinkProvider, createFilePathActivateHandler, createUrlActivateHandler, openUrlInBrowserTab } from './terminalLinks'
+import { createFilePathLinkProvider, createFilePathActivateHandler, createUrlLinkProvider, createUrlActivateHandler, joinedSelectionText, openUrlInBrowserTab } from './terminalLinks'
 
 function hasValidSize(cols: number, rows: number): boolean {
   return cols > 0 && rows > 0
@@ -42,10 +44,10 @@ function createXTerm(themeId: ThemeId, panelStyle: PanelStyle, fontSize: number)
     fontFamily: useDisplayStore.getState().font,
     fontSize,
     cursorBlink: true,
-    convertEol: true,
+    ...PTY_XTERM_OPTIONS,
     // Without this, xterm's built-in OscLinkProvider handles OSC 8 terminal
     // hyperlinks (real clickable links the CLI itself renders — e.g. an
-    // artifact-publish banner — distinct from WebLinksAddon's plain-URL-text
+    // artifact-publish banner — distinct from the plain-URL-text
     // regex matching below) by falling back to window.open(), which bypasses
     // vIDE's in-app Browser tab entirely.
     linkHandler: { activate: (_event, uri) => openUrlInBrowserTab(uri) },
@@ -127,6 +129,16 @@ export function Chat() {
   const activeInstanceRef = useRef<string>(activeInstanceId)
   const isFirstRestart = useRef(true)
   const seenFocusTokenRef = useRef(focusToken)
+  const [menu, setMenu] = useState<{ x: number; y: number; selection: string; instanceId: string } | null>(null)
+  const closeMenu = useCallback(() => setMenu(null), [])
+  const pasteIntoClaude = useCallback((text: string) => {
+    const xterm = menu ? terminalsRef.current[menu.instanceId]?.xterm : undefined
+    if (!xterm) return
+    // xterm.paste wraps in bracketed-paste markers when Claude Code asked for
+    // them and routes through onData, same as a keyboard paste.
+    xterm.paste(text)
+    xterm.focus()
+  }, [menu])
 
   useEffect(() => {
     activeInstanceRef.current = activeInstanceId
@@ -204,13 +216,20 @@ export function Chat() {
       // overlapping range (a URL's own path segment, e.g. "/path.txt" in
       // "https://example.com/path.txt", would otherwise also satisfy the
       // file-path provider) — xterm de-dupes intersecting links across
-      // providers, first-registered wins. URLs go through the stock
-      // WebLinksAddon (real URLs parse fine as URL objects); file paths use
-      // a custom provider — see createFilePathLinkProvider's own comment
-      // for why WebLinksAddon can't be reused for those. Every terminal in
-      // this loop is a Claude instance, so this applies unconditionally.
-      xterm.loadAddon(new WebLinksAddon(createUrlActivateHandler()))
+      // providers, first-registered wins. Both use the wrap-aware provider
+      // so links Claude Code hard-wrapped across rows open in full — see
+      // createWrappedLinkProvider. Every terminal in this loop is a Claude
+      // instance, so this applies unconditionally.
+      xterm.registerLinkProvider(createUrlLinkProvider(xterm, createUrlActivateHandler()))
       xterm.registerLinkProvider(createFilePathLinkProvider(xterm, createFilePathActivateHandler()))
+      // Capture phase, ahead of xterm's own copy handler on its textarea, so
+      // a path or URL Claude Code wrapped across rows copies as one line.
+      host.addEventListener('copy', (event) => {
+        if (!xterm.hasSelection() || !event.clipboardData) return
+        event.clipboardData.setData('text/plain', joinedSelectionText(xterm))
+        event.preventDefault()
+        event.stopImmediatePropagation()
+      }, true)
 
       window.api.claudeSpawn(projectRoot, id, undefined, kind)
       const cleanupData = window.api.onClaudeData((source, data) => {
@@ -391,7 +410,27 @@ export function Chat() {
             ref={containerRef}
             className="flex-1 overflow-hidden p-1"
             style={{ display: isBridgeLikeActive || isTerminalActive ? 'none' : 'block' }}
+            onContextMenu={(event) => {
+              event.preventDefault()
+              const instanceId = activeInstanceRef.current
+              const xterm = terminalsRef.current[instanceId]?.xterm
+              if (!xterm) return
+              // Read after xterm's own right-click handling; joined so a path
+              // or URL Claude Code wrapped across rows copies as one line.
+              const selection = xterm.hasSelection() ? joinedSelectionText(xterm) : ''
+              setMenu({ x: event.clientX, y: event.clientY, selection, instanceId })
+            }}
           />
+          {menu && (
+            <TerminalContextMenu
+              x={menu.x}
+              y={menu.y}
+              selection={menu.selection}
+              onPaste={pasteIntoClaude}
+              copyPasteOnly
+              onClose={closeMenu}
+            />
+          )}
           {/* Every terminal session stays mounted (hidden when inactive) so
               its output keeps streaming in while another session is shown. */}
           {terminalSessions.map((inst) => (
@@ -399,6 +438,7 @@ export function Chat() {
               key={inst.id}
               className="flex-1 overflow-hidden"
               style={{ display: inst.id === activeInstanceId ? 'block' : 'none' }}
+              {...{ [AGENT_TERMINAL_SESSION_ATTR]: inst.id }}
             >
               <TerminalTab
                 terminalId={inst.id}

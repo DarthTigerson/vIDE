@@ -1,8 +1,9 @@
 import { Fragment, useRef, useState } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
-import { useBottomTerminalStore } from '@/stores/bottomTerminalStore'
+import { useBottomTerminalStore, MAX_BOTTOM_TERMINAL_SIDES } from '@/stores/bottomTerminalStore'
 import { useScriptsStore } from '@/stores/scriptsStore'
 import { TerminalTab } from './TerminalTab'
+import { BOTTOM_TERMINAL_SIDE_ATTR } from '@/lib/bottomTerminalFocus'
 import { BottomTerminalTabMenu } from './BottomTerminalTabMenu'
 
 const DRAG_TYPE = 'application/x-vide-bottom-terminal'
@@ -31,10 +32,10 @@ const BODY_HIGHLIGHT: Record<'center' | 'left' | 'right', string> = {
 }
 
 // The panel under the editor while the bottom terminal is on (mockup "B"):
-// one or two sides, left and right, each with its own tab strip. Tabs drag
-// to reorder, onto the other side's strip or terminal to move there, or onto
-// a lone side's left/right edge to split; the split button at the end of the
-// last strip splits (one side) or merges (two).
+// up to MAX_BOTTOM_TERMINAL_SIDES sides, left to right, each with its own tab
+// strip. Tabs drag to reorder, onto another side's strip or terminal to move
+// there, or onto a side's left/right edge to split there; the buttons at the
+// end of the last strip split right and (once split) merge every side.
 export function BottomTerminal() {
   const sides = useBottomTerminalStore((s) => s.sides)
   const [dragged, setDragged] = useState<string | null>(null)
@@ -58,7 +59,7 @@ export function BottomTerminal() {
         store.moveTerminal(id, target.side, null)
       } else if (target?.kind === 'body') {
         if (target.zone === 'center') store.moveTerminal(id, target.side, null)
-        else store.splitWith(id, target.zone === 'right' ? 'after' : 'before')
+        else store.splitWith(id, target.zone === 'right' ? 'after' : 'before', target.side)
       }
       setDragged(null)
       setDropTarget(null)
@@ -90,7 +91,9 @@ export function BottomTerminal() {
 function Side({ side, ids, last, drag }: { side: number; ids: string[]; last: boolean; drag: Drag }) {
   const activeId = useBottomTerminalStore((s) => s.active[side] ?? null)
   const focused = useBottomTerminalStore((s) => s.focusedSide === side)
-  const split = useBottomTerminalStore((s) => s.sides.length > 1)
+  const sideCount = useBottomTerminalStore((s) => s.sides.length)
+  const split = sideCount > 1
+  const canAddSide = sideCount < MAX_BOTTOM_TERMINAL_SIDES
   const titles = useScriptsStore((s) => s.terminalTitles)
   const [menu, setMenu] = useState<{ x: number; y: number; id: string } | null>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -111,14 +114,15 @@ function Side({ side, ids, last, drag }: { side: number; ids: string[]; last: bo
     e.dataTransfer.dropEffect = 'move'
     const rect = bodyRef.current!.getBoundingClientRect()
     const fracX = (e.clientX - rect.left) / rect.width
-    // A lone side with another tab to leave behind splits from its edges.
-    const canSplit = !split && ids.length > 1
+    // Edges split while there is room for another side, unless the dragged
+    // tab is this side's only one (it would just leave and come back).
+    const canSplit = canAddSide && !(ids.length === 1 && ids[0] === drag.dragged)
     const zone = canSplit && fracX <= EDGE_FRACTION ? 'left' : canSplit && fracX >= 1 - EDGE_FRACTION ? 'right' : 'center'
     drag.over({ kind: 'body', side, zone })
   }
 
   return (
-    <div className="flex h-full flex-col" onMouseDown={() => store().setFocusedSide(side)}>
+    <div className="flex h-full flex-col" {...{ [BOTTOM_TERMINAL_SIDE_ATTR]: side }} onMouseDown={() => store().setFocusedSide(side)}>
       <div className="flex shrink-0 select-none border-b border-border bg-tab-bar">
         <div
           className={`flex min-w-0 flex-1 overflow-x-auto ${target?.kind === 'strip' ? 'bg-accent/5' : ''}`}
@@ -196,33 +200,36 @@ function Side({ side, ids, last, drag }: { side: number; ids: string[]; last: bo
             +
           </button>
         </div>
+        {last && split && (
+          <button
+            type="button"
+            aria-label="Merge sides"
+            title="Merge sides"
+            className="flex w-8 shrink-0 items-center justify-center text-fg-muted transition-colors hover:text-fg"
+            onClick={() => store().unsplit()}
+          >
+            <MergeGlyph />
+          </button>
+        )}
         {last && (
           <button
             type="button"
-            aria-label={split ? 'Merge sides' : 'Split right'}
-            title={split ? 'Merge sides' : 'Split right'}
-            className={`flex w-8 shrink-0 items-center justify-center transition-colors ${split ? 'text-accent' : 'text-fg-muted hover:text-fg'}`}
-            onClick={() => (split ? store().unsplit() : store().split())}
+            aria-label="Split right"
+            title={canAddSide ? 'Split right' : `At most ${MAX_BOTTOM_TERMINAL_SIDES} sides`}
+            disabled={!canAddSide}
+            className="flex w-8 shrink-0 items-center justify-center text-fg-muted transition-colors hover:text-fg disabled:opacity-40 disabled:hover:text-fg-muted"
+            onClick={() => {
+              store().setFocusedSide(side)
+              store().split()
+            }}
           >
             <SplitGlyph />
           </button>
         )}
       </div>
       <div ref={bodyRef} className="relative min-h-0 flex-1">
-        {activeId ? (
-          <TerminalTab key={activeId} terminalId={activeId} />
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-xs text-fg-muted">
-            <span>No terminals</span>
-            <button
-              type="button"
-              className="rounded-md border border-border px-3 py-1.5 text-fg transition-colors hover:border-fg-subtle"
-              onClick={() => store().newTerminal(side)}
-            >
-              New terminal
-            </button>
-          </div>
-        )}
+        {/* No empty state: App hides the whole panel once no terminals are left. */}
+        {activeId && <TerminalTab key={activeId} terminalId={activeId} />}
         {/* Over the terminal only while a tab is dragged, like the editor's
             PaneDropZoneOverlay: xterm would otherwise swallow the drop. */}
         <div
@@ -258,6 +265,15 @@ function SplitGlyph() {
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
       <path d="M8 2.5v11" stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  )
+}
+
+function MergeGlyph() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M5 8h6M9.5 6.5 11 8l-1.5 1.5M6.5 6.5 5 8l1.5 1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }

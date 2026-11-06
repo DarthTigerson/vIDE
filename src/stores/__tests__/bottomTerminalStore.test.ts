@@ -13,7 +13,7 @@ vi.mock('@/lib/paneLayout', () => ({ getBiggestPaneId: vi.fn(() => null) }))
 vi.mock('@/lib/notifySettingChanged', () => ({ notifySettingChanged: vi.fn() }))
 
 import { useEditorStore } from '../editorStore'
-import { useBottomTerminalStore } from '../bottomTerminalStore'
+import { useBottomTerminalStore, MAX_BOTTOM_TERMINAL_SIDES } from '../bottomTerminalStore'
 import { useGeneralSettingsStore } from '../generalSettingsStore'
 
 const tab = (path: string) => ({ path, content: '', dirty: false })
@@ -128,14 +128,45 @@ describe('sides and tabs', () => {
     useBottomTerminalStore.getState().setEnabled(true)
   })
 
-  it('splits into a right side with a fresh terminal, never more than two', () => {
-    useBottomTerminalStore.getState().split()
+  it('splits into a right side with a fresh terminal', () => {
     useBottomTerminalStore.getState().split()
     const { sides, focusedSide, active } = useBottomTerminalStore.getState()
     expect(sides).toHaveLength(2)
     expect(sides[1]).toHaveLength(1)
     expect(focusedSide).toBe(1)
     expect(active[1]).toBe(sides[1][0])
+  })
+
+  it('splits up to four sides, never more', () => {
+    for (let i = 0; i < 5; i++) useBottomTerminalStore.getState().split()
+    const { sides, focusedSide } = useBottomTerminalStore.getState()
+    expect(sides).toHaveLength(MAX_BOTTOM_TERMINAL_SIDES)
+    expect(MAX_BOTTOM_TERMINAL_SIDES).toBe(4)
+    expect(focusedSide).toBe(3)
+  })
+
+  it('inserts the new side right of the focused one', () => {
+    useBottomTerminalStore.getState().split()
+    const right = useBottomTerminalStore.getState().sides[1][0]
+    useBottomTerminalStore.getState().setFocusedSide(0)
+    useBottomTerminalStore.getState().split()
+    const { sides, focusedSide } = useBottomTerminalStore.getState()
+    expect(sides).toHaveLength(3)
+    expect(sides[0]).toEqual(['a', 'b'])
+    expect(sides[2]).toEqual([right])
+    expect(focusedSide).toBe(1)
+  })
+
+  it('splits a tab next to another side, and not past four', () => {
+    useBottomTerminalStore.getState().split()
+    const right = useBottomTerminalStore.getState().sides[1][0]
+    useBottomTerminalStore.getState().splitWith('a', 'after', 1)
+    expect(useBottomTerminalStore.getState().sides).toEqual([['b'], [right], ['a']])
+    useBottomTerminalStore.getState().split()
+    expect(useBottomTerminalStore.getState().sides).toHaveLength(4)
+    const before = useBottomTerminalStore.getState().sides
+    useBottomTerminalStore.getState().splitWith('b', 'before', 3)
+    expect(useBottomTerminalStore.getState().sides).toEqual(before)
   })
 
   it('opens new terminals on the focused side', () => {
@@ -197,6 +228,24 @@ describe('sides and tabs', () => {
     expect(useBottomTerminalStore.getState().enabled).toBe(true)
   })
 
+  it('closing a side’s last tab focuses the side to its left', () => {
+    useBottomTerminalStore.getState().split()
+    useBottomTerminalStore.getState().split()
+    const third = useBottomTerminalStore.getState().sides[2][0]
+    useBottomTerminalStore.getState().closeTerminal(third)
+    expect(useBottomTerminalStore.getState().sides).toHaveLength(2)
+    expect(useBottomTerminalStore.getState().focusedSide).toBe(1)
+  })
+
+  it('merges every side into one', () => {
+    useBottomTerminalStore.getState().split()
+    useBottomTerminalStore.getState().split()
+    const [, [r1], [r2]] = useBottomTerminalStore.getState().sides
+    useBottomTerminalStore.getState().unsplit()
+    expect(useBottomTerminalStore.getState().sides).toEqual([['a', 'b', r1, r2]])
+    expect(useBottomTerminalStore.getState().active).toEqual([r2])
+  })
+
   it('merges the right side into the left', () => {
     useBottomTerminalStore.getState().split()
     const right = useBottomTerminalStore.getState().sides[1][0]
@@ -220,6 +269,14 @@ describe('restoring a project', () => {
     expect(state.size).toBe(40)
     expect(state.origins.s1).toEqual({ paneId: 'pane-2', index: 0 })
     expect(useEditorStore.getState().paneTabLists['pane-1']).toEqual(['/a.ts'])
+  })
+
+  it('comes back empty (and so hidden) when saved with no terminals', () => {
+    twoPanes(['/a.ts'], [])
+    useBottomTerminalStore.getState().hydrate({ enabled: true, sides: [[]], active: [null], origins: {}, size: 30 })
+    const state = useBottomTerminalStore.getState()
+    expect(state.enabled).toBe(true)
+    expect(state.sides).toEqual([[]])
   })
 
   it('ignores a malformed or switched-off slice', () => {

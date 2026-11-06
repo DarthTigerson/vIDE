@@ -82,8 +82,97 @@ describe('Chat terminal link provider (integration)', () => {
       filePathProvider.provideLinks(1, (result: any[] | undefined) => resolve(result ?? []))
     })
 
-    return { links, spy }
+    return { links, spy, registered }
   }
+
+  function linksOn(provider: any, bufferLineNumber: number): Promise<any[]> {
+    return new Promise((resolve) => provider.provideLinks(bufferLineNumber, (result: any[] | undefined) => resolve(result ?? [])))
+  }
+
+  // Claude Code wraps long lines itself (real newlines plus a continuation
+  // indent), so a URL wider than the terminal lands on separate rows.
+  // Reported bug: clicking one opened only the first row's part.
+  it('joins a URL hard-wrapped across rows into one link, clickable from either row', async () => {
+    const url = 'https://gitlab.com/g2m-gentoo/kustomize-apps/-/merge_requests/1353/diffs?commit_id=abcdef0123456789abcdef'
+    const firstRow = `See ${url}`.slice(0, 80)
+    const rest = `See ${url}`.slice(80)
+    const { spy, registered } = await setupAndWriteLine(`${firstRow}\r\n  ${rest} for details`)
+    const urlProvider = registered[0]
+
+    for (const row of [1, 2]) {
+      const links = await linksOn(urlProvider, row)
+      expect(links.map((l) => l.text)).toEqual([url])
+      expect(links[0].range.start).toEqual({ x: 5, y: 1 })
+      expect(links[0].range.end.y).toBe(2)
+    }
+
+    spy.mockRestore()
+  })
+
+  // Claude Code draws markdown tables with box borders and wraps a long cell
+  // inside its column, so the continuation sits between "│" borders.
+  it('joins a path wrapped inside a table cell and links each row without the borders', async () => {
+    const path = '/Users/keithfenech/Documents/GitLab/KustomizeApps/kubernetes/wiki/monitoring/federation.md'
+    const cut = 40
+    const w = cut + 2
+    const pad = (s: string) => ` ${s}`.padEnd(w)
+    const rows = [`│ id │${pad(path.slice(0, cut))}│`, `│    │${pad(path.slice(cut))}│`]
+    const { spy, registered } = await setupAndWriteLine(rows.join('\r\n'))
+
+    for (const row of [1, 2]) {
+      const links = await linksOn(registered[1], row)
+      expect(links.map((l) => l.text)).toEqual([path])
+      expect(links[0].range.start.y).toBe(row)
+      expect(links[0].range.end.y).toBe(row)
+      expect(links[0].range.start.x).toBe(8)
+    }
+    spy.mockRestore()
+  })
+
+  it('does not join table rows whose cell stops short of the column edge', async () => {
+    const { spy, registered } = await setupAndWriteLine('│ id │ /Users/a/b      │\r\n│    │ c/d             │')
+    const links = await linksOn(registered[1], 1)
+    expect(links.map((l) => l.text)).toEqual(['/Users/a/b'])
+    spy.mockRestore()
+  })
+
+  it('does not join a URL onto the next row when its row stops short of the edge', async () => {
+    const { spy, registered } = await setupAndWriteLine('See https://example.com/a\r\nnext line')
+    const links = await linksOn(registered[0], 1)
+    expect(links.map((l) => l.text)).toEqual(['https://example.com/a'])
+    spy.mockRestore()
+  })
+
+  it('joins a file path hard-wrapped across rows', async () => {
+    const path = 'kubernetes/wiki/monitoring/federation/very/long/nested/directory/structure/README.md'
+    const text = `Edited ${path}`
+    const { spy, registered } = await setupAndWriteLine(`${text.slice(0, 80)}\r\n    ${text.slice(80)}`)
+    const links = await linksOn(registered[1], 2)
+    expect(links.map((l) => l.text)).toContain(path)
+    spy.mockRestore()
+  })
+
+  // Reported bug: Claude Code wraps a few columns short of the terminal edge
+  // (its own right margin), so the first row ends at column 75 of 80 and the
+  // path was split into unclickable pieces.
+  it('joins a path Claude Code wrapped short of the edge, clickable from every row', async () => {
+    const path = '/private/tmp/claude-501/-Users-keithfenech-Documents-vSuite/987e5218-655a-4c78-9d4b-6c658deabfd0/scratchpad/multiline-test.txt'
+    const rows = ['  ' + path.slice(0, 73), '  ' + path.slice(73)]
+    const { spy, registered } = await setupAndWriteLine(rows.join('\r\n'))
+    for (const row of [1, 2]) {
+      const links = await linksOn(registered[1], row)
+      expect(links.map((l) => l.text)).toEqual([path])
+    }
+    spy.mockRestore()
+  })
+
+  it('does not join prose that stops short of the edge onto a path on the next row', async () => {
+    const prose = 'This sentence ends a few columns before the right edge of the terminal.'
+    const { spy, registered } = await setupAndWriteLine(`${prose}\r\nsrc/next/file.ts`)
+    const links = await linksOn(registered[1], 2)
+    expect(links.map((l) => l.text)).toEqual(['src/next/file.ts'])
+    spy.mockRestore()
+  })
 
   it('registers a link provider that detects an extensionless SSH-key path in real terminal buffer content', async () => {
     const { links, spy } = await setupAndWriteLine('~/.ssh/id_ed25519_github_personal')

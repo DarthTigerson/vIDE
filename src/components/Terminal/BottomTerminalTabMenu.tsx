@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { useBottomTerminalStore } from '@/stores/bottomTerminalStore'
+import { useBottomTerminalStore, MAX_BOTTOM_TERMINAL_SIDES } from '@/stores/bottomTerminalStore'
 import { MenuButton, MenuDivider } from '@/components/Editor/TabContextMenu'
 import { ScriptsSubmenu } from '@/components/Scripts/ScriptsSubmenu'
 import { runScriptInTerminal } from '@/lib/runScript'
@@ -16,6 +16,8 @@ export function BottomTerminalTabMenu({ x, y, id, onClose }: { x: number; y: num
   const sides = useBottomTerminalStore((s) => s.sides)
   const side = sides.findIndex((ids) => ids.includes(id))
   const total = sides.reduce((n, ids) => n + ids.length, 0)
+  // Splitting a tab off needs another tab to stay behind on its side.
+  const canSplitOff = (sides[side]?.length ?? 0) > 1
   const store = useBottomTerminalStore.getState
 
   useEffect(() => {
@@ -53,15 +55,17 @@ export function BottomTerminalTabMenu({ x, y, id, onClose }: { x: number; y: num
       <MenuButton disabled={total < 2} onClick={withClose(() => store().closeOthers(id))}>Close Others</MenuButton>
       <MenuButton onClick={withClose(() => store().closeAll())}>Close All</MenuButton>
       <MenuDivider />
-      {sides.length === 1 ? (
+      {sides.length < MAX_BOTTOM_TERMINAL_SIDES && (
         <>
-          <MenuButton disabled={total < 2} onClick={withClose(() => store().splitWith(id, 'after'))}>Split Right</MenuButton>
-          <MenuButton disabled={total < 2} onClick={withClose(() => store().splitWith(id, 'before'))}>Split Left</MenuButton>
+          <MenuButton disabled={!canSplitOff} onClick={withClose(() => store().splitWith(id, 'after'))}>Split Right</MenuButton>
+          <MenuButton disabled={!canSplitOff} onClick={withClose(() => store().splitWith(id, 'before'))}>Split Left</MenuButton>
         </>
-      ) : (
-        <MenuButton onClick={withClose(() => store().moveTerminal(id, side === 0 ? 1 : 0, null))}>
-          {side === 0 ? 'Move to Right Side' : 'Move to Left Side'}
-        </MenuButton>
+      )}
+      {side > 0 && (
+        <MenuButton onClick={withClose(() => store().moveTerminal(id, side - 1, null))}>Move to Left Side</MenuButton>
+      )}
+      {side < sides.length - 1 && (
+        <MenuButton onClick={withClose(() => store().moveTerminal(id, side + 1, null))}>Move to Right Side</MenuButton>
       )}
       <MenuDivider />
       <MenuButton onClick={withClose(() => clearLiveTerminal(id))}>Clear Terminal</MenuButton>

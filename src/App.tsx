@@ -9,6 +9,8 @@ import { refreshRepoStatuses } from '@/lib/refreshRepoStatuses'
 import { restoreEditorSession, startEditorSessionPersistence } from '@/lib/editorSession'
 import { resetBottomTerminal, restoreBottomTerminal, startBottomTerminalPersistence } from '@/lib/bottomTerminalSession'
 import { useBottomTerminalStore } from '@/stores/bottomTerminalStore'
+import { focusedBottomTerminalSide, focusedAgentTerminalSession, focusAfterTerminalClose } from '@/lib/bottomTerminalFocus'
+import { liveTerminals } from '@/lib/liveTerminals'
 import { BottomTerminal } from './components/Terminal/BottomTerminal'
 import { formatMemory, memoryRows } from '@/lib/memoryBreakdown'
 import { Sidebar } from './components/Sidebar/Sidebar'
@@ -349,7 +351,9 @@ export default function App() {
   const runningLlamaCount = useRunningLlamaCount(llamaEnabled)
   useLlamaAvailability(llamaEnabled)
   const graphifyEnabled = useGraphifySettingsStore((s) => s.enabled)
-  const bottomTerminalEnabled = useBottomTerminalStore((s) => s.enabled)
+  // Hidden while it holds no terminals; the next one opened (Cmd+T, the
+  // sidebar's button) is routed down here and brings the panel back.
+  const bottomTerminalEnabled = useBottomTerminalStore((s) => s.enabled && s.sides.some((ids) => ids.length > 0))
   // Not subscribed: it only seeds the panel's height when the panel mounts,
   // and resizing shouldn't re-render the whole app.
   const bottomTerminalSize = useBottomTerminalStore.getState().size
@@ -801,6 +805,43 @@ export default function App() {
   const pendingPinnedCloseRef = useRef<PendingClose | null>(null)
   useEffect(() => {
     return window.api.onMenuCloseActiveTab(() => {
+      // A focused bottom terminal owns Cmd+W: close its tab, not the editor's.
+      const side = focusedBottomTerminalSide(document.activeElement)
+      if (side !== null) {
+        const bottom = useBottomTerminalStore.getState()
+        const id = bottom.active[side]
+        if (id) {
+          bottom.setFocusedSide(side)
+          bottom.closeTerminal(id)
+          focusAfterTerminalClose({
+            nextTerminalId: () => {
+              const { active, focusedSide } = useBottomTerminalStore.getState()
+              return active[focusedSide] ?? active.find((a) => a) ?? null
+            },
+            focusTerminal: (next) => liveTerminals.get(next)?.xterm.focus(),
+            activePaneId: () => useEditorStore.getState().activePaneId,
+          })
+        }
+        return
+      }
+      // Same for a plain terminal session in the agent panel (never a Claude
+      // session — those aren't marked). Focus follows to the session that
+      // becomes active only if it is a terminal too, else to the editor.
+      const sessionId = focusedAgentTerminalSession(document.activeElement)
+      const root = useFileStore.getState().projectRoot
+      if (sessionId && root) {
+        useClaudeStore.getState().closeInstance(root, sessionId)
+        focusAfterTerminalClose({
+          nextTerminalId: () => {
+            const { instances, activeInstanceId } = useClaudeStore.getState()
+            const next = instances.find((inst) => inst.id === activeInstanceId)
+            return next && isTerminalKind(next.kind) ? next.id : null
+          },
+          focusTerminal: (next) => liveTerminals.get(next)?.xterm.focus(),
+          activePaneId: () => useEditorStore.getState().activePaneId,
+        })
+        return
+      }
       const { activePaneId, paneTabs, pinnedPaths } = useEditorStore.getState()
       const path = paneTabs[activePaneId]
       if (!path) return

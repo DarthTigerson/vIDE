@@ -130,6 +130,8 @@ import { MarkdownViewer } from '@/components/Viewer/MarkdownViewer'
 import { isMarkdownFile } from '@/lib/fileKinds'
 import type { GitDiffContent } from '@/types/index'
 import { isVirtualTab, isReadOnlyTab } from '@/lib/tabKinds'
+import { focusedBottomTerminalSide } from '@/lib/bottomTerminalFocus'
+import { useBottomTerminalStore } from '@/stores/bottomTerminalStore'
 import { isScratchTab } from './paths'
 
 // Exported for tests: the scratch Save As branch below is the only place the
@@ -254,6 +256,12 @@ export function Editor() {
 
       if (key === 'd') {
         e.preventDefault()
+        // A focused bottom terminal splits itself (right only, at most two
+        // sides), not the editor behind it.
+        if (focusedBottomTerminalSide(document.activeElement) !== null) {
+          useBottomTerminalStore.getState().split()
+          return
+        }
         splitActivePane(e.shiftKey ? 'vertical' : 'horizontal')
       }
     }
