@@ -27,6 +27,16 @@ const PIPES = [...LEFT_PIPES, ...RIGHT_PIPES]
 const LEFT_NODES: Array<[number, number]> = [[140, 130], [260, 170], [120, 250], [160, 370], [300, 330]]
 const NODES = [...LEFT_NODES, ...LEFT_NODES.map(([x, y]): [number, number] => [800 - x, y])]
 
+// vIDE's hex emblem (the app icon), in a 100x100 box: three thick outer
+// segments with gaps at alternate corners, a thin inner hex, and a solid core.
+const EMBLEM_SEGMENTS = [
+  'M82.9 37.1 L82.9 69 L55.3 85',
+  'M44.7 85 L17.1 69 L17.1 37.1',
+  'M22.4 28 L50 12 L77.6 28',
+]
+const EMBLEM_INNER = '50 27 69.9 38.5 69.9 61.5 50 73 30.1 61.5 30.1 38.5'
+const EMBLEM_CORE = '50 38 60.4 44 60.4 56 50 62 39.6 56 39.6 44'
+
 const vars = (v: Record<string, string>) => v as CSSProperties
 
 export function SyncSplash({ palette }: { palette: SplashPalette }) {
@@ -60,15 +70,12 @@ export function SyncSplash({ palette }: { palette: SplashPalette }) {
         {NODES.map(([cx, cy]) => (
           <circle key={`${cx},${cy}`} className="sync-splash__node" cx={cx} cy={cy} r={3.6} />
         ))}
-        <svg x={376} y={226} width={48} height={48} viewBox="0 0 24 24" fill="none">
-          <path
-            className="sync-splash__icon"
-            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            stroke="currentColor"
-            strokeWidth={1.8}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+        <svg className="sync-splash__emblem" x={364} y={214} width={72} height={72} viewBox="0 0 100 100" fill="none">
+          {EMBLEM_SEGMENTS.map((d) => (
+            <path key={d} className="sync-splash__emblem-ring" d={d} strokeWidth={9} />
+          ))}
+          <polygon className="sync-splash__emblem-inner" points={EMBLEM_INNER} strokeWidth={2.4} />
+          <polygon className="sync-splash__icon" points={EMBLEM_CORE} />
         </svg>
       </svg>
       <div className="sync-splash__label">Syncing settings…</div>

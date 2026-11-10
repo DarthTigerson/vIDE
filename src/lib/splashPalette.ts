@@ -11,10 +11,11 @@ export interface SplashPalette {
   isLight: boolean
 }
 
-// What the splash shows until the synced theme is known.
+// What the splash shows until the synced theme is known: vIDE Dark's
+// graphite ground and brand gold.
 export const DEFAULT_SPLASH_PALETTE: SplashPalette = {
-  bg: '#141414',
-  accent: '#9e9e9e',
+  bg: '#0f1115',
+  accent: '#ffb020',
   isLight: false,
 }
 

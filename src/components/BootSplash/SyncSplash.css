@@ -78,22 +78,32 @@
   transition: stroke 0.5s ease 0.5s, fill 0.5s ease 0.8s;
 }
 
+/* The vIDE hex emblem at the centre: its outer segments and inner hex hold
+   still while the solid core turns, a third of a turn at a time. */
+.sync-splash__emblem-ring {
+  stroke: color-mix(in srgb, var(--splash-accent) 88%, var(--splash-tint));
+  transition: stroke 0.5s ease 0.5s;
+}
+.sync-splash__emblem-inner {
+  stroke: color-mix(in srgb, var(--splash-accent) 70%, transparent);
+  transition: stroke 0.5s ease 0.5s;
+}
 .sync-splash__icon {
   transform-box: fill-box;
   transform-origin: center;
-  animation: sync-splash-spin 1.2s linear infinite;
-  color: color-mix(in srgb, var(--splash-accent) 88%, var(--splash-tint));
-  transition: color 0.5s ease 0.5s;
+  animation: sync-splash-spin 2.4s cubic-bezier(0.6, 0, 0.4, 1) infinite;
+  fill: color-mix(in srgb, var(--splash-accent) 88%, var(--splash-tint));
+  transition: fill 0.5s ease 0.5s;
 }
 
 @keyframes sync-splash-travel {
   from { stroke-dashoffset: 9; }
   to { stroke-dashoffset: -100; }
 }
-/* Counter-clockwise: this icon's arrowheads point that way, so spinning it
-   clockwise (as the old splash did) looks like it is running backwards. */
+/* A hexagon looks identical every 60°, so a -120° step reads as one clean
+   tick of the core before it pauses and goes again. */
 @keyframes sync-splash-spin {
-  to { transform: rotate(-360deg); }
+  to { transform: rotate(-120deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
