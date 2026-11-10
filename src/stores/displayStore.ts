@@ -43,8 +43,8 @@ export type BackgroundImage = 'none' | 'vide' | 'clawd' | 'atreus' | 'link' | 't
 // PANEL_STYLE_OPTIONS below.
 export const BACKGROUND_IMAGE_OPTIONS: { value: BackgroundImage; label: string }[] = [
   { value: 'none',      label: 'None' },
-  { value: 'clawd',     label: 'Clawd' },
   { value: 'vide',      label: 'vIDE' },
+  { value: 'clawd',     label: 'Clawd' },
   { value: 'link',      label: 'Link' },
   { value: 'atreus',    label: 'Atreus' },
   { value: 'borahae',   label: 'Borahae' },

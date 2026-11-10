@@ -465,10 +465,10 @@ export interface ThemeOption {
 }
 
 export const THEME_OPTIONS: ThemeOption[] = [
-  { id: 'claude-dark',  name: 'Claude Dark',  swatches: ['#111111', '#1b1b1b', '#161616', '#db7d5e', '#333333'] },
-  { id: 'claude-light', name: 'Claude Light', swatches: ['#f1f1f1', '#ededed', '#fefefe', '#9a4c2f', '#dadada'] },
   { id: 'thomas-dark',  name: 'vIDE Dark',  swatches: ['#0f1115', '#161a21', '#161a21', '#ffb020', '#262d38'] },
   { id: 'thomas-light', name: 'vIDE Light', swatches: ['#eceef2', '#f6f7f9', '#ffffff', '#9a5b00', '#dfe3e9'] },
+  { id: 'claude-dark',  name: 'Claude Dark',  swatches: ['#111111', '#1b1b1b', '#161616', '#db7d5e', '#333333'] },
+  { id: 'claude-light', name: 'Claude Light', swatches: ['#f1f1f1', '#ededed', '#fefefe', '#9a4c2f', '#dadada'] },
   { id: 'link-dark',    name: 'Link Dark',    swatches: ['#11150e', '#1a2016', '#161b12', '#9ac26a', '#323d29'] },
   { id: 'link-light',   name: 'Link Light',   swatches: ['#fbfbe6', '#f9fbe0', '#fffffd', '#597232', '#f3f6be'] },
   { id: 'atreus-dark',  name: 'Atreus Dark',  swatches: ['#0e0f15', '#151720', '#12141b', '#8190d3', '#282d3e'] },
