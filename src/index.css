@@ -10,7 +10,9 @@
 
 /* accent is stored as R G B channels so Tailwind opacity modifiers (bg-accent/20) work */
 
-/* --color-on-accent duplicates each theme's base --color-bg value, but
+/* --color-on-accent duplicates each theme's base --color-bg value (except
+   vIDE Light, which uses white because its pale bg falls under 4.5:1 on
+   the deep amber), but
    deliberately isn't touched by the glossy/glass overrides below (those
    only redefine --color-bg itself, for panel translucency). It exists for
    text placed directly on a solid bg-accent fill (e.g. the Git panel's
@@ -57,7 +59,7 @@
   --color-fg:        #e6e9ef;
   --color-fg-muted:  #a8b1c0;
   --color-fg-subtle: #838c9c;
-  --color-on-accent: #16110a;
+  --color-on-accent: #0f1115;
 }
 
 [data-theme="thomas-light"] {

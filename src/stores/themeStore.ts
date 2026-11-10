@@ -98,7 +98,7 @@ systemDarkQuery.addEventListener('change', (e) => {
 
 // Custom themes registered by defineMonacoThemes() (src/monacoThemes.ts) — the
 // built-in 'vs-dark'/'vs' themes only coincidentally matched Claude's colors
-// and didn't track vIDE's warm palette at all.
+// and didn't track vIDE's own palettes at all.
 export const MONACO_THEMES: Record<ThemeId, string> = {
   'claude-dark':  'claude-dark',
   'claude-light': 'claude-light',
@@ -211,7 +211,7 @@ export const XTERM_THEMES: Record<ThemeId, ITheme> = {
   },
   // Luuk hates light mode, so "Luuk Light" is a gag — identical to "Luuk
   // Dark" down to every value. A true-black/graphite palette, distinct from
-  // the other themes' warmer or off-black backgrounds.
+  // the other themes' tinted backgrounds.
   'luuk-dark': {
     background:          '#0b0b0b',
     foreground:          '#cfcfcf',
