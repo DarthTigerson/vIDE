@@ -10,7 +10,9 @@
 
 /* accent is stored as R G B channels so Tailwind opacity modifiers (bg-accent/20) work */
 
-/* --color-on-accent duplicates each theme's base --color-bg value, but
+/* --color-on-accent duplicates each theme's base --color-bg value (except
+   vIDE Light, which uses white because its pale bg falls under 4.5:1 on
+   the deep amber), but
    deliberately isn't touched by the glossy/glass overrides below (those
    only redefine --color-bg itself, for panel translucency). It exists for
    text placed directly on a solid bg-accent fill (e.g. the Git panel's
@@ -19,175 +21,206 @@
    semi-transparent and washing it out against the accent fill. */
 
 [data-theme="claude-dark"] {
-  --color-bg:        #1a1a1a;
-  --color-panel:     #1e1e1e;
-  --color-sidebar:   #252526;
-  --color-popover:   #252526;
-  --color-tab-bar:   #2d2d2d;
-  --color-border:    #3c3c3c;
-  --color-accent:    217 119 87;   /* #d97757 */
-  --color-fg:        #cccccc;
-  --color-fg-muted:  #858585;
-  --color-fg-subtle: #555555;
-  --color-on-accent: #1a1a1a;
+  --color-bg:        #111111;
+  --color-panel:     #161616;
+  --color-sidebar:   #1b1b1b;
+  --color-popover:   #1e1e1e;
+  --color-tab-bar:   #202020;
+  --color-border:    #333333;
+  --color-accent:    219 125 94;   /* #db7d5e */
+  --color-fg:        #d9d9d9;
+  --color-fg-muted:  #aaaaaa;
+  --color-fg-subtle: #878787;
+  --color-on-accent: #111111;
 }
 
 [data-theme="claude-light"] {
-  --color-bg:        #f3f3f3;
-  --color-panel:     #ffffff;
-  --color-sidebar:   #ececec;
-  --color-popover:   #ececec;
-  --color-tab-bar:   #e8e8e8;
-  --color-border:    #e0e0e0;
-  --color-accent:    196 97 61;    /* #c4613d */
-  --color-fg:        #1e1e1e;
-  --color-fg-muted:  #717171;
-  --color-fg-subtle: #999999;
-  --color-on-accent: #f3f3f3;
+  --color-bg:        #f1f1f1;
+  --color-panel:     #fefefe;
+  --color-sidebar:   #ededed;
+  --color-popover:   #ededed;
+  --color-tab-bar:   #e9e9e9;
+  --color-border:    #dadada;
+  --color-accent:    154 76 47;    /* #9a4c2f */
+  --color-fg:        #222222;
+  --color-fg-muted:  #4c4c4c;
+  --color-fg-subtle: #696969;
+  --color-on-accent: #f1f1f1;
 }
 
 [data-theme="thomas-dark"] {
-  --color-bg:        #1c1712;
-  --color-panel:     #221c15;
-  --color-sidebar:   #2b2319;
-  --color-popover:   #2b2319;
-  --color-tab-bar:   #332a1e;
-  --color-border:    #4a3d29;
-  --color-accent:    245 194 66;   /* #f5c242 */
-  --color-fg:        #e8e0d0;
-  --color-fg-muted:  #9c9080;
-  --color-fg-subtle: #665c4a;
-  --color-on-accent: #1c1712;
+  --color-bg:        #0f1115;
+  --color-panel:     #161a21;
+  --color-sidebar:   #161a21;
+  --color-popover:   #1c212a;
+  --color-tab-bar:   #1c212a;
+  --color-border:    #262d38;
+  --color-accent:    255 176 32;   /* #ffb020 */
+  --color-fg:        #e6e9ef;
+  --color-fg-muted:  #a8b1c0;
+  --color-fg-subtle: #838c9c;
+  --color-on-accent: #0f1115;
 }
 
 [data-theme="thomas-light"] {
-  --color-bg:        #f7f1e0;
-  --color-panel:     #fffcf2;
-  --color-sidebar:   #efe6cd;
-  --color-popover:   #fffcf2;
-  --color-tab-bar:   #e9dfc0;
-  --color-border:    #d8c89a;
-  --color-accent:    173 123 0;    /* #ad7b00 */
-  --color-fg:        #2a2013;
-  --color-fg-muted:  #74684f;
-  --color-fg-subtle: #a89876;
-  --color-on-accent: #f7f1e0;
+  --color-bg:        #eceef2;
+  --color-panel:     #ffffff;
+  --color-sidebar:   #f6f7f9;
+  --color-popover:   #ffffff;
+  --color-tab-bar:   #eef0f3;
+  --color-border:    #dfe3e9;
+  --color-accent:    154 91 0;     /* #9a5b00 */
+  --color-fg:        #14171c;
+  --color-fg-muted:  #464e5b;
+  --color-fg-subtle: #626a77;
+  --color-on-accent: #ffffff;
+}
+
+/* "Malta" — Thomas's own theme, built from his Maltese-study wallpaper:
+   night-sea navy surfaces with the desk lamp's bright yellow, and
+   blueprint-parchment for light. */
+[data-theme="malta-dark"] {
+  --color-bg:        #071219;
+  --color-panel:     #091820;
+  --color-sidebar:   #0b1c27;
+  --color-popover:   #0d202c;
+  --color-tab-bar:   #0e222f;
+  --color-border:    #16374b;
+  --color-accent:    255 197 61;   /* #ffc53d */
+  --color-fg:        #d9dee1;
+  --color-fg-muted:  #9bb0bc;
+  --color-fg-subtle: #708ea0;
+  --color-on-accent: #071219;
+}
+
+[data-theme="malta-light"] {
+  --color-bg:        #f8f1e5;
+  --color-panel:     #fcfaf5;
+  --color-sidebar:   #f6eedf;
+  --color-popover:   #fcfaf5;
+  --color-tab-bar:   #f4e9d7;
+  --color-border:    #ead8b8;
+  --color-accent:    144 96 0;     /* #906000 */
+  --color-fg:        #2a2214;
+  --color-fg-muted:  #58492f;
+  --color-fg-subtle: #766447;
+  --color-on-accent: #fcfaf5;
 }
 
 /* Luuk hates light mode — "Luuk Light" is a gag theme, identical to
    "Luuk Dark" in every value. True-black/graphite, no warm tint. */
 [data-theme="luuk-dark"] {
-  --color-bg:        #0d0d0d;
-  --color-panel:     #141414;
-  --color-sidebar:   #111111;
-  --color-popover:   #1a1a1a;
-  --color-tab-bar:   #181818;
-  --color-border:    #2e2e2e;
-  --color-accent:    158 158 158;  /* #9e9e9e */
-  --color-fg:        #d4d4d4;
-  --color-fg-muted:  #8a8a8a;
-  --color-fg-subtle: #525252;
-  --color-on-accent: #0d0d0d;
+  --color-bg:        #0b0b0b;
+  --color-panel:     #121212;
+  --color-sidebar:   #0f0f0f;
+  --color-popover:   #171717;
+  --color-tab-bar:   #141414;
+  --color-border:    #2b2b2b;
+  --color-accent:    158 158 158;   /* #9e9e9e */
+  --color-fg:        #cfcfcf;
+  --color-fg-muted:  #a2a2a2;
+  --color-fg-subtle: #808080;
+  --color-on-accent: #0b0b0b;
 }
 
 [data-theme="luuk-light"] {
-  --color-bg:        #0d0d0d;
-  --color-panel:     #141414;
-  --color-sidebar:   #111111;
-  --color-popover:   #1a1a1a;
-  --color-tab-bar:   #181818;
-  --color-border:    #2e2e2e;
-  --color-accent:    158 158 158;  /* #9e9e9e */
-  --color-fg:        #d4d4d4;
-  --color-fg-muted:  #8a8a8a;
-  --color-fg-subtle: #525252;
-  --color-on-accent: #0d0d0d;
+  --color-bg:        #0b0b0b;
+  --color-panel:     #121212;
+  --color-sidebar:   #0f0f0f;
+  --color-popover:   #171717;
+  --color-tab-bar:   #141414;
+  --color-border:    #2b2b2b;
+  --color-accent:    158 158 158;   /* #9e9e9e */
+  --color-fg:        #cfcfcf;
+  --color-fg-muted:  #a2a2a2;
+  --color-fg-subtle: #808080;
+  --color-on-accent: #0b0b0b;
 }
 
 /* "Borahae" (BTS/ARMY's "I purple you") — see the note in themeStore.ts's
    XTERM_THEMES for the phrase's origin. */
 [data-theme="borahae-dark"] {
-  --color-bg:        #15111f;
-  --color-panel:     #1b1728;
-  --color-sidebar:   #1f1a2e;
-  --color-popover:   #1f1a2e;
-  --color-tab-bar:   #251f38;
-  --color-border:    #3d3552;
-  --color-accent:    139 92 246;   /* #8b5cf6 */
-  --color-fg:        #e8e0f5;
-  --color-fg-muted:  #a99cc4;
-  --color-fg-subtle: #6f6389;
-  --color-on-accent: #15111f;
+  --color-bg:        #100e15;
+  --color-panel:     #14121b;
+  --color-sidebar:   #181520;
+  --color-popover:   #1b1725;
+  --color-tab-bar:   #1d1927;
+  --color-border:    #2e283e;
+  --color-accent:    161 124 248;   /* #a17cf8 */
+  --color-fg:        #d4d3d9;
+  --color-fg-muted:  #a8a3b7;
+  --color-fg-subtle: #877f9a;
+  --color-on-accent: #100e15;
 }
 
 [data-theme="borahae-light"] {
-  --color-bg:        #f5f1fb;
-  --color-panel:     #fdfcff;
-  --color-sidebar:   #ece4f9;
-  --color-popover:   #ece4f9;
-  --color-tab-bar:   #e3d7f5;
-  --color-border:    #d4c2ec;
+  --color-bg:        #efe9f9;
+  --color-panel:     #fefdfe;
+  --color-sidebar:   #ebe3f7;
+  --color-popover:   #ebe3f7;
+  --color-tab-bar:   #e6dcf5;
+  --color-border:    #d6c5ef;
   --color-accent:    109 40 217;   /* #6d28d9 */
-  --color-fg:        #241b38;
-  --color-fg-muted:  #6b5c87;
-  --color-fg-subtle: #9c8fb8;
-  --color-on-accent: #f5f1fb;
+  --color-fg:        #1e1926;
+  --color-fg-muted:  #4e4161;
+  --color-fg-subtle: #6d5c88;
+  --color-on-accent: #efe9f9;
 }
 
 [data-theme="link-dark"] {
-  --color-bg:        #12160f;
-  --color-panel:     #171c13;
-  --color-sidebar:   #1c2216;
-  --color-popover:   #1c2216;
-  --color-tab-bar:   #212a19;
-  --color-border:    #3a4a2c;
-  --color-accent:    154 194 106; /* #9ac26a */
-  --color-fg:        #eef0d5;
-  --color-fg-muted:  #9aa084;
-  --color-fg-subtle: #5f6650;
-  --color-on-accent: #12160f;
+  --color-bg:        #11150e;
+  --color-panel:     #161b12;
+  --color-sidebar:   #1a2016;
+  --color-popover:   #1d2418;
+  --color-tab-bar:   #1f261a;
+  --color-border:    #323d29;
+  --color-accent:    154 194 106;   /* #9ac26a */
+  --color-fg:        #dcdfda;
+  --color-fg-muted:  #a6b29c;
+  --color-fg-subtle: #7e9071;
+  --color-on-accent: #11150e;
 }
 
 [data-theme="link-light"] {
-  --color-bg:        #fdfee8;
-  --color-panel:     #fffef2;
-  --color-sidebar:   #eef0cf;
-  --color-popover:   #eef0cf;
-  --color-tab-bar:   #e6e6bd;
-  --color-border:    #c9c093;
-  --color-accent:    107 138 61;  /* #6b8a3d */
-  --color-fg:        #3a2f1e;
-  --color-fg-muted:  #7a6b4f;
-  --color-fg-subtle: #a89b78;
-  --color-on-accent: #fdfee8;
+  --color-bg:        #fbfbe6;
+  --color-panel:     #fffffd;
+  --color-sidebar:   #f9fbe0;
+  --color-popover:   #f9fbe0;
+  --color-tab-bar:   #f8f9d8;
+  --color-border:    #f3f6be;
+  --color-accent:    89 114 50;    /* #597232 */
+  --color-fg:        #2c2d1a;
+  --color-fg-muted:  #555632;
+  --color-fg-subtle: #727444;
+  --color-on-accent: #fbfbe6;
 }
 
 [data-theme="atreus-dark"] {
-  --color-bg:        #12151f;
-  --color-panel:     #171b28;
-  --color-sidebar:   #1c2233;
-  --color-popover:   #1c2233;
-  --color-tab-bar:   #232a3d;
-  --color-border:    #3a4460;
-  --color-accent:    84 104 196;  /* #5468c4 */
-  --color-fg:        #e4e7f2;
-  --color-fg-muted:  #8b93b0;
-  --color-fg-subtle: #4f5670;
-  --color-on-accent: #12151f;
+  --color-bg:        #0e0f15;
+  --color-panel:     #12141b;
+  --color-sidebar:   #151720;
+  --color-popover:   #171b25;
+  --color-tab-bar:   #191c27;
+  --color-border:    #282d3e;
+  --color-accent:    129 144 211;   /* #8190d3 */
+  --color-fg:        #d3d5d9;
+  --color-fg-muted:  #a2a6b6;
+  --color-fg-subtle: #7d8399;
+  --color-on-accent: #0e0f15;
 }
 
 [data-theme="atreus-light"] {
-  --color-bg:        #eef0f5;
-  --color-panel:     #f8f9fc;
-  --color-sidebar:   #e2e5ee;
-  --color-popover:   #e2e5ee;
-  --color-tab-bar:   #d8dce8;
-  --color-border:    #c2c8dc;
-  --color-accent:    44 58 110;   /* #2c3a6e */
-  --color-fg:        #1c2233;
-  --color-fg-muted:  #5c6480;
-  --color-fg-subtle: #8b93b0;
-  --color-on-accent: #eef0f5;
+  --color-bg:        #edeff5;
+  --color-panel:     #fdfefe;
+  --color-sidebar:   #e9ebf2;
+  --color-popover:   #e9ebf2;
+  --color-tab-bar:   #e3e6ee;
+  --color-border:    #d0d6e4;
+  --color-accent:    44 58 110;    /* #2c3a6e */
+  --color-fg:        #1f2025;
+  --color-fg-muted:  #464b55;
+  --color-fg-subtle: #626775;
+  --color-on-accent: #edeff5;
 }
 
 /* "Gabriele" — a colleague's own custom theme, integrated as a built-in
@@ -197,31 +230,31 @@
    getting their own shade like every other theme — a flat, uniform panel
    treatment was the actual pick, not an oversight. */
 [data-theme="gabriele-dark"] {
-  --color-bg:        #565656;
-  --color-panel:     #4e4e4e;
-  --color-sidebar:   #565656;
-  --color-popover:   #4e4e4e;
-  --color-tab-bar:   #565656;
-  --color-border:    #3c3c3c;
-  --color-accent:    130 130 130; /* #828282 */
-  --color-fg:        #cccccc;
-  --color-fg-muted:  #a3a3a3;
-  --color-fg-subtle: #858585;
-  --color-on-accent: #565656;
+  --color-bg:        #3c3c3c;
+  --color-panel:     #363636;
+  --color-sidebar:   #3c3c3c;
+  --color-popover:   #363636;
+  --color-tab-bar:   #3c3c3c;
+  --color-border:    #262626;
+  --color-accent:    183 183 183;   /* #b7b7b7 */
+  --color-fg:        #f7f7f7;
+  --color-fg-muted:  #cecece;
+  --color-fg-subtle: #a6a6a6;
+  --color-on-accent: #3c3c3c;
 }
 
 [data-theme="gabriele-light"] {
-  --color-bg:        #f0f0f0;
-  --color-panel:     #ffffff;
-  --color-sidebar:   #e6e6e6;
-  --color-popover:   #ffffff;
-  --color-tab-bar:   #e2e2e2;
-  --color-border:    #d4d4d4;
-  --color-accent:    92 92 92;    /* #5c5c5c */
-  --color-fg:        #2b2b2b;
-  --color-fg-muted:  #737373;
-  --color-fg-subtle: #999999;
-  --color-on-accent: #f0f0f0;
+  --color-bg:        #f1f1f1;
+  --color-panel:     #fefefe;
+  --color-sidebar:   #ededed;
+  --color-popover:   #fefefe;
+  --color-tab-bar:   #e9e9e9;
+  --color-border:    #dadada;
+  --color-accent:    92 92 92;     /* #5c5c5c */
+  --color-fg:        #222222;
+  --color-fg-muted:  #4c4c4c;
+  --color-fg-subtle: #696969;
+  --color-on-accent: #f1f1f1;
 }
 
 /* Ref/branch badge text — the -200/-300-ish pastel shades read fine on a
@@ -304,117 +337,149 @@ body {
 
 /* Solid panel style — fully-opaque colors with a stronger --color-border so
    the sidebar/tab-bar/panel divides read as deliberate hard lines. Brushed
-   Metal shares this same bolder border (a metal panel reads as bounded/
-   bezeled too) — its actual brushed finish comes from the background-image
-   grain/sheen block further down. */
+   Metal and Leather share this same bolder border (a metal or leather panel
+   reads as bounded/bezeled too) — their actual finish comes from the
+   background-image blocks further down. */
 [data-theme="claude-dark"][data-panel-style="solid"],
-[data-theme="claude-dark"][data-panel-style="brushed-metal"]  { --color-border: #5a5a5a; }
+[data-theme="claude-dark"][data-panel-style="leather"],
+[data-theme="claude-dark"][data-panel-style="brushed-metal"]  { --color-border: #5c5c5c; }
 [data-theme="claude-light"][data-panel-style="solid"],
-[data-theme="claude-light"][data-panel-style="brushed-metal"] { --color-border: #b0b0b0; }
+[data-theme="claude-light"][data-panel-style="leather"],
+[data-theme="claude-light"][data-panel-style="brushed-metal"] { --color-border: #acacac; }
 [data-theme="thomas-dark"][data-panel-style="solid"],
-[data-theme="thomas-dark"][data-panel-style="brushed-metal"]  { --color-border: #6b5738; }
+[data-theme="thomas-dark"][data-panel-style="leather"],
+[data-theme="thomas-dark"][data-panel-style="brushed-metal"]  { --color-border: #565c66; }
 [data-theme="thomas-light"][data-panel-style="solid"],
-[data-theme="thomas-light"][data-panel-style="brushed-metal"] { --color-border: #c2ab72; }
+[data-theme="thomas-light"][data-panel-style="leather"],
+[data-theme="thomas-light"][data-panel-style="brushed-metal"] { --color-border: #acb0b6; }
+[data-theme="malta-dark"][data-panel-style="solid"],
+[data-theme="malta-dark"][data-panel-style="leather"],
+[data-theme="malta-dark"][data-panel-style="brushed-metal"]  { --color-border: #476170; }
+[data-theme="malta-light"][data-panel-style="solid"],
+[data-theme="malta-light"][data-panel-style="leather"],
+[data-theme="malta-light"][data-panel-style="brushed-metal"] { --color-border: #baaa8f; }
 [data-theme="luuk-dark"][data-panel-style="solid"],
 [data-theme="luuk-light"][data-panel-style="solid"],
+[data-theme="luuk-dark"][data-panel-style="leather"],
 [data-theme="luuk-dark"][data-panel-style="brushed-metal"],
-[data-theme="luuk-light"][data-panel-style="brushed-metal"]   { --color-border: #484848; }
+[data-theme="luuk-light"][data-panel-style="leather"],
+[data-theme="luuk-light"][data-panel-style="brushed-metal"]   { --color-border: #545454; }
 [data-theme="borahae-dark"][data-panel-style="solid"],
-[data-theme="borahae-dark"][data-panel-style="brushed-metal"]  { --color-border: #4a4066; }
+[data-theme="borahae-dark"][data-panel-style="leather"],
+[data-theme="borahae-dark"][data-panel-style="brushed-metal"]  { --color-border: #585365; }
 [data-theme="borahae-light"][data-panel-style="solid"],
-[data-theme="borahae-light"][data-panel-style="brushed-metal"] { --color-border: #b8a0dc; }
+[data-theme="borahae-light"][data-panel-style="leather"],
+[data-theme="borahae-light"][data-panel-style="brushed-metal"] { --color-border: #a89abd; }
 [data-theme="link-dark"][data-panel-style="solid"],
-[data-theme="link-dark"][data-panel-style="brushed-metal"]    { --color-border: #55703c; }
+[data-theme="link-dark"][data-panel-style="leather"],
+[data-theme="link-dark"][data-panel-style="brushed-metal"]    { --color-border: #5c6655; }
 [data-theme="link-light"][data-panel-style="solid"],
-[data-theme="link-light"][data-panel-style="brushed-metal"]   { --color-border: #a3925c; }
+[data-theme="link-light"][data-panel-style="leather"],
+[data-theme="link-light"][data-panel-style="brushed-metal"]   { --color-border: #c1c495; }
 [data-theme="atreus-dark"][data-panel-style="solid"],
-[data-theme="atreus-dark"][data-panel-style="brushed-metal"]  { --color-border: #4a5580; }
+[data-theme="atreus-dark"][data-panel-style="leather"],
+[data-theme="atreus-dark"][data-panel-style="brushed-metal"]  { --color-border: #535765; }
 [data-theme="atreus-light"][data-panel-style="solid"],
-[data-theme="atreus-light"][data-panel-style="brushed-metal"] { --color-border: #9aa2c2; }
+[data-theme="atreus-light"][data-panel-style="leather"],
+[data-theme="atreus-light"][data-panel-style="brushed-metal"] { --color-border: #a4a8b4; }
 [data-theme="gabriele-dark"][data-panel-style="solid"],
-[data-theme="gabriele-dark"][data-panel-style="brushed-metal"]  { --color-border: #6e6e6e; }
+[data-theme="gabriele-dark"][data-panel-style="leather"],
+[data-theme="gabriele-dark"][data-panel-style="brushed-metal"]  { --color-border: #5a5a5a; }
 [data-theme="gabriele-light"][data-panel-style="solid"],
-[data-theme="gabriele-light"][data-panel-style="brushed-metal"] { --color-border: #a0a0a0; }
+[data-theme="gabriele-light"][data-panel-style="leather"],
+[data-theme="gabriele-light"][data-panel-style="brushed-metal"] { --color-border: #acacac; }
 
 /* Glossy panel opacity — rgba overrides let native vibrancy show through */
 [data-theme="claude-dark"][data-panel-style="glossy"] {
-  --color-bg:      rgba(26,  26,  26,  0.5);
-  --color-panel:   rgba(30,  30,  30,  0.6);
-  --color-sidebar: rgba(37,  37,  38,  0.5);
-  --color-tab-bar: rgba(45,  45,  45,  0.65);
+  --color-bg:      rgba(17, 17, 17, 0.5);
+  --color-panel:   rgba(22, 22, 22, 0.6);
+  --color-sidebar: rgba(27, 27, 27, 0.5);
+  --color-tab-bar: rgba(32, 32, 32, 0.65);
 }
 [data-theme="claude-light"][data-panel-style="glossy"] {
-  --color-bg:      rgba(243, 243, 243, 0.55);
-  --color-panel:   rgba(255, 255, 255, 0.7);
-  --color-sidebar: rgba(236, 236, 236, 0.6);
-  --color-tab-bar: rgba(232, 232, 232, 0.65);
+  --color-bg:      rgba(241, 241, 241, 0.55);
+  --color-panel:   rgba(254, 254, 254, 0.7);
+  --color-sidebar: rgba(237, 237, 237, 0.6);
+  --color-tab-bar: rgba(233, 233, 233, 0.65);
 }
 [data-theme="thomas-dark"][data-panel-style="glossy"] {
-  --color-bg:      rgba(28,  23,  18,  0.5);
-  --color-panel:   rgba(34,  28,  21,  0.6);
-  --color-sidebar: rgba(43,  35,  25,  0.5);
-  --color-tab-bar: rgba(51,  42,  30,  0.65);
+  --color-bg:      rgba(15, 17, 21, 0.5);
+  --color-panel:   rgba(22, 26, 33, 0.6);
+  --color-sidebar: rgba(22, 26, 33, 0.5);
+  --color-tab-bar: rgba(28, 33, 42, 0.65);
 }
 [data-theme="thomas-light"][data-panel-style="glossy"] {
-  --color-bg:      rgba(247, 241, 224, 0.55);
-  --color-panel:   rgba(255, 252, 242, 0.7);
-  --color-sidebar: rgba(239, 230, 205, 0.6);
-  --color-tab-bar: rgba(233, 223, 192, 0.65);
+  --color-bg:      rgba(236, 238, 242, 0.55);
+  --color-panel:   rgba(255, 255, 255, 0.7);
+  --color-sidebar: rgba(246, 247, 249, 0.6);
+  --color-tab-bar: rgba(238, 240, 243, 0.65);
+}
+[data-theme="malta-dark"][data-panel-style="glossy"] {
+  --color-bg:      rgba(7, 18, 25, 0.5);
+  --color-panel:   rgba(9, 24, 32, 0.6);
+  --color-sidebar: rgba(11, 28, 39, 0.5);
+  --color-tab-bar: rgba(14, 34, 47, 0.65);
+}
+[data-theme="malta-light"][data-panel-style="glossy"] {
+  --color-bg:      rgba(248, 241, 229, 0.55);
+  --color-panel:   rgba(252, 250, 245, 0.7);
+  --color-sidebar: rgba(246, 238, 223, 0.6);
+  --color-tab-bar: rgba(244, 233, 215, 0.65);
 }
 [data-theme="luuk-dark"][data-panel-style="glossy"],
 [data-theme="luuk-light"][data-panel-style="glossy"] {
-  --color-bg:      rgba(13,  13,  13,  0.5);
-  --color-panel:   rgba(20,  20,  20,  0.6);
-  --color-sidebar: rgba(17,  17,  17,  0.5);
-  --color-tab-bar: rgba(24,  24,  24,  0.65);
+  --color-bg:      rgba(11, 11, 11, 0.5);
+  --color-panel:   rgba(18, 18, 18, 0.6);
+  --color-sidebar: rgba(15, 15, 15, 0.5);
+  --color-tab-bar: rgba(20, 20, 20, 0.65);
 }
 [data-theme="borahae-dark"][data-panel-style="glossy"] {
-  --color-bg:      rgba(21,  17,  31,  0.5);
-  --color-panel:   rgba(27,  23,  40,  0.6);
-  --color-sidebar: rgba(31,  26,  46,  0.5);
-  --color-tab-bar: rgba(37,  31,  56,  0.65);
+  --color-bg:      rgba(16, 14, 21, 0.5);
+  --color-panel:   rgba(20, 18, 27, 0.6);
+  --color-sidebar: rgba(24, 21, 32, 0.5);
+  --color-tab-bar: rgba(29, 25, 39, 0.65);
 }
 [data-theme="borahae-light"][data-panel-style="glossy"] {
-  --color-bg:      rgba(245, 241, 251, 0.55);
-  --color-panel:   rgba(253, 252, 255, 0.7);
-  --color-sidebar: rgba(236, 228, 249, 0.6);
-  --color-tab-bar: rgba(227, 215, 245, 0.65);
+  --color-bg:      rgba(239, 233, 249, 0.55);
+  --color-panel:   rgba(254, 253, 254, 0.7);
+  --color-sidebar: rgba(235, 227, 247, 0.6);
+  --color-tab-bar: rgba(230, 220, 245, 0.65);
 }
 [data-theme="link-dark"][data-panel-style="glossy"] {
-  --color-bg:      rgba(18,  22,  15,  0.5);
-  --color-panel:   rgba(23,  28,  19,  0.6);
-  --color-sidebar: rgba(28,  34,  22,  0.5);
-  --color-tab-bar: rgba(33,  42,  25,  0.65);
+  --color-bg:      rgba(17, 21, 14, 0.5);
+  --color-panel:   rgba(22, 27, 18, 0.6);
+  --color-sidebar: rgba(26, 32, 22, 0.5);
+  --color-tab-bar: rgba(31, 38, 26, 0.65);
 }
 [data-theme="link-light"][data-panel-style="glossy"] {
-  --color-bg:      rgba(253, 254, 232, 0.55);
-  --color-panel:   rgba(255, 254, 242, 0.7);
-  --color-sidebar: rgba(238, 240, 207, 0.6);
-  --color-tab-bar: rgba(230, 230, 189, 0.65);
+  --color-bg:      rgba(251, 251, 230, 0.55);
+  --color-panel:   rgba(255, 255, 253, 0.7);
+  --color-sidebar: rgba(249, 251, 224, 0.6);
+  --color-tab-bar: rgba(248, 249, 216, 0.65);
 }
 [data-theme="atreus-dark"][data-panel-style="glossy"] {
-  --color-bg:      rgba(18,  21,  31,  0.5);
-  --color-panel:   rgba(23,  27,  40,  0.6);
-  --color-sidebar: rgba(28,  34,  51,  0.5);
-  --color-tab-bar: rgba(35,  42,  61,  0.65);
+  --color-bg:      rgba(14, 15, 21, 0.5);
+  --color-panel:   rgba(18, 20, 27, 0.6);
+  --color-sidebar: rgba(21, 23, 32, 0.5);
+  --color-tab-bar: rgba(25, 28, 39, 0.65);
 }
 [data-theme="atreus-light"][data-panel-style="glossy"] {
-  --color-bg:      rgba(238, 240, 245, 0.55);
-  --color-panel:   rgba(248, 249, 252, 0.7);
-  --color-sidebar: rgba(226, 229, 238, 0.6);
-  --color-tab-bar: rgba(216, 220, 232, 0.65);
+  --color-bg:      rgba(237, 239, 245, 0.55);
+  --color-panel:   rgba(253, 254, 254, 0.7);
+  --color-sidebar: rgba(233, 235, 242, 0.6);
+  --color-tab-bar: rgba(227, 230, 238, 0.65);
 }
 [data-theme="gabriele-dark"][data-panel-style="glossy"] {
-  --color-bg:      rgba(86,  86,  86,  0.5);
-  --color-panel:   rgba(78,  78,  78,  0.6);
-  --color-sidebar: rgba(86,  86,  86,  0.5);
-  --color-tab-bar: rgba(86,  86,  86,  0.65);
+  --color-bg:      rgba(60, 60, 60, 0.5);
+  --color-panel:   rgba(54, 54, 54, 0.6);
+  --color-sidebar: rgba(60, 60, 60, 0.5);
+  --color-tab-bar: rgba(60, 60, 60, 0.65);
 }
 [data-theme="gabriele-light"][data-panel-style="glossy"] {
-  --color-bg:      rgba(240, 240, 240, 0.55);
-  --color-panel:   rgba(255, 255, 255, 0.7);
-  --color-sidebar: rgba(230, 230, 230, 0.6);
-  --color-tab-bar: rgba(226, 226, 226, 0.65);
+  --color-bg:      rgba(241, 241, 241, 0.55);
+  --color-panel:   rgba(254, 254, 254, 0.7);
+  --color-sidebar: rgba(237, 237, 237, 0.6);
+  --color-tab-bar: rgba(233, 233, 233, 0.65);
 }
 
 /* Glass panel opacity. Unlike glossy, this deliberately only touches
@@ -426,57 +491,65 @@ body {
    Cosmos terminal panels (bg-panel/bg-bg) are where the app-wide
    background badge (see .app-bg-badge) is actually meant to show through. */
 [data-theme="claude-dark"][data-panel-style="glass"] {
-  --color-bg:    rgba(26, 26, 26, 0.2);
-  --color-panel: rgba(30, 30, 30, 0.25);
+  --color-bg:    rgba(17, 17, 17, 0.2);
+  --color-panel: rgba(22, 22, 22, 0.25);
 }
 [data-theme="claude-light"][data-panel-style="glass"] {
-  --color-bg:    rgba(243, 243, 243, 0.25);
-  --color-panel: rgba(255, 255, 255, 0.3);
+  --color-bg:    rgba(241, 241, 241, 0.25);
+  --color-panel: rgba(254, 254, 254, 0.3);
 }
 [data-theme="thomas-dark"][data-panel-style="glass"] {
-  --color-bg:    rgba(28, 23, 18, 0.2);
-  --color-panel: rgba(34, 28, 21, 0.25);
+  --color-bg:    rgba(15, 17, 21, 0.2);
+  --color-panel: rgba(22, 26, 33, 0.25);
 }
 [data-theme="thomas-light"][data-panel-style="glass"] {
-  --color-bg:    rgba(247, 241, 224, 0.25);
-  --color-panel: rgba(255, 252, 242, 0.3);
+  --color-bg:    rgba(236, 238, 242, 0.25);
+  --color-panel: rgba(255, 255, 255, 0.3);
+}
+[data-theme="malta-dark"][data-panel-style="glass"] {
+  --color-bg:    rgba(7, 18, 25, 0.2);
+  --color-panel: rgba(9, 24, 32, 0.25);
+}
+[data-theme="malta-light"][data-panel-style="glass"] {
+  --color-bg:    rgba(248, 241, 229, 0.25);
+  --color-panel: rgba(252, 250, 245, 0.3);
 }
 [data-theme="luuk-dark"][data-panel-style="glass"],
 [data-theme="luuk-light"][data-panel-style="glass"] {
-  --color-bg:    rgba(13, 13, 13, 0.2);
-  --color-panel: rgba(20, 20, 20, 0.25);
+  --color-bg:    rgba(11, 11, 11, 0.2);
+  --color-panel: rgba(18, 18, 18, 0.25);
 }
 [data-theme="borahae-dark"][data-panel-style="glass"] {
-  --color-bg:    rgba(21, 17, 31, 0.2);
-  --color-panel: rgba(27, 23, 40, 0.25);
+  --color-bg:    rgba(16, 14, 21, 0.2);
+  --color-panel: rgba(20, 18, 27, 0.25);
 }
 [data-theme="borahae-light"][data-panel-style="glass"] {
-  --color-bg:    rgba(245, 241, 251, 0.25);
-  --color-panel: rgba(253, 252, 255, 0.3);
+  --color-bg:    rgba(239, 233, 249, 0.25);
+  --color-panel: rgba(254, 253, 254, 0.3);
 }
 [data-theme="link-dark"][data-panel-style="glass"] {
-  --color-bg:    rgba(18, 22, 15, 0.2);
-  --color-panel: rgba(23, 28, 19, 0.25);
+  --color-bg:    rgba(17, 21, 14, 0.2);
+  --color-panel: rgba(22, 27, 18, 0.25);
 }
 [data-theme="link-light"][data-panel-style="glass"] {
-  --color-bg:    rgba(253, 254, 232, 0.25);
-  --color-panel: rgba(255, 254, 242, 0.3);
+  --color-bg:    rgba(251, 251, 230, 0.25);
+  --color-panel: rgba(255, 255, 253, 0.3);
 }
 [data-theme="atreus-dark"][data-panel-style="glass"] {
-  --color-bg:    rgba(18, 21, 31, 0.2);
-  --color-panel: rgba(23, 27, 40, 0.25);
+  --color-bg:    rgba(14, 15, 21, 0.2);
+  --color-panel: rgba(18, 20, 27, 0.25);
 }
 [data-theme="atreus-light"][data-panel-style="glass"] {
-  --color-bg:    rgba(238, 240, 245, 0.25);
-  --color-panel: rgba(248, 249, 252, 0.3);
+  --color-bg:    rgba(237, 239, 245, 0.25);
+  --color-panel: rgba(253, 254, 254, 0.3);
 }
 [data-theme="gabriele-dark"][data-panel-style="glass"] {
-  --color-bg:    rgba(86, 86, 86, 0.2);
-  --color-panel: rgba(78, 78, 78, 0.25);
+  --color-bg:    rgba(60, 60, 60, 0.2);
+  --color-panel: rgba(54, 54, 54, 0.25);
 }
 [data-theme="gabriele-light"][data-panel-style="glass"] {
-  --color-bg:    rgba(240, 240, 240, 0.25);
-  --color-panel: rgba(255, 255, 255, 0.3);
+  --color-bg:    rgba(241, 241, 241, 0.25);
+  --color-panel: rgba(254, 254, 254, 0.3);
 }
 
 /* The Display settings page's own Panel Style preview thumbnails set their
@@ -525,6 +598,23 @@ body {
       rgba(255, 255, 255, 0) 100%
     );
   background-blend-mode: overlay, soft-light;
+}
+
+/* Leather panel style: only the window's frame (.app-frame: the title bar,
+   both activity bars and the status bar) gets the grain; the explorer,
+   editor, terminals and agent panels stay plain. The texture is a seamless
+   256px tile (the grain of the app icon's navy tile) layered over the
+   frame's normal solid colour. It's pre-baked as transparent black creases +
+   white highlights rather than a grey tile with a blend mode, because
+   overlay/soft-light do almost nothing on near-white surfaces, so one rule
+   works on every theme, custom themes included. Light themes get a gentler
+   tile; Luuk Light is really dark, so it keeps the dark one. */
+[data-panel-style="leather"] .app-frame {
+  background-image: url('./assets/leatherGrainDark.png');
+  background-size: 256px 256px;
+}
+[data-theme$="-light"]:not([data-theme="luuk-light"])[data-panel-style="leather"] .app-frame {
+  background-image: url('./assets/leatherGrainLight.png');
 }
 
 #root { width: 100vw; height: 100vh; }
@@ -820,7 +910,6 @@ body {
   background-position: right center;
   background-size: auto 100%;
   background-attachment: fixed;
-  opacity: 0.2;
 }
 
 /* App-wide counterpart of .empty-editor-bg, rendered once behind the whole
@@ -847,7 +936,6 @@ body {
   background-repeat: no-repeat;
   background-position: right center;
   background-size: auto 100%;
-  opacity: 0.2;
 }
 
 /* Konami code easter egg (see useKonamiCode.ts / EasterEgg.tsx) — the Going

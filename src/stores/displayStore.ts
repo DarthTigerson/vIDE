@@ -14,7 +14,9 @@ const EDITOR_COLOR_SCHEME_KEY = 'vide:editorColorScheme'
 const EDITOR_TOKEN_COLORS_KEY = 'vide:editorTokenColors'
 
 // Presets are limited to monospace fonts that ship preinstalled with a
-// major OS (macOS: Menlo/Monaco, Windows: Consolas, both: Courier New).
+// macOS (Menlo, Monaco, PT Mono, Courier New). Consolas used to be here,
+// but it's Windows-only — vIDE doesn't run on Windows — so it always fell
+// back to the generic monospace font and rendered identically to Menlo.
 // "SF Mono" and other popular coding fonts (JetBrains Mono, Fira Code, etc.)
 // were removed — they aren't registered for CSS font-family matching unless
 // the user has separately installed them, so picking them silently fell
@@ -22,29 +24,30 @@ const EDITOR_TOKEN_COLORS_KEY = 'vide:editorTokenColors'
 export const FONT_PRESETS = [
   { label: 'Menlo',       value: 'Menlo, monospace' },
   { label: 'Monaco',      value: 'Monaco, monospace' },
-  { label: 'Consolas',    value: 'Consolas, monospace' },
+  { label: 'PT Mono',     value: 'PT Mono, monospace' },
   { label: 'Courier New', value: 'Courier New, monospace' },
 ] as const
 
-export type PanelStyle = 'solid' | 'glossy' | 'glass' | 'brushed-metal'
+export type PanelStyle = 'solid' | 'glossy' | 'glass' | 'brushed-metal' | 'leather'
 
 // Shared between DisplayPage and the setup wizard's theme step, so both
 // pickers stay in sync rather than duplicating this list.
 export const PANEL_STYLE_OPTIONS: { value: PanelStyle; label: string; description: string }[] = [
+  { value: 'leather',       label: 'Leather',     description: 'Hand-stitched' },
   { value: 'brushed-metal', label: 'Brush Metal', description: 'Welder approved' },
   { value: 'solid',         label: 'Solid',       description: 'Solid panels' },
   { value: 'glossy',        label: 'Glossy',      description: 'Frosted glass' },
   { value: 'glass',         label: 'Glass',       description: 'See-through' },
 ]
 
-export type BackgroundImage = 'none' | 'vide' | 'clawd' | 'atreus' | 'link' | 'techLines' | 'borahae' | 'wave' | 'gabriele' | 'rockhoppers' | 'goodGirl'
+export type BackgroundImage = 'none' | 'vide' | 'clawd' | 'atreus' | 'link' | 'techLines' | 'borahae' | 'wave' | 'gabriele' | 'rockhoppers' | 'malta' | 'goodGirl'
 
 // Shared between DisplayPage and the setup wizard's theme step, same as
 // PANEL_STYLE_OPTIONS below.
 export const BACKGROUND_IMAGE_OPTIONS: { value: BackgroundImage; label: string }[] = [
   { value: 'none',      label: 'None' },
-  { value: 'clawd',     label: 'Clawd' },
   { value: 'vide',      label: 'vIDE' },
+  { value: 'clawd',     label: 'Clawd' },
   { value: 'link',      label: 'Link' },
   { value: 'atreus',    label: 'Atreus' },
   { value: 'borahae',   label: 'Borahae' },
@@ -53,6 +56,7 @@ export const BACKGROUND_IMAGE_OPTIONS: { value: BackgroundImage; label: string }
   { value: 'goodGirl',    label: 'Good Girl' },
   { value: 'techLines', label: 'Tech Lines' },
   { value: 'wave',      label: 'Wave' },
+  { value: 'malta',       label: 'Malta' },
 ]
 
 // Each built-in theme family's matching background — swapping the active
@@ -62,6 +66,7 @@ export const BACKGROUND_IMAGE_OPTIONS: { value: BackgroundImage; label: string }
 const FAMILY_BACKGROUND: Record<string, BackgroundImage> = {
   claude: 'clawd',
   thomas: 'vide',
+  malta: 'malta',
   link: 'link',
   atreus: 'atreus',
   borahae: 'borahae',

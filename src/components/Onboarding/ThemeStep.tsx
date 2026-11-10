@@ -6,13 +6,14 @@ import { PanelStyleGrid } from '@/components/Settings/PanelStyleSection'
 import { BackgroundGrid } from '@/components/Settings/BackgroundSection'
 
 const FAMILIES = [
-  { value: 'claude', label: 'Claude' },
   { value: 'thomas', label: 'vIDE' },
+  { value: 'claude', label: 'Claude' },
   { value: 'link', label: 'Link' },
   { value: 'atreus', label: 'Atreus' },
   { value: 'borahae', label: 'Borahae' },
   { value: 'gabriele', label: 'Gabriele' },
   { value: 'luuk', label: 'Luuk' },
+  { value: 'malta', label: 'Malta' },
 ]
 
 const VARIANT_OPTIONS: { value: 'light' | 'dark' | 'system'; label: string }[] = [

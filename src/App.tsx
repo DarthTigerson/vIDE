@@ -84,7 +84,7 @@ import { useMobileSettingsStore } from './stores/mobileSettingsStore'
 import { useThemeStore } from './stores/themeStore'
 import type { ThemeId } from './stores/themeStore'
 import { useDisplayStore } from './stores/displayStore'
-import { EMPTY_EDITOR_BACKGROUNDS } from './assets/emptyEditorBackgrounds'
+import { backgroundImageStyle } from './assets/emptyEditorBackgrounds'
 import { useEditorStore } from './stores/editorStore'
 import { useSearchStore } from './stores/searchStore'
 import { useGlobalSearchStore } from './stores/globalSearchStore'
@@ -1000,13 +1000,13 @@ export default function App() {
       {backgroundImage !== 'none' && (
         <div
           className="app-bg-badge"
-          style={{ backgroundImage: `url(${EMPTY_EDITOR_BACKGROUNDS[backgroundImage]})` }}
+          style={backgroundImageStyle(backgroundImage)}
           aria-hidden="true"
         />
       )}
       <EasterEgg />
       <div
-        className="relative z-50 h-8 shrink-0 flex items-center justify-center bg-tab-bar border-b border-border"
+        className="app-frame relative z-50 h-8 shrink-0 flex items-center justify-center bg-tab-bar border-b border-border"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         {repoName && (

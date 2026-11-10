@@ -9,44 +9,54 @@
    browser, not the Electron renderer), not worth a shared build step for
    six small blocks. */
 [data-theme="claude-dark"] {
-  --bg: #1a1a1a; --card: #1e1e1e; --card-alt: #252526; --border: #3c3c3c;
-  --accent: #d97757; --accent-rgb: 217 119 87;
-  --fg: #cccccc; --fg-muted: #858585; --fg-subtle: #555555;
+  --bg: #111111; --card: #161616; --card-alt: #1b1b1b; --border: #333333;
+  --accent: #db7d5e; --accent-rgb: 219 125 94;
+  --fg: #d9d9d9; --fg-muted: #aaaaaa; --fg-subtle: #878787;
 }
 [data-theme="claude-light"] {
-  --bg: #f3f3f3; --card: #ffffff; --card-alt: #ececec; --border: #e0e0e0;
-  --accent: #c4613d; --accent-rgb: 196 97 61;
-  --fg: #1e1e1e; --fg-muted: #717171; --fg-subtle: #999999;
+  --bg: #f1f1f1; --card: #fefefe; --card-alt: #ededed; --border: #dadada;
+  --accent: #9a4c2f; --accent-rgb: 154 76 47;
+  --fg: #222222; --fg-muted: #4c4c4c; --fg-subtle: #696969;
 }
 [data-theme="thomas-dark"] {
-  --bg: #1c1712; --card: #221c15; --card-alt: #2b2319; --border: #4a3d29;
-  --accent: #f5c242; --accent-rgb: 245 194 66;
-  --fg: #e8e0d0; --fg-muted: #9c9080; --fg-subtle: #665c4a;
+  --bg: #0f1115; --card: #161a21; --card-alt: #161a21; --border: #262d38;
+  --accent: #ffb020; --accent-rgb: 255 176 32;
+  --fg: #e6e9ef; --fg-muted: #a8b1c0; --fg-subtle: #838c9c;
 }
 [data-theme="thomas-light"] {
-  --bg: #f7f1e0; --card: #fffcf2; --card-alt: #efe6cd; --border: #d8c89a;
-  --accent: #ad7b00; --accent-rgb: 173 123 0;
-  --fg: #2a2013; --fg-muted: #74684f; --fg-subtle: #a89876;
+  --bg: #eceef2; --card: #ffffff; --card-alt: #f6f7f9; --border: #dfe3e9;
+  --accent: #9a5b00; --accent-rgb: 154 91 0;
+  --fg: #14171c; --fg-muted: #464e5b; --fg-subtle: #626a77;
+}
+[data-theme="malta-dark"] {
+  --bg: #071219; --card: #091820; --card-alt: #0b1c27; --border: #16374b;
+  --accent: #ffc53d; --accent-rgb: 255 197 61;
+  --fg: #d9dee1; --fg-muted: #9bb0bc; --fg-subtle: #708ea0;
+}
+[data-theme="malta-light"] {
+  --bg: #f8f1e5; --card: #fcfaf5; --card-alt: #f6eedf; --border: #ead8b8;
+  --accent: #906000; --accent-rgb: 144 96 0;
+  --fg: #2a2214; --fg-muted: #58492f; --fg-subtle: #766447;
 }
 [data-theme="link-dark"] {
-  --bg: #12160f; --card: #171c13; --card-alt: #1c2216; --border: #3a4a2c;
+  --bg: #11150e; --card: #161b12; --card-alt: #1a2016; --border: #323d29;
   --accent: #9ac26a; --accent-rgb: 154 194 106;
-  --fg: #eef0d5; --fg-muted: #9aa084; --fg-subtle: #5f6650;
+  --fg: #dcdfda; --fg-muted: #a6b29c; --fg-subtle: #7e9071;
 }
 [data-theme="link-light"] {
-  --bg: #fdfee8; --card: #fffef2; --card-alt: #eef0cf; --border: #c9c093;
-  --accent: #6b8a3d; --accent-rgb: 107 138 61;
-  --fg: #3a2f1e; --fg-muted: #7a6b4f; --fg-subtle: #a89b78;
+  --bg: #fbfbe6; --card: #fffffd; --card-alt: #f9fbe0; --border: #f3f6be;
+  --accent: #597232; --accent-rgb: 89 114 50;
+  --fg: #2c2d1a; --fg-muted: #555632; --fg-subtle: #727444;
 }
 [data-theme="atreus-dark"] {
-  --bg: #12151f; --card: #171b28; --card-alt: #1c2233; --border: #3a4460;
-  --accent: #5468c4; --accent-rgb: 84 104 196;
-  --fg: #e4e7f2; --fg-muted: #8b93b0; --fg-subtle: #4f5670;
+  --bg: #0e0f15; --card: #12141b; --card-alt: #151720; --border: #282d3e;
+  --accent: #8190d3; --accent-rgb: 129 144 211;
+  --fg: #d3d5d9; --fg-muted: #a2a6b6; --fg-subtle: #7d8399;
 }
 [data-theme="atreus-light"] {
-  --bg: #eef0f5; --card: #f8f9fc; --card-alt: #e2e5ee; --border: #c2c8dc;
+  --bg: #edeff5; --card: #fdfefe; --card-alt: #e9ebf2; --border: #d0d6e4;
   --accent: #2c3a6e; --accent-rgb: 44 58 110;
-  --fg: #1c2233; --fg-muted: #5c6480; --fg-subtle: #8b93b0;
+  --fg: #1f2025; --fg-muted: #464b55; --fg-subtle: #626775;
 }
 
 html, body {

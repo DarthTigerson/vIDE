@@ -112,7 +112,7 @@ describe('resolveSplashPalette', () => {
     expect(palette).toEqual(DEFAULT_SPLASH_PALETTE)
   })
 
-  it('has a neutral grey default', () => {
-    expect(DEFAULT_SPLASH_PALETTE).toEqual({ bg: '#141414', accent: '#9e9e9e', isLight: false })
+  it('defaults to vIDE Dark graphite and gold', () => {
+    expect(DEFAULT_SPLASH_PALETTE).toEqual({ bg: '#0f1115', accent: '#ffb020', isLight: false })
   })
 })

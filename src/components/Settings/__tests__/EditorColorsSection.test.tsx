@@ -41,8 +41,8 @@ describe('EditorColorsSection', () => {
     const defaultPreview = screen.getByText('Default').closest('button')!.querySelector('pre')!
     const hcPreview = screen.getByText('Theme Colour Match').closest('button')!.querySelector('pre')!
     // Both previews share the theme's own background...
-    expect(defaultPreview).toHaveStyle({ background: '#1b1728' })
-    expect(hcPreview).toHaveStyle({ background: '#1b1728' })
+    expect(defaultPreview).toHaveStyle({ background: '#14121b' })
+    expect(hcPreview).toHaveStyle({ background: '#14121b' })
     // ...but Theme Colour Match's comment color is distinct from Default's stock one.
     const defaultComment = defaultPreview.querySelector('span')!
     const hcComment = hcPreview.querySelector('span')!
