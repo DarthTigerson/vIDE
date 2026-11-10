@@ -1,4 +1,15 @@
 # vIDE
+## v0.3.0 (2026-11-11)
+- **A fresh look**: every theme has new colours built for easier reading. Text, dimmer labels and hints all have stronger contrast against panels, sidebars and tab bars, in light and dark, while the layout and the order of everything stay the same. The editor, terminal and Mobile Display colours follow along
+- **New vIDE theme**: vIDE Dark is now graphite with bright gold, and vIDE Light is cool grey and white with a deep gold that's readable as text. vIDE now comes first in the theme and background pickers
+- **Malta theme**: a new theme family. Malta Dark pairs night-sea navy with lamp yellow, and Malta Light pairs parchment cream with deep gold. It comes with its own Malta background, a full Maltese study-by-the-sea scene that fills the window instead of sitting at the edge like the other backgrounds
+- **Leather panel style**: a new Panel Style, now first in the list, with a hand-stitched leather grain on the window frame: title bar, activity bars and status bar. Panels and the editor stay plain so text stays easy to read, and light themes get a lighter grain
+- **New app icon**: a bright yellow hex emblem
+- **New background art**: every background image is redrawn to match the new themes, and backgrounds are a little stronger, at 50% opacity
+- **On-brand sync screen**: the launch screen shown while vIDE pulls your synced settings now starts in vIDE graphite and gold instead of grey, and the hex emblem from the new icon replaces the refresh arrows, with its centre turning while it syncs
+- Replaced the Consolas font option with PT Mono. Consolas only ships with Windows, so on macOS and Linux it always fell back to the same font as Menlo. If you had picked it, vIDE switches you to the default font
+
+
 ## v0.2.33 (2026-11-06)
 - **Image and SVG viewers**: images open in a built-in viewer, now including TIFF and HEIC files. SVG files get their own viewer with Editor, Preview and Split modes, the same way Markdown works. Open/Edit in a right-click menu still opens the file as text
 - **Find in page for browser tabs**: ⌘F (Ctrl+F on Linux) opens a find bar in the browser's toolbar, even while focus is inside the page. The toolbar is redesigned, with the device and clear-data options moved into dropdowns
