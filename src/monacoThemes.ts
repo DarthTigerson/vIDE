@@ -15,22 +15,22 @@ interface ThemePalette {
 // Mirrors the hex values in index.css / themeStore's XTERM_THEMES — Monaco's
 // theming API needs literal colors, it can't read our CSS custom properties.
 export const THEME_PALETTES: Record<ThemeId, ThemePalette> = {
-  'claude-dark':  { base: 'vs-dark', background: '#1e1e1e', foreground: '#cccccc', accent: '#d97757', border: '#3c3c3c', fgMuted: '#858585', fgSubtle: '#555555' },
-  'claude-light': { base: 'vs',      background: '#ffffff', foreground: '#1e1e1e', accent: '#c4613d', border: '#e0e0e0', fgMuted: '#717171', fgSubtle: '#999999' },
-  'thomas-dark':  { base: 'vs-dark', background: '#221c15', foreground: '#e8e0d0', accent: '#f5c242', border: '#4a3d29', fgMuted: '#9c9080', fgSubtle: '#665c4a' },
-  'thomas-light': { base: 'vs',      background: '#fffcf2', foreground: '#2a2013', accent: '#ad7b00', border: '#d8c89a', fgMuted: '#74684f', fgSubtle: '#a89876' },
+  'claude-dark':  { base: 'vs-dark', background: '#161616', foreground: '#d9d9d9', accent: '#db7d5e', border: '#333333', fgMuted: '#aaaaaa', fgSubtle: '#878787' },
+  'claude-light': { base: 'vs',      background: '#fefefe', foreground: '#222222', accent: '#9a4c2f', border: '#dadada', fgMuted: '#4c4c4c', fgSubtle: '#696969' },
+  'thomas-dark':  { base: 'vs-dark', background: '#161a21', foreground: '#e6e9ef', accent: '#ffb020', border: '#262d38', fgMuted: '#a8b1c0', fgSubtle: '#838c9c' },
+  'thomas-light': { base: 'vs',      background: '#ffffff', foreground: '#14171c', accent: '#9a5b00', border: '#dfe3e9', fgMuted: '#464e5b', fgSubtle: '#626a77' },
   // Both "dark" — Luuk hates light mode, so "Luuk Light" is a gag entry
   // identical to "Luuk Dark", base 'vs-dark' included.
-  'luuk-dark':    { base: 'vs-dark', background: '#141414', foreground: '#d4d4d4', accent: '#9e9e9e', border: '#2e2e2e', fgMuted: '#8a8a8a', fgSubtle: '#525252' },
-  'luuk-light':   { base: 'vs-dark', background: '#141414', foreground: '#d4d4d4', accent: '#9e9e9e', border: '#2e2e2e', fgMuted: '#8a8a8a', fgSubtle: '#525252' },
-  'borahae-dark':  { base: 'vs-dark', background: '#1b1728', foreground: '#e8e0f5', accent: '#8b5cf6', border: '#3d3552', fgMuted: '#a99cc4', fgSubtle: '#6f6389' },
-  'borahae-light': { base: 'vs',      background: '#fdfcff', foreground: '#241b38', accent: '#6d28d9', border: '#d4c2ec', fgMuted: '#6b5c87', fgSubtle: '#9c8fb8' },
-  'link-dark':    { base: 'vs-dark', background: '#171c13', foreground: '#eef0d5', accent: '#9ac26a', border: '#3a4a2c', fgMuted: '#9aa084', fgSubtle: '#5f6650' },
-  'link-light':   { base: 'vs',      background: '#fffef2', foreground: '#3a2f1e', accent: '#6b8a3d', border: '#c9c093', fgMuted: '#7a6b4f', fgSubtle: '#a89b78' },
-  'atreus-dark':  { base: 'vs-dark', background: '#171b28', foreground: '#e4e7f2', accent: '#5468c4', border: '#3a4460', fgMuted: '#8b93b0', fgSubtle: '#4f5670' },
-  'atreus-light': { base: 'vs',      background: '#f8f9fc', foreground: '#1c2233', accent: '#2c3a6e', border: '#c2c8dc', fgMuted: '#5c6480', fgSubtle: '#8b93b0' },
-  'gabriele-dark':  { base: 'vs-dark', background: '#4e4e4e', foreground: '#cccccc', accent: '#828282', border: '#3c3c3c', fgMuted: '#a3a3a3', fgSubtle: '#858585' },
-  'gabriele-light': { base: 'vs',      background: '#ffffff', foreground: '#2b2b2b', accent: '#5c5c5c', border: '#d4d4d4', fgMuted: '#737373', fgSubtle: '#999999' },
+  'luuk-dark':    { base: 'vs-dark', background: '#121212', foreground: '#cfcfcf', accent: '#9e9e9e', border: '#2b2b2b', fgMuted: '#a2a2a2', fgSubtle: '#808080' },
+  'luuk-light':   { base: 'vs-dark', background: '#121212', foreground: '#cfcfcf', accent: '#9e9e9e', border: '#2b2b2b', fgMuted: '#a2a2a2', fgSubtle: '#808080' },
+  'borahae-dark':  { base: 'vs-dark', background: '#14121b', foreground: '#d4d3d9', accent: '#a17cf8', border: '#2e283e', fgMuted: '#a8a3b7', fgSubtle: '#877f9a' },
+  'borahae-light': { base: 'vs',      background: '#fefdfe', foreground: '#1e1926', accent: '#6d28d9', border: '#d6c5ef', fgMuted: '#4e4161', fgSubtle: '#6d5c88' },
+  'link-dark':    { base: 'vs-dark', background: '#161b12', foreground: '#dcdfda', accent: '#9ac26a', border: '#323d29', fgMuted: '#a6b29c', fgSubtle: '#7e9071' },
+  'link-light':   { base: 'vs',      background: '#fffffd', foreground: '#2c2d1a', accent: '#597232', border: '#f3f6be', fgMuted: '#555632', fgSubtle: '#727444' },
+  'atreus-dark':  { base: 'vs-dark', background: '#12141b', foreground: '#d3d5d9', accent: '#8190d3', border: '#282d3e', fgMuted: '#a2a6b6', fgSubtle: '#7d8399' },
+  'atreus-light': { base: 'vs',      background: '#fdfefe', foreground: '#1f2025', accent: '#2c3a6e', border: '#d0d6e4', fgMuted: '#464b55', fgSubtle: '#626775' },
+  'gabriele-dark':  { base: 'vs-dark', background: '#363636', foreground: '#f7f7f7', accent: '#b7b7b7', border: '#262626', fgMuted: '#cecece', fgSubtle: '#a6a6a6' },
+  'gabriele-light': { base: 'vs',      background: '#fefefe', foreground: '#222222', accent: '#5c5c5c', border: '#dadada', fgMuted: '#4c4c4c', fgSubtle: '#696969' },
 }
 
 export interface HighContrastTokens {
