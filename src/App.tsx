@@ -1006,7 +1006,7 @@ export default function App() {
       )}
       <EasterEgg />
       <div
-        className="relative z-50 h-8 shrink-0 flex items-center justify-center bg-tab-bar border-b border-border"
+        className="app-frame relative z-50 h-8 shrink-0 flex items-center justify-center bg-tab-bar border-b border-border"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         {repoName && (

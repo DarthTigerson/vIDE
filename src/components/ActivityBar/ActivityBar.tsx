@@ -277,7 +277,7 @@ export function ActivityBar({ side, groups, bottomGroups, showAccent = true, den
   const bar = (
     <div
       className={[
-        'relative flex flex-col shrink-0 bg-sidebar py-1',
+        'app-frame relative flex flex-col shrink-0 bg-sidebar py-1',
         showWide ? 'w-40 items-stretch' : 'w-12 items-center',
         side === 'left' ? 'border-r border-border' : 'border-l border-border',
         expandOnHover ? 'h-full' : '',

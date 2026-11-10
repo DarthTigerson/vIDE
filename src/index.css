@@ -306,36 +306,50 @@ body {
 
 /* Solid panel style — fully-opaque colors with a stronger --color-border so
    the sidebar/tab-bar/panel divides read as deliberate hard lines. Brushed
-   Metal shares this same bolder border (a metal panel reads as bounded/
-   bezeled too) — its actual brushed finish comes from the background-image
-   grain/sheen block further down. */
+   Metal and Leather share this same bolder border (a metal or leather panel
+   reads as bounded/bezeled too) — their actual finish comes from the
+   background-image blocks further down. */
 [data-theme="claude-dark"][data-panel-style="solid"],
+[data-theme="claude-dark"][data-panel-style="leather"],
 [data-theme="claude-dark"][data-panel-style="brushed-metal"]  { --color-border: #5c5c5c; }
 [data-theme="claude-light"][data-panel-style="solid"],
+[data-theme="claude-light"][data-panel-style="leather"],
 [data-theme="claude-light"][data-panel-style="brushed-metal"] { --color-border: #acacac; }
 [data-theme="thomas-dark"][data-panel-style="solid"],
+[data-theme="thomas-dark"][data-panel-style="leather"],
 [data-theme="thomas-dark"][data-panel-style="brushed-metal"]  { --color-border: #565c66; }
 [data-theme="thomas-light"][data-panel-style="solid"],
+[data-theme="thomas-light"][data-panel-style="leather"],
 [data-theme="thomas-light"][data-panel-style="brushed-metal"] { --color-border: #acb0b6; }
 [data-theme="luuk-dark"][data-panel-style="solid"],
 [data-theme="luuk-light"][data-panel-style="solid"],
+[data-theme="luuk-dark"][data-panel-style="leather"],
 [data-theme="luuk-dark"][data-panel-style="brushed-metal"],
+[data-theme="luuk-light"][data-panel-style="leather"],
 [data-theme="luuk-light"][data-panel-style="brushed-metal"]   { --color-border: #545454; }
 [data-theme="borahae-dark"][data-panel-style="solid"],
+[data-theme="borahae-dark"][data-panel-style="leather"],
 [data-theme="borahae-dark"][data-panel-style="brushed-metal"]  { --color-border: #585365; }
 [data-theme="borahae-light"][data-panel-style="solid"],
+[data-theme="borahae-light"][data-panel-style="leather"],
 [data-theme="borahae-light"][data-panel-style="brushed-metal"] { --color-border: #a89abd; }
 [data-theme="link-dark"][data-panel-style="solid"],
+[data-theme="link-dark"][data-panel-style="leather"],
 [data-theme="link-dark"][data-panel-style="brushed-metal"]    { --color-border: #5c6655; }
 [data-theme="link-light"][data-panel-style="solid"],
+[data-theme="link-light"][data-panel-style="leather"],
 [data-theme="link-light"][data-panel-style="brushed-metal"]   { --color-border: #c1c495; }
 [data-theme="atreus-dark"][data-panel-style="solid"],
+[data-theme="atreus-dark"][data-panel-style="leather"],
 [data-theme="atreus-dark"][data-panel-style="brushed-metal"]  { --color-border: #535765; }
 [data-theme="atreus-light"][data-panel-style="solid"],
+[data-theme="atreus-light"][data-panel-style="leather"],
 [data-theme="atreus-light"][data-panel-style="brushed-metal"] { --color-border: #a4a8b4; }
 [data-theme="gabriele-dark"][data-panel-style="solid"],
+[data-theme="gabriele-dark"][data-panel-style="leather"],
 [data-theme="gabriele-dark"][data-panel-style="brushed-metal"]  { --color-border: #5a5a5a; }
 [data-theme="gabriele-light"][data-panel-style="solid"],
+[data-theme="gabriele-light"][data-panel-style="leather"],
 [data-theme="gabriele-light"][data-panel-style="brushed-metal"] { --color-border: #acacac; }
 
 /* Glossy panel opacity — rgba overrides let native vibrancy show through */
@@ -527,6 +541,23 @@ body {
       rgba(255, 255, 255, 0) 100%
     );
   background-blend-mode: overlay, soft-light;
+}
+
+/* Leather panel style: only the window's frame (.app-frame: the title bar,
+   both activity bars and the status bar) gets the grain; the explorer,
+   editor, terminals and agent panels stay plain. The texture is a seamless
+   256px tile (the grain of the app icon's navy tile) layered over the
+   frame's normal solid colour. It's pre-baked as transparent black creases +
+   white highlights rather than a grey tile with a blend mode, because
+   overlay/soft-light do almost nothing on near-white surfaces, so one rule
+   works on every theme, custom themes included. Light themes get a gentler
+   tile; Luuk Light is really dark, so it keeps the dark one. */
+[data-panel-style="leather"] .app-frame {
+  background-image: url('./assets/leatherGrainDark.png');
+  background-size: 256px 256px;
+}
+[data-theme$="-light"]:not([data-theme="luuk-light"])[data-panel-style="leather"] .app-frame {
+  background-image: url('./assets/leatherGrainLight.png');
 }
 
 #root { width: 100vw; height: 100vh; }

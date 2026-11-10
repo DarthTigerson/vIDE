@@ -26,11 +26,12 @@ export const FONT_PRESETS = [
   { label: 'Courier New', value: 'Courier New, monospace' },
 ] as const
 
-export type PanelStyle = 'solid' | 'glossy' | 'glass' | 'brushed-metal'
+export type PanelStyle = 'solid' | 'glossy' | 'glass' | 'brushed-metal' | 'leather'
 
 // Shared between DisplayPage and the setup wizard's theme step, so both
 // pickers stay in sync rather than duplicating this list.
 export const PANEL_STYLE_OPTIONS: { value: PanelStyle; label: string; description: string }[] = [
+  { value: 'leather',       label: 'Leather',     description: 'Hand-stitched' },
   { value: 'brushed-metal', label: 'Brush Metal', description: 'Welder approved' },
   { value: 'solid',         label: 'Solid',       description: 'Solid panels' },
   { value: 'glossy',        label: 'Glossy',      description: 'Frosted glass' },

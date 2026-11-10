@@ -73,7 +73,7 @@ export function StatusBar() {
   }, [selectedRepo, refreshBranch])
 
   return (
-    <div className="relative h-6 shrink-0 flex items-center justify-between px-3 bg-tab-bar border-t border-border select-none">
+    <div className="app-frame relative h-6 shrink-0 flex items-center justify-between px-3 bg-tab-bar border-t border-border select-none">
       <GitActivityBar />
       <AlarmFlash />
       <FooterMessage />

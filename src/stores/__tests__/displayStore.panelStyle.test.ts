@@ -32,8 +32,9 @@ beforeEach(() => {
 })
 
 describe('PANEL_STYLE_OPTIONS', () => {
-  it('lists Brush Metal first, then Solid, Glossy, Glass, with the requested labels and descriptions', () => {
+  it('lists Leather first, then Brush Metal, Solid, Glossy, Glass, with the requested labels and descriptions', () => {
     expect(PANEL_STYLE_OPTIONS).toEqual([
+      { value: 'leather', label: 'Leather', description: 'Hand-stitched' },
       { value: 'brushed-metal', label: 'Brush Metal', description: 'Welder approved' },
       { value: 'solid', label: 'Solid', description: 'Solid panels' },
       { value: 'glossy', label: 'Glossy', description: 'Frosted glass' },

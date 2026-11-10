@@ -2,6 +2,8 @@ import type { CSSProperties } from 'react'
 import { useDisplayStore, basePanelColors, PANEL_STYLE_OPTIONS } from '@/stores/displayStore'
 import { useThemeStore } from '@/stores/themeStore'
 import { FeatureBlock } from './FeatureBlock'
+import leatherGrainDark from '@/assets/leatherGrainDark.png'
+import leatherGrainLight from '@/assets/leatherGrainLight.png'
 
 // Mirrors the [data-panel-style="brushed-metal"] rule in index.css exactly.
 // Can't just rely on that rule here — it deliberately excludes
@@ -34,11 +36,17 @@ const brushedMetalPreviewStyle: CSSProperties = {
 export function PanelStyleGrid() {
   const panelStyle = useDisplayStore((s) => s.panelStyle)
   const setPanelStyle = useDisplayStore((s) => s.setPanelStyle)
-  // Only read to force a re-render (and so basePanelColors() below picks up
-  // the change) when the active theme changes elsewhere — its value isn't
-  // used directly here.
-  useThemeStore((s) => s.theme)
+  // Read so this re-renders (and basePanelColors() below picks up the change)
+  // when the active theme changes elsewhere; the Leather preview also uses it
+  // to pick its light or dark grain tile.
+  const theme = useThemeStore((s) => s.theme)
   const base = basePanelColors()
+  // Mirrors the [data-panel-style="leather"] rules in index.css: light themes
+  // get the gentler tile, except Luuk Light, which is really dark.
+  const leatherStyle: CSSProperties = {
+    backgroundImage: `url(${theme.endsWith('-light') && theme !== 'luuk-light' ? leatherGrainLight : leatherGrainDark})`,
+    backgroundSize: '128px 128px',
+  }
 
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-3">
@@ -89,6 +97,12 @@ export function PanelStyleGrid() {
                   <div className="absolute left-0 top-0 bottom-0 w-7 backdrop-blur-sm" style={{ background: `color-mix(in srgb, ${base.sidebar} 15%, transparent)` }} />
                   <div className="absolute left-7 top-0 right-0 h-5 backdrop-blur-sm border-b" style={{ background: `color-mix(in srgb, ${base.tabBar} 20%, transparent)`, borderColor: `color-mix(in srgb, ${base.border} 30%, transparent)` }} />
                   <div className="absolute left-7 top-5 right-0 bottom-0 backdrop-blur-sm" style={{ background: `color-mix(in srgb, ${base.panel} 15%, transparent)` }} />
+                </>
+              ) : opt.value === 'leather' ? (
+                <>
+                  <div className="absolute left-0 top-0 bottom-0 w-7 border-r-2 border-fg-subtle" style={{ background: base.sidebar, ...leatherStyle }} />
+                  <div className="absolute left-7 top-0 right-0 h-5 border-b-2 border-fg-subtle" style={{ background: base.tabBar, ...leatherStyle }} />
+                  <div className="absolute left-7 top-5 right-0 bottom-0" style={{ background: base.panel }} />
                 </>
               ) : opt.value === 'solid' ? (
                 <>
