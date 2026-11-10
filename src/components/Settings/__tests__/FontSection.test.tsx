@@ -16,13 +16,13 @@ describe('FontSection', () => {
     render(<FontSection />)
     expect(screen.getByText('Menlo')).toBeInTheDocument()
     expect(screen.getByText('Monaco')).toBeInTheDocument()
-    expect(screen.getByText('Consolas')).toBeInTheDocument()
+    expect(screen.getByText('PT Mono')).toBeInTheDocument()
     expect(screen.getByText('Courier New')).toBeInTheDocument()
 
     // the label itself renders in its own font, not whichever one is
     // currently selected app-wide
     expect(screen.getByText('Monaco')).toHaveStyle({ fontFamily: 'Monaco, monospace' })
-    expect(screen.getByText('Consolas')).toHaveStyle({ fontFamily: 'Consolas, monospace' })
+    expect(screen.getByText('PT Mono')).toHaveStyle({ fontFamily: 'PT Mono, monospace' })
 
     const samples = screen.getAllByText('Aa Bb 123')
     expect(samples).toHaveLength(4)
@@ -38,8 +38,8 @@ describe('FontSection', () => {
 
   it('clicking a font card sets the font', () => {
     render(<FontSection />)
-    fireEvent.click(screen.getByText('Consolas'))
-    expect(useDisplayStore.getState().font).toBe('Consolas, monospace')
+    fireEvent.click(screen.getByText('PT Mono'))
+    expect(useDisplayStore.getState().font).toBe('PT Mono, monospace')
   })
 
   it('shows the current global font size and adjusts it', () => {

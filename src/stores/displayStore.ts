@@ -14,7 +14,9 @@ const EDITOR_COLOR_SCHEME_KEY = 'vide:editorColorScheme'
 const EDITOR_TOKEN_COLORS_KEY = 'vide:editorTokenColors'
 
 // Presets are limited to monospace fonts that ship preinstalled with a
-// major OS (macOS: Menlo/Monaco, Windows: Consolas, both: Courier New).
+// macOS (Menlo, Monaco, PT Mono, Courier New). Consolas used to be here,
+// but it's Windows-only — vIDE doesn't run on Windows — so it always fell
+// back to the generic monospace font and rendered identically to Menlo.
 // "SF Mono" and other popular coding fonts (JetBrains Mono, Fira Code, etc.)
 // were removed — they aren't registered for CSS font-family matching unless
 // the user has separately installed them, so picking them silently fell
@@ -22,7 +24,7 @@ const EDITOR_TOKEN_COLORS_KEY = 'vide:editorTokenColors'
 export const FONT_PRESETS = [
   { label: 'Menlo',       value: 'Menlo, monospace' },
   { label: 'Monaco',      value: 'Monaco, monospace' },
-  { label: 'Consolas',    value: 'Consolas, monospace' },
+  { label: 'PT Mono',     value: 'PT Mono, monospace' },
   { label: 'Courier New', value: 'Courier New, monospace' },
 ] as const
 
