@@ -1,5 +1,5 @@
 import { useDisplayStore } from '@/stores/displayStore'
-import { EMPTY_EDITOR_BACKGROUNDS } from '@/assets/emptyEditorBackgrounds'
+import { backgroundImageStyle } from '@/assets/emptyEditorBackgrounds'
 
 export function EmptyEditorBackground() {
   const backgroundImage = useDisplayStore((s) => s.backgroundImage)
@@ -7,7 +7,7 @@ export function EmptyEditorBackground() {
   return (
     <div
       className="absolute inset-0 empty-editor-bg pointer-events-none"
-      style={{ backgroundImage: `url(${EMPTY_EDITOR_BACKGROUNDS[backgroundImage]})` }}
+      style={backgroundImageStyle(backgroundImage)}
       aria-hidden="true"
     />
   )

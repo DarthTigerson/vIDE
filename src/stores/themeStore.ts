@@ -6,6 +6,7 @@ import { notifySettingChanged } from '../lib/notifySettingChanged'
 export type ThemeId =
   | 'claude-dark'   | 'claude-light'
   | 'thomas-dark'   | 'thomas-light'
+  | 'malta-dark'    | 'malta-light'
   | 'luuk-dark'     | 'luuk-light'
   | 'borahae-dark'  | 'borahae-light'
   | 'link-dark'     | 'link-light'
@@ -104,6 +105,8 @@ export const MONACO_THEMES: Record<ThemeId, string> = {
   'claude-light': 'claude-light',
   'thomas-dark':  'thomas-dark',
   'thomas-light': 'thomas-light',
+  'malta-dark':   'malta-dark',
+  'malta-light':  'malta-light',
   'luuk-dark':    'luuk-dark',
   'luuk-light':   'luuk-light',
   'borahae-dark':  'borahae-dark',
@@ -208,6 +211,52 @@ export const XTERM_THEMES: Record<ThemeId, ITheme> = {
     brightMagenta:       '#a866a8',
     brightCyan:          '#3f9d8f',
     brightWhite:         '#0b0d10',
+  },
+  // "Malta" — Thomas's own theme, from his Maltese-study wallpaper: night-sea
+  // navy, the desk lamp's yellow, and the hologram's cyan for ANSI cyan.
+  'malta-dark': {
+    background:          '#071219',
+    foreground:          '#d9dee1',
+    cursor:              '#ffc53d',
+    selectionBackground: '#ffc53d40',
+    black:               '#0e222f',
+    red:                 '#e8735f',
+    green:               '#9cc47a',
+    yellow:              '#ffc53d',
+    blue:                '#5aa9d6',
+    magenta:             '#c792c9',
+    cyan:                '#3ba7a9',
+    white:               '#d9dee1',
+    brightBlack:         '#708ea0',
+    brightRed:           '#f59484',
+    brightGreen:         '#b8db98',
+    brightYellow:        '#ffd873',
+    brightBlue:          '#86c4ea',
+    brightMagenta:       '#ddb0df',
+    brightCyan:          '#6fd0d1',
+    brightWhite:         '#ffffff',
+  },
+  'malta-light': {
+    background:          '#f8f1e5',
+    foreground:          '#2a2214',
+    cursor:              '#906000',
+    selectionBackground: '#90600040',
+    black:               '#22303a',
+    red:                 '#b0402f',
+    green:               '#4f7a1f',
+    yellow:              '#906000',
+    blue:                '#22618f',
+    magenta:             '#8a4a8a',
+    cyan:                '#1f7a7c',
+    white:               '#2a2214',
+    brightBlack:         '#58492f',
+    brightRed:           '#cc5440',
+    brightGreen:         '#679a2a',
+    brightYellow:        '#b07a00',
+    brightBlue:          '#3279ad',
+    brightMagenta:       '#a45fa4',
+    brightCyan:          '#2a9496',
+    brightWhite:         '#0b1116',
   },
   // Luuk hates light mode, so "Luuk Light" is a gag — identical to "Luuk
   // Dark" down to every value. A true-black/graphite palette, distinct from
@@ -482,4 +531,6 @@ export const THEME_OPTIONS: ThemeOption[] = [
   // Luuk hates light mode — "Luuk Light" is a gag, identical to "Luuk Dark".
   { id: 'luuk-dark',    name: 'Luuk Dark',    swatches: ['#0b0b0b', '#0f0f0f', '#121212', '#9e9e9e', '#2b2b2b'] },
   { id: 'luuk-light',   name: 'Luuk Light',   swatches: ['#0b0b0b', '#0f0f0f', '#121212', '#9e9e9e', '#2b2b2b'] },
+  { id: 'malta-dark',   name: 'Malta Dark',   swatches: ['#071219', '#0b1c27', '#091820', '#ffc53d', '#16374b'] },
+  { id: 'malta-light',  name: 'Malta Light',  swatches: ['#f8f1e5', '#f6eedf', '#fcfaf5', '#906000', '#ead8b8'] },
 ]

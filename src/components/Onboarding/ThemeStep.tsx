@@ -13,6 +13,7 @@ const FAMILIES = [
   { value: 'borahae', label: 'Borahae' },
   { value: 'gabriele', label: 'Gabriele' },
   { value: 'luuk', label: 'Luuk' },
+  { value: 'malta', label: 'Malta' },
 ]
 
 const VARIANT_OPTIONS: { value: 'light' | 'dark' | 'system'; label: string }[] = [

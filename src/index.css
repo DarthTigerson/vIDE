@@ -76,6 +76,37 @@
   --color-on-accent: #ffffff;
 }
 
+/* "Malta" — Thomas's own theme, built from his Maltese-study wallpaper:
+   night-sea navy surfaces with the desk lamp's bright yellow, and
+   blueprint-parchment for light. */
+[data-theme="malta-dark"] {
+  --color-bg:        #071219;
+  --color-panel:     #091820;
+  --color-sidebar:   #0b1c27;
+  --color-popover:   #0d202c;
+  --color-tab-bar:   #0e222f;
+  --color-border:    #16374b;
+  --color-accent:    255 197 61;   /* #ffc53d */
+  --color-fg:        #d9dee1;
+  --color-fg-muted:  #9bb0bc;
+  --color-fg-subtle: #708ea0;
+  --color-on-accent: #071219;
+}
+
+[data-theme="malta-light"] {
+  --color-bg:        #f8f1e5;
+  --color-panel:     #fcfaf5;
+  --color-sidebar:   #f6eedf;
+  --color-popover:   #fcfaf5;
+  --color-tab-bar:   #f4e9d7;
+  --color-border:    #ead8b8;
+  --color-accent:    144 96 0;     /* #906000 */
+  --color-fg:        #2a2214;
+  --color-fg-muted:  #58492f;
+  --color-fg-subtle: #766447;
+  --color-on-accent: #fcfaf5;
+}
+
 /* Luuk hates light mode — "Luuk Light" is a gag theme, identical to
    "Luuk Dark" in every value. True-black/graphite, no warm tint. */
 [data-theme="luuk-dark"] {
@@ -321,6 +352,12 @@ body {
 [data-theme="thomas-light"][data-panel-style="solid"],
 [data-theme="thomas-light"][data-panel-style="leather"],
 [data-theme="thomas-light"][data-panel-style="brushed-metal"] { --color-border: #acb0b6; }
+[data-theme="malta-dark"][data-panel-style="solid"],
+[data-theme="malta-dark"][data-panel-style="leather"],
+[data-theme="malta-dark"][data-panel-style="brushed-metal"]  { --color-border: #476170; }
+[data-theme="malta-light"][data-panel-style="solid"],
+[data-theme="malta-light"][data-panel-style="leather"],
+[data-theme="malta-light"][data-panel-style="brushed-metal"] { --color-border: #baaa8f; }
 [data-theme="luuk-dark"][data-panel-style="solid"],
 [data-theme="luuk-light"][data-panel-style="solid"],
 [data-theme="luuk-dark"][data-panel-style="leather"],
@@ -376,6 +413,18 @@ body {
   --color-panel:   rgba(255, 255, 255, 0.7);
   --color-sidebar: rgba(246, 247, 249, 0.6);
   --color-tab-bar: rgba(238, 240, 243, 0.65);
+}
+[data-theme="malta-dark"][data-panel-style="glossy"] {
+  --color-bg:      rgba(7, 18, 25, 0.5);
+  --color-panel:   rgba(9, 24, 32, 0.6);
+  --color-sidebar: rgba(11, 28, 39, 0.5);
+  --color-tab-bar: rgba(14, 34, 47, 0.65);
+}
+[data-theme="malta-light"][data-panel-style="glossy"] {
+  --color-bg:      rgba(248, 241, 229, 0.55);
+  --color-panel:   rgba(252, 250, 245, 0.7);
+  --color-sidebar: rgba(246, 238, 223, 0.6);
+  --color-tab-bar: rgba(244, 233, 215, 0.65);
 }
 [data-theme="luuk-dark"][data-panel-style="glossy"],
 [data-theme="luuk-light"][data-panel-style="glossy"] {
@@ -456,6 +505,14 @@ body {
 [data-theme="thomas-light"][data-panel-style="glass"] {
   --color-bg:    rgba(236, 238, 242, 0.25);
   --color-panel: rgba(255, 255, 255, 0.3);
+}
+[data-theme="malta-dark"][data-panel-style="glass"] {
+  --color-bg:    rgba(7, 18, 25, 0.2);
+  --color-panel: rgba(9, 24, 32, 0.25);
+}
+[data-theme="malta-light"][data-panel-style="glass"] {
+  --color-bg:    rgba(248, 241, 229, 0.25);
+  --color-panel: rgba(252, 250, 245, 0.3);
 }
 [data-theme="luuk-dark"][data-panel-style="glass"],
 [data-theme="luuk-light"][data-panel-style="glass"] {
@@ -853,7 +910,6 @@ body {
   background-position: right center;
   background-size: auto 100%;
   background-attachment: fixed;
-  opacity: 0.5;
 }
 
 /* App-wide counterpart of .empty-editor-bg, rendered once behind the whole
@@ -880,7 +936,6 @@ body {
   background-repeat: no-repeat;
   background-position: right center;
   background-size: auto 100%;
-  opacity: 0.5;
 }
 
 /* Konami code easter egg (see useKonamiCode.ts / EasterEgg.tsx) — the Going

@@ -19,6 +19,8 @@ export const THEME_PALETTES: Record<ThemeId, ThemePalette> = {
   'claude-light': { base: 'vs',      background: '#fefefe', foreground: '#222222', accent: '#9a4c2f', border: '#dadada', fgMuted: '#4c4c4c', fgSubtle: '#696969' },
   'thomas-dark':  { base: 'vs-dark', background: '#161a21', foreground: '#e6e9ef', accent: '#ffb020', border: '#262d38', fgMuted: '#a8b1c0', fgSubtle: '#838c9c' },
   'thomas-light': { base: 'vs',      background: '#ffffff', foreground: '#14171c', accent: '#9a5b00', border: '#dfe3e9', fgMuted: '#464e5b', fgSubtle: '#626a77' },
+  'malta-dark':   { base: 'vs-dark',  background: '#091820', foreground: '#d9dee1', accent: '#ffc53d', border: '#16374b', fgMuted: '#9bb0bc', fgSubtle: '#708ea0' },
+  'malta-light':  { base: 'vs',       background: '#fcfaf5', foreground: '#2a2214', accent: '#906000', border: '#ead8b8', fgMuted: '#58492f', fgSubtle: '#766447' },
   // Both "dark" — Luuk hates light mode, so "Luuk Light" is a gag entry
   // identical to "Luuk Dark", base 'vs-dark' included.
   'luuk-dark':    { base: 'vs-dark', background: '#121212', foreground: '#cfcfcf', accent: '#9e9e9e', border: '#2b2b2b', fgMuted: '#a2a2a2', fgSubtle: '#808080' },
@@ -61,6 +63,8 @@ export const HIGH_CONTRAST_TOKENS: Record<ThemeId, HighContrastTokens> = {
   'claude-light':  { keyword: '#e8491d', string: '#00796b', number: '#a6720a', type: '#c2185b', comment: '#8a5a3c' },
   'thomas-dark':   { keyword: '#ffd60a', string: '#b4ff39', number: '#ff9f1c', type: '#2ee6c8', comment: '#c9a876' },
   'thomas-light':  { keyword: '#a67c00', string: '#5c7a1e', number: '#b35900', type: '#00796b', comment: '#8a7350' },
+  'malta-dark':    { keyword: '#ffc53d', string: '#3fe0d8', number: '#ff9f5a', type: '#7fc8ff', comment: '#8fa7b8' },
+  'malta-light':   { keyword: '#8a5a00', string: '#00707a', number: '#b04a1a', type: '#1f5f99', comment: '#5a6b78' },
   'luuk-dark':     { keyword: '#ffffff', string: '#cfcfcf', number: '#a8a8a8', type: '#e0e0e0', comment: '#707070' },
   'luuk-light':    { keyword: '#ffffff', string: '#cfcfcf', number: '#a8a8a8', type: '#e0e0e0', comment: '#707070' },
   'borahae-dark':  { keyword: '#b794f6', string: '#ff6ec7', number: '#ffd23f', type: '#4de6e6', comment: '#9c8fc4' },

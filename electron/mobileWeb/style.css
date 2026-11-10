@@ -28,6 +28,16 @@
   --accent: #9a5b00; --accent-rgb: 154 91 0;
   --fg: #14171c; --fg-muted: #464e5b; --fg-subtle: #626a77;
 }
+[data-theme="malta-dark"] {
+  --bg: #071219; --card: #091820; --card-alt: #0b1c27; --border: #16374b;
+  --accent: #ffc53d; --accent-rgb: 255 197 61;
+  --fg: #d9dee1; --fg-muted: #9bb0bc; --fg-subtle: #708ea0;
+}
+[data-theme="malta-light"] {
+  --bg: #f8f1e5; --card: #fcfaf5; --card-alt: #f6eedf; --border: #ead8b8;
+  --accent: #906000; --accent-rgb: 144 96 0;
+  --fg: #2a2214; --fg-muted: #58492f; --fg-subtle: #766447;
+}
 [data-theme="link-dark"] {
   --bg: #11150e; --card: #161b12; --card-alt: #1a2016; --border: #323d29;
   --accent: #9ac26a; --accent-rgb: 154 194 106;
