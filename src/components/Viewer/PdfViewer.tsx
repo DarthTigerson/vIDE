@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { PDFDocumentProxy, RenderTask, TextLayer } from 'pdfjs-dist'
+import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask, TextLayer } from 'pdfjs-dist'
 import './pdfTextLayer.css'
 
 type PdfJs = typeof import('pdfjs-dist')
@@ -42,17 +42,19 @@ export function PdfViewer({ path }: { path: string }) {
 
   useEffect(() => {
     let cancelled = false
-    let loaded: PDFDocumentProxy | null = null
+    // pdf.js 6 has no PDFDocumentProxy.destroy(): the document and its worker
+    // are torn down through the loading task that opened them.
+    let task: PDFDocumentLoadingTask | null = null
     setDoc(null)
     setSizes([])
     setError(false)
     ;(async () => {
       const lib = await loadPdfJs()
       const data = await window.api.readFileBytes(path)
-      const task = lib.getDocument({ data, isEvalSupported: false })
+      if (cancelled) return
+      task = lib.getDocument({ data })
       const pdf = await task.promise
-      if (cancelled) { void pdf.destroy(); return }
-      loaded = pdf
+      if (cancelled) return
       // Every page's size up front (no rendering), so the scroll height is
       // right before any page has been drawn.
       const pageSizes: Size[] = []
@@ -68,7 +70,7 @@ export function PdfViewer({ path }: { path: string }) {
     })().catch(() => { if (!cancelled) setError(true) })
     return () => {
       cancelled = true
-      void loaded?.destroy()
+      task?.destroy().catch(() => {})
     }
   }, [path])
 
