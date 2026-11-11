@@ -125,12 +125,15 @@ import {
   buildMarkdownPreviewPath,
   parseMarkdownPreviewPath,
   isSvgViewerTab,
+  isPdfViewerTab,
+  parsePdfViewerPath,
   buildSvgViewerPath,
   parseSvgViewerPath,
 } from '@/components/Viewer/paths'
 import { ImageViewer } from '@/components/Viewer/ImageViewer'
 import { MarkdownViewer } from '@/components/Viewer/MarkdownViewer'
 import { SvgViewer } from '@/components/Viewer/SvgViewer'
+import { PdfViewer } from '@/components/Viewer/PdfViewer'
 import { isMarkdownFile, isSvgFile } from '@/lib/fileKinds'
 import type { GitDiffContent } from '@/types/index'
 import { isVirtualTab, isReadOnlyTab } from '@/lib/tabKinds'
@@ -492,6 +495,7 @@ function EditorPane({ paneId }: { paneId: string }) {
   const isImagePreview = !!activeTab && isImagePreviewTab(activeTab.path)
   const isMarkdownPreview = !!activeTab && isMarkdownPreviewTab(activeTab.path)
   const isSvgViewer = !!activeTab && isSvgViewerTab(activeTab.path)
+  const isPdfViewer = !!activeTab && isPdfViewerTab(activeTab.path)
   // Tabs that encode their real file path in a scheme (markdown-preview://,
   // git-diff://, git-commit-diff://) get it parsed back out by
   // breadcrumbPathForTab, so the breadcrumb shows there too. Image previews
@@ -501,7 +505,7 @@ function EditorPane({ paneId }: { paneId: string }) {
     !isVirtual && !isTerminal && !isBrowser &&
     !isDiff && !isCommitDiff && !isGitLog && !isGitGraph && !isGitBranchDiff &&
     !isGraphifyGraph && !isUsageGraph && !isAlarms && !isUpdate && !isTodoBoard && !isScript && !isTodoDetail && !isTodoTrash &&
-    !isLlamaModel && !isDockerLogs && !isImagePreview && !isMarkdownPreview && !isSvgViewer &&
+    !isLlamaModel && !isDockerLogs && !isImagePreview && !isMarkdownPreview && !isSvgViewer && !isPdfViewer &&
     // A scratch tab has no file on disk yet, so there is no path to show —
     // without this the breadcrumb splits 'scratch://<uuid>' on '/' and
     // renders the scheme and the uuid as if they were folders.
@@ -768,6 +772,8 @@ function EditorPane({ paneId }: { paneId: string }) {
           <MarkdownViewer key={activeTab.path} path={parseMarkdownPreviewPath(activeTab.path)} />
         ) : isSvgViewer ? (
           <SvgViewer key={activeTab.path} path={parseSvgViewerPath(activeTab.path)} />
+        ) : isPdfViewer ? (
+          <PdfViewer key={activeTab.path} path={parsePdfViewerPath(activeTab.path)} />
         ) : (isDiff || isCommitDiff) ? (
           <div className="h-full overflow-hidden">
             {diffContent && (

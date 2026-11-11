@@ -23,7 +23,7 @@ import { CommitMessageManager } from './commitMessage'
 import { BrowserViewManager } from './browserViews'
 import { LanguageServerManager } from './lsp/manager'
 import {
-  listAllFiles, searchText, buildTree, readImageDataUrl, readImagePngDataUrl,
+  listAllFiles, searchText, buildTree, readImageDataUrl, readImagePngDataUrl, readFileBytes,
   readTextFile, pathExists, getHomeDir, writeFile as fsWriteFile, mkdir, renamePath, trashPath, revealInFinder,
   copyInto, moveInto,
 } from './fsOps'
@@ -51,6 +51,7 @@ function registerFsHandlers(): void {
   ipcMain.handle('fs:readFile', (_e, path: string) => readTextFile(path))
   ipcMain.handle('fs:readImageDataUrl', (_e, path: string) => readImageDataUrl(path))
   ipcMain.handle('fs:readImagePngDataUrl', (_e, path: string) => readImagePngDataUrl(path))
+  ipcMain.handle('fs:readFileBytes', (_e, path: string) => readFileBytes(path))
   ipcMain.handle('fs:exists', (_e, path: string) => pathExists(path))
   ipcMain.handle('fs:homeDir', () => getHomeDir())
   ipcMain.handle('fs:writeFile', (_e, path: string, content: string) => fsWriteFile(path, content))

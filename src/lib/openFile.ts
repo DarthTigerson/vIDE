@@ -1,9 +1,9 @@
 import type { Tab } from '@/types/index'
 import { useEditorStore } from '@/stores/editorStore'
-import { isImageFile, isMarkdownFile, isSvgFile } from '@/lib/fileKinds'
-import { buildImagePreviewPath, buildMarkdownPreviewPath, buildSvgViewerPath } from '@/components/Viewer/paths'
+import { isImageFile, isMarkdownFile, isPdfFile, isSvgFile } from '@/lib/fileKinds'
+import { buildImagePreviewPath, buildMarkdownPreviewPath, buildPdfViewerPath, buildSvgViewerPath } from '@/components/Viewer/paths'
 
-export type FileRoute = { kind: 'image' | 'svg' | 'markdown' | 'text'; tabPath: string }
+export type FileRoute = { kind: 'image' | 'svg' | 'pdf' | 'markdown' | 'text'; tabPath: string }
 
 // Where opening a file goes: the one decision every entry point shares (file
 // tree, drag and drop, chat/search/go-to-definition links, palette, ...), so
@@ -22,6 +22,8 @@ export function routeFile(path: string, { source = false, markdownMode, svgMode 
   if (isSvgFile(path)) {
     return !source && svgMode === 'preview' ? { kind: 'svg', tabPath: buildSvgViewerPath(path) } : { kind: 'text', tabPath: path }
   }
+  // Even with `source`: a PDF has no text to edit.
+  if (isPdfFile(path)) return { kind: 'pdf', tabPath: buildPdfViewerPath(path) }
   if (isImageFile(path)) return { kind: 'image', tabPath: buildImagePreviewPath(path) }
   if (markdownMode === 'preview' && isMarkdownFile(path)) {
     return { kind: 'markdown', tabPath: buildMarkdownPreviewPath(path) }

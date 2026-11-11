@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  isImageFile, isMarkdownFile, imageMimeType, isRasterImageFile, isSvgFile, needsImageConversion,
+  isImageFile, isMarkdownFile, imageMimeType, isRasterImageFile, isSvgFile, needsImageConversion, isPdfFile,
 } from '../fileKinds'
 
 describe('isImageFile', () => {
@@ -49,5 +49,14 @@ describe('viewer extension file kinds', () => {
       expect(needsImageConversion(name)).toBe(true)
     }
     expect(needsImageConversion('a.png')).toBe(false)
+  })
+})
+
+describe('isPdfFile', () => {
+  it('matches .pdf in any case and nothing else', () => {
+    expect(isPdfFile('a.pdf')).toBe(true)
+    expect(isPdfFile('A.PDF')).toBe(true)
+    expect(isPdfFile('a.pdf.txt')).toBe(false)
+    expect(isPdfFile('pdf')).toBe(false)
   })
 })

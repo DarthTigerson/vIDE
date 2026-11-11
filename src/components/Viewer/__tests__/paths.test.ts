@@ -9,6 +9,9 @@ import {
   isSvgViewerTab,
   buildSvgViewerPath,
   parseSvgViewerPath,
+  isPdfViewerTab,
+  buildPdfViewerPath,
+  parsePdfViewerPath,
 } from '../paths'
 
 describe('image preview virtual tab paths', () => {
@@ -55,5 +58,15 @@ describe('svg viewer virtual tab paths', () => {
     expect(isSvgViewerTab(built)).toBe(true)
     expect(isSvgViewerTab('/proj/logo.svg')).toBe(false)
     expect(parseSvgViewerPath(built)).toBe('/proj/logo.svg')
+  })
+})
+
+describe('PDF viewer virtual tab paths', () => {
+  it('builds, recognizes and round-trips a PDF viewer path', () => {
+    const built = buildPdfViewerPath('/proj/docs/spec.pdf')
+    expect(built).toBe('pdf-viewer:///proj/docs/spec.pdf')
+    expect(isPdfViewerTab(built)).toBe(true)
+    expect(isPdfViewerTab('/proj/docs/spec.pdf')).toBe(false)
+    expect(parsePdfViewerPath(built)).toBe('/proj/docs/spec.pdf')
   })
 })

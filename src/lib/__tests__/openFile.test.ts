@@ -41,6 +41,11 @@ describe('routeFile', () => {
     expect(routeFile('/p/a.svg', { svgMode: 'preview', source: true })).toEqual({ kind: 'text', tabPath: '/p/a.svg' })
   })
 
+  it('opens .pdf only in the PDF viewer, even when the source is asked for', () => {
+    expect(routeFile('/p/doc.pdf')).toEqual({ kind: 'pdf', tabPath: 'pdf-viewer:///p/doc.pdf' })
+    expect(routeFile('/p/DOC.PDF', { source: true })).toEqual({ kind: 'pdf', tabPath: 'pdf-viewer:///p/DOC.PDF' })
+  })
+
   it('opens other files as text', () => {
     expect(routeFile('/p/a.ts')).toEqual({ kind: 'text', tabPath: '/p/a.ts' })
   })
@@ -58,6 +63,7 @@ describe('resolveFileTab', () => {
     await resolveFileTab('/p/a.png')
     await resolveFileTab('/p/a.heic')
     await resolveFileTab('/p/a.svg')
+    await resolveFileTab('/p/a.pdf')
     expect(readFile).not.toHaveBeenCalled()
   })
 
