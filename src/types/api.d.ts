@@ -252,7 +252,7 @@ declare global {
       onSearchResults: (cb: (batch: SearchBatch) => void) => () => void
       onSearchDone: (cb: (done: SearchDone) => void) => () => void
       openFolder: () => Promise<string | null>
-      getSystemMemoryUsage: () => Promise<{ usedBytes: number; totalBytes: number; appBytes: number }>
+      getSystemMemoryUsage: () => Promise<{ usedBytes: number; totalBytes: number; appBytes: number; swapUsedBytes: number; compressedBytes: number; pressure: 'normal' | 'warn' | 'critical' }>
       getMemoryBreakdown: () => Promise<MemoryBreakdown>
       // null on a machine without a battery (iMac, desktop PC).
       getBatteryStatus: () => Promise<{ percent: number; charging: boolean; pluggedIn: boolean; minutesLeft: number | null } | null>
