@@ -24,6 +24,9 @@ const { api, storage } = vi.hoisted(() => {
     configRepoConnect: vi.fn(async () => {}),
     configRepoPush: vi.fn(async () => {}),
     configRepoPull: vi.fn(async () => ({})),
+    configRepoGetSchemaVersion: vi.fn(async () => 2),
+    configRepoGetRemoteSchemaVersion: vi.fn(async () => 1),
+    configRepoSetGated: vi.fn(async () => {}),
   }
   ;(globalThis as any).window = { api, localStorage: storage }
   ;(globalThis as any).localStorage = storage

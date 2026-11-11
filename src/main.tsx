@@ -27,35 +27,46 @@ flushSync(() => root.render(<SyncSplash palette={DEFAULT_SPLASH_PALETTE} />))
 const { runPreMountSync, preMountSyncResult } = await import('./lib/preBootSync')
 await runPreMountSync()
 
-// Only a successful pull swaps colours: sync off or offline goes straight to
-// the app instead of pretending something synced.
-if (preMountSyncResult.lastSyncAt !== null) {
-  // Let the default colours paint first, or a fast pull would jump straight to
-  // the synced colours with nothing to transition from. rAF never fires in a
-  // hidden window, so don't wait on it forever.
-  await new Promise<void>((resolve) => {
-    const fallback = setTimeout(resolve, 100)
-    requestAnimationFrame(() => requestAnimationFrame(() => { clearTimeout(fallback); resolve() }))
-  })
-  root.render(<SyncSplash palette={loadSplashPalette()} />)
-  await new Promise((resolve) => setTimeout(resolve, swapHoldMs()))
+if (preMountSyncResult.incompatible) {
+  // Config came from a newer vIDE. Show only the update wall — App never mounts,
+  // so every panel stays closed and there's nothing to dismiss (VIDE-162).
+  const { SyncIncompatibleWall } = await import('./components/BootSplash/SyncIncompatibleWall')
+  root.render(
+    <React.StrictMode>
+      <SyncIncompatibleWall />
+    </React.StrictMode>
+  )
+} else {
+  // Only a successful pull swaps colours: sync off or offline goes straight to
+  // the app instead of pretending something synced.
+  if (preMountSyncResult.lastSyncAt !== null) {
+    // Let the default colours paint first, or a fast pull would jump straight to
+    // the synced colours with nothing to transition from. rAF never fires in a
+    // hidden window, so don't wait on it forever.
+    await new Promise<void>((resolve) => {
+      const fallback = setTimeout(resolve, 100)
+      requestAnimationFrame(() => requestAnimationFrame(() => { clearTimeout(fallback); resolve() }))
+    })
+    root.render(<SyncSplash palette={loadSplashPalette()} />)
+    await new Promise((resolve) => setTimeout(resolve, swapHoldMs()))
+  }
+
+  // Cache total RAM before App mounts so synchronous low-RAM checks (e.g. the
+  // Chat spawn gate) don't race an async fetch on launch (VIDE-163).
+  try {
+    const { setCachedTotalBytes } = await import('./lib/lowRam')
+    const mem = await window.api.getSystemMemoryUsage()
+    setCachedTotalBytes(mem.totalBytes)
+  } catch { /* fetch failed — treated as not low RAM */ }
+
+  // Dynamic import — stores initialize NOW with the already-updated localStorage.
+  const { default: App } = await import('./App')
+  // A right-click anywhere closes open popup menus, like a left-click does.
+  installCloseMenusOnRightClick()
+
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  )
 }
-
-// Cache total RAM before App mounts so synchronous low-RAM checks (e.g. the
-// Chat spawn gate) don't race an async fetch on launch (VIDE-163).
-try {
-  const { setCachedTotalBytes } = await import('./lib/lowRam')
-  const mem = await window.api.getSystemMemoryUsage()
-  setCachedTotalBytes(mem.totalBytes)
-} catch { /* fetch failed — treated as not low RAM */ }
-
-// Dynamic import — stores initialize NOW with the already-updated localStorage.
-const { default: App } = await import('./App')
-// A right-click anywhere closes open popup menus, like a left-click does.
-installCloseMenusOnRightClick()
-
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-)

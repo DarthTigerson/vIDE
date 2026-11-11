@@ -52,6 +52,7 @@ export const EXCLUDED_CHANNELS = new Set<string>([
   // vIDE Sync — backs up this desktop's settings to a private git repo; the repo lives on this machine
   'configRepo:getSettings', 'configRepo:setSettings', 'configRepo:connect', 'configRepo:pull',
   'configRepo:push', 'configRepo:checkRemote',
+  'configRepo:getSchemaVersion', 'configRepo:getRemoteSchemaVersion', 'configRepo:setGated',  // schema-compat gate — only this desktop's pre-boot sync uses it (VIDE-162)
 
   // Setting up, starting and stopping the desktop's local autocomplete model is
   // desktop settings/footer UI; the phone only asks for completions (relayed)

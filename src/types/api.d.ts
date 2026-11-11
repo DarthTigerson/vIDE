@@ -563,6 +563,9 @@ declare global {
       configRepoPull: (categories: Record<string, boolean>) => Promise<Record<string, Record<string, string>>>
       configRepoPush: (data: Record<string, Record<string, string>>, lastSyncAt: number) => Promise<void>
       configRepoCheckRemote: (lastSyncAt: number) => Promise<void>
+      configRepoGetSchemaVersion: () => Promise<number>
+      configRepoGetRemoteSchemaVersion: () => Promise<number>
+      configRepoSetGated: (value: boolean) => Promise<void>
       onRemoteSettingsApplied: (cb: (kvMap: Record<string, string>) => void) => () => void
     }
   }
