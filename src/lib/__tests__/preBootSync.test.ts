@@ -26,6 +26,9 @@ const { api, storage } = vi.hoisted(() => {
       general: { 'vide:theme': 'borahae-dark', 'vide:fontSize': '15' },
       models: { 'vide:bridge:endpoint': 'http://127.0.0.1:8080/v1' },
     })),
+    configRepoGetSchemaVersion: vi.fn(async () => 2),
+    configRepoGetRemoteSchemaVersion: vi.fn(async () => 1),
+    configRepoSetGated: vi.fn(async () => {}),
   }
   ;(globalThis as any).window = { api, localStorage: storage }
   ;(globalThis as any).localStorage = storage
@@ -38,7 +41,8 @@ describe('preBootSync (SYNC-13)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     storage.clear()
-    Object.assign(preMountSyncResult, { done: false, lastSyncAt: null })
+    Object.assign(preMountSyncResult, { done: false, lastSyncAt: null, incompatible: false })
+    ;(globalThis as any).document = { documentElement: { setAttribute: vi.fn() } }
   })
 
   it('pulls remote settings and writes them to localStorage before App imports', async () => {
@@ -49,7 +53,30 @@ describe('preBootSync (SYNC-13)', () => {
     expect(storage.getItem('vide:theme')).toBe('borahae-dark')
     expect(storage.getItem('vide:fontSize')).toBe('15')
     expect(storage.getItem('vide:bridge:endpoint')).toBe('http://127.0.0.1:8080/v1')
-    expect(preMountSyncResult).toEqual({ done: true, lastSyncAt: expect.any(Number) })
+    expect(preMountSyncResult).toEqual({ done: true, lastSyncAt: expect.any(Number), incompatible: false })
+  })
+
+  it('gates (no pull) when the remote schema version is newer than this build (VIDE-162)', async () => {
+    api.configRepoGetRemoteSchemaVersion.mockResolvedValueOnce(3)
+    await runPreMountSync()
+    expect(api.configRepoPull).not.toHaveBeenCalled()
+    expect(preMountSyncResult.incompatible).toBe(true)
+    // Safe fallback look + sync frozen so this older build can't clobber the newer one.
+    expect(storage.getItem('vide:theme')).toBe('thomas-dark')
+    expect(storage.getItem('vide:backgroundImage')).toBe('none')
+    expect(api.configRepoSetGated).toHaveBeenCalledWith(true)
+  })
+
+  it('gates when a pulled enum value is unknown even if the schema version matches', async () => {
+    api.configRepoPull.mockResolvedValueOnce({
+      general: { 'vide:theme': 'some-future-theme-dark' },
+    })
+    await runPreMountSync()
+    expect(preMountSyncResult.incompatible).toBe(true)
+    expect(storage.getItem('vide:theme')).toBe('thomas-dark')
+    // The unknown value was never written to localStorage.
+    expect(storage.getItem('vide:theme')).not.toBe('some-future-theme-dark')
+    expect(api.configRepoSetGated).toHaveBeenCalledWith(true)
   })
 
   it('does not pull when sync is disabled', async () => {

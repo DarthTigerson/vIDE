@@ -17,6 +17,21 @@ export interface ConfigRepoSettings {
   categories: Record<string, boolean>
 }
 
+// Bumped whenever a release adds a synced value (e.g. a new theme or
+// background image) that older builds can't render. Stamped into the repo's
+// meta.json on every push; a build that pulls a higher number than this knows
+// the config came from a newer vIDE and shows the update wall instead of
+// applying it (see src/lib/preBootSync.ts, VIDE-162). Repos written before
+// meta.json existed read as version 1.
+export const CONFIG_SCHEMA_VERSION = 2
+const META_FILE = 'meta.json'
+
+// Set true by the renderer (configRepo:setGated) once pre-boot sync detects an
+// incompatible config. While gated this machine must not push: its older
+// config would overwrite the newer machine's settings and start a downgrade
+// ping-pong. Cleared only by a relaunch (i.e. after updating).
+let gated = false
+
 const DEFAULT_SETTINGS: ConfigRepoSettings = {
   enabled: false,
   repoUrl: '',
@@ -141,6 +156,20 @@ async function readRemoteCategoryFile(category: string): Promise<Record<string, 
     return JSON.parse(stdout)
   } catch {
     return null
+  }
+}
+
+// Reads the schema version stamped in the repo's meta.json. A repo written by
+// a vIDE from before meta.json existed (or with no remote HEAD yet) reads as
+// version 1 — i.e. "nothing newer than the baseline."
+async function getRemoteSchemaVersion(): Promise<number> {
+  if (!await isRepoCloned()) return 1
+  try {
+    const raw = await runGit(['show', `origin/HEAD:${META_FILE}`], { cwd: repoDir(), timeout: 10000 })
+    const n = JSON.parse(raw).schemaVersion
+    return typeof n === 'number' && Number.isFinite(n) ? n : 1
+  } catch {
+    return 1
   }
 }
 
@@ -271,6 +300,10 @@ let lastCommitAt = 0
 // remote commit is newer than that, another machine changed something and
 // remote wins for localStorage categories.
 export async function pushSettings(data: Record<string, Record<string, string>>, lastSyncAt: number): Promise<void> {
+  // Pre-boot sync found incompatible (newer) config on the remote. Stay
+  // read-only so this older build can't clobber the newer machine's settings.
+  if (gated) return
+
   let release!: () => void
   const prev = pushLock
   pushLock = new Promise<void>((r) => { release = r })
@@ -320,6 +353,11 @@ export async function pushSettings(data: Record<string, Record<string, string>>,
           }
         }
       } catch { /* no remote commits yet — fresh repo, local wins */ }
+
+      // Schema stamp: lets an older build on another machine detect that this
+      // config was written by a newer vIDE. Identical content every push unless
+      // the version actually bumped, so it never produces a commit on its own.
+      await writeFile(join(dir, META_FILE), JSON.stringify({ schemaVersion: CONFIG_SCHEMA_VERSION }, null, 2) + '\n', 'utf8')
 
       // localStorage-backed categories
       for (const [cat, kvMap] of Object.entries(data)) {
@@ -442,6 +480,7 @@ export async function pushSettings(data: Record<string, Record<string, string>>,
 // Lightweight pull-only check: fetch remote, and if it has commits newer than
 // lastSyncAt, broadcast the remote settings to all windows. No commit, no push.
 async function checkRemote(lastSyncAt: number): Promise<void> {
+  if (gated) return
   if (!await isRepoCloned()) return
   const dir = repoDir()
   try {
@@ -505,4 +544,11 @@ export function registerConfigRepoHandlers(): void {
     'configRepo:checkRemote',
     (_e, lastSyncAt: number) => checkRemote(lastSyncAt),
   )
+
+  // Compatibility gate (VIDE-162): the schema version this build understands,
+  // the one stamped in the remote repo, and a switch the renderer flips to stop
+  // this machine pushing once it detects incompatible config.
+  ipcMain.handle('configRepo:getSchemaVersion', () => CONFIG_SCHEMA_VERSION)
+  ipcMain.handle('configRepo:getRemoteSchemaVersion', () => getRemoteSchemaVersion())
+  ipcMain.handle('configRepo:setGated', (_e, value: boolean) => { gated = value })
 }
