@@ -168,4 +168,27 @@ describe('gitReposStore', () => {
     useGitReposStore.getState().followFilePath('/parent/repoA/src/x.ts')
     expect(useGitOpenReposStore.getState().isOpen('/parent/repoA')).toBe(true)
   })
+
+  // Mid-session re-discovery (Show All Repos palette picking up a new clone):
+  // unlike setRepos, it must not reset the open set or the explicit selection.
+  it('updateRepoList adds a newly discovered repo while preserving selection, open set, and explicit flag', () => {
+    useGitOpenReposStore.getState().openRepo('/parent/repoA')
+    useGitReposStore.setState({ repos: ['/parent/repoA', '/parent/repoB'], selectedRepo: '/parent/repoA', hasExplicitSelection: true })
+
+    useGitReposStore.getState().updateRepoList(['/parent/repoA', '/parent/repoB', '/parent/repoC'])
+
+    const { repos, selectedRepo, hasExplicitSelection } = useGitReposStore.getState()
+    expect(repos).toContain('/parent/repoC')
+    expect(selectedRepo).toBe('/parent/repoA')
+    expect(hasExplicitSelection).toBe(true)
+    expect(useGitOpenReposStore.getState().isOpen('/parent/repoA')).toBe(true)
+  })
+
+  it('updateRepoList falls back to a new selection only when the selected repo is gone', () => {
+    useGitReposStore.setState({ repos: ['/parent/repoA', '/parent/repoB'], selectedRepo: '/parent/repoB', hasExplicitSelection: true })
+
+    useGitReposStore.getState().updateRepoList(['/parent/repoA', '/parent/repoC'])
+
+    expect(useGitReposStore.getState().selectedRepo).toBe('/parent/repoA')
+  })
 })
