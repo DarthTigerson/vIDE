@@ -230,6 +230,7 @@ declare global {
       readImageDataUrl: (path: string) => Promise<string>
       // PNG data url decoded by the OS (TIFF, HEIC); '' when it can't be decoded.
       readImagePngDataUrl: (path: string) => Promise<string>
+      readFileBytes: (path: string) => Promise<Uint8Array>
       pathExists: (path: string) => Promise<boolean>
       getHomeDir: () => Promise<string>
       writeFile: (path: string, content: string) => Promise<void>

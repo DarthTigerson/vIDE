@@ -1,6 +1,7 @@
 const IMAGE_PREVIEW_PREFIX = 'image-preview://'
 const MARKDOWN_PREVIEW_PREFIX = 'markdown-preview://'
 const SVG_VIEWER_PREFIX = 'svg-viewer://'
+const PDF_VIEWER_PREFIX = 'pdf-viewer://'
 
 export function isImagePreviewTab(path: string): boolean {
   return path.startsWith(IMAGE_PREVIEW_PREFIX)
@@ -38,4 +39,17 @@ export function buildSvgViewerPath(filePath: string): string {
 
 export function parseSvgViewerPath(tabPath: string): string {
   return tabPath.slice(SVG_VIEWER_PREFIX.length)
+}
+
+// PDFs only ever open here: there is no source tab to pair it with.
+export function isPdfViewerTab(path: string): boolean {
+  return path.startsWith(PDF_VIEWER_PREFIX)
+}
+
+export function buildPdfViewerPath(filePath: string): string {
+  return PDF_VIEWER_PREFIX + filePath
+}
+
+export function parsePdfViewerPath(tabPath: string): string {
+  return tabPath.slice(PDF_VIEWER_PREFIX.length)
 }

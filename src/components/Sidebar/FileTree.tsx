@@ -17,6 +17,8 @@ import {
   parseMarkdownPreviewPath,
   isSvgViewerTab,
   parseSvgViewerPath,
+  isPdfViewerTab,
+  parsePdfViewerPath,
   buildMarkdownPreviewPath,
 } from '@/components/Viewer/paths'
 import { isImageFile, isMarkdownFile } from '@/lib/fileKinds'
@@ -137,6 +139,8 @@ export function FileTree({
             ? parseMarkdownPreviewPath(activeTabPath)
             : isSvgViewerTab(activeTabPath)
               ? parseSvgViewerPath(activeTabPath)
+            : isPdfViewerTab(activeTabPath)
+              ? parsePdfViewerPath(activeTabPath)
             : activeTabPath.includes('://')
               ? null
               : activeTabPath

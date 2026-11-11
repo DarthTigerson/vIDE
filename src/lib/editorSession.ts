@@ -5,7 +5,9 @@ import {
   isImagePreviewTab,
   isMarkdownPreviewTab,
   isSvgViewerTab,
+  isPdfViewerTab,
   parseImagePreviewPath,
+  parsePdfViewerPath,
   parseSvgViewerPath,
   parseMarkdownPreviewPath,
 } from '@/components/Viewer/paths'
@@ -24,6 +26,7 @@ export function fileBehindTab(path: string): string | null {
   if (isImagePreviewTab(path)) return parseImagePreviewPath(path)
   if (isMarkdownPreviewTab(path)) return parseMarkdownPreviewPath(path)
   if (isSvgViewerTab(path)) return parseSvgViewerPath(path)
+  if (isPdfViewerTab(path)) return parsePdfViewerPath(path)
   return path.startsWith('/') ? path : null
 }
 

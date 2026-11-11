@@ -140,6 +140,14 @@ export async function readImageDataUrl(filePath: string): Promise<string> {
   return `data:${mime};base64,${buffer.toString('base64')}`
 }
 
+// The raw bytes of a binary file the renderer decodes itself (PDFs, for
+// pdf.js). Crosses IPC as a Uint8Array, not base64, so a large file isn't
+// inflated by a third on its way over.
+export async function readFileBytes(filePath: string): Promise<Uint8Array> {
+  const buffer = await readFile(filePath)
+  return new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength)
+}
+
 // TIFF and HEIC can't be decoded by <img>, so the main process converts them
 // with the OS image decoder (macOS decodes both). Returns '' when nothing could
 // be decoded (e.g. no HEIC support on Linux, or an unreadable file) so the

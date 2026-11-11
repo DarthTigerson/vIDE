@@ -34,6 +34,10 @@ export function isMarkdownFile(name: string): boolean {
   return MARKDOWN_EXTENSIONS.has(extOf(name))
 }
 
+export function isPdfFile(name: string): boolean {
+  return extOf(name) === 'pdf'
+}
+
 export function imageMimeType(name: string): string {
   const ext = extOf(name)
   if (ext === 'svg') return 'image/svg+xml'

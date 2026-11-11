@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { restoredEditorState, useEditorStore, type EditorLayoutNode } from '@/stores/editorStore'
 import { useFileStore } from '@/stores/fileStore'
-import { buildMarkdownPreviewPath } from '@/components/Viewer/paths'
+import { buildMarkdownPreviewPath, buildPdfViewerPath } from '@/components/Viewer/paths'
 import { GIT_LOG_TAB_PATH, buildTerminalPath } from '@/components/Settings/paths'
 import { fileBehindTab, restoreEditorSession, startEditorSessionPersistence } from '../editorSession'
 
@@ -85,6 +85,7 @@ describe('fileBehindTab', () => {
   it('maps file and preview tabs to their file, and everything else to null', () => {
     expect(fileBehindTab('/p/a.ts')).toBe('/p/a.ts')
     expect(fileBehindTab(buildMarkdownPreviewPath('/p/README.md'))).toBe('/p/README.md')
+    expect(fileBehindTab(buildPdfViewerPath('/p/doc.pdf'))).toBe('/p/doc.pdf')
     expect(fileBehindTab(GIT_LOG_TAB_PATH)).toBeNull()
     expect(fileBehindTab('scratch://123')).toBeNull()
   })
