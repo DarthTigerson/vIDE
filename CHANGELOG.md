@@ -1,4 +1,13 @@
 # vIDE
+## v0.3.1 (2026-11-11)
+- **PDF viewer**: PDF files now open in a built-in viewer with page navigation and zoom controls, the same way images, SVGs and Markdown do
+- **Safer vIDE Sync across versions**: when an out-of-date copy of vIDE receives settings from a newer version it can't read, it now shows an update screen and waits for you to update instead of failing to start. While it waits it won't push its older settings over your newer machine, and it falls back to the vIDE theme with no background image
+- **Memory pressure in the title bar**: the memory pill now leads with how close the machine is to running out of memory — Normal, Warn or Critical, with a fill bar — and its hover panel adds Pressure, Swap and Compressed rows. These are the signals that actually predict a freeze, which the plain used/total number can hide while the machine is already struggling
+- **Lighter on low-memory machines**: on machines with 8 GB of RAM or less, vIDE no longer auto-starts the local autocomplete model or brings back every saved Claude session at once when it launches — the two biggest startup memory spikes. Background sessions start when you first open them, and you can still start autocomplete by hand, so vIDE is far less likely to exhaust memory and freeze the machine on launch
+- **Show All Repos finds new clones**: opening the Show All Repos palette now re-scans the project folder, so a repo you cloned after opening the project shows up without reopening it
+- Updated two libraries bundled with vIDE that had known vulnerabilities — DOMPurify, the editor's HTML sanitizer, and minimatch, used for file-pattern matching
+
+
 ## v0.3.0 (2026-11-11)
 - **A fresh look**: every theme has new colours built for easier reading. Text, dimmer labels and hints all have stronger contrast against panels, sidebars and tab bars, in light and dark, while the layout and the order of everything stay the same. The editor, terminal and Mobile Display colours follow along
 - **New vIDE theme**: vIDE Dark is now graphite with bright gold, and vIDE Light is cool grey and white with a deep gold that's readable as text. vIDE now comes first in the theme and background pickers
