@@ -19,6 +19,7 @@ import { TerminalTab } from '@/components/Terminal/TerminalTab'
 import { TerminalContextMenu } from '@/components/Terminal/TerminalContextMenu'
 import { AGENT_TERMINAL_SESSION_ATTR } from '@/lib/bottomTerminalFocus'
 import { liveTerminals } from '@/lib/liveTerminals'
+import { isLowRam } from '@/lib/lowRam'
 import { PTY_XTERM_OPTIONS } from '@/lib/ptyXtermOptions'
 import { UsagePanel } from '@/components/UsagePanel/UsagePanel'
 import { CostPanel } from '@/components/UsagePanel/CostPanel'
@@ -250,9 +251,18 @@ export function Chat() {
     // first clicked. This is also what brings restored (persisted)
     // instances back running on next launch, with no separate bootstrap
     // path: "spawn if this id has no terminal yet" already covers them.
+    //
+    // Exception on low-RAM machines (<=8GB): a restored stack would start one
+    // Claude CLI per session at once and exhaust memory on launch (VIDE-163).
+    // There, only the active session spawns eagerly; a background session stays
+    // cold until it is first made active (this effect re-runs on
+    // activeInstanceId and spawns it then), and one already spawned stays live.
+    const lowRam = isLowRam()
     claudeInstances.forEach(({ id, kind }) => {
+      const isActive = id === activeInstanceId
+      if (lowRam && !isActive && !terminalsRef.current[id]) return
       const terminal = ensureTerminal(id, kind)
-      terminal.host.style.display = id === activeInstanceId ? 'block' : 'none'
+      terminal.host.style.display = isActive ? 'block' : 'none'
     })
 
     // Instances that dropped out of the list (closed via the session

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAutocompleteSettingsStore, resolveSource } from '@/stores/autocompleteSettingsStore'
 import { useAutocompleteRuntimeStore } from '@/stores/autocompleteRuntimeStore'
+import { isLowRam } from '@/lib/lowRam'
 
 // Keeps the main process's autocomplete model in line with this window's
 // settings: configures the source on mount and on every relevant change,
@@ -35,8 +36,12 @@ export function useAutocompleteLifecycle(): void {
       if (!enabledNow || !state.modelOnDisk) return
       // Launch: only a model nobody has started or stopped yet, so opening a
       // second window never revives one the user stopped. Never downloads:
-      // a missing model waits for the user's button press.
-      const autoStart = firstRun && settings.autoStart && state.phase === 'idle'
+      // a missing model waits for the user's button press. On low-RAM machines
+      // (<=8GB) the launch auto-start is suppressed — loading a model is the
+      // biggest launch-time RAM spike (VIDE-163); the user can still start it
+      // by hand. A deliberate just-enabled toggle is always honored.
+      const autoStart =
+        firstRun && settings.autoStart && state.phase === 'idle' && !isLowRam(totalBytes ?? undefined)
       if (autoStart || justEnabled) window.api.autocompleteStart()
     }).catch(() => {})
     return () => { cancelled = true }

@@ -249,7 +249,7 @@ export default function App() {
   const agentBarCollapsed = useClaudeStore((s) => s.agentBarCollapsed)
   // 'hover' replaces the collapse toggle with icons that widen on hover.
   const agentBarHover = useGeneralSettingsStore((s) => s.agentBarMode) === 'hover'
-  const [memoryUsage, setMemoryUsage] = useState<{ usedBytes: number; totalBytes: number; appBytes: number } | null>(null)
+  const [memoryUsage, setMemoryUsage] = useState<SystemUsage | null>(null)
   const commandPaletteOpen = useSearchStore((s) => s.commandPaletteOpen)
   const actionPaletteOpen = useSearchStore((s) => s.actionPaletteOpen)
   const shortcutsOverlayOpen = useSearchStore((s) => s.shortcutsOverlayOpen)
@@ -1539,7 +1539,16 @@ function formatGb(bytes: number): string {
   return (bytes / 1024 ** 3).toFixed(1)
 }
 
-function MemoryPill({ usage }: { usage: { usedBytes: number; totalBytes: number; appBytes: number } }) {
+type SystemUsage = {
+  usedBytes: number
+  totalBytes: number
+  appBytes: number
+  swapUsedBytes: number
+  compressedBytes: number
+  pressure: 'normal' | 'warn' | 'critical'
+}
+
+function MemoryPill({ usage }: { usage: SystemUsage }) {
   const [hovered, setHovered] = useState(false)
   const llamaEnabled = useLlamaSettingsStore((s) => s.enabled)
   // Fetched lazily on hover — same reason as Docker (potentially slow).
@@ -1578,13 +1587,24 @@ function MemoryPill({ usage }: { usage: { usedBytes: number; totalBytes: number;
     }
   }
 
+  // Option C: the pill leads with memory pressure — colored, with a fill bar —
+  // and the used/total number trails. Swap and compressed surface on hover.
+  const usedFraction = usage.totalBytes > 0 ? usage.usedBytes / usage.totalBytes : 0
+  const pressureClass =
+    usage.pressure === 'critical' ? 'text-red-500' : usage.pressure === 'warn' ? 'text-amber-500' : 'text-fg-muted'
+  const pressureLabel =
+    usage.pressure === 'critical' ? 'Critical' : usage.pressure === 'warn' ? 'Warn' : 'Normal'
+
   return (
     <span
-      className="relative flex items-center gap-1 text-xs font-medium text-fg-muted tabular-nums"
+      className={`relative flex items-center gap-1.5 text-xs font-medium tabular-nums ${pressureClass}`}
       onMouseEnter={handleEnter}
       onMouseLeave={() => setHovered(false)}
     >
       <RamIcon />
+      <span className="h-1.5 w-8 shrink-0 overflow-hidden rounded-full bg-border">
+        <span className="block h-full rounded-full bg-current" style={{ width: `${Math.min(100, Math.max(4, usedFraction * 100))}%` }} />
+      </span>
       {formatGb(usage.usedBytes)}/{formatGb(usage.totalBytes)} GB
       {hovered && (
         <div className="absolute right-0 top-[calc(100%+6px)] z-30 w-64 rounded-md border border-border bg-popover p-2.5 shadow-2xl shadow-black/40">
@@ -1592,6 +1612,22 @@ function MemoryPill({ usage }: { usage: { usedBytes: number; totalBytes: number;
             <span className="text-fg-muted">System</span>
             <span className="font-medium text-fg tabular-nums">{formatGb(usage.usedBytes)}/{formatGb(usage.totalBytes)} GB</span>
           </div>
+          <div className="mt-1.5 flex items-center justify-between gap-3 text-xs">
+            <span className="text-fg-muted">Pressure</span>
+            <span className={`font-medium tabular-nums ${pressureClass}`}>{pressureLabel} · {Math.round(usedFraction * 100)}%</span>
+          </div>
+          {usage.swapUsedBytes > 0 && (
+            <div className="mt-1.5 flex items-center justify-between gap-3 text-xs">
+              <span className="text-fg-muted">Swap</span>
+              <span className="font-medium text-fg tabular-nums">{formatMemory(usage.swapUsedBytes)}</span>
+            </div>
+          )}
+          {usage.compressedBytes > 0 && (
+            <div className="mt-1.5 flex items-center justify-between gap-3 text-xs">
+              <span className="text-fg-muted">Compressed</span>
+              <span className="font-medium text-fg tabular-nums">{formatMemory(usage.compressedBytes)}</span>
+            </div>
+          )}
           <div className="mt-2 flex items-center justify-between gap-3 border-t border-border pt-2 text-xs">
             <span className="text-fg">vIDE total</span>
             <span className="font-medium text-fg tabular-nums">{formatMemory(videBytes)}</span>

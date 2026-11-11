@@ -41,6 +41,14 @@ if (preMountSyncResult.lastSyncAt !== null) {
   await new Promise((resolve) => setTimeout(resolve, swapHoldMs()))
 }
 
+// Cache total RAM before App mounts so synchronous low-RAM checks (e.g. the
+// Chat spawn gate) don't race an async fetch on launch (VIDE-163).
+try {
+  const { setCachedTotalBytes } = await import('./lib/lowRam')
+  const mem = await window.api.getSystemMemoryUsage()
+  setCachedTotalBytes(mem.totalBytes)
+} catch { /* fetch failed — treated as not low RAM */ }
+
 // Dynamic import — stores initialize NOW with the already-updated localStorage.
 const { default: App } = await import('./App')
 // A right-click anywhere closes open popup menus, like a left-click does.
