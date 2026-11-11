@@ -39,6 +39,7 @@ interface FileState {
   collapseAll: () => void
   select: (path: string) => void
   openRecentProject: (root: string) => Promise<void>
+  rediscoverRepos: () => Promise<void>
   closeProject: () => void
 }
 
@@ -154,6 +155,20 @@ export const useFileStore = create<FileState>((set, get) => {
     await discoverAndWatchRepos(root)
     window.api.fsWatchRoot(root)
     window.api.setWindowTitle(root)
+  },
+
+  // Re-scan the current project for repos without resetting the window: picks
+  // up a repo cloned after the project was opened. Updates the repo list
+  // non-destructively (keeps the open set and selection) — see
+  // gitReposStore.updateRepoList. The Show All Repos palette calls this on open.
+  rediscoverRepos: async () => {
+    const root = get().projectRoot
+    if (!root) return
+    try {
+      const depth = useGitSettingsStore.getState().repoScanDepth
+      const repos = await window.api.gitDiscoverRepos(root, depth)
+      useGitReposStore.getState().updateRepoList(repos)
+    } catch { /* transient scan failure — keep the current list */ }
   },
 
   // Also run for folders that are already open (Reveal in File Tree and

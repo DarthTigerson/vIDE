@@ -17,6 +17,7 @@ interface GitReposStore {
   // branch with no indication of which repo it belongs to.
   hasExplicitSelection: boolean
   setRepos: (repos: string[]) => void
+  updateRepoList: (repos: string[]) => void
   selectRepo: (repo: string) => void
   resolveRepoForPath: (absPath: string) => string | null
   followFilePath: (absPath: string) => void
@@ -46,6 +47,19 @@ export const useGitReposStore = create<GitReposStore>((set, get) => ({
     // is exactly the "always starts empty" behavior the spec calls for.
     useGitOpenReposStore.getState().closeAll()
     set({ repos, selectedRepo, hasExplicitSelection: false })
+  },
+
+  // A mid-session re-discovery of the SAME project (e.g. the Show All Repos
+  // palette re-scans on open, so a repo cloned after the project was opened
+  // shows up). Unlike setRepos this is not a project boundary: it keeps the
+  // open set and hasExplicitSelection intact, and only replaces the selection
+  // if it points at a repo that no longer exists.
+  updateRepoList: (repos) => {
+    const current = get().selectedRepo
+    const favorites = useGitFavoriteReposStore.getState().favorites
+    const fallback = repos.find((repo) => favorites[repo]) ?? repos[0] ?? null
+    const selectedRepo = current && repos.includes(current) ? current : fallback
+    set({ repos, selectedRepo })
   },
 
   selectRepo: (repo) => set({ selectedRepo: repo, hasExplicitSelection: true }),

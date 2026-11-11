@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { KeyboardEvent, MouseEvent } from 'react'
+import { useFileStore } from '@/stores/fileStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitStore, useRepoGitState } from '@/stores/gitStore'
 import { useGitFavoriteReposStore, sortReposByFavorite } from '@/stores/gitFavoriteReposStore'
@@ -101,8 +102,17 @@ export function RepoPalette({ onClose }: Props) {
   const listRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
+  // Re-scan the project for repos first, so one cloned after the project was
+  // opened shows up here, then refresh git state for every repo in the fresh
+  // list. Discovery updates the store, so read the list back from it rather
+  // than the `repos` captured at mount.
   useEffect(() => {
-    repos.forEach((repo) => refresh(repo))
+    let cancelled = false
+    useFileStore.getState().rediscoverRepos().finally(() => {
+      if (cancelled) return
+      useGitReposStore.getState().repos.forEach((repo) => refresh(repo))
+    })
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
