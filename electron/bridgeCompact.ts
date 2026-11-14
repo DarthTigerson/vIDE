@@ -110,6 +110,8 @@ export async function summarize(
   contextWindow: number | null,
   signal?: AbortSignal,
   focus?: string,
+  // vCloak: masks the request and unmasks the summary when set
+  cloak?: { maskBody<T>(body: T): T; unmaskText(s: string): string } | null,
 ): Promise<string> {
   const transcript = renderTranscript(messages, contextWindow)
   const focusNote = focus?.trim() ? `\n\nThe user asked the summary to focus on: ${focus.trim()}` : ''
@@ -118,20 +120,21 @@ export async function summarize(
   const response = await fetch(`${settings.endpoint}/chat/completions`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({
+    body: JSON.stringify(((payload) => (cloak ? cloak.maskBody(payload) : payload))({
       model: settings.modelId,
       messages: [
         { role: 'system', content: COMPACT_PROMPT },
         { role: 'user', content: `<transcript>\n${transcript}\n</transcript>${focusNote}` },
       ],
       stream: false,
-    }),
+    })),
     signal,
     dispatcher: requestDispatcher(settings.requestTimeoutMs),
   } as RequestInit)
   if (!response.ok) throw new Error(`summary request failed: ${response.status} ${(await response.text()).slice(0, 200)}`)
   const data = (await response.json()) as { choices?: Array<{ message?: { content?: string | null } }> }
-  const summary = data.choices?.[0]?.message?.content?.trim()
+  const raw = data.choices?.[0]?.message?.content?.trim()
+  const summary = raw && cloak ? cloak.unmaskText(raw) : raw
   if (!summary) throw new Error('the model returned an empty summary')
   return summary
 }

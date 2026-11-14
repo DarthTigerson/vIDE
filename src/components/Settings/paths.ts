@@ -24,6 +24,7 @@ export const TODO_SETTINGS_TAB_PATH = 'settings://Todo'
 export const NOTES_SETTINGS_TAB_PATH = 'settings://Notes'
 export const SCRIPTS_SETTINGS_TAB_PATH = 'settings://Scripts'
 export const LLAMA_SETTINGS_TAB_PATH = 'settings://Llama'
+export const VCLOAK_SETTINGS_TAB_PATH = 'settings://vCloak'
 // Version, update check and release history (VIDE-143).
 export const ABOUT_SETTINGS_TAB_PATH = 'settings://About'
 export const GIT_LOG_TAB_PATH = 'git-log://Git Log'

@@ -83,6 +83,7 @@ import {
   TODO_SETTINGS_TAB_PATH,
   NOTES_SETTINGS_TAB_PATH,
   LLAMA_SETTINGS_TAB_PATH,
+  VCLOAK_SETTINGS_TAB_PATH,
 } from '@/components/Settings/paths'
 import { TerminalTab } from '@/components/Terminal/TerminalTab'
 import { BrowserTab } from '@/components/Browser/BrowserTab'
@@ -100,6 +101,7 @@ import { DockerSettingsPage } from '@/components/Settings/DockerSettingsPage'
 import { MobileSettingsPage } from '@/components/Settings/MobileSettingsPage'
 import { GeneralSettingsPage } from '@/components/Settings/GeneralSettingsPage'
 import { TodoSettingsPage } from '@/components/Settings/TodoSettingsPage'
+import { VcloakSettingsPage } from '@/components/Settings/VcloakSettingsPage'
 import { NotesSettingsPage } from '@/components/Settings/NotesSettingsPage'
 import { LlamaCreateModelPage } from '@/components/Llama/LlamaCreateModelPage'
 import { LlamaSettingsPage } from '@/components/Settings/LlamaSettingsPage'
@@ -719,6 +721,8 @@ function EditorPane({ paneId }: { paneId: string }) {
             <TodoSettingsPage />
           ) : activeTab.path === NOTES_SETTINGS_TAB_PATH ? (
             <NotesSettingsPage />
+          ) : activeTab.path === VCLOAK_SETTINGS_TAB_PATH ? (
+            <VcloakSettingsPage />
           ) : activeTab.path === SCRIPTS_SETTINGS_TAB_PATH ? (
             <ScriptsSettingsPage />
           ) : activeTab.path === LLAMA_SETTINGS_TAB_PATH ? (

@@ -17,6 +17,7 @@ export const MOVABLE_APP_IDS = [
   'scripts',
   'git-remote',
   'jira',
+  'vcloak',
 ] as const
 
 export type MovableAppId = (typeof MOVABLE_APP_IDS)[number]
