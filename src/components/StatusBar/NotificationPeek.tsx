@@ -1,10 +1,25 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useVisibleNotificationItems } from '@/hooks/useVisibleNotificationItems'
 import { useNotificationArrival } from '@/hooks/useNotificationArrival'
 import { useNotificationPanelStore } from '@/stores/notificationPanelStore'
 import { useNotificationAcknowledgedStore } from '@/stores/notificationAcknowledgedStore'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
 import { footerPopupShadow } from '@/components/ui/footerPopup'
+import { usePeekEventStore, type PeekEvent, type PeekEventKind } from '@/stores/peekEventStore'
+import type { NotificationItem } from '@/hooks/useNotificationItems'
+import { BellIcon, BrowserIcon, ClaudeIcon, GitIcon, UpdateAvailableIcon } from '@/components/ActivityBar/ActivityBar'
+
+const EVENT_ICONS: Record<PeekEventKind, () => ReactNode> = {
+  claude: () => <ClaudeIcon />,
+  git: () => <GitIcon />,
+  browser: () => <BrowserIcon />,
+  update: () => <UpdateAvailableIcon />,
+  info: () => <BellIcon />,
+}
+
+function eventItem(event: PeekEvent): NotificationItem {
+  return { id: event.id, text: event.text, disabled: false, icon: EVENT_ICONS[event.kind]() }
+}
 
 // How long each peeked row stays up; matches the `notification-peek-drain`
 // keyframes duration in index.css.
@@ -50,9 +65,27 @@ export function NotificationPeek() {
     ])
   }, [arrival])
 
-  // Opening the full panel replaces the peek outright.
+  // One-off peek events (usePeekEventStore) get rows with the same countdown,
+  // but never touch the arrival store — so no ring, no unread count.
+  const events = usePeekEventStore((s) => s.events)
+  const removeEvent = usePeekEventStore((s) => s.remove)
+  const lastEventSeq = useRef(0)
   useEffect(() => {
-    if (panelOpen) setEntries([])
+    const fresh = events.filter((e) => e.seq > lastEventSeq.current)
+    if (fresh.length === 0) return
+    lastEventSeq.current = Math.max(...fresh.map((e) => e.seq))
+    setEntries((prev) => [
+      ...prev,
+      ...fresh.map((e) => ({ id: e.id, deadline: e.at + PEEK_MS, leaving: false })),
+    ])
+  }, [events])
+
+  // Opening the full panel replaces the peek outright; events don't live in
+  // the panel, so they're simply gone.
+  useEffect(() => {
+    if (!panelOpen) return
+    setEntries([])
+    usePeekEventStore.setState({ events: [] })
   }, [panelOpen])
 
   // One timer for the next thing due: a row starting to fade, or a faded
@@ -63,6 +96,9 @@ export function NotificationPeek() {
     const next = Math.min(...entries.map(due))
     const timer = setTimeout(() => {
       const now = Date.now()
+      for (const e of entries) {
+        if (e.leaving && e.deadline + CLOSE_TRANSITION_MS <= now) removeEvent(e.id)
+      }
       setEntries((prev) =>
         prev
           .filter((e) => !(e.leaving && e.deadline + CLOSE_TRANSITION_MS <= now))
@@ -70,17 +106,22 @@ export function NotificationPeek() {
       )
     }, Math.max(0, next - Date.now()))
     return () => clearTimeout(timer)
-  }, [entries, hovered])
+  }, [entries, hovered, removeEvent])
 
-  // Looked up among visible (unacknowledged) items, so a row goes away as
-  // soon as it's seen in the panel or its condition clears.
+  // Condition rows are looked up among visible (unacknowledged) items, so a
+  // row goes away as soon as it's seen in the panel or its condition clears.
+  // Event rows come from the event store.
   const rows = entries
-    .map((entry) => ({ entry, item: visibleItems.find((item) => item.id === entry.id) }))
-    .filter((row): row is { entry: PeekEntry; item: NonNullable<typeof row.item> } => !!row.item)
+    .map((entry) => {
+      const event = events.find((e) => e.id === entry.id)
+      const item = event ? eventItem(event) : visibleItems.find((i) => i.id === entry.id)
+      return { entry, item, isEvent: !!event }
+    })
+    .filter((row): row is { entry: PeekEntry; item: NotificationItem; isEvent: boolean } => !!row.item)
   useCoverNativeViews(rows.length > 0 && !panelOpen)
   if (rows.length === 0 || panelOpen) return null
   const closing = rows.every((row) => row.entry.leaving)
-  const others = visibleItems.length - rows.length
+  const others = visibleItems.length - rows.filter((row) => !row.isEvent).length
 
   return (
     <div
@@ -117,7 +158,7 @@ export function NotificationPeek() {
         </button>
       )}
       <ul>
-        {rows.map(({ entry, item }) => (
+        {rows.map(({ entry, item, isEvent }) => (
           <li
             key={item.id}
             data-leaving={entry.leaving || undefined}
@@ -132,8 +173,11 @@ export function NotificationPeek() {
               // mouseup rather than onClick (VIDE-91), same as the panel rows.
               onMouseUp={(e) => {
                 if (e.button !== 0) return
-                item.onClick?.()
-                acknowledge([item.id])
+                if (isEvent) removeEvent(item.id)
+                else {
+                  item.onClick?.()
+                  acknowledge([item.id])
+                }
                 setEntries((prev) => prev.filter((p) => p.id !== item.id))
               }}
               className={[

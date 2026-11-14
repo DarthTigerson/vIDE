@@ -14,7 +14,7 @@ import { BrowserLandingPage } from './BrowserLandingPage'
 import { StarIcon } from './StarIcon'
 import { ClearBrowsingDataModal } from './ClearBrowsingDataModal'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
-import { useStatusMessageStore } from '@/stores/statusMessageStore'
+import { usePeekEventStore } from '@/stores/peekEventStore'
 import { isMac } from '@/lib/platform'
 
 interface Props {
@@ -463,7 +463,7 @@ export function BrowserTab({ browserId }: Props) {
       useBrowserRecentStore.getState().clear()
       useBrowserClosedTabsStore.getState().clear()
     }
-    useStatusMessageStore.getState().show(`Cleared ${kind}`)
+    usePeekEventStore.getState().show(`Cleared ${kind}`, 'browser')
   }
 
   useEffect(() => {

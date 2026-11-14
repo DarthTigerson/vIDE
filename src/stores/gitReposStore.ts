@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { useGitStore } from './gitStore'
-import { useStatusMessageStore } from './statusMessageStore'
+import { usePeekEventStore } from './peekEventStore'
 import { useGitFavoriteReposStore } from './gitFavoriteReposStore'
 import { useGitOpenReposStore } from './gitOpenReposStore'
 
@@ -99,7 +99,7 @@ export const useGitReposStore = create<GitReposStore>((set, get) => ({
     set({ selectedRepo: repo, hasExplicitSelection: true })
     const name = repo.split('/').pop()
     const branch = useGitStore.getState().repos[repo]?.branch
-    useStatusMessageStore.getState().show(branch ? `Switched to ${name} on ${branch}` : `Switched to ${name}`)
+    usePeekEventStore.getState().show(branch ? `Switched to ${name} on ${branch}` : `Switched to ${name}`, 'git')
   },
 }))
 

@@ -3,7 +3,7 @@ import { useEditorStore } from '@/stores/editorStore'
 import { useBrowserStore } from '@/stores/browserStore'
 import { useFileStore } from '@/stores/fileStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
-import { useStatusMessageStore } from '@/stores/statusMessageStore'
+import { usePeekEventStore } from '@/stores/peekEventStore'
 import { toRelativePath } from '@/lib/sendSelectionToAssistant'
 import { openFileAtLocation } from '@/lib/openFileLocation'
 import { buildBrowserPath } from '@/components/Settings/paths'
@@ -115,7 +115,7 @@ export function createFilePathActivateHandler() {
       if (!repoPath) {
         // Previously a silent no-op, which read as "links are broken".
         if (looksLikeBareDomain(rawPath)) openUrlInBrowserTab(`https://${rawPath}`)
-        else useStatusMessageStore.getState().show(`File not found: ${rawPath}`)
+        else usePeekEventStore.getState().show(`File not found: ${rawPath}`, 'claude')
         return
       }
       absPath = repoPath

@@ -9,7 +9,7 @@ import { useNotificationAcknowledgedStore } from '@/stores/notificationAcknowled
 
 beforeEach(() => {
   useUsageAlertStore.setState({ alerts: [{ scope: 'session', cutoffAt: Date.now() + 1000, resetAt: null }] })
-  useUpdateStore.setState({ available: null, status: 'idle', upToDateVersion: null })
+  useUpdateStore.setState({ available: null, status: 'idle' })
   useDockerSettingsStore.setState({ enabled: false })
   useDockerStore.setState({ status: 'unknown' })
   useNotificationAcknowledgedStore.setState({ acknowledgedIds: [], dismissedIds: [] })
