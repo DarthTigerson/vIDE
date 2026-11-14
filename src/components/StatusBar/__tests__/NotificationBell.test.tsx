@@ -11,7 +11,7 @@ import { useNotificationArrivalStore } from '@/stores/notificationArrivalStore'
 
 beforeEach(() => {
   useUsageAlertStore.setState({ alerts: [] })
-  useUpdateStore.setState({ available: null, status: 'idle', upToDateVersion: null })
+  useUpdateStore.setState({ available: null, status: 'idle' })
   useDockerSettingsStore.setState({ enabled: false })
   useDockerStore.setState({ status: 'unknown' })
   useNotificationPanelStore.setState({ open: false })

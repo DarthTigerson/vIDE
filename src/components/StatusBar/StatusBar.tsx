@@ -10,7 +10,6 @@ import { ConfirmUndoCommitModal } from '@/components/Git/ConfirmUndoCommitModal'
 import { ConfirmHardResetModal } from '@/components/Git/ConfirmHardResetModal'
 import { GitResetPalette } from '@/components/Git/GitResetPalette'
 import { useConfigRepoStore } from '@/stores/configRepoStore'
-import { FooterMessage } from './FooterMessage'
 import { NotificationPanel } from './NotificationPanel'
 import { NotificationBell } from './NotificationBell'
 import { NotificationPeek } from './NotificationPeek'
@@ -76,7 +75,6 @@ export function StatusBar() {
     <div className="app-frame relative h-6 shrink-0 flex items-center justify-between px-3 bg-tab-bar border-t border-border select-none">
       <GitActivityBar />
       <AlarmFlash />
-      <FooterMessage />
       {/* Branch, then current-line blame (Settings > Git > Blame: Footer), which truncates first. */}
       <div className="flex items-center gap-3 min-w-0">
         {showBranch && (

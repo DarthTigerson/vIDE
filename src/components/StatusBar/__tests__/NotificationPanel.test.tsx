@@ -13,7 +13,7 @@ import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
 beforeEach(() => {
   useNotificationPanelStore.setState({ open: true })
   useUsageAlertStore.setState({ alerts: [{ scope: 'session', cutoffAt: Date.now() + 1000, resetAt: null }] })
-  useUpdateStore.setState({ available: null, status: 'idle', upToDateVersion: null })
+  useUpdateStore.setState({ available: null, status: 'idle' })
   useDockerSettingsStore.setState({ enabled: false })
   useDockerStore.setState({ status: 'unknown' })
   useEditorStore.setState({ activeTabPath: null })

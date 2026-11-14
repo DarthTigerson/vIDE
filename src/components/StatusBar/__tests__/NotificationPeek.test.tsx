@@ -10,16 +10,18 @@ import { useNotificationPanelStore } from '@/stores/notificationPanelStore'
 import { useNotificationAcknowledgedStore } from '@/stores/notificationAcknowledgedStore'
 import { useNotificationArrivalStore } from '@/stores/notificationArrivalStore'
 import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
+import { usePeekEventStore } from '@/stores/peekEventStore'
 
 function resetStores() {
   useUsageAlertStore.setState({ alerts: [] })
-  useUpdateStore.setState({ available: null, status: 'idle', upToDateVersion: null })
+  useUpdateStore.setState({ available: null, status: 'idle' })
   useDockerSettingsStore.setState({ enabled: false })
   useDockerStore.setState({ status: 'unknown' })
   useEditorStore.setState({ activeTabPath: null })
   useNotificationPanelStore.setState({ open: false })
   useNotificationAcknowledgedStore.setState({ acknowledgedIds: [], dismissedIds: [] })
   useNotificationArrivalStore.setState({ knownIds: [], arrival: null })
+  usePeekEventStore.setState({ events: [] })
 }
 
 beforeEach(() => {
@@ -198,5 +200,52 @@ describe('NotificationPeek', () => {
     useUsageAlertStore.setState({ alerts: [sessionAlert()] })
     render(<NotificationPeek />)
     expect(screen.queryByTestId('notification-peek')).toBeNull()
+  })
+})
+
+describe('NotificationPeek peek-only events', () => {
+  it('shows an event row, then removes it after PEEK_MS without ringing or acknowledging', () => {
+    render(<NotificationPeek />)
+    act(() => usePeekEventStore.getState().show('File not found: a/b.ts', 'claude'))
+    expect(screen.getByTestId('notification-peek').textContent).toMatch(/File not found: a\/b\.ts/)
+    expect(useNotificationArrivalStore.getState().arrival).toBeNull()
+    act(() => {
+      vi.advanceTimersByTime(PEEK_MS)
+    })
+    act(() => {
+      vi.advanceTimersByTime(300)
+    })
+    expect(screen.queryByTestId('notification-peek')).toBeNull()
+    expect(usePeekEventStore.getState().events).toEqual([])
+    expect(useNotificationAcknowledgedStore.getState().acknowledgedIds).toEqual([])
+  })
+
+  it('does not count events in the "+N more" row', () => {
+    dockerOff()
+    useNotificationAcknowledgedStore.setState({ acknowledgedIds: [], dismissedIds: [] })
+    render(<NotificationPeek />)
+    act(() => usePeekEventStore.getState().show('Switched to repoB', 'git'))
+    expect(screen.queryByText(/more/)).toBeNull()
+  })
+
+  it('collapses a repeated event into one row', () => {
+    render(<NotificationPeek />)
+    act(() => usePeekEventStore.getState().show('Cleared cache', 'browser'))
+    act(() => usePeekEventStore.getState().show('Cleared cache', 'browser'))
+    expect(screen.getAllByText('Cleared cache')).toHaveLength(1)
+  })
+
+  it('drops events fired while the panel is open', () => {
+    useNotificationPanelStore.setState({ open: true })
+    usePeekEventStore.getState().show('Cleared cache', 'browser')
+    expect(usePeekEventStore.getState().events).toEqual([])
+  })
+
+  it('removes an event row on click', () => {
+    render(<NotificationPeek />)
+    act(() => usePeekEventStore.getState().show('Cleared cookies', 'browser'))
+    fireEvent.mouseUp(screen.getByText('Cleared cookies'), { button: 0 })
+    expect(screen.queryByText('Cleared cookies')).toBeNull()
+    expect(usePeekEventStore.getState().events).toEqual([])
   })
 })

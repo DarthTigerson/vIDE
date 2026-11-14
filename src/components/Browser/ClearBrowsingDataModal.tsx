@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { useBrowserRecentStore } from '@/stores/browserRecentStore'
 import { useBrowserClosedTabsStore } from '@/stores/browserClosedTabsStore'
-import { useStatusMessageStore } from '@/stores/statusMessageStore'
+import { usePeekEventStore } from '@/stores/peekEventStore'
 
 interface Props {
   browserId: string
@@ -30,7 +30,7 @@ export function ClearBrowsingDataModal({ browserId, onClose }: Props) {
       setClearing(false)
     }
     const cleared = [clearCache && 'cache', clearCookies && 'cookies', clearHistory && 'history'].filter(Boolean)
-    useStatusMessageStore.getState().show(`Cleared ${cleared.join(', ')}`)
+    usePeekEventStore.getState().show(`Cleared ${cleared.join(', ')}`, 'browser')
     onClose()
   }
 

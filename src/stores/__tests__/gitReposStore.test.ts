@@ -16,8 +16,8 @@ import { useGitStore, emptyRepoGitState } from '../gitStore'
 import { useGitFavoriteReposStore } from '../gitFavoriteReposStore'
 import { useGitOpenReposStore } from '../gitOpenReposStore'
 
-vi.mock('@/stores/statusMessageStore', () => ({
-  useStatusMessageStore: { getState: () => ({ show: showMock }) },
+vi.mock('@/stores/peekEventStore', () => ({
+  usePeekEventStore: { getState: () => ({ show: showMock }) },
 }))
 
 describe('gitReposStore', () => {
@@ -123,7 +123,7 @@ describe('gitReposStore', () => {
 
     expect(useGitReposStore.getState().selectedRepo).toBe('/parent/repoB')
     expect(useGitReposStore.getState().hasExplicitSelection).toBe(true)
-    expect(showMock).toHaveBeenCalledWith('Switched to repoB on main')
+    expect(showMock).toHaveBeenCalledWith('Switched to repoB on main', 'git')
   })
 
   it('followFilePath omits the branch clause when the branch is not yet known', () => {
@@ -131,7 +131,7 @@ describe('gitReposStore', () => {
 
     useGitReposStore.getState().followFilePath('/parent/repoB/src/x.ts')
 
-    expect(showMock).toHaveBeenCalledWith('Switched to repoB')
+    expect(showMock).toHaveBeenCalledWith('Switched to repoB', 'git')
   })
 
   it('followFilePath marks the selection explicit but stays silent when the file is already in the selected repo', () => {

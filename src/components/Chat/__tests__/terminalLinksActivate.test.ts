@@ -7,7 +7,7 @@ vi.mock('@/lib/openFileLocation', () => ({ openFileAtLocation }))
 import { createFilePathActivateHandler, resolveInKnownRepos } from '../terminalLinks'
 import { useFileStore } from '@/stores/fileStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
-import { useStatusMessageStore } from '@/stores/statusMessageStore'
+import { usePeekEventStore } from '@/stores/peekEventStore'
 
 // Multi-repo workspace: project root holds several repos, and Claude's tool
 // headers print paths relative to whichever repo it ran in.
@@ -26,7 +26,7 @@ describe('repo-relative terminal file links', () => {
   beforeEach(() => {
     useFileStore.setState({ projectRoot: ROOT })
     useGitReposStore.setState({ repos: REPOS, selectedRepo: '/work/apps' })
-    useStatusMessageStore.setState({ message: null })
+    usePeekEventStore.setState({ events: [] })
     openFileAtLocation.mockClear()
   })
 
@@ -59,10 +59,10 @@ describe('repo-relative terminal file links', () => {
     expect(window.api.pathExists).not.toHaveBeenCalled()
   })
 
-  it('shows a status message instead of silently doing nothing when the file is missing', async () => {
+  it('shows a peek event instead of silently doing nothing when the file is missing', async () => {
     mockExisting([])
     await createFilePathActivateHandler()(new MouseEvent('mouseup'), 'helm-charts/missing.yaml')
     expect(openFileAtLocation).not.toHaveBeenCalled()
-    expect(useStatusMessageStore.getState().message).toBe('File not found: helm-charts/missing.yaml')
+    expect(usePeekEventStore.getState().events.map((e) => [e.text, e.kind])).toEqual([['File not found: helm-charts/missing.yaml', 'claude']])
   })
 })
