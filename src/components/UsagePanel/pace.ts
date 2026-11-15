@@ -37,3 +37,9 @@ export function computePace(
 
   return { elapsedPct, projectedPct, status }
 }
+
+/** Value at reset if the current hourly rate holds; null without a rate or reset time. */
+export function projectAtReset(value: number | null, ratePerHour: number | null, resetAt: number | null, now: number): number | null {
+  if (value == null || ratePerHour == null || resetAt == null) return null
+  return value + ratePerHour * Math.max(0, (resetAt - now) / 3_600_000)
+}
