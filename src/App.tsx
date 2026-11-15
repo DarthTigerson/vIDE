@@ -64,6 +64,7 @@ import { SettingsPanel } from './components/Settings/SettingsPanel'
 import { GitPanel } from './components/Git/GitPanel'
 import { BranchPalette } from './components/Git/BranchPalette'
 import { GitPromptHost } from './components/Git/GitPromptHost'
+import { StoreHost } from './components/Store/StoreHost'
 import { DockerPanel } from './components/Docker/DockerPanel'
 import { MobileDisplayPanel } from './components/MobileDisplay/MobileDisplayPanel'
 import { GraphifyPanel } from './components/Graphify/GraphifyPanel'
@@ -1485,6 +1486,7 @@ export default function App() {
         <BranchPalette projectRoot={selectedRepo} onClose={() => useSearchStore.getState().closeBranchPalette()} />
       )}
       <GitPromptHost />
+      <StoreHost />
       <AutocompleteLifecycle />
       <DiscardScratchPromptHost />
       {newSessionMenu && (

@@ -49,6 +49,7 @@ import { getBatteryStatus } from './systemBattery'
 import { registerOnboardingHandlers } from './onboarding'
 import { registerConfigRepoHandlers } from './configRepo'
 import { applyDevProfile } from './devProfile'
+import { parseVideUrl, videUrlFromArgv, type VideUrlRequest } from './videUrl'
 
 function registerFsHandlers(): void {
   ipcMain.handle('fs:readDir', (_e, path: string) => buildTree(path))
@@ -463,6 +464,66 @@ async function restoreOpenWindows(): Promise<void> {
 app.name = 'vIDE'
 applyDevProfile()
 registerAppScheme()
+
+// vide://store/<id> links from vsuite.tech. Packaged builds only: a dev build
+// must never take the scheme over from the installed app.
+// The renderer learns about a request two ways (an event, and a pull on mount)
+// so a window that is still loading does not miss it; whichever sees it first
+// takes it from `pendingStoreOpen`.
+let pendingStoreOpen: VideUrlRequest | null = null
+const queuedVideUrls: string[] = []
+let appIsReady = false
+
+function routeVideUrl(raw: string): void {
+  const req = parseVideUrl(raw)
+  if (!req) return
+  pendingStoreOpen = req
+  const target = BrowserWindow.getFocusedWindow() ?? [...windows.values()].find((w) => !w.isDestroyed())
+  if (!target) {
+    if (appIsReady && !restoringWindows) createWindow()
+    return
+  }
+  if (target.isMinimized()) target.restore()
+  target.show()
+  target.focus()
+  target.webContents.send('store:open')
+}
+
+if (app.isPackaged) {
+  app.setAsDefaultProtocolClient('vide')
+  // macOS delivers links here, possibly before 'ready': queue those.
+  app.on('open-url', (event, url) => {
+    event.preventDefault()
+    if (appIsReady) routeVideUrl(url)
+    else queuedVideUrls.push(url)
+  })
+  if (process.platform === 'linux') {
+    // Linux starts a new process per link; with the lock held, the link
+    // arrives in the running instance's argv instead. (Without a lock the
+    // second process would open its own window and the link would go nowhere.)
+    if (!app.requestSingleInstanceLock()) {
+      app.exit(0)
+    } else {
+      app.on('second-instance', (_event, argv) => {
+        const url = videUrlFromArgv(argv)
+        if (url) {
+          routeVideUrl(url)
+          return
+        }
+        const win = [...windows.values()].find((w) => !w.isDestroyed())
+        if (win) {
+          if (win.isMinimized()) win.restore()
+          win.show()
+          win.focus()
+        } else if (appIsReady && !restoringWindows) {
+          createWindow()
+        }
+      })
+      const initial = videUrlFromArgv(process.argv)
+      if (initial) queuedVideUrls.push(initial)
+    }
+  }
+}
 
 // One-time, non-destructive migration for users upgrading from Huginn: copy
 // the old userData directory (settings, usage history, etc.) into the new
@@ -920,7 +981,15 @@ app.whenReady().then(async () => {
   buildMenu()
   // Not awaited: the IPC handlers registered below must be in place before
   // any restored window's renderer starts calling them.
-  void restoreOpenWindows()
+  void restoreOpenWindows().then(() => {
+    appIsReady = true
+    for (const url of queuedVideUrls.splice(0)) routeVideUrl(url)
+  })
+  ipcMain.handle('store:takePendingOpen', () => {
+    const req = pendingStoreOpen
+    pendingStoreOpen = null
+    return req
+  })
 
   // MobileServer and UsageManager (deliberately left untouched — app-wide
   // singletons per the spec, not per-window) push events to whatever `win`
@@ -996,6 +1065,7 @@ app.whenReady().then(async () => {
       return r.status === 'ok' ? r.apps.find((a) => a.id === id) ?? null : null
     },
     isDev: !app.isPackaged,
+    currentVersion: app.getVersion(),
     broadcast: (channel, ...args) => {
       for (const w of BrowserWindow.getAllWindows()) {
         if (!w.isDestroyed()) w.webContents.send(channel, ...args)

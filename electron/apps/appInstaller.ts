@@ -49,6 +49,11 @@ export class AppInstaller {
     this.maxBytes = opts.maxBytes ?? DEFAULT_MAX_BYTES
   }
 
+  // Largest package accepted, for reading a file picked from disk.
+  get packageMaxBytes(): number {
+    return this.maxBytes
+  }
+
   installDir(id: string, version: string): string {
     return join(this.appsDir, id, version)
   }
@@ -59,8 +64,6 @@ export class AppInstaller {
       return { ok: false, error: `Needs vIDE ${app.latest.minVide} or newer.` }
     }
 
-    const tmpRoot = join(this.appsDir, '.tmp')
-    const tmp = join(tmpRoot, `${app.id}-${randomBytes(6).toString('hex')}`)
     try {
       let zip: Uint8Array
       try {
@@ -70,7 +73,21 @@ export class AppInstaller {
       }
       const digest = createHash('sha256').update(zip).digest('hex')
       if (digest !== app.latest.sha256.toLowerCase()) return { ok: false, error: ERR_CHECKSUM }
+      return await this.installZip(zip, { listing: app })
+    } catch {
+      return { ok: false, error: ERR_INVALID }
+    }
+  }
 
+  // Installs a package already in memory. With `listing` (a Store install, or
+  // a file whose sha256 matches the catalog) the package must be that release.
+  // Without it (a file that is not from the Store) the record is flagged
+  // `source: 'file'`. Same extraction, manifest and apiVersion checks either way.
+  async installZip(zip: Uint8Array, opts: { listing?: StoreApp }): Promise<InstallResult> {
+    const listing = opts.listing
+    const tmpRoot = join(this.appsDir, '.tmp')
+    const tmp = join(tmpRoot, `pkg-${randomBytes(6).toString('hex')}`)
+    try {
       mkdirSync(tmp, { recursive: true })
       try {
         extractZip(zip, tmp)
@@ -85,18 +102,22 @@ export class AppInstaller {
       }
       const manifest = parseManifest(manifestJson)
       if (typeof manifest === 'string') return { ok: false, error: ERR_INVALID }
-      if (manifest.id !== app.id || manifest.version !== app.latest.version) {
+      if (listing && (manifest.id !== listing.id || manifest.version !== listing.latest.version)) {
         return { ok: false, error: ERR_MISMATCH }
       }
       if (manifest.apiVersion !== APP_API_VERSION) {
         return { ok: false, error: 'Built for a newer vIDE. Update vIDE first.' }
       }
+      if (!listing && compareVersions(manifest.minVide, this.currentVersion) > 0) {
+        return { ok: false, error: `Needs vIDE ${manifest.minVide} or newer.` }
+      }
       if (!existsSync(join(tmp, manifest.renderer))) return { ok: false, error: ERR_INVALID }
       if (manifest.main !== undefined && !existsSync(join(tmp, manifest.main))) {
         return { ok: false, error: ERR_INVALID }
       }
+      const app = { id: manifest.id, version: manifest.version, commit: listing?.latest.commit ?? '' }
 
-      const target = this.installDir(app.id, app.latest.version)
+      const target = this.installDir(app.id, app.version)
       mkdirSync(join(this.appsDir, app.id), { recursive: true })
       // Move any existing copy of this version aside rather than deleting it,
       // so a failure below can restore it.
@@ -108,9 +129,10 @@ export class AppInstaller {
       const previous = records.find((r) => r.id === app.id)
       const record: InstalledRecord = {
         id: app.id,
-        version: app.latest.version,
-        commit: app.latest.commit,
-        installedAt: Date.now()
+        version: app.version,
+        commit: app.commit,
+        installedAt: Date.now(),
+        ...(listing ? {} : { source: 'file' as const })
       }
       try {
         writeInstalled(this.appsDir, [...records.filter((r) => r.id !== app.id), record])

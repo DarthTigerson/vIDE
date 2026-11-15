@@ -1,6 +1,8 @@
 import type { Command } from './commands'
 import { useAppContribStore } from '@/apps/appContribStore'
 import { usePeekEventStore } from '@/stores/peekEventStore'
+import { useStoreSettingsStore } from '@/stores/storeSettingsStore'
+import { useStoreStore } from '@/stores/storeStore'
 
 // Whether this is an unpackaged (dev) build, asked once from main. Until the
 // answer arrives the dev commands are simply not listed.
@@ -8,7 +10,8 @@ let devMode: boolean | null = null
 let devModeAsked = false
 
 export function askDevMode(): void {
-  if (devModeAsked) return
+  // No renderer window (node tests): dev commands simply stay hidden.
+  if (devModeAsked || typeof window === 'undefined') return
   devModeAsked = true
   void window.api.appsIsDev?.().then((v) => { devMode = v }).catch(() => { devMode = false })
 }
@@ -49,5 +52,16 @@ function devCommands(): Command[] {
 export function appCommands(): Command[] {
   askDevMode()
   const fromApps = useAppContribStore.getState().commands.map((c) => c.command)
-  return devMode ? [...fromApps, ...devCommands()] : fromApps
+  const out = devMode ? [...fromApps, ...devCommands()] : fromApps
+  // Behind Settings > Store > "Install apps from a file".
+  if (useStoreSettingsStore.getState().installFromFile) {
+    out.push({
+      id: 'app-install-from-file',
+      label: 'Install from file…',
+      description: 'Install a vSuite app from a .zip package',
+      keywords: ['store', 'app', 'package', 'zip', 'install', 'plugin'],
+      action: () => { void useStoreStore.getState().pickFile() },
+    })
+  }
+  return out
 }

@@ -8,10 +8,14 @@ import { parseRegistry, type StoreApp } from './storeRegistry'
 // local file server before vsuite.tech is live (or to test a draft catalog).
 export const DEFAULT_REGISTRY_URL = 'https://vsuite.tech/registry.json'
 const FETCH_TIMEOUT_MS = 10_000
+const README_TIMEOUT_MS = 10_000
+const README_MAX_BYTES = 512 * 1024
 
 // `compatible` is false when the app needs a newer vIDE than this one
 // (latest.minVide > app version), so the renderer never compares versions.
 export type StoreListing = StoreApp & { compatible: boolean }
+
+export type ReadmeResult = { ok: true; text: string } | { ok: false }
 
 export type RegistryState =
   | { status: 'ok'; apps: StoreListing[]; checkedAt: number; fromCache: boolean }
@@ -40,9 +44,33 @@ function signature(state: RegistryState | null): string {
   return 'ok:' + state.apps.map((a) => `${a.id}@${a.latest.version}:${a.compatible}`).join(',')
 }
 
+// Reads a response body as text, or null once it passes `max` bytes.
+async function readCapped(res: Response, max: number): Promise<string | null> {
+  if (!res.body) {
+    const text = await res.text()
+    return Buffer.byteLength(text) > max ? null : text
+  }
+  const reader = res.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    total += value.byteLength
+    if (total > max) {
+      void reader.cancel()
+      return null
+    }
+    chunks.push(value)
+  }
+  return Buffer.concat(chunks).toString('utf8')
+}
+
 export class StoreService {
   private memory: RegistryState | null = null
   private inFlight: Promise<RegistryState> | null = null
+  // README text per app + version, for this session only.
+  private readonly readmes = new Map<string, string>()
   private timer: ReturnType<typeof setInterval> | null = null
   private readonly fetchFn: typeof fetch
 
@@ -80,6 +108,34 @@ export class StoreService {
 
   registerHandlers(): void {
     ipcMain.handle('store:getRegistry', (_e, refresh: boolean) => this.getRegistry(!!refresh))
+    ipcMain.handle('store:getReadme', (_e, id: string) => this.getReadme(String(id)))
+  }
+
+  // The app's README (from the catalog's readmeUrl), fetched here rather than
+  // in the renderer so it is size- and time-limited. Cached per app+version.
+  async getReadme(id: string): Promise<ReadmeResult> {
+    const state = this.memory ?? (await this.getRegistry(false))
+    if (state.status !== 'ok') return { ok: false }
+    const app = state.apps.find((a) => a.id === id)
+    if (!app?.readmeUrl) return { ok: false }
+    const key = `${app.id}@${app.latest.version}`
+    const cached = this.readmes.get(key)
+    if (cached !== undefined) return { ok: true, text: cached }
+    try {
+      const res = await this.fetchFn(app.readmeUrl, {
+        headers: { Accept: 'text/markdown, text/plain' },
+        signal: AbortSignal.timeout(README_TIMEOUT_MS),
+      })
+      if (!res.ok) return { ok: false }
+      const declared = Number(res.headers.get('content-length'))
+      if (Number.isFinite(declared) && declared > README_MAX_BYTES) return { ok: false }
+      const text = await readCapped(res, README_MAX_BYTES)
+      if (text === null) return { ok: false }
+      this.readmes.set(key, text)
+      return { ok: true, text }
+    } catch {
+      return { ok: false }
+    }
   }
 
   private async load(): Promise<RegistryState> {

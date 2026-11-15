@@ -116,4 +116,59 @@ describe('parseRegistry', () => {
     })
     expect(result.map((a) => a.name)).toEqual(['Docker', 'Graphify', 'jira'])
   })
+
+  describe('optional page fields', () => {
+    const full = {
+      icon: 'https://vsuite.tech/apps/docker/icon.svg',
+      screenshots: ['https://vsuite.tech/apps/docker/shot-1.png', 'https://vsuite.tech/apps/docker/shot-2.png'],
+      readmeUrl: 'https://vsuite.tech/apps/docker/readme.md',
+      size: 15234,
+      publishedAt: '2026-11-15T10:00:00Z',
+    }
+
+    it('keeps valid icon, screenshots, readmeUrl, size and publishedAt', () => {
+      const [app] = apps({ schema: 1, apps: [entry(full)] })
+      expect(app).toMatchObject(full)
+    })
+
+    it('leaves them off when the entry has none', () => {
+      const [app] = apps({ schema: 1, apps: [entry()] })
+      for (const key of ['icon', 'screenshots', 'readmeUrl', 'size', 'publishedAt']) expect(app).not.toHaveProperty(key)
+    })
+
+    it('drops a non-https field alone and keeps the entry and the other fields', () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const [app] = apps({ schema: 1, apps: [entry({ ...full, icon: 'http://x/icon.png', readmeUrl: 'ftp://x/readme.md' })] })
+      expect(app.id).toBe('docker')
+      expect(app).not.toHaveProperty('icon')
+      expect(app).not.toHaveProperty('readmeUrl')
+      expect(app.screenshots).toEqual(full.screenshots)
+      expect(app.size).toBe(15234)
+    })
+
+    it('drops screenshots with a non-https entry, or more than 8', () => {
+      const bad = apps({ schema: 1, apps: [entry({ ...full, screenshots: [full.screenshots[0], 'javascript:alert(1)'] })] })[0]
+      expect(bad).not.toHaveProperty('screenshots')
+      const many = Array.from({ length: 9 }, (_, i) => `https://vsuite.tech/s${i}.png`)
+      const tooMany = apps({ schema: 1, apps: [entry({ ...full, screenshots: many })] })[0]
+      expect(tooMany).not.toHaveProperty('screenshots')
+      const eight = apps({ schema: 1, apps: [entry({ ...full, screenshots: many.slice(0, 8) })] })[0]
+      expect(eight.screenshots).toHaveLength(8)
+    })
+
+    it('drops a bad size or publishedAt alone', () => {
+      for (const size of [-1, 1.5, '12', null]) {
+        const [app] = apps({ schema: 1, apps: [entry({ ...full, size })] })
+        expect(app).not.toHaveProperty('size')
+        expect(app.publishedAt).toBe(full.publishedAt)
+      }
+      const [app] = apps({ schema: 1, apps: [entry({ ...full, publishedAt: 'last tuesday' })] })
+      expect(app).not.toHaveProperty('publishedAt')
+      expect(app.size).toBe(15234)
+    })
+
+    it('accepts size 0', () => {
+      expect(apps({ schema: 1, apps: [entry({ size: 0 })] })[0].size).toBe(0)
+    })
+  })
 })

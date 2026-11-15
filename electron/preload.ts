@@ -228,8 +228,21 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('store:changed', handler)
     return () => ipcRenderer.removeListener('store:changed', handler)
   },
+  storeGetReadme: (id: string) => ipcRenderer.invoke('store:getReadme', id) as Promise<import('./store').ReadmeResult>,
+  storeTakePendingOpen: () =>
+    ipcRenderer.invoke('store:takePendingOpen') as Promise<{ kind: 'store'; id: string | null } | null>,
+  onStoreOpen: (cb: () => void) => {
+    const handler = () => cb()
+    ipcRenderer.on('store:open', handler)
+    return () => ipcRenderer.removeListener('store:open', handler)
+  },
+  appsPickPackage: () =>
+    ipcRenderer.invoke('apps:pickPackage') as Promise<import('./apps/appHost').PickResult>,
+  appsInstallPackage: (token: string) =>
+    ipcRenderer.invoke('apps:installPackage', token) as Promise<import('./apps/appHost').InstallOutcome>,
+  appsDiscardPackage: (token: string) => ipcRenderer.invoke('apps:discardPackage', token) as Promise<void>,
   appsList: () => ipcRenderer.invoke('apps:list') as Promise<import('./apps/appTypes').AppInfo[]>,
-  appsInstall: (id: string) => ipcRenderer.invoke('apps:install', id) as Promise<{ ok: true } | { ok: false; error: string }>,
+  appsInstall: (id: string) => ipcRenderer.invoke('apps:install', id) as Promise<import('./apps/appHost').InstallOutcome>,
   appsUninstall: (id: string) => ipcRenderer.invoke('apps:uninstall', id) as Promise<{ ok: true } | { ok: false; error: string }>,
   appsCall: (appId: string, method: string, payload?: unknown) => ipcRenderer.invoke('apps:call', appId, method, payload) as Promise<unknown>,
   appsIsDev: () => ipcRenderer.invoke('apps:isDev') as Promise<boolean>,

@@ -164,3 +164,37 @@ describe('StoreService periodic refresh', () => {
     }
   })
 })
+
+describe('StoreService.getReadme', () => {
+  function withReadme(readmeUrl: string | undefined) {
+    const reg = registry()
+    if (readmeUrl) (reg.apps[0] as Record<string, unknown>).readmeUrl = readmeUrl
+    return reg
+  }
+  const text = (body: string, headers: Record<string, string> = {}) =>
+    new Response(body, { status: 200, headers })
+
+  it('fetches the README once per app+version and caches it', async () => {
+    const fetchFn = vi.fn(async (url: string) =>
+      url.endsWith('registry.json') ? response(200, JSON.stringify(withReadme('https://vsuite.tech/apps/docker/readme.md'))) : text('# Docker'))
+    const svc = new StoreService({ url: 'https://x/registry.json', cacheFile, currentVersion: '0.4.0', fetchFn: fetchFn as unknown as typeof fetch })
+    expect(await svc.getReadme('docker')).toEqual({ ok: true, text: '# Docker' })
+    expect(await svc.getReadme('docker')).toEqual({ ok: true, text: '# Docker' })
+    expect(fetchFn.mock.calls.filter(([u]) => String(u).endsWith('readme.md'))).toHaveLength(1)
+  })
+
+  it('is not ok without a readmeUrl, for an unknown app, or when the file is over the cap', async () => {
+    const big = 'x'.repeat(513 * 1024)
+    const fetchFn = vi.fn(async (url: string) =>
+      url.endsWith('registry.json') ? response(200, JSON.stringify(withReadme('https://vsuite.tech/r.md'))) : text(big))
+    const svc = new StoreService({ url: 'https://x/registry.json', cacheFile, currentVersion: '0.4.0', fetchFn: fetchFn as unknown as typeof fetch })
+    expect(await svc.getReadme('nope')).toEqual({ ok: false })
+    expect(await svc.getReadme('docker')).toEqual({ ok: false })
+
+    const plain = new StoreService({
+      url: 'https://x/registry.json', cacheFile: join(dir, 'c2.json'), currentVersion: '0.4.0',
+      fetchFn: (async () => response(200, JSON.stringify(withReadme(undefined)))) as unknown as typeof fetch,
+    })
+    expect(await plain.getReadme('docker')).toEqual({ ok: false })
+  })
+})

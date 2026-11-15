@@ -53,4 +53,33 @@ describe('parseManifest', () => {
     expect(typeof parseManifest(null)).toBe('string')
     expect(typeof parseManifest([])).toBe('string')
   })
+
+  describe('page fields', () => {
+    const base = { id: 'docker', name: 'Docker', version: '1.0.0', apiVersion: 1, minVide: '0.4.0', renderer: 'renderer.js' }
+
+    it('keeps description and screenshots', () => {
+      const m = parseManifest({ ...base, description: 'Containers.', screenshots: ['assets/a.png', 'assets/b.png'] })
+      expect(m).toMatchObject({ description: 'Containers.', screenshots: ['assets/a.png', 'assets/b.png'] })
+    })
+
+    it('leaves them off when absent', () => {
+      const m = parseManifest(base)
+      expect(m).not.toHaveProperty('description')
+      expect(m).not.toHaveProperty('screenshots')
+    })
+
+    it('drops unsafe or too many screenshots, and a non-string description, without failing the manifest', () => {
+      for (const screenshots of [['../x.png'], ['/abs.png'], ['a\\b.png'], [''], 'a.png', Array.from({ length: 9 }, (_, i) => `s${i}.png`)]) {
+        const m = parseManifest({ ...base, description: 5, screenshots })
+        expect(typeof m).toBe('object')
+        expect(m).not.toHaveProperty('screenshots')
+        expect(m).not.toHaveProperty('description')
+      }
+    })
+
+    it('accepts exactly 8 screenshots', () => {
+      const shots = Array.from({ length: 8 }, (_, i) => `s${i}.png`)
+      expect(parseManifest({ ...base, screenshots: shots })).toMatchObject({ screenshots: shots })
+    })
+  })
 })

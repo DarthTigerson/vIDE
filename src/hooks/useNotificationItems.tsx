@@ -57,6 +57,7 @@ export function useNotificationItems(): NotificationItem[] {
   const storeRegistry = useStoreStore((s) => s.registry)
   const dismissedUpdates = useStoreStore((s) => s.dismissedUpdates)
   const storeErrors = useStoreStore((s) => s.errors)
+  const storeEvents = useStoreStore((s) => s.events)
 
   // The bell needs the catalog even when the Store tab was never opened.
   useEffect(() => {
@@ -221,6 +222,17 @@ export function useNotificationItems(): NotificationItem[] {
       icon: <StoreBagIcon size={16} />,
       onClick: () => void useStoreStore.getState().install(u.id),
       onDismiss: () => useStoreStore.getState().dismissUpdate(noticeId),
+    })
+  }
+
+  // Install results: one item per event, so each peeks once; x removes it.
+  for (const ev of storeEvents) {
+    items.push({
+      id: ev.id,
+      text: ev.text,
+      disabled: false,
+      icon: <StoreBagIcon size={16} />,
+      onDismiss: () => useStoreStore.getState().dismissEvent(ev.id),
     })
   }
 

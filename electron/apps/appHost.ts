@@ -2,7 +2,7 @@
 // their main.js, routes `vide.app.call` requests and owns the apps:* IPC.
 
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
-import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync } from 'fs'
+import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync, statSync } from 'fs'
 import { join } from 'path'
 import type { StoreApp } from '../storeRegistry'
 import type { AppInstaller } from './appInstaller'
@@ -10,6 +10,7 @@ import { APP_API_VERSION, parseManifest, type AppManifest } from './appManifest'
 import type { AppContributes, AppInfo, AppStatus } from './appTypes'
 import { readInstalled } from './installedApps'
 import { createMainVideApi } from './mainVideApi'
+import { PackageHolder, inspectPackage, type FileSummary } from './installFromFile'
 
 export type { AppContributes, AppStatus, AppInfo }
 
@@ -18,6 +19,7 @@ export interface AppHostOptions {
   installer: AppInstaller
   getListing: (id: string) => Promise<StoreApp | null>
   isDev: boolean
+  currentVersion: string
   broadcast: (channel: string, ...args: unknown[]) => void
   sendTo: (windowId: number, channel: string, ...args: unknown[]) => void
   requireFn?: (path: string) => unknown
@@ -26,7 +28,7 @@ export interface AppHostOptions {
 interface Entry {
   manifest: AppManifest
   root: string | null
-  source: 'store' | 'dev'
+  source: 'store' | 'dev' | 'file'
   status: AppStatus
   error?: string
   mainActivated: boolean
@@ -39,6 +41,8 @@ interface Entry {
 }
 
 type Result = { ok: true } | { ok: false; error: string }
+export type InstallOutcome = { ok: true; id: string; name: string; version: string } | { ok: false; error: string }
+export type PickResult = { ok: true; summary: FileSummary } | { ok: false; error: string }
 
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e))
 
@@ -52,6 +56,7 @@ export class AppHost {
   private readonly entries = new Map<string, Entry>()
   private readonly requireFn: (path: string) => unknown
   private loadCounter = 0
+  private readonly packages = new PackageHolder()
 
   constructor(private readonly opts: AppHostOptions) {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -61,7 +66,7 @@ export class AppHost {
   async start(): Promise<void> {
     this.sweep()
     for (const rec of readInstalled(this.opts.appsDir)) {
-      await this.load(this.opts.installer.installDir(rec.id, rec.version), 'store', rec.id)
+      await this.load(this.opts.installer.installDir(rec.id, rec.version), rec.source === 'file' ? 'file' : 'store', rec.id)
     }
     if (this.opts.isDev) {
       for (const dir of this.readDev()) await this.load(dir, 'dev')
@@ -90,7 +95,7 @@ export class AppHost {
     })
   }
 
-  async install(id: string): Promise<Result> {
+  async install(id: string): Promise<InstallOutcome> {
     try {
       if (this.entries.get(id)?.source === 'dev') {
         return { ok: false, error: `An app with id ${id} is loaded from a folder. Unload it first.` }
@@ -99,22 +104,68 @@ export class AppHost {
       if (!listing) return { ok: false, error: 'App not found in the Store.' }
       const result = await this.opts.installer.install(listing)
       if (!result.ok) return result
-      const dir = this.opts.installer.installDir(id, result.record.version)
-      const existing = this.entries.get(id)
-      if (existing?.mainActivated) {
-        // The old main.js keeps running until restart; the new folder is what
-        // renderer assets resolve against (the old one is gone).
-        existing.status = 'restart-required'
-        existing.root = dir
-      } else {
-        const loaded = await this.load(dir, 'store', id)
-        if (typeof loaded === 'string') {
-          this.opts.broadcast('apps:changed')
-          return { ok: false, error: loaded }
-        }
+      return await this.activateInstalled(id, result.record.version, 'store', listing.name)
+    } catch (e) {
+      return { ok: false, error: msg(e) }
+    }
+  }
+
+  // Brings a just-installed folder into the running app.
+  private async activateInstalled(id: string, version: string, source: 'store' | 'file', name: string): Promise<InstallOutcome> {
+    const dir = this.opts.installer.installDir(id, version)
+    const existing = this.entries.get(id)
+    if (existing?.mainActivated) {
+      // The old main.js keeps running until restart; the new folder is what
+      // renderer assets resolve against (the old one is gone).
+      existing.status = 'restart-required'
+      existing.root = dir
+      existing.source = source
+    } else {
+      const loaded = await this.load(dir, source, id)
+      if (typeof loaded === 'string') {
+        this.opts.broadcast('apps:changed')
+        return { ok: false, error: loaded }
       }
-      this.opts.broadcast('apps:changed')
-      return { ok: true }
+    }
+    this.opts.broadcast('apps:changed')
+    return { ok: true, id, name, version }
+  }
+
+  // Install from file, step 1: read and inspect a package; nothing is installed.
+  async inspectFile(path: string): Promise<PickResult> {
+    try {
+      const max = this.opts.installer.packageMaxBytes
+      if (statSync(path).size > max) return { ok: false, error: 'That file is larger than an app may be.' }
+      const zip = new Uint8Array(readFileSync(path))
+      const res = await inspectPackage(zip, {
+        currentVersion: this.opts.currentVersion,
+        listingFor: (id) => this.opts.getListing(id),
+      })
+      if (!res.ok) return res
+      if (this.entries.get(res.summary.id)?.source === 'dev') {
+        return { ok: false, error: `An app with id ${res.summary.id} is loaded from a folder. Unload it first.` }
+      }
+      const token = this.packages.hold({ zip, ...res.summary })
+      return { ok: true, summary: { token, ...res.summary } }
+    } catch {
+      return { ok: false, error: "Couldn't read that file." }
+    }
+  }
+
+  // Install from file, step 2: the user confirmed. A package that matches the
+  // catalog's latest release installs exactly like a Store install; anything
+  // else is flagged `source: 'file'` (no updates).
+  async installHeld(token: string): Promise<InstallOutcome> {
+    const pkg = this.packages.take(token)
+    if (!pkg) return { ok: false, error: 'That install expired. Pick the file again.' }
+    try {
+      if (this.entries.get(pkg.id)?.source === 'dev') {
+        return { ok: false, error: `An app with id ${pkg.id} is loaded from a folder. Unload it first.` }
+      }
+      const listing = pkg.matchesStore ? await this.opts.getListing(pkg.id) : null
+      const result = await this.opts.installer.installZip(pkg.zip, listing ? { listing } : {})
+      if (!result.ok) return result
+      return await this.activateInstalled(pkg.id, pkg.version, listing ? 'store' : 'file', pkg.name)
     } catch (e) {
       return { ok: false, error: msg(e) }
     }
@@ -184,6 +235,18 @@ export class AppHost {
     ipcMain.handle('apps:uninstall', (_e, id: string) => this.uninstall(id))
     ipcMain.handle('apps:call', (e, appId: string, method: string, payload: unknown) =>
       this.call(appId, method, payload, BrowserWindow.fromWebContents(e.sender)?.id ?? -1))
+    ipcMain.handle('apps:pickPackage', async (e): Promise<PickResult> => {
+      const win = BrowserWindow.fromWebContents(e.sender)
+      const options = {
+        properties: ['openFile' as const],
+        filters: [{ name: 'vSuite app package', extensions: ['zip'] }],
+      }
+      const picked = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+      if (picked.canceled || picked.filePaths.length === 0) return { ok: false, error: '' }
+      return this.inspectFile(picked.filePaths[0])
+    })
+    ipcMain.handle('apps:installPackage', (_e, token: string) => this.installHeld(String(token)))
+    ipcMain.handle('apps:discardPackage', (_e, token: string) => this.packages.discard(String(token)))
     ipcMain.handle('apps:isDev', () => this.opts.isDev)
     ipcMain.handle('apps:loadDevFolder', async (e) => {
       if (!this.opts.isDev) return { ok: false, error: 'Dev apps are only available in development builds.' }
@@ -219,7 +282,7 @@ export class AppHost {
     this.killChildren(e)
   }
 
-  private async load(dir: string, source: 'store' | 'dev', expectedId?: string): Promise<Entry | string> {
+  private async load(dir: string, source: 'store' | 'dev' | 'file', expectedId?: string): Promise<Entry | string> {
     let manifest: AppManifest
     try {
       const parsed = parseManifest(JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8')))
@@ -229,7 +292,7 @@ export class AppHost {
       if (!existsSync(join(dir, manifest.renderer))) throw new Error('renderer missing')
       if (expectedId !== undefined && manifest.id !== expectedId) throw new Error('manifest id mismatch')
       const clash = this.entries.get(manifest.id)
-      if (clash && clash.source !== source) throw new Error(`An app with id ${manifest.id} is already loaded.`)
+      if (clash && (clash.source === 'dev') !== (source === 'dev')) throw new Error(`An app with id ${manifest.id} is already loaded.`)
     } catch (e) {
       const reason = msg(e)
       if (expectedId !== undefined && this.entries.get(expectedId)?.source !== 'dev') {

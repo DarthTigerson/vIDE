@@ -96,3 +96,51 @@ describe('StoreAppPage', () => {
     expect(screen.getByRole('button', { name: 'Restart to finish' })).toBeInTheDocument()
   })
 })
+
+describe('StoreAppPage without page assets', () => {
+  it('renders no screenshot strip and hides About when there is no README, while Details still shows', () => {
+    ;(window as any).api.storeGetReadme = vi.fn()
+    render(<StoreAppPage appId="docker" />)
+    expect(screen.queryByRole('list', { name: 'Screenshots' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Enlarge screenshot/ })).toBeNull()
+    expect(screen.queryByText('About')).toBeNull()
+    expect((window as any).api.storeGetReadme).not.toHaveBeenCalled()
+    expect(screen.getByText('Details')).toBeInTheDocument()
+    expect(screen.getByText('Commit')).toBeInTheDocument()
+    // No icon: the initials tile stays.
+    expect(screen.getByText('Do')).toBeInTheDocument()
+  })
+
+  it('hides About when the README fails to load', async () => {
+    ;(window as any).api.storeGetReadme = vi.fn().mockResolvedValue({ ok: false })
+    setApps([docker({ readmeUrl: 'https://vsuite.tech/apps/docker/readme.md' })])
+    render(<StoreAppPage appId="docker" />)
+    await act(async () => {})
+    expect(screen.queryByText('About')).toBeNull()
+  })
+
+  it('shows screenshots, README, released date and size when the catalog has them; click enlarges, Esc closes', async () => {
+    ;(window as any).api.storeGetReadme = vi.fn().mockResolvedValue({ ok: true, text: '# Docker for vIDE\n\nSee <b>containers</b>.' })
+    setApps([docker({
+      icon: 'https://vsuite.tech/apps/docker/icon.svg',
+      screenshots: ['https://vsuite.tech/apps/docker/shot-1.png'],
+      readmeUrl: 'https://vsuite.tech/apps/docker/readme.md',
+      size: 15234,
+      publishedAt: '2026-11-15T10:00:00Z',
+    })])
+    const { container } = render(<StoreAppPage appId="docker" />)
+    await act(async () => {})
+    expect(screen.getByText('About')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Docker for vIDE' })).toBeInTheDocument()
+    // Raw HTML in the README is not rendered as markup.
+    expect(container.querySelector('b')).toBeNull()
+    expect(screen.getByText('14.9 KB')).toBeInTheDocument()
+    expect(screen.getByText('15 Nov 2026')).toBeInTheDocument()
+    expect(container.querySelector('img[src="https://vsuite.tech/apps/docker/icon.svg"]')).not.toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /Enlarge screenshot 1/ }))
+    expect(screen.getByRole('dialog', { name: 'Screenshot' })).toBeInTheDocument()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: 'Screenshot' })).toBeNull()
+  })
+})

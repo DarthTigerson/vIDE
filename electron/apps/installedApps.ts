@@ -8,6 +8,9 @@ export interface InstalledRecord {
   version: string
   commit: string
   installedAt: number
+  // 'file' = installed from a package on disk that is not a Store release:
+  // never offered updates. Absent = a normal Store install.
+  source?: 'file'
 }
 
 const FILE = 'installed.json'
@@ -19,7 +22,8 @@ function isRecord(value: unknown): value is InstalledRecord {
     typeof r.id === 'string' &&
     typeof r.version === 'string' &&
     typeof r.commit === 'string' &&
-    typeof r.installedAt === 'number'
+    typeof r.installedAt === 'number' &&
+    (r.source === undefined || r.source === 'file')
   )
 }
 

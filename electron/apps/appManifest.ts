@@ -24,6 +24,9 @@ export interface AppManifest {
   renderer: string
   main?: string
   icon?: string
+  // Store page text and images: package-relative paths, shown on the app's page.
+  description?: string
+  screenshots?: string[]
   // App stylesheet, loaded while the app is active.
   style?: string
   contributes: AppContributes
@@ -39,6 +42,8 @@ function isSafeRelPath(value: unknown): value is string {
   if (value.startsWith('/') || value.includes('\\')) return false
   return !value.split('/').includes('..')
 }
+
+const MAX_SCREENSHOTS = 8
 
 function parseContributes(raw: unknown): AppContributes {
   if (!isObject(raw)) return {}
@@ -72,6 +77,13 @@ export function parseManifest(raw: unknown): AppManifest | string {
   if (main !== undefined && !isSafeRelPath(main)) return 'bad main'
   if (icon !== undefined && !isSafeRelPath(icon)) return 'bad icon'
   if (style !== undefined && !isSafeRelPath(style)) return 'bad style'
+  // Page-only extras: a bad value is dropped, it never fails the install.
+  const description = typeof raw.description === 'string' && raw.description.trim() !== '' ? raw.description : undefined
+  const screenshots =
+    Array.isArray(raw.screenshots) && raw.screenshots.length > 0 && raw.screenshots.length <= MAX_SCREENSHOTS &&
+    raw.screenshots.every(isSafeRelPath)
+      ? [...(raw.screenshots as string[])]
+      : undefined
   const manifest: AppManifest = {
     id, name, version, apiVersion, minVide, renderer,
     contributes: parseContributes(contributes)
@@ -79,5 +91,7 @@ export function parseManifest(raw: unknown): AppManifest | string {
   if (main !== undefined) manifest.main = main
   if (icon !== undefined) manifest.icon = icon
   if (style !== undefined) manifest.style = style
+  if (description !== undefined) manifest.description = description
+  if (screenshots !== undefined) manifest.screenshots = screenshots
   return manifest
 }

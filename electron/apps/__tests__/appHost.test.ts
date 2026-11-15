@@ -41,6 +41,7 @@ function make(isDev = false) {
     installer: installer as unknown as AppInstaller,
     getListing,
     isDev,
+    currentVersion: '0.4.0',
     broadcast: broadcast as never,
     sendTo: sendTo as never,
     requireFn: requireFresh
@@ -156,7 +157,7 @@ describe('AppHost', () => {
     await host.start()
     getListing.mockResolvedValue({ id: 'hello' })
     installer.install.mockResolvedValue({ ok: true, record: record('hello', '1.1.0'), previous: record('hello') })
-    expect(await host.install('hello')).toEqual({ ok: true })
+    expect(await host.install('hello')).toMatchObject({ ok: true, id: 'hello' })
     expect(host.list().find((a) => a.id === 'hello')?.status).toBe('restart-required')
   })
 
@@ -173,7 +174,7 @@ describe('AppHost', () => {
       writeInstalled(dir, [record('hello')])
       return { ok: true, record: record('hello') }
     })
-    expect(await host.install('hello')).toEqual({ ok: true })
+    expect(await host.install('hello')).toMatchObject({ ok: true, id: 'hello' })
     expect(host.list()[0]).toMatchObject({ id: 'hello', status: 'loaded' })
   })
 

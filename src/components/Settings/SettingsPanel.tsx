@@ -4,7 +4,7 @@ import {
   GENERAL_SETTINGS_TAB_PATH, DISPLAY_TAB_PATH, EDITOR_SETTINGS_TAB_PATH, GIT_SETTINGS_TAB_PATH, FILE_TREE_SETTINGS_TAB_PATH,
   BROWSER_SETTINGS_TAB_PATH, CLAUDE_SETTINGS_TAB_PATH, BRIDGE_SETTINGS_TAB_PATH, GRAPHIFY_SETTINGS_TAB_PATH,
   JIRA_SETTINGS_TAB_PATH, DOCKER_SETTINGS_TAB_PATH, MOBILE_SETTINGS_TAB_PATH, NOTES_SETTINGS_TAB_PATH, SCRIPTS_SETTINGS_TAB_PATH,
-  TODO_SETTINGS_TAB_PATH, LLAMA_SETTINGS_TAB_PATH, ABOUT_SETTINGS_TAB_PATH, buildAppSettingsPath,
+  TODO_SETTINGS_TAB_PATH, LLAMA_SETTINGS_TAB_PATH, ABOUT_SETTINGS_TAB_PATH, STORE_SETTINGS_TAB_PATH, buildAppSettingsPath,
 } from './paths'
 import { useAppContribStore } from '@/apps/appContribStore'
 import { StoreBagIcon } from '@/components/Store/storeUi'
@@ -56,6 +56,7 @@ const NAV_GROUPS: NavGroup[] = [
       { path: BROWSER_SETTINGS_TAB_PATH, label: 'Browser', icon: <BrowserIcon /> },
       { path: GRAPHIFY_SETTINGS_TAB_PATH, label: 'Graphify', icon: <GraphIcon /> },
       { path: MOBILE_SETTINGS_TAB_PATH, label: 'Mobile', icon: <PhoneIcon /> },
+      { path: STORE_SETTINGS_TAB_PATH, label: 'Store', icon: <StoreBagIcon size={16} /> },
     ],
   },
   {

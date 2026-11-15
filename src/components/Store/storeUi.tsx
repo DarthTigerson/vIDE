@@ -1,12 +1,47 @@
+import { useState } from 'react'
+
 // Small pieces shared by the Store tab and the per-app Store page.
 
-export function AppMonogram({ name, size = 'md' }: { name: string; size?: 'md' | 'lg' }) {
+// The app's real icon when the catalog has one that loads, else the initials tile.
+export function AppMonogram({ name, size = 'md', icon }: { name: string; size?: 'md' | 'lg'; icon?: string }) {
+  const [broken, setBroken] = useState(false)
   const box = size === 'lg' ? 'w-16 h-16 rounded-2xl text-[1.375rem]' : 'w-10 h-10 rounded-[9px] text-sm'
+  if (icon && !broken) {
+    return (
+      <img
+        src={icon}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+        onError={() => setBroken(true)}
+        className={`${box} shrink-0 object-cover`}
+      />
+    )
+  }
   return (
     <div aria-hidden="true" className={`${box} shrink-0 flex items-center justify-center font-bold bg-accent/15 text-accent`}>
       {name.slice(0, 2)}
     </div>
   )
+}
+
+// "From file" marker for apps installed from a package that is not a Store release.
+export function FromFileBadge() {
+  return <span className="text-[0.625rem] font-bold px-1.5 rounded bg-border text-fg-muted">From file</span>
+}
+
+// 15234 -> "14.9 KB".
+export function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+// ISO date -> "15 Nov 2026"; null when it does not parse.
+export function formatReleased(iso: string): string | null {
+  const t = Date.parse(iso)
+  if (Number.isNaN(t)) return null
+  return new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 export function MadeByVsuite({ suffix }: { suffix?: string }) {

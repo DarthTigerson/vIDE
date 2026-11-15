@@ -18,6 +18,9 @@ import type { ScriptTags } from '../../electron/scriptTags'
 
 export type { RegistryState, StoreListing }
 export type { AppInfo, AppStatus, AppContributes }
+export type PickPackageResult = import('../../electron/apps/appHost').PickResult
+export type InstallOutcome = import('../../electron/apps/appHost').InstallOutcome
+export type FileSummary = import('../../electron/apps/installFromFile').FileSummary
 export type { LatestUsage, UsageSnapshot, UpdateInfo, DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats }
 
 export type { Script, ScriptTags }
@@ -384,8 +387,16 @@ declare global {
       // Fired (no args) when a periodic catalog refresh changed the result.
       onStoreChanged: (cb: () => void) => () => void
       // Store apps (electron/apps/appHost.ts)
+      storeGetReadme: (id: string) => Promise<{ ok: true; text: string } | { ok: false }>
+      // vide://store/<id> link waiting for this window (id null = just open the Store).
+      storeTakePendingOpen: () => Promise<{ kind: 'store'; id: string | null } | null>
+      onStoreOpen: (cb: () => void) => () => void
+      // Install from file: pick + inspect a .zip, then install it by token.
+      appsPickPackage: () => Promise<PickPackageResult>
+      appsInstallPackage: (token: string) => Promise<InstallOutcome>
+      appsDiscardPackage: (token: string) => Promise<void>
       appsList: () => Promise<AppInfo[]>
-      appsInstall: (id: string) => Promise<{ ok: true } | { ok: false; error: string }>
+      appsInstall: (id: string) => Promise<InstallOutcome>
       appsUninstall: (id: string) => Promise<{ ok: true } | { ok: false; error: string }>
       appsCall: (appId: string, method: string, payload?: unknown) => Promise<unknown>
       appsIsDev: () => Promise<boolean>

@@ -10,7 +10,8 @@ import {
   type StoreFilters, type Category, type Maker,
 } from '@/lib/storeFilter'
 import { StoreAppRow } from './StoreAppRow'
-import { AppMonogram, formatCheckedAgo, ghostPillClass } from './storeUi'
+import { useStoreSettingsStore } from '@/stores/storeSettingsStore'
+import { AppMonogram, FromFileBadge, formatCheckedAgo, ghostPillClass } from './storeUi'
 
 // The Store tab (store://Store), canvas board C: the vsuite.tech filters
 // (Category, Made by, Applications) on the left, one app per row on the
@@ -20,6 +21,9 @@ export function StorePage() {
   const registry = useStoreStore((s) => s.registry)
   const loading = useStoreStore((s) => s.loading)
   const load = useStoreStore((s) => s.load)
+  const pickFile = useStoreStore((s) => s.pickFile)
+  const uninstall = useStoreStore((s) => s.uninstall)
+  const installFromFile = useStoreSettingsStore((s) => s.installFromFile)
   const openTab = useEditorStore((s) => s.openTab)
   const installedApps = useAppContribStore((s) => s.apps)
   const [filters, setFilters] = useState<StoreFilters>(DEFAULT_STORE_FILTERS)
@@ -36,7 +40,7 @@ export function StorePage() {
   const set = (patch: Partial<StoreFilters>) => setFilters((f) => ({ ...f, ...patch }))
 
   const all = registry?.status === 'ok' ? registry.apps : []
-  const isInstalled = (a: StoreListing) => installedApps.some((i) => i.id === a.id && i.source === 'store')
+  const isInstalled = (a: StoreListing) => installedApps.some((i) => i.id === a.id && i.source !== 'dev')
   const hasUpdate = (a: StoreListing) => hasUpdateRule(a, installedApps.find((i) => i.id === a.id))
   const installedCount = all.filter(isInstalled).length
   const updatesCount = all.filter(hasUpdate).length
@@ -45,6 +49,8 @@ export function StorePage() {
   const counts = storeFilterCounts(all)
   const vide = filters.targets.includes('vide')
   const devApps = installedApps.filter((a) => a.source === 'dev')
+  // File installs the catalog does not list (listed ones get a badge on their row).
+  const fileApps = installedApps.filter((a) => a.source === 'file' && !all.some((l) => l.id === a.id))
 
   return (
     <div className="h-full overflow-y-auto bg-bg text-fg">
@@ -66,6 +72,11 @@ export function StorePage() {
               className="flex-1 min-w-0 bg-transparent text-fg text-xs outline-none"
             />
           </label>
+          {installFromFile && (
+            <button type="button" className={ghostPillClass} onClick={() => void pickFile()}>
+              Install from file…
+            </button>
+          )}
         </header>
 
         <div className="flex flex-wrap gap-8 items-start">
@@ -148,6 +159,23 @@ export function StorePage() {
               onOpenApp={openApp}
               onClear={() => { setFilters(DEFAULT_STORE_FILTERS); setShow('all') }}
             />
+
+            {fileApps.length > 0 && (
+              <div className="mt-3 flex flex-col gap-2">
+                <h2 className="text-[0.625rem] font-bold tracking-wider uppercase text-fg-subtle">Installed from file</h2>
+                {fileApps.map((a) => (
+                  <article key={a.id} className="bg-panel border border-border rounded-[10px] px-4 py-3 flex items-center gap-4 min-w-0">
+                    <AppMonogram name={a.name} />
+                    <div className="flex-1 min-w-0 flex items-baseline gap-2.5">
+                      <h2 className="text-sm font-semibold text-fg truncate">{a.name}</h2>
+                      <FromFileBadge />
+                    </div>
+                    <span className="text-[0.6875rem] text-fg-subtle">{a.status === 'failed' ? 'Failed to load' : a.version}</span>
+                    <button type="button" className={ghostPillClass} onClick={() => void uninstall(a.id)}>Uninstall</button>
+                  </article>
+                ))}
+              </div>
+            )}
 
             {devApps.length > 0 && (
               <div className="mt-3 flex flex-col gap-2">

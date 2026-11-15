@@ -142,3 +142,64 @@ describe('dismissed updates and store:changed', () => {
     expect(storeGetRegistry).toHaveBeenCalledWith(false)
   })
 })
+
+describe('install notifications and install from file', () => {
+  beforeEach(() => {
+    useStoreStore.setState({ registry: okState, events: [], pendingFile: null, busy: {}, errors: {} })
+  })
+
+  it('a finished install adds one "Installed" event, a failed first install one "Couldn\'t install" event', async () => {
+    const appsInstall = vi.fn().mockResolvedValue({ ok: true, id: 'docker', name: 'Docker', version: '1.0.0' })
+    ;(globalThis as any).window.api.appsInstall = appsInstall
+    await useStoreStore.getState().install('docker')
+    expect(useStoreStore.getState().events.map((e) => e.text)).toEqual(['Installed Docker 1.0.0'])
+    appsInstall.mockResolvedValue({ ok: false, error: 'Download did not match the Store checksum.' })
+    await useStoreStore.getState().install('docker')
+    const texts = useStoreStore.getState().events.map((e) => e.text)
+    expect(texts[1]).toBe("Couldn't install Docker: Download did not match the Store checksum.")
+    const ids = useStoreStore.getState().events.map((e) => e.id)
+    expect(new Set(ids).size).toBe(2)
+    useStoreStore.getState().dismissEvent(ids[0])
+    expect(useStoreStore.getState().events).toHaveLength(1)
+  })
+
+  it('pickFile holds the summary for confirmation; cancel discards the token', async () => {
+    const summary = { token: 't1', id: 'hello', name: 'Hello', version: '1.0.0', matchesStore: false }
+    const appsDiscardPackage = vi.fn().mockResolvedValue(undefined)
+    Object.assign((globalThis as any).window.api, { appsPickPackage: vi.fn().mockResolvedValue({ ok: true, summary }), appsDiscardPackage })
+    await useStoreStore.getState().pickFile()
+    expect(useStoreStore.getState().pendingFile).toEqual(summary)
+    useStoreStore.getState().cancelFile()
+    expect(useStoreStore.getState().pendingFile).toBeNull()
+    expect(appsDiscardPackage).toHaveBeenCalledWith('t1')
+  })
+
+  it('a cancelled dialog is silent; a bad package is a failure event', async () => {
+    const pick = vi.fn().mockResolvedValue({ ok: false, error: '' })
+    Object.assign((globalThis as any).window.api, { appsPickPackage: pick })
+    await useStoreStore.getState().pickFile()
+    expect(useStoreStore.getState().events).toEqual([])
+    pick.mockResolvedValue({ ok: false, error: 'That file is not a valid vSuite app package.' })
+    await useStoreStore.getState().pickFile()
+    expect(useStoreStore.getState().events[0].text).toBe("Couldn't install from file: That file is not a valid vSuite app package.")
+  })
+
+  it('confirming installs by token and reports', async () => {
+    const summary = { token: 't2', id: 'hello', name: 'Hello', version: '1.0.0', matchesStore: false }
+    const appsInstallPackage = vi.fn().mockResolvedValue({ ok: true, id: 'hello', name: 'Hello', version: '1.0.0' })
+    Object.assign((globalThis as any).window.api, { appsInstallPackage })
+    useStoreStore.setState({ pendingFile: summary })
+    await useStoreStore.getState().confirmFile()
+    expect(appsInstallPackage).toHaveBeenCalledWith('t2')
+    expect(useStoreStore.getState().pendingFile).toBeNull()
+    expect(useStoreStore.getState().events.map((e) => e.text)).toEqual(['Installed Hello 1.0.0'])
+  })
+})
+
+describe('appAction for apps installed from a file', () => {
+  it('counts as installed but never offers Update', () => {
+    const listing = { ...okState.status === 'ok' ? okState.apps[0] : (null as never), latest: { ...(okState as any).apps[0].latest, version: '2.0.0' } }
+    const fileApp = { id: 'docker', name: 'Docker', version: '1.0.0', source: 'file', rendererUrl: '', hasMain: false, status: 'loaded', contributes: {} } as any
+    expect(appAction(listing, fileApp)).toBe('open')
+  })
+})

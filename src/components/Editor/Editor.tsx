@@ -86,6 +86,7 @@ import {
   GENERAL_SETTINGS_TAB_PATH,
   TODO_SETTINGS_TAB_PATH,
   NOTES_SETTINGS_TAB_PATH,
+  STORE_SETTINGS_TAB_PATH,
   LLAMA_SETTINGS_TAB_PATH,
 } from '@/components/Settings/paths'
 import { TerminalTab } from '@/components/Terminal/TerminalTab'
@@ -105,6 +106,7 @@ import { MobileSettingsPage } from '@/components/Settings/MobileSettingsPage'
 import { GeneralSettingsPage } from '@/components/Settings/GeneralSettingsPage'
 import { TodoSettingsPage } from '@/components/Settings/TodoSettingsPage'
 import { NotesSettingsPage } from '@/components/Settings/NotesSettingsPage'
+import { StoreSettingsPage } from '@/components/Settings/StoreSettingsPage'
 import { LlamaCreateModelPage } from '@/components/Llama/LlamaCreateModelPage'
 import { LlamaSettingsPage } from '@/components/Settings/LlamaSettingsPage'
 import { DockerLogsPage } from '@/components/Docker/DockerLogsPage'
@@ -730,6 +732,8 @@ function EditorPane({ paneId }: { paneId: string }) {
             <TodoSettingsPage />
           ) : activeTab.path === NOTES_SETTINGS_TAB_PATH ? (
             <NotesSettingsPage />
+          ) : activeTab.path === STORE_SETTINGS_TAB_PATH ? (
+            <StoreSettingsPage />
           ) : activeTab.path === SCRIPTS_SETTINGS_TAB_PATH ? (
             <ScriptsSettingsPage />
           ) : activeTab.path === LLAMA_SETTINGS_TAB_PATH ? (

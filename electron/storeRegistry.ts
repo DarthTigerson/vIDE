@@ -26,8 +26,16 @@ export interface StoreApp {
   recommended: boolean
   category: string
   targets: string[]
+  // Optional page assets and facts (https only). A bad one is dropped alone;
+  // the entry stays listable.
+  icon?: string
+  screenshots?: string[]
+  readmeUrl?: string
+  size?: number
+  publishedAt?: string
 }
 
+export const MAX_SCREENSHOTS = 8
 export const DEFAULT_CATEGORY = 'applications'
 export const DEFAULT_TARGETS = ['vide']
 
@@ -52,6 +60,19 @@ function nonEmptyString(value: unknown): value is string {
 
 function isHttpsUrl(value: unknown): value is string {
   return typeof value === 'string' && value.startsWith('https://')
+}
+
+// Optional fields, each judged alone: a bad one is left out, never the entry.
+function parseOptionalFields(raw: Record<string, unknown>): Partial<StoreApp> {
+  const out: Partial<StoreApp> = {}
+  if (isHttpsUrl(raw.icon)) out.icon = raw.icon
+  if (Array.isArray(raw.screenshots) && raw.screenshots.length <= MAX_SCREENSHOTS && raw.screenshots.every(isHttpsUrl)) {
+    if (raw.screenshots.length > 0) out.screenshots = [...(raw.screenshots as string[])]
+  }
+  if (isHttpsUrl(raw.readmeUrl)) out.readmeUrl = raw.readmeUrl
+  if (typeof raw.size === 'number' && Number.isInteger(raw.size) && raw.size >= 0) out.size = raw.size
+  if (typeof raw.publishedAt === 'string' && !Number.isNaN(Date.parse(raw.publishedAt))) out.publishedAt = raw.publishedAt
+  return out
 }
 
 function parseRelease(raw: unknown): StoreRelease | string {
@@ -94,6 +115,7 @@ function parseApp(raw: unknown): StoreApp | string {
     targets: targets ? [...targets] : [...DEFAULT_TARGETS],
   }
   if (replacesBuiltIn !== undefined) app.replacesBuiltIn = replacesBuiltIn
+  Object.assign(app, parseOptionalFields(raw))
   return app
 }
 
