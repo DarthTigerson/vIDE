@@ -26,6 +26,7 @@ import {
   USAGE_GRAPH_TAB_PATH,
   ALARMS_TAB_PATH,
   GRAPHIFY_GRAPH_TAB_PATH,
+  STORE_TAB_PATH,
 } from '@/components/Settings/paths'
 import { useAlarmStore } from '@/stores/alarmStore'
 
@@ -97,6 +98,13 @@ export function pageCommands(): Command[] {
       description: 'Open the usage graph',
       keywords: ['usage', 'stats'],
       action: () => openTab(USAGE_GRAPH_TAB_PATH),
+    },
+    {
+      id: 'view-store',
+      label: 'View: Store',
+      description: 'Browse and install vIDE apps',
+      keywords: ['store', 'apps', 'install', 'vsuite', 'plugins', 'extensions'],
+      action: () => openTab(STORE_TAB_PATH),
     },
     {
       id: 'view-alarms',

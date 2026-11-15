@@ -1,5 +1,5 @@
 import type { Tab } from '@/types/index'
-import { isSettingsTab, isGitLogTab, isGitGraphTab, isGitBranchDiffTab, isGraphifyGraphTab, isUsageGraphTab, isAlarmsTab, isUpdateTab, isTodoBoardTab, isTodoDetailTab, isTodoTrashTab, isTerminalTab, isBrowserTab, isLlamaModelTab, isScriptTab } from '@/components/Settings/paths'
+import { isSettingsTab, isGitLogTab, isGitGraphTab, isGitBranchDiffTab, isGraphifyGraphTab, isUsageGraphTab, isAlarmsTab, isUpdateTab, isTodoBoardTab, isTodoDetailTab, isTodoTrashTab, isTerminalTab, isBrowserTab, isLlamaModelTab, isScriptTab, isStoreTab } from '@/components/Settings/paths'
 import { isGitDiffTab, isGitCommitDiffTab } from '@/components/Git/paths'
 import { isImagePreviewTab, isMarkdownPreviewTab, isPdfViewerTab, isSvgViewerTab } from '@/components/Viewer/paths'
 import { isDockerLogsTab } from '@/components/Docker/paths'
@@ -31,6 +31,7 @@ export function isReadOnlyTab(tab: Tab | null): boolean {
     isSvgViewerTab(tab.path) ||
     isPdfViewerTab(tab.path) ||
     isLlamaModelTab(tab.path) ||
-    isScriptTab(tab.path)
+    isScriptTab(tab.path) ||
+    isStoreTab(tab.path)
   )
 }

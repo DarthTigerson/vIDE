@@ -2,6 +2,9 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { APP_DRAG_MIME, hasBadge } from '@/components/ActivityBar/ActivityBar'
 import { panelDropTargetClass } from '@/components/ui/panelDrop'
 import { notifySettingChanged } from '@/lib/notifySettingChanged'
+import { pillButtonClass } from '@/components/ui/pillButton'
+import { useEditorStore } from '@/stores/editorStore'
+import { STORE_TAB_PATH } from '@/components/Settings/paths'
 import { AllAppsContextMenu } from './AllAppsContextMenu'
 
 export interface AllAppsEntry {
@@ -369,6 +372,18 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
             </section>
           </>
         )}
+      </div>
+      <div className="p-2 border-t border-border shrink-0">
+        <button
+          type="button"
+          onClick={() => useEditorStore.getState().openTab({ path: STORE_TAB_PATH, content: '', dirty: false })}
+          className={`${pillButtonClass} gap-1.5`}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden className="shrink-0">
+            <path d="M4 9h16l-1 11H5zM8 9V7a4 4 0 0 1 8 0v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Store
+        </button>
       </div>
       {menu && (
         <AllAppsContextMenu

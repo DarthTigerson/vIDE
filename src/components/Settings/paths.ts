@@ -74,6 +74,15 @@ export function isUpdateTab(path: string): boolean {
   return path === UPDATE_TAB_PATH
 }
 
+// vSuite Store: the catalog grid, and one page per app (store://app/<id>).
+export const STORE_TAB_PATH = 'store://Store'
+const STORE_APP_PREFIX = 'store://app/'
+export function isStoreTab(path: string): boolean { return path.startsWith('store://') }
+export function buildStoreAppPath(id: string): string { return STORE_APP_PREFIX + id }
+export function storeAppIdFromPath(path: string): string | null {
+  return path.startsWith(STORE_APP_PREFIX) ? path.slice(STORE_APP_PREFIX.length) || null : null
+}
+
 const TODO_BOARD_PREFIX = 'todo-board://'
 export function isTodoBoardTab(path: string): boolean { return path.startsWith(TODO_BOARD_PREFIX) }
 export function buildTodoBoardPath(projectId: string): string { return TODO_BOARD_PREFIX + projectId }

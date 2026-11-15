@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { AllAppsPanel, ALL_APPS_VIEW_KEY, ALL_APPS_DISABLED_OPEN_KEY } from '../AllAppsPanel'
 import { APP_DRAG_MIME } from '@/components/ActivityBar/ActivityBar'
+import { useEditorStore } from '@/stores/editorStore'
 
 const apps = [
   { id: 'docker', title: 'Docker', icon: null, favorite: true, onOpen: vi.fn(), onSettings: vi.fn(), onDisable: vi.fn() },
@@ -21,6 +22,14 @@ function setup(open = true) {
 }
 
 describe('AllAppsPanel', () => {
+  it('opens the Store tab from the button at the bottom', () => {
+    const openTab = vi.spyOn(useEditorStore.getState(), 'openTab').mockImplementation(() => {})
+    setup()
+    fireEvent.click(screen.getByRole('button', { name: 'Store' }))
+    expect(openTab).toHaveBeenCalledWith({ path: 'store://Store', content: '', dirty: false })
+    openTab.mockRestore()
+  })
+
   it("shows an app's badge on its row", () => {
     setup()
     expect(screen.getByText('To Do').closest('button')!.textContent).toContain('2')

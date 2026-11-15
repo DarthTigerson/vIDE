@@ -58,6 +58,8 @@ import {
   getScriptId,
   SCRIPTS_SETTINGS_TAB_PATH,
   isTodoTrashTab,
+  isStoreTab,
+  storeAppIdFromPath,
   getTodoBoardProjectId,
   isTodoDetailTab,
   getTodoDetailIds,
@@ -114,6 +116,8 @@ import { UsageGraphPage } from '@/components/UsagePanel/UsageGraphPage'
 import { AlarmsPage } from '@/components/Alarms/AlarmsPage'
 import { UpdatePage } from '@/components/Update/UpdatePage'
 import { TodoTrashPage } from '@/components/Todo/TodoTrashPage'
+import { StorePage } from '@/components/Store/StorePage'
+import { StoreAppPage } from '@/components/Store/StoreAppPage'
 import { TodoBoardPage } from '@/components/Todo/TodoBoardPage'
 import { ScriptEditorPage } from '@/components/Scripts/ScriptEditorPage'
 import { ScriptsSettingsPage } from '@/components/Settings/ScriptsSettingsPage'
@@ -490,6 +494,7 @@ function EditorPane({ paneId }: { paneId: string }) {
   const isScript = !!activeTab && isScriptTab(activeTab.path)
   const isTodoDetail = !!activeTab && isTodoDetailTab(activeTab.path)
   const isTodoTrash = !!activeTab && isTodoTrashTab(activeTab.path)
+  const isStore = !!activeTab && isStoreTab(activeTab.path)
   const isLlamaModel = !!activeTab && isLlamaModelTab(activeTab.path)
   const isDockerLogs = !!activeTab && isDockerLogsTab(activeTab.path)
   const isImagePreview = !!activeTab && isImagePreviewTab(activeTab.path)
@@ -504,7 +509,7 @@ function EditorPane({ paneId }: { paneId: string }) {
     !!activeTab &&
     !isVirtual && !isTerminal && !isBrowser &&
     !isDiff && !isCommitDiff && !isGitLog && !isGitGraph && !isGitBranchDiff &&
-    !isGraphifyGraph && !isUsageGraph && !isAlarms && !isUpdate && !isTodoBoard && !isScript && !isTodoDetail && !isTodoTrash &&
+    !isGraphifyGraph && !isUsageGraph && !isAlarms && !isUpdate && !isTodoBoard && !isScript && !isTodoDetail && !isTodoTrash && !isStore &&
     !isLlamaModel && !isDockerLogs && !isImagePreview && !isMarkdownPreview && !isSvgViewer && !isPdfViewer &&
     // A scratch tab has no file on disk yet, so there is no path to show —
     // without this the breadcrumb splits 'scratch://<uuid>' on '/' and
@@ -744,6 +749,11 @@ function EditorPane({ paneId }: { paneId: string }) {
           <UpdatePage />
         ) : isTodoTrash ? (
           <TodoTrashPage />
+        ) : isStore ? (
+          (() => {
+            const appId = storeAppIdFromPath(activeTab.path)
+            return appId ? <StoreAppPage key={appId} appId={appId} /> : <StorePage />
+          })()
         ) : isTodoBoard ? (
           <TodoBoardPage key={activeTab.path} projectId={getTodoBoardProjectId(activeTab.path)} />
         ) : isScript ? (

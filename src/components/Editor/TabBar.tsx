@@ -7,7 +7,8 @@ import { useScriptsStore } from '@/stores/scriptsStore'
 import { scriptDisplayTitle } from '@/lib/scriptBody'
 import { useNotesStore } from '@/stores/notesStore'
 import { FileIcon, BrowserTabIcon } from '@/components/Sidebar/FileIcon'
-import { isTerminalTab, getTerminalId, isBrowserTab, getBrowserId, isTodoBoardTab, getTodoBoardProjectId, isTodoDetailTab, getTodoDetailIds, isLlamaModelTab, getLlamaModelId, isScriptTab, getScriptId } from '@/components/Settings/paths'
+import { isTerminalTab, getTerminalId, isBrowserTab, getBrowserId, isTodoBoardTab, getTodoBoardProjectId, isTodoDetailTab, getTodoDetailIds, isLlamaModelTab, getLlamaModelId, isScriptTab, getScriptId, storeAppIdFromPath } from '@/components/Settings/paths'
+import { useStoreStore, findStoreApp } from '@/stores/storeStore'
 import { useLlamaModelsStore } from '@/stores/llamaModelsStore'
 import { isCompactTabStrip, orderTabsForDisplay, truncateTabLabel } from './tabDisplay'
 import { TabContextMenu } from './TabContextMenu'
@@ -26,6 +27,7 @@ export function TabBar({ paneId }: { paneId: string }) {
   const scripts = useScriptsStore((s) => s.scripts)
   const notesRoot = useNotesStore((s) => s.root)
   const llamaModels = useLlamaModelsStore((s) => s.models)
+  const storeRegistry = useStoreStore((s) => s.registry)
   const paneTabs = useEditorStore((s) => s.paneTabs)
   const paneTabLists = useEditorStore((s) => s.paneTabLists)
   const pinnedPaths = useEditorStore((s) => s.pinnedPaths)
@@ -120,6 +122,8 @@ export function TabBar({ paneId }: { paneId: string }) {
                   const script = scripts.find((s) => s.id === getScriptId(tab.path))
                   return script ? scriptDisplayTitle(script) : 'Script'
                 })()
+            : storeAppIdFromPath(tab.path)
+              ? (findStoreApp(storeRegistry, storeAppIdFromPath(tab.path)!)?.name ?? 'Store')
             : isTodoBoardTab(tab.path)
               ? (todoProjects.find((p) => p.id === getTodoBoardProjectId(tab.path))?.name || 'To Do')
               : isTodoDetailTab(tab.path)

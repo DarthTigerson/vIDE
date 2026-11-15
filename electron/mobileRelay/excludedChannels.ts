@@ -14,6 +14,9 @@ export const EXCLUDED_CHANNELS = new Set<string>([
   // Docker event streaming — new streaming wiring comparable to term:data, deferred
   'docker:runLogs', 'docker:stopLogs', 'docker:watch', 'docker:unwatch',
 
+  // vSuite Store: installs apps into this desktop's vIDE; the Store UI is desktop-only in phase 1
+  'store:getRegistry',
+
   // Desktop-only native features
   'devtools:attach', 'devtools:detach',    // native developer tools
   'browserView:create', 'browserView:setBounds', 'browserView:setVisible', 'browserView:capture', 'browserView:navigate',

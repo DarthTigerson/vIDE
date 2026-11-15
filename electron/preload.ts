@@ -221,6 +221,8 @@ contextBridge.exposeInMainWorld('api', {
   updateGetLatest: () => ipcRenderer.invoke('update:getLatest'),
   updateGetStatus: () => ipcRenderer.invoke('update:getStatus'),
   updateCheck: () => ipcRenderer.invoke('update:check'),
+  storeGetRegistry: (refresh = false) =>
+    ipcRenderer.invoke('store:getRegistry', refresh) as Promise<import('./store').RegistryState>,
   updateRestart: () => ipcRenderer.send('update:restart'),
   restartApp: () => ipcRenderer.send('app:restart'),
   updateRun: () => ipcRenderer.invoke('update:run'),

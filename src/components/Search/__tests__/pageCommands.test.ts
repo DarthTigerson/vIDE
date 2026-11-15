@@ -65,6 +65,16 @@ describe('view commands', () => {
   it('View: Alarms opens the Alarms tab', () => {
     expect(find('view-alarms').label).toBe('View: Alarms')
   })
+
+  it('View: Store opens the Store tab', async () => {
+    const { useEditorStore } = await import('@/stores/editorStore')
+    const openTab = vi.spyOn(useEditorStore.getState(), 'openTab').mockImplementation(() => {})
+    const cmd = find('view-store')
+    expect(cmd.label).toBe('View: Store')
+    ;(cmd as { action: () => void }).action()
+    expect(openTab).toHaveBeenCalledWith({ path: 'store://Store', content: '', dirty: false })
+    openTab.mockRestore()
+  })
 })
 
 describe('alarm commands', () => {

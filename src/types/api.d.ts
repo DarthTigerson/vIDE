@@ -4,6 +4,7 @@ import type { InlineEditStartPayload, InlineEditEvent } from '../../electron/inl
 import type { LatestUsage, UsageSnapshot } from '../../electron/usagePoller'
 import type { UpdateInfo, UpdateCheckStatus } from '../../electron/updateChecker'
 import type { ChangelogRelease } from '../../electron/changelog'
+import type { RegistryState, StoreListing } from '../../electron/store'
 import type { GraphifyGraph } from './graphify'
 import type { DefinitionLocation, DetectResult, LspCompletionItem, LspHoverResult, LspServerId } from '../../electron/lsp/types'
 import type { DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats } from '../../electron/docker'
@@ -14,6 +15,7 @@ import type { SearchHit, SearchOptions, SearchBatch, SearchDone } from '../../el
 import type { Script } from '../../electron/scriptsData'
 import type { ScriptTags } from '../../electron/scriptTags'
 
+export type { RegistryState, StoreListing }
 export type { LatestUsage, UsageSnapshot, UpdateInfo, DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats }
 
 export type { Script, ScriptTags }
@@ -375,6 +377,8 @@ declare global {
       // Settings > About (VIDE-143): last check outcome, and check now.
       updateGetStatus: () => Promise<UpdateCheckStatus>
       updateCheck: () => Promise<UpdateCheckStatus>
+      // vSuite Store catalog (electron/store.ts). refresh=false may return the session cache.
+      storeGetRegistry: (refresh?: boolean) => Promise<RegistryState>
       updateRestart: () => void
       // Relaunches every window (palette "App: Restart vIDE", Cmd+Alt+R).
       restartApp: () => void

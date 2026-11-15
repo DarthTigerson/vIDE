@@ -38,6 +38,7 @@ import { registerNotesHandlers } from './notes'
 import { registerScriptsHandlers, registerScriptRunRoute } from './scripts'
 import { registerSearchHandlers } from './search'
 import { UpdateChecker } from './updateChecker'
+import { StoreService, DEFAULT_REGISTRY_URL } from './store'
 import { UpdateRunner } from './updateRunner'
 import { getChangelogForVersion, getChangelogReleases } from './changelog'
 import { getSystemMemoryUsage } from './systemMemory'
@@ -965,6 +966,11 @@ app.whenReady().then(async () => {
   })
   updateChecker.registerHandlers()
   updateChecker.start()
+  new StoreService({
+    url: process.env.VIDE_STORE_REGISTRY_URL ?? DEFAULT_REGISTRY_URL,
+    cacheFile: join(app.getPath('userData'), 'apps', 'registry-cache.json'),
+    currentVersion: app.getVersion(),
+  }).registerHandlers()
   new UpdateRunner().registerHandlers()
 
   ipcMain.on('update:restart', () => {
