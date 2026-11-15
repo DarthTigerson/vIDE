@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { AppInfo, FileSummary, InstallOutcome, RegistryState, StoreListing } from '@/types/api'
 import { useAppContribStore } from '@/apps/appContribStore'
-import { DISMISSED_UPDATES_KEY, hasUpdate, updateNoticeId } from '@/lib/storeUpdates'
+import { DISMISSED_UPDATES_KEY, MOVED_NOTICE_DISMISSED_KEY, hasUpdate, readMovedNoticeDismissed, updateNoticeId } from '@/lib/storeUpdates'
 
 // The vSuite Store catalog as the main process last reported it
 // (electron/store.ts). Nothing here is persisted or synced.
@@ -30,6 +30,12 @@ interface StoreStoreState {
   // Update-notice ids the user closed with the bell's x; survives restarts.
   dismissedUpdates: string[]
   dismissUpdate: (noticeId: string) => void
+  // The "Some apps moved to the Store" notice: remembered (per machine) once
+  // dismissed, and its modal's open state.
+  movedNoticeDismissed: boolean
+  dismissMovedNotice: () => void
+  movedNoticeOpen: boolean
+  setMovedNoticeOpen: (open: boolean) => void
 }
 
 function readDismissed(): string[] {
@@ -51,6 +57,13 @@ export const useStoreStore = create<StoreStoreState>((set, get) => ({
   busy: {},
   errors: {},
   dismissedUpdates: readDismissed(),
+  movedNoticeDismissed: readMovedNoticeDismissed(),
+  dismissMovedNotice: () => {
+    set({ movedNoticeDismissed: true, movedNoticeOpen: false })
+    try { localStorage.setItem(MOVED_NOTICE_DISMISSED_KEY, 'true') } catch { /* storage unavailable */ }
+  },
+  movedNoticeOpen: false,
+  setMovedNoticeOpen: (open) => set({ movedNoticeOpen: open }),
   dismissUpdate: (noticeId) => {
     let next = [...new Set([...get().dismissedUpdates, noticeId])]
     // Forget ids for versions the catalog no longer offers.

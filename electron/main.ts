@@ -11,8 +11,6 @@ import { createGraphifyInstaller } from './graphifyInstall'
 import { LlamaManager } from './llama'
 import { bundledLlamaDir, findInstalledLlamaServer, installLlama } from './autocomplete/llamaInstall'
 import { GitWatcher } from './gitWatcher'
-import { DockerRunner } from './dockerRunner'
-import { DockerWatcher } from './dockerWatcher'
 import { FileWatcher } from './fileWatcher'
 import { MobileServer, MOBILE_RELAY_WINDOW_ID } from './mobile'
 import { UsageManager } from './usageManager'
@@ -384,7 +382,6 @@ function createWindow(projectRoot?: string, savedBounds?: WindowBounds): Browser
     ptyMgr.disposeWindow(win.id)
     claudeMgr.disposeWindow(win.id)
     gitWatcher.disposeWindow(win.id)
-    dockerWatcher.disposeWindow(win.id)
     appHost?.disposeWindow(win.id)
     fileWatcher.disposeWindow(win.id)
     bridgeMgr.disposeWindow(win.id)
@@ -895,7 +892,6 @@ async function buildMenu(): Promise<void> {
 let ptyMgr: PtyManager
 let claudeMgr: ClaudeManager
 let gitWatcher: GitWatcher
-let dockerWatcher: DockerWatcher
 let fileWatcher: FileWatcher
 let bridgeMgr: BridgeManager
 let browserViewMgr: BrowserViewManager
@@ -951,8 +947,6 @@ app.whenReady().then(async () => {
   claudeMgr.registerHandlers()
   const gitRunner = new GitRunner()
   gitRunner.registerHandlers()
-  const dockerRunner = new DockerRunner()
-  dockerRunner.registerHandlers()
 
   const graphifyMgr = new GraphifyManager(createGraphifyInstaller(app.getPath('userData')))
   graphifyMgr.registerHandlers()
@@ -963,8 +957,6 @@ app.whenReady().then(async () => {
   llamaMgr.registerHandlers()
   gitWatcher = new GitWatcher()
   gitWatcher.registerHandlers()
-  dockerWatcher = new DockerWatcher()
-  dockerWatcher.registerHandlers()
   fileWatcher = new FileWatcher()
   fileWatcher.registerHandlers()
   bridgeMgr = new BridgeManager({ dataDir: app.getPath('userData'), socketPath: browserBridge.socketPath })

@@ -8,7 +8,6 @@ import type { RegistryState, StoreListing } from '../../electron/store'
 import type { AppInfo, AppStatus, AppContributes } from '../../electron/apps/appTypes'
 import type { GraphifyGraph } from './graphify'
 import type { DefinitionLocation, DetectResult, LspCompletionItem, LspHoverResult, LspServerId } from '../../electron/lsp/types'
-import type { DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats } from '../../electron/docker'
 import type { LlamaLaunchConfig } from '../../electron/llama'
 import type { OnboardingStatus, GitIdentity } from '../../electron/onboarding'
 import type { ConfigRepoSettings } from '../../electron/configRepo'
@@ -21,7 +20,7 @@ export type { AppInfo, AppStatus, AppContributes }
 export type PickPackageResult = import('../../electron/apps/appHost').PickResult
 export type InstallOutcome = import('../../electron/apps/appHost').InstallOutcome
 export type FileSummary = import('../../electron/apps/installFromFile').FileSummary
-export type { LatestUsage, UsageSnapshot, UpdateInfo, DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats }
+export type { LatestUsage, UsageSnapshot, UpdateInfo }
 
 export type { Script, ScriptTags }
 export type ScriptInput = { title: string; description?: string; body?: string; shareOutput?: boolean }
@@ -299,25 +298,6 @@ declare global {
       onGitChanged: (cb: (cwd: string) => void) => () => void
       gitBlame: (cwd: string, path: string) => Promise<GitFileBlame>
 
-      dockerStatus: () => Promise<DockerStatus>
-      dockerListContainers: () => Promise<DockerContainer[]>
-      dockerStartContainer: (id: string) => Promise<DockerActionResult>
-      dockerStopContainer: (id: string) => Promise<DockerActionResult>
-      dockerRestartContainer: (id: string) => Promise<DockerActionResult>
-      dockerRemoveContainer: (id: string) => Promise<DockerActionResult>
-      dockerStartContainers: (ids: string[]) => Promise<DockerActionResult>
-      dockerStopContainers: (ids: string[]) => Promise<DockerActionResult>
-      dockerRemoveContainers: (ids: string[]) => Promise<DockerActionResult>
-      dockerGetContainerStats: () => Promise<Record<string, DockerContainerStats>>
-      dockerOpenApp: () => Promise<DockerActionResult>
-      dockerCloseApp: () => Promise<DockerActionResult>
-      dockerRunLogs: (streamId: string, containerId: string) => Promise<void>
-      dockerStopLogs: (streamId: string) => void
-      onDockerLogData: (cb: (streamId: string, data: string) => void) => () => void
-      onDockerLogExit: (cb: (streamId: string, code: number) => void) => () => void
-      dockerWatch: () => void
-      dockerUnwatch: () => void
-      onDockerChanged: (cb: () => void) => () => void
 
       termSpawn: (id: string, cwd?: string) => Promise<void>
       termKill: (id: string) => Promise<void>

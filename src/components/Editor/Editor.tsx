@@ -81,7 +81,6 @@ import {
   BRIDGE_SETTINGS_TAB_PATH,
   GRAPHIFY_SETTINGS_TAB_PATH,
   JIRA_SETTINGS_TAB_PATH,
-  DOCKER_SETTINGS_TAB_PATH,
   MOBILE_SETTINGS_TAB_PATH,
   GENERAL_SETTINGS_TAB_PATH,
   TODO_SETTINGS_TAB_PATH,
@@ -101,7 +100,6 @@ import { ClaudeSettingsPage } from '@/components/Settings/ClaudeSettingsPage'
 import { BridgeSettingsPage } from '@/components/Settings/BridgeSettingsPage'
 import { GraphifySettingsPage } from '@/components/Settings/GraphifySettingsPage'
 import { JiraSettingsPage } from '@/components/Settings/JiraSettingsPage'
-import { DockerSettingsPage } from '@/components/Settings/DockerSettingsPage'
 import { MobileSettingsPage } from '@/components/Settings/MobileSettingsPage'
 import { GeneralSettingsPage } from '@/components/Settings/GeneralSettingsPage'
 import { TodoSettingsPage } from '@/components/Settings/TodoSettingsPage'
@@ -109,8 +107,6 @@ import { NotesSettingsPage } from '@/components/Settings/NotesSettingsPage'
 import { StoreSettingsPage } from '@/components/Settings/StoreSettingsPage'
 import { LlamaCreateModelPage } from '@/components/Llama/LlamaCreateModelPage'
 import { LlamaSettingsPage } from '@/components/Settings/LlamaSettingsPage'
-import { DockerLogsPage } from '@/components/Docker/DockerLogsPage'
-import { isDockerLogsTab } from '@/components/Docker/paths'
 import { isGitDiffTab, parseGitDiffPath, isGitCommitDiffTab, parseGitCommitDiffPath } from '@/components/Git/paths'
 import { GitLogView } from '@/components/Git/GitLogView'
 import { GitGraphPage } from '@/components/Git/GitGraphPage'
@@ -502,7 +498,6 @@ function EditorPane({ paneId }: { paneId: string }) {
   const isStore = !!activeTab && isStoreTab(activeTab.path)
   const isAppTab = !!activeTab && isAppTabPath(activeTab.path)
   const isLlamaModel = !!activeTab && isLlamaModelTab(activeTab.path)
-  const isDockerLogs = !!activeTab && isDockerLogsTab(activeTab.path)
   const isImagePreview = !!activeTab && isImagePreviewTab(activeTab.path)
   const isMarkdownPreview = !!activeTab && isMarkdownPreviewTab(activeTab.path)
   const isSvgViewer = !!activeTab && isSvgViewerTab(activeTab.path)
@@ -516,7 +511,7 @@ function EditorPane({ paneId }: { paneId: string }) {
     !isVirtual && !isTerminal && !isBrowser &&
     !isDiff && !isCommitDiff && !isGitLog && !isGitGraph && !isGitBranchDiff &&
     !isGraphifyGraph && !isUsageGraph && !isAlarms && !isUpdate && !isTodoBoard && !isScript && !isTodoDetail && !isTodoTrash && !isStore && !isAppTab &&
-    !isLlamaModel && !isDockerLogs && !isImagePreview && !isMarkdownPreview && !isSvgViewer && !isPdfViewer &&
+    !isLlamaModel && !isImagePreview && !isMarkdownPreview && !isSvgViewer && !isPdfViewer &&
     // A scratch tab has no file on disk yet, so there is no path to show —
     // without this the breadcrumb splits 'scratch://<uuid>' on '/' and
     // renders the scheme and the uuid as if they were folders.
@@ -724,8 +719,6 @@ function EditorPane({ paneId }: { paneId: string }) {
             <GraphifySettingsPage />
           ) : activeTab.path === JIRA_SETTINGS_TAB_PATH ? (
             <JiraSettingsPage />
-          ) : activeTab.path === DOCKER_SETTINGS_TAB_PATH ? (
-            <DockerSettingsPage />
           ) : activeTab.path === MOBILE_SETTINGS_TAB_PATH ? (
             <MobileSettingsPage />
           ) : activeTab.path === TODO_SETTINGS_TAB_PATH ? (
@@ -784,8 +777,6 @@ function EditorPane({ paneId }: { paneId: string }) {
           />
         ) : isTodoDetail ? (
           <TodoDetailPage key={activeTab.path} {...getTodoDetailIds(activeTab.path)} />
-        ) : isDockerLogs ? (
-          <DockerLogsPage path={activeTab.path} />
         ) : isGitBranchDiff ? (
           <GitBranchDiffPage />
         ) : isImagePreview ? (

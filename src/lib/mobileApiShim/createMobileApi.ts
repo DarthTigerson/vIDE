@@ -212,26 +212,6 @@ export function createMobileApi(wsUrl: string) {
     getMemoryBreakdown: stubInvoke({ appBytes: 0, sessions: [], terminalsBytes: 0, languageServersBytes: 0, autocompleteBytes: 0, otherBytes: 0 }),
     getBatteryStatus: invoke('system:getBattery'),
 
-    // docker — mirrors electron/mobileRelay/channels/dockerChannels.ts
-    dockerStatus: invoke('docker:status'),
-    dockerListContainers: invoke('docker:listContainers'),
-    dockerStartContainer: invoke('docker:startContainer'),
-    dockerStopContainer: invoke('docker:stopContainer'),
-    dockerRestartContainer: invoke('docker:restartContainer'),
-    dockerRemoveContainer: invoke('docker:removeContainer'),
-    dockerStartContainers: invoke('docker:startContainers'),
-    dockerStopContainers: invoke('docker:stopContainers'),
-    dockerRemoveContainers: invoke('docker:removeContainers'),
-    dockerGetContainerStats: invoke('docker:getContainerStats'),
-    dockerOpenApp: invoke('docker:openApp'),
-    dockerCloseApp: invoke('docker:closeApp'),
-    onDockerChanged: on('docker:changed'),
-    // Docker log streaming needs its own broadcast wiring (comparable to
-    // term:data), deferred — excluded on the relay side, stub here too.
-    dockerRunLogs: stubInvoke(undefined as void),
-    dockerStopLogs: stubSend(),
-    dockerWatch: stubSend(),
-    dockerUnwatch: stubSend(),
 
     // changelog — mirrors electron/mobileRelay/channels/changelogChannels.ts
     getChangelogForVersion: invoke('changelog:getForVersion'),

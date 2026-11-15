@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pendingUpdates, updateNoticeId } from '../storeUpdates'
+import { movedApps, pendingUpdates, updateNoticeId } from '../storeUpdates'
 import { CATEGORY_PREFIXES } from '@/stores/configRepoStore'
 import type { AppInfo, RegistryState, StoreListing } from '@/types/api'
 
@@ -52,5 +52,34 @@ describe('dismissed-updates key', () => {
     for (const prefixes of Object.values(CATEGORY_PREFIXES)) {
       expect(prefixes.some((p) => key === p || key.startsWith(p))).toBe(false)
     }
+  })
+})
+
+describe('movedApps', () => {
+  const dockerListing = listing('docker', '1.0.0', { replacesBuiltIn: 'docker' })
+  const keys = (v: Record<string, string>) => (k: string) => v[k] ?? null
+  const enabled = keys({ 'vide:docker:enabled': 'true' })
+
+  it('lists an app whose built-in was enabled and that is not installed', () => {
+    expect(movedApps(reg(dockerListing), [], enabled, false).map((a) => a.id)).toEqual(['docker'])
+  })
+  it('skips a built-in that was disabled or never set', () => {
+    expect(movedApps(reg(dockerListing), [], keys({ 'vide:docker:enabled': 'false' }), false)).toEqual([])
+    expect(movedApps(reg(dockerListing), [], keys({}), false)).toEqual([])
+  })
+  it('skips an installed app (any source)', () => {
+    expect(movedApps(reg(dockerListing), [installed('docker', '1.0.0')], enabled, false)).toEqual([])
+    expect(movedApps(reg(dockerListing), [installed('docker', '1.0.0', { source: 'dev' })], enabled, false)).toEqual([])
+  })
+  it('lists nothing once dismissed', () => {
+    expect(movedApps(reg(dockerListing), [], enabled, true)).toEqual([])
+  })
+  it('lists nothing until the catalog has loaded', () => {
+    expect(movedApps(null, [], enabled, false)).toEqual([])
+    expect(movedApps({ status: 'too-new' }, [], enabled, false)).toEqual([])
+  })
+  it('ignores entries without replacesBuiltIn or with an unknown built-in', () => {
+    expect(movedApps(reg(listing('docker', '1.0.0')), [], enabled, false)).toEqual([])
+    expect(movedApps(reg(listing('x', '1.0.0', { replacesBuiltIn: 'nope' })), [], enabled, false)).toEqual([])
   })
 })

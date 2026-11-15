@@ -88,6 +88,8 @@ describe('fileBehindTab', () => {
     expect(fileBehindTab(buildPdfViewerPath('/p/doc.pdf'))).toBe('/p/doc.pdf')
     expect(fileBehindTab(GIT_LOG_TAB_PATH)).toBeNull()
     expect(fileBehindTab('scratch://123')).toBeNull()
+    // Docker log tabs from before Docker moved to the Store never come back.
+    expect(fileBehindTab('docker-logs://abc123/web')).toBeNull()
   })
 })
 
@@ -128,6 +130,20 @@ describe('editor session persistence', () => {
     const { tabs, activeTabPath } = useEditorStore.getState()
     expect(tabs.map((t) => t.path)).toEqual(['/p/a.ts', preview, terminal])
     expect(tabs[0].content).toBe('content of /p/a.ts')
+    expect(activeTabPath).toBe('/p/a.ts')
+  })
+
+  it('silently drops a saved docker-logs tab and falls back to the remaining tab', async () => {
+    vi.mocked(window.api.readFile).mockResolvedValue('A')
+    vi.mocked(window.api.pathExists).mockResolvedValue(true)
+    await restoreEditorSession('/p', {
+      layout: { type: 'pane', id: 'pane-1' },
+      paneTabLists: { 'pane-1': ['docker-logs://abc123/web', '/p/a.ts'] },
+      paneTabs: { 'pane-1': 'docker-logs://abc123/web' },
+      activePaneId: 'pane-1',
+    })
+    const { tabs, activeTabPath } = useEditorStore.getState()
+    expect(tabs.map((t) => t.path)).toEqual(['/p/a.ts'])
     expect(activeTabPath).toBe('/p/a.ts')
   })
 

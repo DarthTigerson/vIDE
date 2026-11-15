@@ -2,7 +2,6 @@ import type { Tab } from '@/types/index'
 import { isSettingsTab, isGitLogTab, isGitGraphTab, isGitBranchDiffTab, isGraphifyGraphTab, isUsageGraphTab, isAlarmsTab, isUpdateTab, isTodoBoardTab, isTodoDetailTab, isTodoTrashTab, isTerminalTab, isBrowserTab, isLlamaModelTab, isScriptTab, isStoreTab, isAppTabPath } from '@/components/Settings/paths'
 import { isGitDiffTab, isGitCommitDiffTab } from '@/components/Git/paths'
 import { isImagePreviewTab, isMarkdownPreviewTab, isPdfViewerTab, isSvgViewerTab } from '@/components/Viewer/paths'
-import { isDockerLogsTab } from '@/components/Docker/paths'
 
 export function isVirtualTab(tab: Tab | null): boolean {
   return !!tab && (isSettingsTab(tab.path) || isTerminalTab(tab.path))
@@ -23,7 +22,6 @@ export function isReadOnlyTab(tab: Tab | null): boolean {
     isTodoBoardTab(tab.path) ||
     isTodoDetailTab(tab.path) ||
     isTodoTrashTab(tab.path) ||
-    isDockerLogsTab(tab.path) ||
     isTerminalTab(tab.path) ||
     isBrowserTab(tab.path) ||
     isImagePreviewTab(tab.path) ||

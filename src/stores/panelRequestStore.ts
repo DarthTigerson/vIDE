@@ -5,12 +5,12 @@ import { create } from 'zustand'
 // wants a panel shown (a notification click, "Open File" from a diff) asks
 // for it here and App applies it via usePanelRequests.
 export type RequestablePanel =
-  | 'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'scripts' | 'llama' | 'settings'
+  | 'files' | 'git' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'scripts' | 'llama' | 'settings'
 
 interface PanelRequestStore {
   // A fresh object every call (not a bare string) so requesting the same
   // panel twice in a row still changes the value and re-triggers App's effect
-  // — same reason dockerOffAlertStore/gitPanelOpenAlertStore use a counter.
+  // — same reason gitPanelOpenAlertStore uses a counter.
   request: { panel: RequestablePanel } | null
   requestPanel: (panel: RequestablePanel) => void
 }

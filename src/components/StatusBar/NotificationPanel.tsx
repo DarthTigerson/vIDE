@@ -46,7 +46,7 @@ export function NotificationPanel() {
   }, [open])
 
   // Auto-close rather than leave the panel open on an empty list — the
-  // condition that was showing (usage back on track, Docker restarted, etc.)
+  // condition that was showing (usage back on track, an update installed, etc.)
   // has already resolved itself.
   useEffect(() => {
     if (open && items.length === 0) close()

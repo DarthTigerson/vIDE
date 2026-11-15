@@ -26,7 +26,6 @@ import {
   FilesIcon,
   SearchIcon,
   GitIcon,
-  DockerIcon,
   TodoIcon,
   JiraIcon,
   PhoneIcon,
@@ -51,10 +50,10 @@ import type { ActivityBarItem } from './components/ActivityBar/ActivityBar'
 import { BatteryPill } from './components/TitleBar/BatteryPill'
 import { AllAppsPanel, type AllAppsEntry } from './components/AllApps/AllAppsPanel'
 import { useAppContribStore } from './apps/appContribStore'
-import { buildStoreAppEntries, storeAppPanelLeavesOnProjectClose, panelForRequest, storeEntriesHaveBadge } from './apps/storeAppItems'
+import { buildStoreAppEntries, buildStoreAppBarItems, storeAppPanelLeavesOnProjectClose, panelForRequest, storeEntriesHaveBadge } from './apps/storeAppItems'
 import { StoreAppPanel } from './apps/StoreAppPanel'
 import { useAppFavoritesStore } from './stores/appFavoritesStore'
-import { APPEND_TARGET, MOVABLE_APP_IDS, pickTemporaryApp, splitApps, type MovableAppId } from './lib/appFavorites'
+import { APPEND_TARGET, MOVABLE_APP_IDS, isMovableAppId, pickTemporaryApp, splitApps, type MovableAppId } from './lib/appFavorites'
 import { APP_SETTINGS_PATHS, appEnabledSetter } from './lib/appSettings'
 import { SessionIcon } from './components/ActivityBar/SessionIcon'
 import { NewSessionMenu } from './components/ActivityBar/NewSessionMenu'
@@ -65,7 +64,6 @@ import { GitPanel } from './components/Git/GitPanel'
 import { BranchPalette } from './components/Git/BranchPalette'
 import { GitPromptHost } from './components/Git/GitPromptHost'
 import { StoreHost } from './components/Store/StoreHost'
-import { DockerPanel } from './components/Docker/DockerPanel'
 import { MobileDisplayPanel } from './components/MobileDisplay/MobileDisplayPanel'
 import { GraphifyPanel } from './components/Graphify/GraphifyPanel'
 import { StatusBar } from './components/StatusBar/StatusBar'
@@ -104,11 +102,7 @@ import { useBrowserStore } from './stores/browserStore'
 import { useBrowserSettingsStore } from './stores/browserSettingsStore'
 import { useJiraSettingsStore } from './stores/jiraSettingsStore'
 import { useGitRemoteSettingsStore } from './stores/gitRemoteSettingsStore'
-import { useDockerSettingsStore } from './stores/dockerSettingsStore'
-import { useDockerStore } from './stores/dockerStore'
-import { useDockerOffAlertStore } from './stores/dockerOffAlertStore'
 import { useGitPanelOpenAlertStore } from './stores/gitPanelOpenAlertStore'
-import { useDockerLiveUpdates } from './hooks/useDockerLiveUpdates'
 import { useTodoSettingsStore } from './stores/todoSettingsStore'
 import { useNotesSettingsStore } from './stores/notesSettingsStore'
 import { useLlamaSettingsStore } from './stores/llamaSettingsStore'
@@ -190,7 +184,6 @@ function readRootPx(): number {
 // Title and icon for an app listed in All Apps' Disabled section (the
 // GitHub/GitLab app has no Enable switch, so it never shows there).
 const DISABLED_APP_LABELS: Record<Exclude<MovableAppId, 'git-remote'>, { title: string; icon: ReactNode }> = {
-  docker: { title: 'Docker', icon: <DockerIcon /> },
   llama: { title: 'Llama', icon: <LlamaIcon /> },
   mobile: { title: 'Mobile Display', icon: <PhoneIcon /> },
   graphify: { title: 'Graphify', icon: <GraphIcon /> },
@@ -232,13 +225,13 @@ export default function App() {
     running: isLlamaKind(o.kind) ? Boolean(llamaRuns[llamaModelId(o.kind)]?.running) : undefined,
   }))
   const repoName = projectRoot ? projectRoot.split('/').pop() : null
-  const [leftPanel, setLeftPanel] = useState<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'scripts' | 'llama' | 'settings' | 'apps' | `app:${string}` | null>('files')
+  const [leftPanel, setLeftPanel] = useState<'files' | 'search' | 'git' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'scripts' | 'llama' | 'settings' | 'apps' | `app:${string}` | null>('files')
   const appFavorites = useAppFavoritesStore((s) => s.favorites)
   const placeFavorite = useAppFavoritesStore((s) => s.place)
   const unfavoriteApp = useAppFavoritesStore((s) => s.unfavorite)
   // The bar's temporary slot: the last unfavorited app that was opened.
   const lastTemporaryAppRef = useRef<string | null>(null)
-  const lastLeftPanelRef = useRef<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'scripts' | 'llama' | 'settings' | 'apps' | `app:${string}`>('files')
+  const lastLeftPanelRef = useRef<'files' | 'search' | 'git' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'scripts' | 'llama' | 'settings' | 'apps' | `app:${string}`>('files')
   const [sidebarRem, setSidebarRem] = useState(() => loadRem(SIDEBAR_WIDTH_KEY, SIDEBAR_PANEL))
   const [chatRem, setChatRem] = useState(() => loadRem(CHAT_WIDTH_KEY, CHAT_PANEL))
   // The panel group's width and the root font size: the two numbers needed to
@@ -307,12 +300,6 @@ export default function App() {
   const gitRemoteUrl = useGitRemoteSettingsStore.getState().getEffectiveUrl(projectRoot)
   const gitRemoteReady = gitRemoteUrl.trim() !== ''
   const gitRemoteProvider = detectGitRemoteProvider(gitRemoteUrl)
-  const dockerEnabled = useDockerSettingsStore((s) => s.enabled)
-  const dockerShowBadge = useDockerSettingsStore((s) => s.showBadge)
-  const dockerBadgeMode = useDockerSettingsStore((s) => s.badgeMode)
-  useDockerLiveUpdates(dockerEnabled && !!projectRoot)
-  const dockerContainers = useDockerStore((s) => s.containers)
-  const dockerOpenRequest = useDockerOffAlertStore((s) => s.openRequest)
   useEffect(() => {
     useConfigRepoStore.getState().syncOnLaunch()
   }, [])
@@ -332,25 +319,12 @@ export default function App() {
     return () => { offChanged(); offRun() }
   }, [])
 
-  useEffect(() => {
-    if (!dockerOpenRequest) return
-    setLeftPanel('docker')
-  }, [dockerOpenRequest])
   usePanelRequests(setLeftPanel)
   const gitPanelOpenRequest = useGitPanelOpenAlertStore((s) => s.openRequest)
   useEffect(() => {
     if (!gitPanelOpenRequest) return
     setLeftPanel('git')
   }, [gitPanelOpenRequest])
-  const runningDockerCount =
-    dockerBadgeMode === 'projects'
-      ? new Set(
-          dockerContainers.filter((c) => c.state === 'running' && c.project).map((c) => c.project)
-        ).size
-      : dockerContainers.filter((c) => c.state === 'running').length
-  const dockerBadge = !dockerShowBadge
-    ? undefined
-    : runningDockerCount > 99 ? '99+' : runningDockerCount || undefined
   const mobileEnabled = useMobileSettingsStore((s) => s.enabled)
   const mobileDefaultMode = useMobileSettingsStore((s) => s.defaultMode)
   const todoEnabled = useTodoSettingsStore((s) => s.enabled)
@@ -525,7 +499,7 @@ export default function App() {
   useEffect(() => startEditorSessionPersistence(), [])
   useEffect(() => startBottomTerminalPersistence(), [])
 
-  // Search/Git/Docker/Mobile Display/Graphify only make sense with a project open
+  // Search/Git/Mobile Display/Graphify only make sense with a project open
   // (their ActivityBar icons disappear entirely when projectRoot is null,
   // see primaryActivityBar below) — fall back to Explorer so a project
   // closing mid-session doesn't strand the sidebar (or a later Cmd+B
@@ -533,7 +507,7 @@ export default function App() {
   useEffect(() => {
     if (projectRoot) return
     const isProjectOnly = (p: typeof leftPanel) =>
-      p === 'search' || p === 'git' || p === 'docker' || p === 'mobile' || p === 'graphify' ||
+      p === 'search' || p === 'git' || p === 'mobile' || p === 'graphify' ||
       storeAppPanelLeavesOnProjectClose(p, useAppContribStore.getState().panels)
     if (isProjectOnly(lastLeftPanelRef.current)) lastLeftPanelRef.current = 'files'
     setLeftPanel((p) => (isProjectOnly(p) ? 'files' : p))
@@ -1068,15 +1042,7 @@ export default function App() {
               onClick: togglePanel('git'),
             }] : []),
           ]
-          const appItems: Record<MovableAppId, ActivityBarItem | null> = {
-            docker: dockerEnabled && projectRoot ? {
-              id: 'docker',
-              icon: <DockerIcon />,
-              title: 'Docker',
-              active: leftPanel === 'docker',
-              badge: dockerBadge,
-              onClick: togglePanel('docker'),
-            } : null,
+          const builtInItems: Record<MovableAppId, ActivityBarItem | null> = {
             llama: llamaEnabled ? {
               id: 'llama',
               icon: <LlamaIcon />,
@@ -1136,7 +1102,13 @@ export default function App() {
               onClick: openJira,
             } : null,
           }
-          const enabledApps = (Object.keys(appItems) as MovableAppId[]).filter((id) => appItems[id])
+          // Installed store apps with a panel can sit on the bar too (`app:<id>`).
+          const storeBarItems = buildStoreAppBarItems({
+            apps: storeApps, runtimeErrors, panels: appPanels, projectOpen: !!projectRoot, activePanel: leftPanel,
+            togglePanel: (appId) => setLeftPanel((p) => (p === `app:${appId}` ? null : `app:${appId}`)),
+          })
+          const appItems: Record<string, ActivityBarItem | null> = { ...builtInItems, ...storeBarItems }
+          const enabledApps = Object.keys(appItems).filter((id) => appItems[id])
           const { favorites: favoriteIds, others: otherIds } = splitApps(enabledApps, appFavorites)
           const favoriteItems = favoriteIds.map((id): ActivityBarItem => ({ ...appItems[id]!, dragId: id }))
           // An unfavorited app opened from All Apps shows under the separator
@@ -1147,7 +1119,7 @@ export default function App() {
           const temporaryItem = temporaryId ? appItems[temporaryId]! : undefined
           const storeEntries = buildStoreAppEntries({
             apps: storeApps, runtimeErrors, panels: appPanels, settingsPages: appSettingsPages,
-            projectOpen: !!projectRoot,
+            projectOpen: !!projectRoot, favorites: favoriteIds,
             openPanel: (appId) => setLeftPanel((p) => (p === `app:${appId}` ? null : `app:${appId}`)),
             openSettings: (appId) => useEditorStore.getState().openTab({ path: buildAppSettingsPath(appId), content: '', dirty: false }),
             uninstall: (appId) => window.api.appsUninstall(appId),
@@ -1175,7 +1147,7 @@ export default function App() {
           ]
           // Every enabled app, favorites included (the star shows which), with
           // favorites in their bar order and the rest in the default order.
-          const allAppsEntries: AllAppsEntry[] = [...favoriteIds, ...MOVABLE_APP_IDS.filter((id) => !favoriteIds.includes(id))].filter((id) => appItems[id]).map((id) => ({
+          const builtInEntries: AllAppsEntry[] = [...favoriteIds, ...MOVABLE_APP_IDS.filter((id) => !favoriteIds.includes(id))].filter((id): id is MovableAppId => isMovableAppId(id) && !!appItems[id]).map((id) => ({
             id,
             title: appItems[id]!.title,
             icon: appItems[id]!.icon,
@@ -1185,10 +1157,14 @@ export default function App() {
             onSettings: () => openAppSettings(id),
             onDisable: appEnabledSetter(id) ? () => appEnabledSetter(id)!(false) : undefined,
           }))
-          allAppsEntries.push(...storeEntries)
+          const unsortedEntries = [...builtInEntries, ...storeEntries]
+          const allAppsEntries: AllAppsEntry[] = [
+            ...favoriteIds.flatMap((id) => unsortedEntries.filter((e) => e.id === id)),
+            ...unsortedEntries.filter((e) => !favoriteIds.includes(e.id)),
+          ]
           // Apps whose Enable switch is off, for All Apps' Disabled section.
           const appEnabled: Partial<Record<MovableAppId, boolean>> = {
-            docker: dockerEnabled, llama: llamaEnabled, mobile: mobileEnabled, graphify: graphifyEnabled,
+            llama: llamaEnabled, mobile: mobileEnabled, graphify: graphifyEnabled,
             todos: todoEnabled, notes: notesEnabled, scripts: scriptsEnabled, jira: jiraEnabled,
           }
           const disabledAppEntries = MOVABLE_APP_IDS.filter((id): id is keyof typeof DISABLED_APP_LABELS => appEnabled[id] === false).map((id) => ({
@@ -1251,7 +1227,7 @@ export default function App() {
           >
             {(() => {
               const activeLeftPanel = leftPanel ?? lastLeftPanelRef.current
-              return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'search' ? <SearchPanel /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'docker' ? <DockerPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : activeLeftPanel === 'todos' ? <TodoPanel /> : activeLeftPanel === 'notes' ? <NotesPanel /> : activeLeftPanel === 'scripts' ? <ScriptsPanel /> : activeLeftPanel === 'llama' ? <LlamaPanel /> : activeLeftPanel.startsWith('app:') ? <StoreAppPanel appId={activeLeftPanel.slice(4)} /> : activeLeftPanel === 'apps' ? (
+              return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'search' ? <SearchPanel /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : activeLeftPanel === 'todos' ? <TodoPanel /> : activeLeftPanel === 'notes' ? <NotesPanel /> : activeLeftPanel === 'scripts' ? <ScriptsPanel /> : activeLeftPanel === 'llama' ? <LlamaPanel /> : activeLeftPanel.startsWith('app:') ? <StoreAppPanel appId={activeLeftPanel.slice(4)} /> : activeLeftPanel === 'apps' ? (
                 <AllAppsPanel
                   apps={allAppsEntries}
                   disabledApps={disabledAppEntries}
@@ -1576,9 +1552,8 @@ type SystemUsage = {
 function MemoryPill({ usage }: { usage: SystemUsage }) {
   const [hovered, setHovered] = useState(false)
   const llamaEnabled = useLlamaSettingsStore((s) => s.enabled)
-  // Fetched lazily on hover — same reason as Docker (potentially slow).
+  // Fetched lazily on hover (potentially slow).
   // undefined = not yet fetched, null = nothing running / hide row.
-  const [dockerBytes, setDockerBytes] = useState<number | null | undefined>(undefined)
   const [llamaBytes, setLlamaBytes] = useState<number | null | undefined>(undefined)
   // What vIDE itself runs, split by session — refreshed only while the panel
   // is open, and kept after it closes so reopening shows it straight away.
@@ -1601,12 +1576,6 @@ function MemoryPill({ usage }: { usage: SystemUsage }) {
 
   function handleEnter() {
     setHovered(true)
-    if (dockerBytes === undefined) {
-      window.api.dockerGetContainerStats().then((stats) => {
-        const ids = Object.keys(stats)
-        setDockerBytes(ids.length === 0 ? null : ids.reduce((sum, id) => sum + stats[id].usedBytes, 0))
-      }).catch(() => setDockerBytes(null))
-    }
     if (llamaEnabled && llamaBytes === undefined) {
       window.api.llamaGetMemoryUsage().then(setLlamaBytes).catch(() => setLlamaBytes(null))
     }
@@ -1666,12 +1635,6 @@ function MemoryPill({ usage }: { usage: SystemUsage }) {
               <span className="shrink-0 whitespace-nowrap text-fg tabular-nums">{formatMemory(row.bytes)}</span>
             </div>
           ))}
-          {dockerBytes != null && (
-            <div className="mt-1.5 flex items-center justify-between gap-3 text-xs">
-              <span className="text-fg-muted">Docker</span>
-              <span className="font-medium text-fg tabular-nums">{formatGb(dockerBytes)} GB</span>
-            </div>
-          )}
           {llamaEnabled && llamaBytes != null && (
             <div className="mt-1.5 flex items-center justify-between gap-3 text-xs">
               <span className="text-fg-muted">Llama</span>

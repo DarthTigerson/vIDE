@@ -3,15 +3,15 @@ import { renderHook, act } from '@testing-library/react'
 import { useVisibleNotificationItems } from '../useVisibleNotificationItems'
 import { useUsageAlertStore } from '@/stores/usageAlertStore'
 import { useUpdateStore } from '@/stores/updateStore'
-import { useDockerSettingsStore } from '@/stores/dockerSettingsStore'
-import { useDockerStore } from '@/stores/dockerStore'
+import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
+import { useLlamaStore } from '@/stores/llamaStore'
 import { useNotificationAcknowledgedStore } from '@/stores/notificationAcknowledgedStore'
 
 beforeEach(() => {
   useUsageAlertStore.setState({ alerts: [{ scope: 'session', cutoffAt: Date.now() + 1000, resetAt: null }] })
   useUpdateStore.setState({ available: null, status: 'idle' })
-  useDockerSettingsStore.setState({ enabled: false })
-  useDockerStore.setState({ status: 'unknown' })
+  useLlamaSettingsStore.setState({ enabled: false })
+  useLlamaStore.setState({ available: null })
   useNotificationAcknowledgedStore.setState({ acknowledgedIds: [], dismissedIds: [] })
 })
 
@@ -60,10 +60,10 @@ describe('useVisibleNotificationItems', () => {
   it('does not let an acknowledged id block an unrelated, unacknowledged one', () => {
     act(() => {
       useNotificationAcknowledgedStore.getState().acknowledge(['usage-session'])
-      useDockerSettingsStore.setState({ enabled: true })
-      useDockerStore.setState({ status: 'stopped' })
+      useLlamaSettingsStore.setState({ enabled: true })
+      useLlamaStore.setState({ available: false })
     })
     const { result } = renderHook(() => useVisibleNotificationItems())
-    expect(result.current.map((i) => i.id)).toEqual(['docker'])
+    expect(result.current.map((i) => i.id)).toEqual(['llama-unavailable'])
   })
 })

@@ -7,15 +7,15 @@ import { useFileStore } from '@/stores/fileStore'
 // App.autoFollow.test.tsx's note on Monaco/xterm/react-resizable-panels
 // needing real browser APIs), so — same pattern as that file — this
 // reproduces App.tsx's project-closed sidebar fallback effect verbatim in
-// isolation: falling back off Git/Docker/Mobile Display/Graphify (whose
+// isolation: falling back off Git/Mobile Display/Graphify (whose
 // ActivityBar icons disappear without a project) to Explorer when
 // projectRoot goes null, and keeping lastLeftPanelRef in sync so a later
 // Cmd+B reopen doesn't try to restore a now-icon-less panel.
-type LeftPanel = 'files' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'settings' | null
+type LeftPanel = 'files' | 'git' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'settings' | null
 type NonNullLeftPanel = Exclude<LeftPanel, null>
 
 function isProjectOnly(p: LeftPanel) {
-  return p === 'git' || p === 'docker' || p === 'mobile' || p === 'graphify'
+  return p === 'git' || p === 'mobile' || p === 'graphify'
 }
 
 function useProjectClosedNavFallback(initial: NonNullLeftPanel) {

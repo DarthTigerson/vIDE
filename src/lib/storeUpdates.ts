@@ -32,3 +32,39 @@ export function pendingUpdates(
   }
   return out
 }
+
+// Built-in apps that moved to the Store, and the localStorage key that held
+// their Enable switch (set to 'true' by the user before the update).
+export const BUILT_IN_ENABLED_KEYS: Record<string, string> = {
+  docker: 'vide:docker:enabled',
+}
+
+// Per machine, not synced (outside every sync category prefix).
+export const MOVED_NOTICE_DISMISSED_KEY = 'vide:store:movedNoticeDismissed'
+
+export const MOVED_NOTICE_ID = 'store-moved-apps'
+
+// Catalog apps that replace a built-in the user had enabled on this machine
+// and have not installed yet. Empty until the catalog has loaded, and once
+// the notice was dismissed.
+export function movedApps(
+  registry: RegistryState | null,
+  installed: AppInfo[],
+  readKey: (key: string) => string | null,
+  dismissed: boolean,
+): StoreListing[] {
+  if (dismissed || registry?.status !== 'ok') return []
+  return registry.apps.filter((app) => {
+    const key = app.replacesBuiltIn ? BUILT_IN_ENABLED_KEYS[app.replacesBuiltIn] : undefined
+    if (!key || readKey(key) !== 'true') return false
+    return !installed.some((i) => i.id === app.id)
+  })
+}
+
+export function readMovedNoticeDismissed(): boolean {
+  try { return localStorage.getItem(MOVED_NOTICE_DISMISSED_KEY) === 'true' } catch { return false }
+}
+
+export function readLocalKey(key: string): string | null {
+  try { return localStorage.getItem(key) } catch { return null }
+}

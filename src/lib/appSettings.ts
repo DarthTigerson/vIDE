@@ -1,6 +1,5 @@
 import type { MovableAppId } from './appFavorites'
 import {
-  DOCKER_SETTINGS_TAB_PATH,
   GIT_SETTINGS_TAB_PATH,
   GRAPHIFY_SETTINGS_TAB_PATH,
   JIRA_SETTINGS_TAB_PATH,
@@ -10,7 +9,6 @@ import {
   SCRIPTS_SETTINGS_TAB_PATH,
   TODO_SETTINGS_TAB_PATH,
 } from '@/components/Settings/paths'
-import { useDockerSettingsStore } from '@/stores/dockerSettingsStore'
 import { useGraphifySettingsStore } from '@/stores/graphifySettingsStore'
 import { useJiraSettingsStore } from '@/stores/jiraSettingsStore'
 import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
@@ -22,7 +20,6 @@ import { useTodoSettingsStore } from '@/stores/todoSettingsStore'
 // The settings page each app's right-click "Settings" opens. The GitHub/GitLab
 // app is configured from Settings: Git (its remote URL lives there).
 export const APP_SETTINGS_PATHS: Record<MovableAppId, string> = {
-  docker: DOCKER_SETTINGS_TAB_PATH,
   llama: LLAMA_SETTINGS_TAB_PATH,
   mobile: MOBILE_SETTINGS_TAB_PATH,
   graphify: GRAPHIFY_SETTINGS_TAB_PATH,
@@ -38,7 +35,6 @@ export const APP_SETTINGS_PATHS: Record<MovableAppId, string> = {
 // remote URL is set.
 export function appEnabledSetter(id: MovableAppId): ((enabled: boolean) => void) | null {
   switch (id) {
-    case 'docker': return useDockerSettingsStore.getState().setEnabled
     case 'llama': return useLlamaSettingsStore.getState().setEnabled
     case 'mobile': return useMobileSettingsStore.getState().setEnabled
     case 'graphify': return useGraphifySettingsStore.getState().setEnabled

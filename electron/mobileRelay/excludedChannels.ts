@@ -11,8 +11,6 @@ export const EXCLUDED_CHANNELS = new Set<string>([
   // Panel search spawns ripgrep on this machine and pushes results to the requesting window
   // (search:results / search:done); same per-connection streaming gap as the channels above
   'search:start', 'search:cancel',
-  // Docker event streaming — new streaming wiring comparable to term:data, deferred
-  'docker:runLogs', 'docker:stopLogs', 'docker:watch', 'docker:unwatch',
 
   // vSuite Store: installs apps into this desktop's vIDE; the Store UI is desktop-only in phase 1
   'store:getRegistry', 'store:getReadme', 'store:takePendingOpen',  // vide://store links target this desktop's windows

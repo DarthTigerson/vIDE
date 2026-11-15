@@ -485,19 +485,6 @@ export function GitIcon({ className }: { className?: string } = {}) {
   )
 }
 
-export function DockerIcon({ className }: { className?: string } = {}) {
-  return (
-    <svg className={className} width="1.25rem" height="1.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path
-        fill="currentColor"
-        fillRule="evenodd"
-        d="M12.5 5.5H10V3h2.5v2.5ZM10 9h2.5V6.5H10V9Zm-9 5.283c0 4.714 3.53 7.857 8.38 7.857 5.02 0 10.271 -3.976 10.271 -8.995 1.303 0.553 2.851 -0.156 3.349 -1.481 -0.498 -1.322 -1.48 -1.502 -2.781 -0.951 0.478 -2.392 -2.13 -2.654 -2.13 -2.654s-1.62 1.203 -0.185 3.116c0 0 -0.142 2.584 -2.238 2.584H1.524c-0.269 0 -0.535 0.256 -0.524 0.524ZM16 12.5h-2.5V10H16v2.5Zm-6 0h2.5V10H10v2.5Zm-1 0H6.5V10H9v2.5ZM6.5 9H9V6.5H6.5V9Zm-1 3.5H3V10h2.5v2.5Z"
-        clipRule="evenodd"
-      />
-    </svg>
-  )
-}
-
 // A downward arrow into a tray — standard "download/update available" glyph,
 // used for the vIDE-update notification row.
 export function UpdateAvailableIcon({ className }: { className?: string } = {}) {

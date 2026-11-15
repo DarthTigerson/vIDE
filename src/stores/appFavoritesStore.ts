@@ -4,7 +4,7 @@ import {
   placeFavorite,
   removeFavorite,
   sanitizeFavorites,
-  type MovableAppId,
+  type FavoriteId,
 } from '../lib/appFavorites'
 
 // Under 'vide:general:' so vIDE Sync carries it between machines. It only
@@ -12,7 +12,7 @@ import {
 // every periodic push.
 export const APP_FAVORITES_KEY = 'vide:general:appFavorites'
 
-function load(): MovableAppId[] {
+function load(): FavoriteId[] {
   try {
     const raw = localStorage.getItem(APP_FAVORITES_KEY)
     return sanitizeFavorites(raw === null ? null : JSON.parse(raw))
@@ -22,13 +22,13 @@ function load(): MovableAppId[] {
 }
 
 interface AppFavoritesStore {
-  favorites: MovableAppId[]
+  favorites: FavoriteId[]
   place: (id: string, targetId: string, placement: 'before' | 'after') => void
   unfavorite: (id: string) => void
 }
 
 export const useAppFavoritesStore = create<AppFavoritesStore>((set, get) => {
-  function save(favorites: MovableAppId[]) {
+  function save(favorites: FavoriteId[]) {
     if (favorites === get().favorites) return
     try { localStorage.setItem(APP_FAVORITES_KEY, JSON.stringify(favorites)) } catch {}
     set({ favorites })
