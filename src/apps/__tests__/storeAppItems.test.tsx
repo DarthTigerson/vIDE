@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { buildStoreAppEntries, buildStoreAppBarItems, storeAppPanelLeavesOnProjectClose, panelForRequest, storeEntriesHaveBadge } from '../storeAppItems'
+import { describe, it, expect, vi } from 'vitest'
+import { buildStoreAppEntries, buildStoreDisabledEntries, buildStoreAppBarItems, storeAppPanelLeavesOnProjectClose, panelForRequest, storeEntriesHaveBadge } from '../storeAppItems'
 import type { AppInfo } from '../../../electron/apps/appTypes'
 
 const app = (over: Partial<AppInfo>): AppInfo => ({
@@ -29,6 +29,28 @@ describe('buildStoreAppEntries', () => {
     const panels = { hello: { appId: 'hello', title: 'Hello', icon: () => null, component: () => null, requiresProject: true } }
     expect(buildStoreAppEntries({ ...base, apps: [app({})], panels, projectOpen: false })).toEqual([])
     expect(buildStoreAppEntries({ ...base, apps: [app({})], panels })[0].onOpen).toBeTypeOf('function')
+  })
+})
+
+describe('disabled store apps', () => {
+  it('leave the main list and show up in the Disabled section with Enable and Uninstall', async () => {
+    const setEnabled = vi.fn().mockResolvedValue({ ok: true as const })
+    const uninstall = vi.fn().mockResolvedValue({ ok: true as const })
+    const apps = [app({ status: 'disabled' }), app({ id: 'other', name: 'Other' })]
+    expect(buildStoreAppEntries({ ...base, apps }).map((e) => e.id)).toEqual(['app:other'])
+    const [d] = buildStoreDisabledEntries({ apps, setEnabled, uninstall })
+    expect(d).toMatchObject({ id: 'app:hello', title: 'Hello' })
+    d.onEnable()
+    expect(setEnabled).toHaveBeenCalledWith('hello', true)
+    await d.onUninstall!()
+    expect(uninstall).toHaveBeenCalledWith('hello')
+  })
+  it('an enabled store app gains Disable; a dev app does not', () => {
+    const setEnabled = vi.fn().mockResolvedValue({ ok: true as const })
+    const [store, dev] = buildStoreAppEntries({ ...base, setEnabled, apps: [app({}), app({ id: 'd', source: 'dev' })] })
+    store.onDisable!()
+    expect(setEnabled).toHaveBeenCalledWith('hello', false)
+    expect(dev.onDisable).toBeUndefined()
   })
 })
 

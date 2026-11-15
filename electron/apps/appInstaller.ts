@@ -132,7 +132,9 @@ export class AppInstaller {
         version: app.version,
         commit: app.commit,
         installedAt: Date.now(),
-        ...(listing ? {} : { source: 'file' as const })
+        ...(listing ? {} : { source: 'file' as const }),
+        // An update keeps the user's choice to have the app off.
+        ...(previous?.disabled ? { disabled: true as const } : {})
       }
       try {
         writeInstalled(this.appsDir, [...records.filter((r) => r.id !== app.id), record])

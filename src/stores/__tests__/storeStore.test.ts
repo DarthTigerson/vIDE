@@ -75,9 +75,11 @@ describe('appAction', () => {
     expect(appAction(listing('1.0.0'), undefined)).toBe('install')
     expect(appAction(listing('1.0.0', false), undefined)).toBe('needs-vide')
     expect(appAction(listing('1.1.0'), inst('1.0.0'))).toBe('update')
-    expect(appAction(listing('1.1.0', false), inst('1.0.0'))).toBe('open')
-    expect(appAction(listing('1.0.0'), inst('1.0.0'))).toBe('open')
-    expect(appAction(undefined, inst('1.0.0'))).toBe('open')
+    expect(appAction(listing('1.1.0', false), inst('1.0.0'))).toBe('uninstall')
+    expect(appAction(listing('1.0.0'), inst('1.0.0'))).toBe('uninstall')
+    expect(appAction(listing('1.0.0'), inst('1.0.0', { status: 'disabled' }))).toBe('uninstall')
+    expect(appAction(listing('1.1.0'), inst('1.0.0', { status: 'disabled' }))).toBe('update')
+    expect(appAction(undefined, inst('1.0.0'))).toBe('uninstall')
     expect(appAction(listing('1.1.0'), inst('1.0.0', { status: 'restart-required' }))).toBe('restart')
     expect(appAction(listing('1.1.0'), inst('1.0.0', { status: 'failed' }))).toBe('failed')
     expect(appAction(listing('1.0.0'), inst('1.0.0', { source: 'dev' }))).toBe('install')
@@ -200,6 +202,6 @@ describe('appAction for apps installed from a file', () => {
   it('counts as installed but never offers Update', () => {
     const listing = { ...okState.status === 'ok' ? okState.apps[0] : (null as never), latest: { ...(okState as any).apps[0].latest, version: '2.0.0' } }
     const fileApp = { id: 'docker', name: 'Docker', version: '1.0.0', source: 'file', rendererUrl: '', hasMain: false, status: 'loaded', contributes: {} } as any
-    expect(appAction(listing, fileApp)).toBe('open')
+    expect(appAction(listing, fileApp)).toBe('uninstall')
   })
 })

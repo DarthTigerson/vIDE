@@ -9,10 +9,11 @@ export function updateNoticeId(id: string, version: string): string {
 }
 
 // The one rule for "this app has an update": a store install that is running
-// normally (not failed / waiting for a restart) with a newer compatible listing.
+// normally (not failed / waiting for a restart; switched off still counts) with
+// a newer compatible listing.
 export function hasUpdate(listing: StoreListing | undefined, installed: AppInfo | undefined): boolean {
   if (!listing || !installed || installed.source !== 'store') return false
-  if (installed.status !== 'loaded') return false
+  if (installed.status !== 'loaded' && installed.status !== 'disabled') return false
   return listing.compatible && isNewerVersion(listing.latest.version, installed.version)
 }
 

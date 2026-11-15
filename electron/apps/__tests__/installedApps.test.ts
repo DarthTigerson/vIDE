@@ -15,6 +15,14 @@ describe('installedApps', () => {
     expect(readInstalled(dir)).toEqual(records)
   })
 
+  it('round-trips the disabled flag and rejects a non-true value', () => {
+    const rec = { id: 'hello', version: '1.0.0', commit: 'abc', installedAt: 5, disabled: true as const }
+    writeInstalled(dir, [rec])
+    expect(readInstalled(dir)).toEqual([rec])
+    writeFileSync(join(dir, 'installed.json'), JSON.stringify([{ ...rec, disabled: 'yes' }]))
+    expect(readInstalled(dir)).toEqual([])
+  })
+
   it('returns [] for a missing or corrupt file', () => {
     expect(readInstalled(dir)).toEqual([])
     writeFileSync(join(dir, 'installed.json'), '{not json')

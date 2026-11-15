@@ -8,7 +8,7 @@ import type { StoreApp } from '../storeRegistry'
 import type { AppInstaller } from './appInstaller'
 import { APP_API_VERSION, parseManifest, type AppManifest } from './appManifest'
 import type { AppContributes, AppInfo, AppStatus } from './appTypes'
-import { readInstalled } from './installedApps'
+import { readInstalled, writeInstalled } from './installedApps'
 import { createMainVideApi } from './mainVideApi'
 import { PackageHolder, inspectPackage, type FileSummary } from './installFromFile'
 
@@ -66,7 +66,7 @@ export class AppHost {
   async start(): Promise<void> {
     this.sweep()
     for (const rec of readInstalled(this.opts.appsDir)) {
-      await this.load(this.opts.installer.installDir(rec.id, rec.version), rec.source === 'file' ? 'file' : 'store', rec.id)
+      await this.load(this.opts.installer.installDir(rec.id, rec.version), rec.source === 'file' ? 'file' : 'store', rec.id, rec.disabled === true)
     }
     if (this.opts.isDev) {
       for (const dir of this.readDev()) await this.load(dir, 'dev')
@@ -114,14 +114,17 @@ export class AppHost {
   private async activateInstalled(id: string, version: string, source: 'store' | 'file', name: string): Promise<InstallOutcome> {
     const dir = this.opts.installer.installDir(id, version)
     const existing = this.entries.get(id)
-    if (existing?.mainActivated) {
+    // An update keeps an app the user switched off switched off (the installer
+    // carries the flag over), so it is loaded as disabled, not activated.
+    const disabled = readInstalled(this.opts.appsDir).find((r) => r.id === id)?.disabled === true
+    if (existing?.mainActivated && !disabled) {
       // The old main.js keeps running until restart; the new folder is what
       // renderer assets resolve against (the old one is gone).
       existing.status = 'restart-required'
       existing.root = dir
       existing.source = source
     } else {
-      const loaded = await this.load(dir, source, id)
+      const loaded = await this.load(dir, source, id, disabled)
       if (typeof loaded === 'string') {
         this.opts.broadcast('apps:changed')
         return { ok: false, error: loaded }
@@ -191,6 +194,41 @@ export class AppHost {
     }
   }
 
+  // Switches a store app off or on without uninstalling it. The choice is kept
+  // in installed.json. A main half that was already activated can't be unloaded,
+  // so it keeps running until restart; enabling it again just reconnects.
+  async setEnabled(id: string, enabled: boolean): Promise<Result> {
+    try {
+      const entry = this.entries.get(id)
+      if (!entry || entry.source === 'dev') return { ok: false, error: 'Only installed apps can be turned off.' }
+      if (entry.status === 'restart-required') return { ok: false, error: 'Restart vIDE first.' }
+      const records = readInstalled(this.opts.appsDir)
+      const record = records.find((r) => r.id === id)
+      if (!record) return { ok: false, error: 'Not installed.' }
+      const { disabled: _d, ...rest } = record
+      void _d
+      writeInstalled(this.opts.appsDir, records.map((r) => (r.id === id ? (enabled ? rest : { ...rest, disabled: true as const }) : r)))
+      if (!enabled) {
+        entry.status = 'disabled'
+        delete entry.error
+        // main.js can't be unloaded, but nothing it started should keep running.
+        this.killChildren(entry)
+      } else if (entry.mainActivated) {
+        entry.status = 'loaded'
+      } else {
+        const loaded = await this.load(this.opts.installer.installDir(id, record.version), entry.source, id)
+        if (typeof loaded === 'string') {
+          this.opts.broadcast('apps:changed')
+          return { ok: false, error: loaded }
+        }
+      }
+      this.opts.broadcast('apps:changed')
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: msg(e) }
+    }
+  }
+
   async call(appId: string, method: string, payload: unknown, windowId: number): Promise<unknown> {
     const fn = this.entries.get(appId)?.handlers.get(method)
     if (!fn) throw new Error(`No handler ${method}`)
@@ -233,6 +271,7 @@ export class AppHost {
     ipcMain.handle('apps:list', () => this.list())
     ipcMain.handle('apps:install', (_e, id: string) => this.install(id))
     ipcMain.handle('apps:uninstall', (_e, id: string) => this.uninstall(id))
+    ipcMain.handle('apps:setEnabled', (_e, id: string, enabled: boolean) => this.setEnabled(String(id), enabled === true))
     ipcMain.handle('apps:call', (e, appId: string, method: string, payload: unknown) =>
       this.call(appId, method, payload, BrowserWindow.fromWebContents(e.sender)?.id ?? -1))
     ipcMain.handle('apps:pickPackage', async (e): Promise<PickResult> => {
@@ -265,8 +304,6 @@ export class AppHost {
     })
   }
 
-  // Loads one app folder into `entries`. Returns the entry, or a reason string
-  // when the manifest is unusable (no entry is created then, unless the id is known).
   private killChildren(e: Entry): void {
     for (const child of [...e.children.keys()]) {
       try { child.kill() } catch { /* already gone */ }
@@ -282,7 +319,9 @@ export class AppHost {
     this.killChildren(e)
   }
 
-  private async load(dir: string, source: 'store' | 'dev' | 'file', expectedId?: string): Promise<Entry | string> {
+  // Loads one app folder into `entries`. Returns the entry, or a reason string
+  // when the manifest is unusable (no entry is created then, unless the id is known).
+  private async load(dir: string, source: 'store' | 'dev' | 'file', expectedId?: string, disabled = false): Promise<Entry | string> {
     let manifest: AppManifest
     try {
       const parsed = parseManifest(JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8')))
@@ -314,6 +353,10 @@ export class AppHost {
     const previous = this.entries.get(manifest.id)
     if (previous) this.teardown(previous)
     this.entries.set(manifest.id, entry)
+    if (disabled) {
+      entry.status = 'disabled'
+      return entry
+    }
     if (manifest.main) {
       try {
         // A dev folder is edited between loads: drop Node's cached copy.

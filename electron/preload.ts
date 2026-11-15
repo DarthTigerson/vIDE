@@ -202,6 +202,7 @@ contextBridge.exposeInMainWorld('api', {
   appsList: () => ipcRenderer.invoke('apps:list') as Promise<import('./apps/appTypes').AppInfo[]>,
   appsInstall: (id: string) => ipcRenderer.invoke('apps:install', id) as Promise<import('./apps/appHost').InstallOutcome>,
   appsUninstall: (id: string) => ipcRenderer.invoke('apps:uninstall', id) as Promise<{ ok: true } | { ok: false; error: string }>,
+  appsSetEnabled: (id: string, enabled: boolean) => ipcRenderer.invoke('apps:setEnabled', id, enabled) as Promise<{ ok: true } | { ok: false; error: string }>,
   appsCall: (appId: string, method: string, payload?: unknown) => ipcRenderer.invoke('apps:call', appId, method, payload) as Promise<unknown>,
   appsIsDev: () => ipcRenderer.invoke('apps:isDev') as Promise<boolean>,
   appsLoadDevFolder: () => ipcRenderer.invoke('apps:loadDevFolder') as Promise<{ ok: true; id: string } | { ok: false; error: string }>,

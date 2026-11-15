@@ -1,12 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useStoreStore, findStoreApp } from '@/stores/storeStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { useAppContribStore } from '@/apps/appContribStore'
-import { ConfirmActionModal } from '@/components/Git/ConfirmActionModal'
 import { STORE_TAB_PATH } from '@/components/Settings/paths'
 import { openUrlInBrowserTab } from '@/components/Chat/terminalLinks'
 import type { AppContributes } from '@/types/api'
-import { AppMonogram, FromFileBadge, MadeByVsuite, formatReleased, formatSize, ghostPillClass } from './storeUi'
+import { AppMonogram, FromFileBadge, MadeByVsuite, formatReleased, formatSize } from './storeUi'
 import { StoreScreenshots } from './StoreScreenshots'
 import { StoreReadme } from './StoreReadme'
 import { StoreAppAction } from './StoreAppAction'
@@ -17,9 +16,6 @@ export function StoreAppPage({ appId }: { appId: string }) {
   const load = useStoreStore((s) => s.load)
   const openTab = useEditorStore((s) => s.openTab)
   const installed = useAppContribStore((s) => s.apps.find((a) => a.id === appId && a.source !== 'dev'))
-  const busy = useStoreStore((s) => s.busy[appId])
-  const uninstall = useStoreStore((s) => s.uninstall)
-  const [confirming, setConfirming] = useState(false)
 
   useEffect(() => { if (!useStoreStore.getState().registry) void load(false) }, [load])
 
@@ -65,11 +61,6 @@ export function StoreAppPage({ appId }: { appId: string }) {
           </div>
           <div className="flex items-center gap-2">
             <StoreAppAction app={app} />
-            {installed && (
-              <button type="button" className={ghostPillClass} disabled={!!busy} onClick={() => setConfirming(true)}>
-                Uninstall
-              </button>
-            )}
           </div>
         </header>
 
@@ -125,15 +116,6 @@ export function StoreAppPage({ appId }: { appId: string }) {
           </aside>
         </div>
       </div>
-      {confirming && (
-        <ConfirmActionModal
-          title={`Uninstall ${app.name}?`}
-          message="Its settings stay, so reinstalling brings them back."
-          confirmLabel="Uninstall"
-          onConfirm={() => void uninstall(appId)}
-          onClose={() => setConfirming(false)}
-        />
-      )}
     </div>
   )
 }

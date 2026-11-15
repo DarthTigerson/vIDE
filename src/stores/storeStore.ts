@@ -11,10 +11,11 @@ interface StoreStoreState {
   // refresh=false may return the main process's session copy instantly.
   load: (refresh?: boolean) => Promise<void>
   // In-flight install/uninstall per app id, and the last failure message.
-  busy: Record<string, 'installing' | 'uninstalling'>
+  busy: Record<string, 'installing' | 'uninstalling' | 'switching'>
   errors: Record<string, string>
   install: (id: string) => Promise<void>
   uninstall: (id: string) => Promise<void>
+  setEnabled: (id: string, enabled: boolean) => Promise<void>
   // One bell item per finished install ("Installed X 1.0.0" / "Couldn't
   // install X: reason"); in memory, dismissed with the bell's x.
   events: { id: string; text: string }[]
@@ -120,6 +121,7 @@ export const useStoreStore = create<StoreStoreState>((set, get) => ({
     void window.api.appsDiscardPackage(pending.token)
   },
   uninstall: (id) => run(id, 'uninstalling', () => window.api.appsUninstall(id), set, get),
+  setEnabled: (id, enabled) => run(id, 'switching', () => window.api.appsSetEnabled(id, enabled), set, get),
   load: (refresh = false) => {
     if (inFlight) return inFlight
     set({ loading: true })
@@ -147,7 +149,7 @@ export function findStoreApp(registry: RegistryState | null, id: string): StoreL
 // store only tracks the request in flight and its error.
 async function run(
   id: string,
-  kind: 'installing' | 'uninstalling',
+  kind: 'installing' | 'uninstalling' | 'switching',
   call: () => Promise<{ ok: true } | { ok: false; error: string }>,
   set: (partial: Partial<StoreStoreState>) => void,
   get: () => StoreStoreState,
@@ -168,20 +170,21 @@ async function run(
   set({ busy: restBusy, errors: error ? { ...get().errors, [id]: error } : get().errors })
 }
 
-export type AppAction = 'install' | 'update' | 'open' | 'needs-vide' | 'restart' | 'failed'
+export type AppAction = 'install' | 'update' | 'uninstall' | 'needs-vide' | 'restart' | 'failed'
 
 // What a Store row/page offers for an app. Dev apps (loaded from a folder) are
 // not "installed" as far as the Store goes: they never get Update and Install
 // stays available.
 export function appAction(listing: StoreListing | undefined, installedApp: AppInfo | undefined): AppAction {
-  // A "from file" app counts as installed (Open / failed / restart) but never
+  // A "from file" app counts as installed (Uninstall / failed / restart) but never
   // gets Update: hasUpdate only looks at store installs.
   const installed = installedApp && installedApp.source !== 'dev' ? installedApp : undefined
   if (!installed) return listing && !listing.compatible ? 'needs-vide' : 'install'
   if (installed.status === 'restart-required') return 'restart'
   if (installed.status === 'failed') return 'failed'
   if (hasUpdate(listing, installed)) return 'update'
-  return 'open'
+  // 'disabled' is installed but switched off: same offer as a running app.
+  return 'uninstall'
 }
 
 let subscribed = false

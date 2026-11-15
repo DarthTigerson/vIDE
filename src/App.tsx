@@ -48,9 +48,9 @@ import {
 } from './components/ActivityBar/ActivityBar'
 import type { ActivityBarItem } from './components/ActivityBar/ActivityBar'
 import { BatteryPill } from './components/TitleBar/BatteryPill'
-import { AllAppsPanel, type AllAppsEntry } from './components/AllApps/AllAppsPanel'
+import { AllAppsPanel, type AllAppsEntry, type DisabledAppEntry } from './components/AllApps/AllAppsPanel'
 import { useAppContribStore } from './apps/appContribStore'
-import { buildStoreAppEntries, buildStoreAppBarItems, storeAppPanelLeavesOnProjectClose, panelForRequest, storeEntriesHaveBadge } from './apps/storeAppItems'
+import { buildStoreAppEntries, buildStoreDisabledEntries, buildStoreAppBarItems, storeAppPanelLeavesOnProjectClose, panelForRequest, storeEntriesHaveBadge } from './apps/storeAppItems'
 import { StoreAppPanel } from './apps/StoreAppPanel'
 import { useAppFavoritesStore } from './stores/appFavoritesStore'
 import { APPEND_TARGET, MOVABLE_APP_IDS, isMovableAppId, pickTemporaryApp, splitApps, type MovableAppId } from './lib/appFavorites'
@@ -1123,6 +1123,12 @@ export default function App() {
             openPanel: (appId) => setLeftPanel((p) => (p === `app:${appId}` ? null : `app:${appId}`)),
             openSettings: (appId) => useEditorStore.getState().openTab({ path: buildAppSettingsPath(appId), content: '', dirty: false }),
             uninstall: (appId) => window.api.appsUninstall(appId),
+            setEnabled: (appId, enabled) => window.api.appsSetEnabled(appId, enabled),
+          })
+          const storeDisabledEntries = buildStoreDisabledEntries({
+            apps: storeApps,
+            setEnabled: (appId, enabled) => window.api.appsSetEnabled(appId, enabled),
+            uninstall: (appId) => window.api.appsUninstall(appId),
           })
           // Badges of unfavorited apps are otherwise only visible inside the
           // panel, so All Apps carries a dot for them (the temporary slot
@@ -1130,7 +1136,7 @@ export default function App() {
           const hiddenBadge = storeEntriesHaveBadge(storeEntries) || otherIds.some((id) => appItems[id] !== temporaryItem && hasBadge(appItems[id]!.badge))
           const primaryGroups: ActivityBarItem[][] = [
             [...lockedItems, ...favoriteItems],
-            ...(enabledApps.length > 0 || storeEntries.length > 0 ? [[
+            ...(enabledApps.length > 0 || storeEntries.length > 0 || storeDisabledEntries.length > 0 ? [[
               ...(temporaryItem ? [temporaryItem] : []),
               {
                 id: 'apps',
@@ -1167,13 +1173,13 @@ export default function App() {
             llama: llamaEnabled, mobile: mobileEnabled, graphify: graphifyEnabled,
             todos: todoEnabled, notes: notesEnabled, scripts: scriptsEnabled, jira: jiraEnabled,
           }
-          const disabledAppEntries = MOVABLE_APP_IDS.filter((id): id is keyof typeof DISABLED_APP_LABELS => appEnabled[id] === false).map((id) => ({
+          const disabledAppEntries: DisabledAppEntry[] = [...MOVABLE_APP_IDS.filter((id): id is keyof typeof DISABLED_APP_LABELS => appEnabled[id] === false).map((id) => ({
             id,
             title: DISABLED_APP_LABELS[id].title,
             icon: DISABLED_APP_LABELS[id].icon,
             onEnable: () => appEnabledSetter(id)!(true),
             onSettings: () => openAppSettings(id),
-          }))
+          })), ...storeDisabledEntries]
           const primaryActivityBar = (
         <ActivityBar
           side={mirrored ? 'right' : 'left'}

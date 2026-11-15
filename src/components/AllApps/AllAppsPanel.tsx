@@ -36,7 +36,10 @@ export interface DisabledAppEntry {
   title: string
   icon: React.ReactNode
   onEnable: () => void
-  onSettings: () => void
+  // Omitted for a store app (its settings page is gone while it is off).
+  onSettings?: () => void
+  // Store apps: adds an "Uninstall" item to the row's menu.
+  onUninstall?: () => Promise<{ ok: true } | { ok: false; error: string }>
 }
 
 type ViewMode = 'list' | 'icons'
@@ -90,13 +93,13 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
     id: string
     favorite?: boolean
     onToggleFavorite?: () => void
-    onSettings: () => void
+    onSettings?: () => void
     onDisable?: () => void
     onUninstall?: () => void
     onEnable?: () => void
   } | null>(null)
   const closeMenu = useCallback(() => setMenu(null), [])
-  const [uninstalling, setUninstalling] = useState<AllAppsEntry | null>(null)
+  const [uninstalling, setUninstalling] = useState<{ title: string; onUninstall: NonNullable<AllAppsEntry['onUninstall']> } | null>(null)
 
   function openMenu(e: React.MouseEvent, app: AllAppsEntry) {
     e.preventDefault()
@@ -109,14 +112,21 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
       onToggleFavorite: app.favoritable === false ? undefined : () => (app.favorite ? onUnfavorite(app.id) : onPlace(app.id, null)),
       onSettings: app.onSettings,
       onDisable: app.onDisable,
-      onUninstall: app.onUninstall ? () => setUninstalling(app) : undefined,
+      onUninstall: app.onUninstall ? () => setUninstalling({ title: app.title, onUninstall: app.onUninstall! }) : undefined,
     })
   }
 
   function openDisabledMenu(e: React.MouseEvent, app: DisabledAppEntry) {
     e.preventDefault()
     e.stopPropagation()
-    setMenu({ x: e.clientX, y: e.clientY, id: app.id, onSettings: app.onSettings, onEnable: app.onEnable })
+    setMenu({
+      x: e.clientX,
+      y: e.clientY,
+      id: app.id,
+      onSettings: app.onSettings,
+      onEnable: app.onEnable,
+      onUninstall: app.onUninstall ? () => setUninstalling({ title: app.title, onUninstall: app.onUninstall! }) : undefined,
+    })
   }
 
   function setDisabledOpen(value: boolean) {
@@ -408,7 +418,7 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
           message="Its settings stay, so reinstalling brings them back."
           confirmLabel="Uninstall"
           onConfirm={() => {
-            void uninstalling.onUninstall!().then((r) => {
+            void uninstalling.onUninstall().then((r) => {
               if (!r.ok) usePeekEventStore.getState().show(r.error, 'info')
             })
           }}

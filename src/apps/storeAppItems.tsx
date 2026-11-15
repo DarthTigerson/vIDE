@@ -1,6 +1,6 @@
 import { createElement } from 'react'
 import type { AppInfo } from '../../electron/apps/appTypes'
-import type { AllAppsEntry } from '@/components/AllApps/AllAppsPanel'
+import type { AllAppsEntry, DisabledAppEntry } from '@/components/AllApps/AllAppsPanel'
 import { StoreBagIcon } from '@/components/Store/storeUi'
 import type { ActivityBarItem } from '@/components/ActivityBar/ActivityBar'
 import type { PanelContrib, SettingsContrib } from './appContribStore'
@@ -16,6 +16,8 @@ export interface StoreAppItemsInput {
   openPanel: (appId: string) => void
   openSettings: (appId: string) => void
   uninstall: (appId: string) => Promise<{ ok: true } | { ok: false; error: string }>
+  // Switches an installed app off (or back on); see AppHost.setEnabled.
+  setEnabled?: (appId: string, enabled: boolean) => Promise<{ ok: true } | { ok: false; error: string }>
 }
 
 // All Apps rows for installed store apps, appended after the built-ins. They
@@ -24,6 +26,8 @@ export interface StoreAppItemsInput {
 export function buildStoreAppEntries(input: StoreAppItemsInput): AllAppsEntry[] {
   const entries: AllAppsEntry[] = []
   for (const app of input.apps) {
+    // A switched-off app is listed in the Disabled section instead.
+    if (app.status === 'disabled') continue
     const panel = input.panels[app.id]
     const hasSettings = !!input.settingsPages[app.id]
     const error = input.runtimeErrors[app.id] ?? (app.status === 'failed' ? app.error ?? 'Failed to load' : undefined)
@@ -34,6 +38,7 @@ export function buildStoreAppEntries(input: StoreAppItemsInput): AllAppsEntry[] 
       favoritable: !!panel,
       onSettings: () => input.openSettings(app.id),
       onUninstall: () => input.uninstall(app.id),
+      onDisable: app.source !== 'dev' && input.setEnabled ? () => { void input.setEnabled!(app.id, false) } : undefined,
     }
     const fallbackIcon = createElement(StoreBagIcon, { size: 16 })
     if (error) {
@@ -52,6 +57,23 @@ export function buildStoreAppEntries(input: StoreAppItemsInput): AllAppsEntry[] 
     })
   }
   return entries
+}
+
+// Disabled-section rows for switched-off store apps: Enable (click) and Uninstall.
+export function buildStoreDisabledEntries(input: {
+  apps: AppInfo[]
+  setEnabled: (appId: string, enabled: boolean) => Promise<{ ok: true } | { ok: false; error: string }>
+  uninstall: (appId: string) => Promise<{ ok: true } | { ok: false; error: string }>
+}): DisabledAppEntry[] {
+  return input.apps
+    .filter((app) => app.status === 'disabled')
+    .map((app) => ({
+      id: `app:${app.id}`,
+      title: app.name,
+      icon: createElement(StoreBagIcon, { size: 16 }),
+      onEnable: () => { void input.setEnabled(app.id, true) },
+      onUninstall: () => input.uninstall(app.id),
+    }))
 }
 
 // Activity-bar items for installed store apps that have a sidebar panel,

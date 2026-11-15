@@ -13,7 +13,8 @@ export function AllAppsContextMenu({ x, y, favorite, onToggleFavorite, onSetting
   // Omitted on Disabled rows, which can't go on the bar.
   favorite?: boolean
   onToggleFavorite?: () => void
-  onSettings: () => void
+  // Omitted for an app with no settings page.
+  onSettings?: () => void
   onDisable?: () => void
   onUninstall?: () => void
   onEnable?: () => void
@@ -53,7 +54,7 @@ export function AllAppsContextMenu({ x, y, favorite, onToggleFavorite, onSetting
         <MenuButton onClick={() => { onToggleFavorite(); onClose() }}>{favorite ? 'Unfavorite' : 'Favorite'}</MenuButton>
       )}
       {onEnable && <MenuButton onClick={() => { onEnable(); onClose() }}>Enable</MenuButton>}
-      <MenuButton onClick={() => { onSettings(); onClose() }}>Settings</MenuButton>
+      {onSettings && <MenuButton onClick={() => { onSettings(); onClose() }}>Settings</MenuButton>}
       {onDisable && (
         <>
           <MenuDivider />

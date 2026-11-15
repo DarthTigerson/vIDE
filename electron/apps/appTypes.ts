@@ -3,7 +3,7 @@
 import type { AppContributes } from './appManifest'
 
 export type { AppContributes }
-export type AppStatus = 'loaded' | 'failed' | 'restart-required'
+export type AppStatus = 'loaded' | 'failed' | 'restart-required' | 'disabled'
 
 export interface AppInfo {
   id: string

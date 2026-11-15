@@ -11,6 +11,8 @@ export interface InstalledRecord {
   // 'file' = installed from a package on disk that is not a Store release:
   // never offered updates. Absent = a normal Store install.
   source?: 'file'
+  // Switched off by the user: listed but not loaded. Absent = enabled.
+  disabled?: true
 }
 
 const FILE = 'installed.json'
@@ -23,7 +25,8 @@ function isRecord(value: unknown): value is InstalledRecord {
     typeof r.version === 'string' &&
     typeof r.commit === 'string' &&
     typeof r.installedAt === 'number' &&
-    (r.source === undefined || r.source === 'file')
+    (r.source === undefined || r.source === 'file') &&
+    (r.disabled === undefined || r.disabled === true)
   )
 }
 

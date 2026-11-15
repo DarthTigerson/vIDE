@@ -131,7 +131,8 @@ describe('StorePage', () => {
 
   it('opens the app page from a card', () => {
     render(<StorePage />)
-    fireEvent.click(screen.getByRole('button', { name: 'View Docker' }))
+    expect(screen.queryByRole('button', { name: 'View Docker' })).toBeNull()
+    fireEvent.click(screen.getByRole('heading', { name: 'Docker' }))
     expect(openTab).toHaveBeenCalledWith({ path: 'store://app/docker', content: '', dirty: false })
   })
 
@@ -194,14 +195,54 @@ describe('StorePage', () => {
     expect(screen.getByRole('button', { name: /^Updates/ }).textContent).toBe('Updates 0')
   })
 
-  it('Open requests the panel when the app has one, else opens its page', () => {
-    useAppContribStore.setState({ apps: [inst('docker', '1.0.0', { contributes: { sidebarPanel: { title: 'Docker' } } }), inst('jira', '1.0.0')] })
+  it('an installed app shows Uninstall (no View/Open) and confirms before uninstalling', async () => {
+    const appsUninstall = vi.fn().mockResolvedValue({ ok: true })
+    ;(window as any).api.appsUninstall = appsUninstall
+    useAppContribStore.setState({ apps: [inst('docker', '1.0.0')] })
     render(<StorePage />)
-    const [dockerOpen, jiraOpen] = screen.getAllByRole('button', { name: 'Open' })
-    fireEvent.click(dockerOpen)
-    expect(useAppContribStore.getState().panelRequest?.appId).toBe('docker')
-    fireEvent.click(jiraOpen)
-    expect(openTab).toHaveBeenCalledWith({ path: 'store://app/jira', content: '', dirty: false })
+    expect(screen.queryByRole('button', { name: 'Open' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^View/ })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Uninstall' }))
+    expect(screen.getByText('Uninstall Docker?')).toBeInTheDocument()
+    expect(appsUninstall).not.toHaveBeenCalled()
+    await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: 'Uninstall' }).pop()!) })
+    expect(appsUninstall).toHaveBeenCalledWith('docker')
+  })
+
+  it('right-click on an installed app offers Favorite, Settings, Disable and Uninstall', async () => {
+    const appsSetEnabled = vi.fn().mockResolvedValue({ ok: true })
+    ;(window as any).api.appsSetEnabled = appsSetEnabled
+    useAppContribStore.setState({
+      apps: [inst('docker', '1.0.0')],
+      panels: { docker: { appId: 'docker', title: 'Docker', icon: () => null, component: () => null, requiresProject: false } },
+      settingsPages: { docker: { appId: 'docker', title: 'Docker', component: () => null } },
+    })
+    render(<StorePage />)
+    fireEvent.contextMenu(screen.getByRole('heading', { name: 'Docker' }))
+    const menu = screen.getByRole('menu')
+    expect(within(menu).getByRole('button', { name: 'Favorite' })).toBeInTheDocument()
+    expect(within(menu).getByRole('button', { name: 'Settings' })).toBeInTheDocument()
+    expect(within(menu).getByRole('button', { name: 'Uninstall' })).toBeInTheDocument()
+    await act(async () => { fireEvent.click(within(menu).getByRole('button', { name: 'Disable' })) })
+    expect(appsSetEnabled).toHaveBeenCalledWith('docker', false)
+  })
+
+  it('a disabled app shows a Disabled tag and Enable in its menu, without Favorite or Settings', () => {
+    useAppContribStore.setState({ apps: [inst('docker', '1.0.0', { status: 'disabled' })] })
+    render(<StorePage />)
+    expect(screen.getByText('Disabled')).toBeInTheDocument()
+    fireEvent.contextMenu(screen.getByRole('heading', { name: 'Docker' }))
+    const menu = screen.getByRole('menu')
+    expect(within(menu).getByRole('button', { name: 'Enable' })).toBeInTheDocument()
+    expect(within(menu).queryByRole('button', { name: 'Disable' })).toBeNull()
+    expect(within(menu).queryByRole('button', { name: 'Favorite' })).toBeNull()
+    expect(within(menu).queryByRole('button', { name: 'Settings' })).toBeNull()
+  })
+
+  it('has no right-click menu for an app that is not installed', () => {
+    render(<StorePage />)
+    fireEvent.contextMenu(screen.getByRole('heading', { name: 'Docker' }))
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 
   it('shows Restart to finish for a restart-required app and restarts', () => {

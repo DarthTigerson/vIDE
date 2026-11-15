@@ -161,6 +161,67 @@ describe('AppHost', () => {
     expect(host.list().find((a) => a.id === 'hello')?.status).toBe('restart-required')
   })
 
+  describe('setEnabled', () => {
+    const flag = () => JSON.parse(readFileSync(join(dir, 'installed.json'), 'utf8'))[0].disabled
+
+    it('start lists a disabled app as disabled without activating main.js', async () => {
+      installFixture()
+      writeInstalled(dir, [{ ...record('hello'), disabled: true as const }])
+      const host = make()
+      await host.start()
+      expect(host.list().find((a) => a.id === 'hello')?.status).toBe('disabled')
+      await expect(host.call('hello', 'ping', 1, 5)).rejects.toThrow(/No handler/)
+    })
+
+    it('enabling a disabled-at-startup app loads it now and clears the flag', async () => {
+      installFixture()
+      writeInstalled(dir, [{ ...record('hello'), disabled: true as const }])
+      installer.installDir = (id, v) => join(dir, id, v)
+      const host = make()
+      await host.start()
+      expect(await host.setEnabled('hello', true)).toEqual({ ok: true })
+      expect(host.list().find((a) => a.id === 'hello')?.status).toBe('loaded')
+      await expect(host.call('hello', 'ping', 1, 5)).resolves.toEqual({ pong: 1 })
+      expect(flag()).toBeUndefined()
+      expect(broadcast).toHaveBeenCalledWith('apps:changed')
+    })
+
+    it('disabling at runtime persists the flag; main keeps running and enabling just flips back', async () => {
+      installFixture()
+      writeInstalled(dir, [record('hello')])
+      const host = make()
+      await host.start()
+      expect(await host.setEnabled('hello', false)).toEqual({ ok: true })
+      expect(host.list().find((a) => a.id === 'hello')?.status).toBe('disabled')
+      expect(flag()).toBe(true)
+      await expect(host.call('hello', 'ping', 2, 5)).resolves.toEqual({ pong: 2 })
+      expect(await host.setEnabled('hello', true)).toEqual({ ok: true })
+      expect(host.list().find((a) => a.id === 'hello')?.status).toBe('loaded')
+      expect(flag()).toBeUndefined()
+    })
+
+    it('refuses dev apps and unknown ids', async () => {
+      const host = make(true)
+      await host.start()
+      expect(await host.setEnabled('nope', false)).toMatchObject({ ok: false })
+    })
+
+    it('an update keeps a disabled app disabled', async () => {
+      installFixture()
+      writeInstalled(dir, [{ ...record('hello'), disabled: true as const }])
+      const host = make()
+      await host.start()
+      installFixture('hello', '1.1.0')
+      writeInstalled(dir, [{ ...record('hello', '1.1.0'), disabled: true as const }])
+      getListing.mockResolvedValue({ id: 'hello' })
+      installer.install.mockResolvedValue({ ok: true, record: { ...record('hello', '1.1.0'), disabled: true }, previous: record('hello') })
+      expect(await host.install('hello')).toMatchObject({ ok: true })
+      const info = host.list().find((a) => a.id === 'hello')
+      expect(info?.status).toBe('disabled')
+      expect(info?.version).toBe('1.1.0')
+    })
+  })
+
   it('install loads a new app and reports unknown listing', async () => {
     const host = make()
     await host.start()
@@ -255,6 +316,18 @@ describe('AppHost', () => {
     await new Promise((r) => setTimeout(r, 300))
     expect((globalThis as any).__kill).toHaveLength(1)
     await host.uninstall('sp')
+    await new Promise((r) => setTimeout(r, 300))
+    expect((globalThis as any).__kill).toHaveLength(2)
+  })
+
+  it('disabling kills the processes the app started', async () => {
+    installFixture('sp', '1.0.0', SPAWNER)
+    writeInstalled(dir, [record('sp')])
+    const host = make()
+    await host.start()
+    await host.call('sp', 'go', null, 1)
+    await new Promise((r) => setTimeout(r, 300))
+    await host.setEnabled('sp', false)
     await new Promise((r) => setTimeout(r, 300))
     expect((globalThis as any).__kill).toHaveLength(2)
   })

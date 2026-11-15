@@ -30,6 +30,11 @@ export function FromFileBadge() {
   return <span className="text-[0.625rem] font-bold px-1.5 rounded bg-border text-fg-muted">From file</span>
 }
 
+// "Disabled" marker for an installed app the user switched off.
+export function DisabledBadge() {
+  return <span className="text-[0.625rem] font-bold px-1.5 rounded bg-border text-fg-muted">Disabled</span>
+}
+
 // 15234 -> "14.9 KB".
 export function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`

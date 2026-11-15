@@ -378,6 +378,7 @@ declare global {
       appsList: () => Promise<AppInfo[]>
       appsInstall: (id: string) => Promise<InstallOutcome>
       appsUninstall: (id: string) => Promise<{ ok: true } | { ok: false; error: string }>
+      appsSetEnabled: (id: string, enabled: boolean) => Promise<{ ok: true } | { ok: false; error: string }>
       appsCall: (appId: string, method: string, payload?: unknown) => Promise<unknown>
       appsIsDev: () => Promise<boolean>
       appsLoadDevFolder: () => Promise<{ ok: true; id: string } | { ok: false; error: string }>
