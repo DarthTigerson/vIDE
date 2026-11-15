@@ -3,15 +3,12 @@ import type { RegistryState, StoreListing } from '@/types/api'
 import { useStoreStore } from '@/stores/storeStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { buildStoreAppPath } from '@/components/Settings/paths'
-import { openUrlInBrowserTab } from '@/components/Chat/terminalLinks'
 import {
   DEFAULT_STORE_FILTERS, filterStoreApps, sortStoreApps, isDefaultStoreFilters, storeFilterCounts,
   type StoreFilters, type Category, type Maker,
 } from '@/lib/storeFilter'
 import { StoreAppRow } from './StoreAppRow'
 import { formatCheckedAgo, ghostPillClass } from './storeUi'
-
-const STORE_SITE = 'https://vsuite.tech'
 
 // The Store tab (store://Store), canvas board C: the vsuite.tech filters
 // (Category, Made by, Applications) on the left, one app per row on the
@@ -142,12 +139,6 @@ export function StorePage() {
               onClear={() => setFilters(DEFAULT_STORE_FILTERS)}
             />
 
-            <div className="mt-2 border border-dashed border-border rounded-[10px] px-4 py-3 flex flex-wrap items-center gap-3 text-[0.6875rem] text-fg-subtle">
-              <span className="flex-1 min-w-[200px]">Apps from other authors open later. They will be marked as not made by vSuite.</span>
-              <button type="button" className="text-accent hover:underline" onClick={() => openUrlInBrowserTab(STORE_SITE)}>
-                vsuite.tech
-              </button>
-            </div>
           </section>
         </div>
       </div>

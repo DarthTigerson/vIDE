@@ -40,11 +40,10 @@ describe('StorePage', () => {
     expect(screen.getByText('Loading the Store…')).toBeInTheDocument()
   })
 
-  it('renders one row per app plus the other-authors note', () => {
+  it('renders one row per app', () => {
     render(<StorePage />)
     expect(screen.getByRole('heading', { name: 'Docker' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Jira' })).toBeInTheDocument()
-    expect(screen.getByText(/marked as not made by vSuite/)).toBeInTheDocument()
   })
 
   it('lists recommended apps first', () => {
@@ -94,7 +93,6 @@ describe('StorePage', () => {
     setRegistry({ status: 'empty', checkedAt: Date.now() })
     render(<StorePage />)
     expect(screen.getByText('No apps yet.')).toBeInTheDocument()
-    expect(screen.getByText(/marked as not made by vSuite/)).toBeInTheDocument()
   })
 
   it('asks for a vIDE update on a too-new catalog', () => {
@@ -122,12 +120,6 @@ describe('StorePage', () => {
     render(<StorePage />)
     fireEvent.click(screen.getByRole('button', { name: 'View Docker' }))
     expect(openTab).toHaveBeenCalledWith({ path: 'store://app/docker', content: '', dirty: false })
-  })
-
-  it('opens vsuite.tech in a vIDE browser tab', () => {
-    render(<StorePage />)
-    fireEvent.click(screen.getByRole('button', { name: 'vsuite.tech' }))
-    expect(openUrlInBrowserTab).toHaveBeenCalledWith('https://vsuite.tech')
   })
 
   it('refreshes the catalog from the refresh button', async () => {
