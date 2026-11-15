@@ -169,7 +169,7 @@ describe('AllAppsPanel', () => {
 
   describe('Disabled section', () => {
     const disabled = () => [
-      { id: 'jira', title: 'Jira', icon: null, onEnable: vi.fn(), onSettings: vi.fn() },
+      { id: 'graphify', title: 'Graphify', icon: null, onEnable: vi.fn(), onSettings: vi.fn() },
       { id: 'scripts', title: 'Scripts', icon: null, onEnable: vi.fn(), onSettings: vi.fn() },
     ]
     const renderWith = (list = disabled()) => {
@@ -183,10 +183,10 @@ describe('AllAppsPanel', () => {
       const toggle = screen.getByRole('button', { name: /Disabled/ })
       expect(toggle.getAttribute('aria-expanded')).toBe('false')
       expect(toggle.textContent).toContain('2')
-      expect(screen.queryByText('Jira')).toBeNull()
+      expect(screen.queryByText('Graphify')).toBeNull()
 
       fireEvent.click(toggle)
-      expect(screen.getByText('Jira')).toBeTruthy()
+      expect(screen.getByText('Graphify')).toBeTruthy()
       expect(localStorage.getItem(ALL_APPS_DISABLED_OPEN_KEY)).toBe('true')
       fireEvent.click(toggle)
       expect(localStorage.getItem(ALL_APPS_DISABLED_OPEN_KEY)).toBe('false')
@@ -213,7 +213,7 @@ describe('AllAppsPanel', () => {
     it('enables an app on click, and offers Enable and Settings on right-click', () => {
       localStorage.setItem(ALL_APPS_DISABLED_OPEN_KEY, 'true')
       const list = renderWith()
-      fireEvent.click(screen.getByText('Jira'))
+      fireEvent.click(screen.getByText('Graphify'))
       expect(list[0].onEnable).toHaveBeenCalled()
 
       fireEvent.contextMenu(screen.getByText('Scripts'))
@@ -232,9 +232,9 @@ describe('AllAppsPanel', () => {
       const onPlace = vi.fn()
       const onUnfavorite = vi.fn()
       render(<AllAppsPanel apps={apps} disabledApps={list} open onPlace={onPlace} onUnfavorite={onUnfavorite} />)
-      expect(screen.getByText('Jira').closest('button')!.draggable).toBe(true)
+      expect(screen.getByText('Graphify').closest('button')!.draggable).toBe(true)
 
-      fireEvent.drop(screen.getByRole('region', { name: 'More apps' }), { dataTransfer: dataTransfer({ [APP_DRAG_MIME]: 'jira' }) })
+      fireEvent.drop(screen.getByRole('region', { name: 'More apps' }), { dataTransfer: dataTransfer({ [APP_DRAG_MIME]: 'graphify' }) })
       expect(list[0].onEnable).toHaveBeenCalledTimes(1)
       expect(onUnfavorite).not.toHaveBeenCalled()
 
@@ -249,15 +249,15 @@ describe('AllAppsPanel', () => {
       const tileOf = (name: string) => screen.getByText(name).closest('button')!.querySelector('span')!
       expect(tileOf('Docker').className).toContain('border-accent')
       expect(tileOf('Notes').className).not.toContain('border-accent')
-      expect(tileOf('Jira').className).toContain('border-dashed')
-      expect(tileOf('Jira').className).toContain('text-fg-muted')
+      expect(tileOf('Graphify').className).toContain('border-dashed')
+      expect(tileOf('Graphify').className).toContain('text-fg-muted')
     })
 
     it('shows matching disabled apps while searching, even when collapsed', () => {
       localStorage.removeItem(ALL_APPS_DISABLED_OPEN_KEY)
       renderWith()
       fireEvent.change(screen.getByLabelText('Search apps'), { target: { value: 'jir' } })
-      expect(screen.getByText('Jira')).toBeTruthy()
+      expect(screen.getByText('Graphify')).toBeTruthy()
       expect(screen.queryByText('Scripts')).toBeNull()
     })
   })

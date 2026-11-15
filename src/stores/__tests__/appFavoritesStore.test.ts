@@ -32,8 +32,8 @@ describe('appFavoritesStore', () => {
 
   it('picks up a change written by another window', async () => {
     const { useAppFavoritesStore, APP_FAVORITES_KEY } = await loadStore()
-    localStorage.setItem(APP_FAVORITES_KEY, JSON.stringify(['jira']))
+    localStorage.setItem(APP_FAVORITES_KEY, JSON.stringify(['scripts']))
     window.dispatchEvent(new StorageEvent('storage', { key: APP_FAVORITES_KEY }))
-    expect(useAppFavoritesStore.getState().favorites).toEqual(['jira'])
+    expect(useAppFavoritesStore.getState().favorites).toEqual(['scripts'])
   })
 })

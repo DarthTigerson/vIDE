@@ -17,7 +17,6 @@ const SYNC_ITEMS = [
   { key: 'notes', label: 'Notes' },
   { key: 'scripts', label: 'Scripts' },
   { key: 'todo', label: 'Todo' },
-  { key: 'jira', label: 'Jira' },
 ]
 
 export function GeneralSettingsPage() {

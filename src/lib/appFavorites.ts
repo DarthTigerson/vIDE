@@ -15,7 +15,6 @@ export const MOVABLE_APP_IDS = [
   'notes',
   'scripts',
   'git-remote',
-  'jira',
 ] as const
 
 export type MovableAppId = (typeof MOVABLE_APP_IDS)[number]

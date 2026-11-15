@@ -36,7 +36,7 @@ describe('sanitizeFavorites', () => {
   })
 
   it('drops unknown, locked and duplicate ids', () => {
-    expect(sanitizeFavorites(['notes', 'files', 'bogus', 'notes', 'jira', 3])).toEqual(['notes', 'jira'])
+    expect(sanitizeFavorites(['notes', 'files', 'bogus', 'notes', 'jira', 3])).toEqual(['notes'])
   })
 })
 
@@ -47,7 +47,7 @@ describe('placeFavorite', () => {
   })
 
   it('favorites a new app at the drop position', () => {
-    expect(placeFavorite(['mobile', 'llama'], 'jira', 'llama', 'before')).toEqual(['mobile', 'jira', 'llama'])
+    expect(placeFavorite(['mobile', 'llama'], 'scripts', 'llama', 'before')).toEqual(['mobile', 'scripts', 'llama'])
   })
 
   it('appends when dropped on the All Apps button or any non-favorite target', () => {
@@ -73,9 +73,9 @@ describe('removeFavorite', () => {
 
 describe('splitApps', () => {
   it('keeps favorites in favorite order and the rest in default order', () => {
-    expect(splitApps(['mobile', 'llama', 'todos', 'notes', 'jira'], ['notes', 'mobile'])).toEqual({
+    expect(splitApps(['mobile', 'llama', 'todos', 'notes', 'scripts'], ['notes', 'mobile'])).toEqual({
       favorites: ['notes', 'mobile'],
-      others: ['llama', 'todos', 'jira'],
+      others: ['llama', 'todos', 'scripts'],
     })
   })
 
@@ -92,7 +92,7 @@ describe('splitApps', () => {
 })
 
 describe('pickTemporaryApp', () => {
-  const others = ['mobile', 'notes', 'jira'] as const
+  const others = ['mobile', 'notes', 'scripts'] as const
 
   it('takes the active unfavorited app', () => {
     expect(pickTemporaryApp(others, 'notes', 'mobile')).toBe('notes')

@@ -8,7 +8,7 @@ const { api } = vi.hoisted(() => ({
       token: 'tok',
       categories: {
         general: true, models: true, git: true, docker: true,
-        integrations: true, notes: true, todo: true, jira: true,
+        integrations: true, notes: true, todo: true,
       },
     })),
     configRepoSetSettings: vi.fn(async () => {}),
@@ -22,7 +22,7 @@ import { useConfigRepoStore } from '../configRepoStore'
 
 const ALL_CATS = {
   general: true, models: true, git: true, docker: true,
-  integrations: true, notes: true, todo: true, jira: true,
+  integrations: true, notes: true, todo: true,
 }
 
 describe('configRepoStore — connect flow (SYNC-12)', () => {

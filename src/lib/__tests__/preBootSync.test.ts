@@ -19,7 +19,7 @@ const { api, storage } = vi.hoisted(() => {
       token: 'tok',
       categories: {
         general: true, models: true, git: true, docker: true,
-        integrations: true, notes: true, todo: true, jira: true,
+        integrations: true, notes: true, todo: true,
       },
     })),
     configRepoPull: vi.fn(async () => ({

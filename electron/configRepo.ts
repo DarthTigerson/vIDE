@@ -43,13 +43,13 @@ const DEFAULT_SETTINGS: ConfigRepoSettings = {
   token: '',
   categories: {
     general: true, models: true, git: true, docker: true,
-    integrations: true, notes: true, todo: true, jira: true, scripts: true,
+    integrations: true, notes: true, todo: true, scripts: true,
   },
 }
 
 // Allowlist guards both shell-command arguments and file-write paths.
 const ALLOWED_CATEGORIES = new Set([
-  'general', 'models', 'git', 'docker', 'integrations', 'notes', 'todo', 'jira', 'scripts',
+  'general', 'models', 'git', 'docker', 'integrations', 'notes', 'todo', 'scripts',
 ])
 
 export interface ConflictEntry {

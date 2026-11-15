@@ -5,7 +5,7 @@ export type SyncStatus = 'idle' | 'connecting' | 'connected' | 'pushing' | 'erro
 
 export const DEFAULT_CATEGORIES: Record<string, boolean> = {
   general: true, models: true, git: true, docker: true,
-  integrations: true, notes: true, todo: true, jira: true, scripts: true,
+  integrations: true, notes: true, todo: true, scripts: true,
 }
 
 export const CATEGORY_PREFIXES: Record<string, string[]> = {
@@ -34,7 +34,6 @@ export const CATEGORY_PREFIXES: Record<string, string[]> = {
   ],
   notes: ['vide:notes:', 'vide:notesMcp'],
   todo: ['vide:todo:', 'vide:todoMcp'],
-  jira: ['vide:jira:'],
   scripts: ['vide:scripts:', 'vide:scriptsMcp'],
 }
 

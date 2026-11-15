@@ -27,7 +27,6 @@ import {
   SearchIcon,
   GitIcon,
   TodoIcon,
-  JiraIcon,
   PhoneIcon,
   GraphIcon,
   SettingsIcon,
@@ -100,7 +99,6 @@ import { useChangelogStore } from './stores/changelogStore'
 import { useOnboardingStore } from './stores/onboardingStore'
 import { useBrowserStore } from './stores/browserStore'
 import { useBrowserSettingsStore } from './stores/browserSettingsStore'
-import { useJiraSettingsStore } from './stores/jiraSettingsStore'
 import { useGitRemoteSettingsStore } from './stores/gitRemoteSettingsStore'
 import { useGitPanelOpenAlertStore } from './stores/gitPanelOpenAlertStore'
 import { useTodoSettingsStore } from './stores/todoSettingsStore'
@@ -124,7 +122,7 @@ import { countUnsaved, type UnsavedState } from './lib/unsavedState'
 import type { Tab } from './types/index'
 import { useDiscardScratchStore, requestCloseTab } from './stores/discardScratchStore'
 import { ConfirmDiscardScratchModal } from './components/Editor/ConfirmDiscardScratchModal'
-import { buildTerminalPath, buildBrowserPath, buildAppSettingsPath, JIRA_SETTINGS_TAB_PATH, GIT_SETTINGS_TAB_PATH, USAGE_GRAPH_TAB_PATH } from './components/Settings/paths'
+import { buildTerminalPath, buildBrowserPath, buildAppSettingsPath, GIT_SETTINGS_TAB_PATH, USAGE_GRAPH_TAB_PATH } from './components/Settings/paths'
 import { TodoPanel } from './components/Todo/TodoPanel'
 import { NotesPanel } from './components/Notes/NotesPanel'
 import { ScriptsPanel } from './components/Scripts/ScriptsPanel'
@@ -157,7 +155,6 @@ function DiscardScratchPromptHost() {
   )
 }
 
-const JIRA_BROWSER_ID = 'jira-external'
 const GIT_REMOTE_BROWSER_ID = 'git-remote-external'
 // Must match CLAUDE_TAB_ID in electron/browserViews.ts — same reserved id,
 // addressed independently by both sides (main creates/navigates the view,
@@ -190,7 +187,6 @@ const DISABLED_APP_LABELS: Record<Exclude<MovableAppId, 'git-remote'>, { title: 
   todos: { title: 'To Do', icon: <TodoIcon /> },
   notes: { title: 'Notes', icon: <NotesIcon /> },
   scripts: { title: 'Scripts', icon: <ScriptsIcon /> },
-  jira: { title: 'Jira', icon: <JiraIcon /> },
 }
 
 function openAppSettings(id: MovableAppId) {
@@ -287,14 +283,6 @@ export default function App() {
   const periodicFetchEnabled = useGitSettingsStore((s) => s.periodicFetchEnabled)
   const periodicFetchIntervalMinutes = useGitSettingsStore((s) => s.periodicFetchIntervalMinutes)
   const activeTabPath = useEditorStore((s) => s.activeTabPath)
-  const jiraEnabled = useJiraSettingsStore((s) => s.enabled)
-  // Re-derives whenever externalUrl or projectUrls changes, since getEffectiveUrl
-  // itself isn't reactive state — subscribing to those two directly (rather than
-  // to a derived value computed inside the selector) keeps this correct.
-  useJiraSettingsStore((s) => s.externalUrl)
-  useJiraSettingsStore((s) => s.projectUrls)
-  const jiraUrl = useJiraSettingsStore.getState().getEffectiveUrl(projectRoot)
-  const jiraReady = jiraEnabled && jiraUrl.trim() !== ''
   useGitRemoteSettingsStore((s) => s.externalUrl)
   useGitRemoteSettingsStore((s) => s.projectUrls)
   const gitRemoteUrl = useGitRemoteSettingsStore.getState().getEffectiveUrl(projectRoot)
@@ -357,7 +345,7 @@ export default function App() {
   // it in the tab strip, same as any other tab, so the user can watch.
   function openClaudeBrowserTab(url: string) {
     // Seed the store with the URL main just loaded, before the tab (and so
-    // BrowserTab) mounts — same order Jira/git-remote use below. Without it
+    // BrowserTab) mounts — same order git-remote uses below. Without it
     // BrowserTab would mount with an empty url, skip creating/registering the
     // native view it already has, and silently swallow the first manual
     // navigation the user types into that tab's address bar.
@@ -365,24 +353,9 @@ export default function App() {
     useEditorStore.getState().openTab({ path: buildBrowserPath(CLAUDE_BROWSER_ID), content: '', dirty: false })
   }
 
-  // Mirrors the git-remote/Jira external-link pattern below — same
-  // fixed-tab-id, empty-URL-falls-back-to-settings, closeSidePanelOnOpen
-  // behavior.
-  function openJira() {
-    const url = useJiraSettingsStore.getState().getEffectiveUrl(projectRoot)
-    if (!url) {
-      useEditorStore.getState().openTab({ path: JIRA_SETTINGS_TAB_PATH, content: '', dirty: false })
-      return
-    }
-    useBrowserStore.getState().ensureTab(JIRA_BROWSER_ID, url)
-    const tab = { path: buildBrowserPath(JIRA_BROWSER_ID), content: '', dirty: false }
-    useEditorStore.getState().openTab(tab)
-    if (useJiraSettingsStore.getState().closeSidePanelOnOpen) setLeftPanel(null)
-  }
-
-  // Mirrors openJira() above. Its Settings config lives inside the Git
-  // settings page (a dedicated section) rather than its own tab, so the
-  // empty-URL fallback opens that instead of a page of its own.
+  // Opens the remote's web page in a fixed browser tab. Its Settings config
+  // lives inside the Git settings page (a dedicated section) rather than its
+  // own tab, so the empty-URL fallback opens that instead of a page of its own.
   function openGitRemote() {
     const url = useGitRemoteSettingsStore.getState().getEffectiveUrl(projectRoot)
     if (!url) {
@@ -1094,13 +1067,6 @@ export default function App() {
               active: activeTabPath === buildBrowserPath(GIT_REMOTE_BROWSER_ID),
               onClick: openGitRemote,
             } : null,
-            jira: jiraReady ? {
-              id: 'jira',
-              icon: <JiraIcon />,
-              title: 'Jira',
-              active: activeTabPath === buildBrowserPath(JIRA_BROWSER_ID),
-              onClick: openJira,
-            } : null,
           }
           // Installed store apps with a panel can sit on the bar too (`app:<id>`).
           const storeBarItems = buildStoreAppBarItems({
@@ -1171,7 +1137,7 @@ export default function App() {
           // Apps whose Enable switch is off, for All Apps' Disabled section.
           const appEnabled: Partial<Record<MovableAppId, boolean>> = {
             llama: llamaEnabled, mobile: mobileEnabled, graphify: graphifyEnabled,
-            todos: todoEnabled, notes: notesEnabled, scripts: scriptsEnabled, jira: jiraEnabled,
+            todos: todoEnabled, notes: notesEnabled, scripts: scriptsEnabled,
           }
           const disabledAppEntries: DisabledAppEntry[] = [...MOVABLE_APP_IDS.filter((id): id is keyof typeof DISABLED_APP_LABELS => appEnabled[id] === false).map((id) => ({
             id,

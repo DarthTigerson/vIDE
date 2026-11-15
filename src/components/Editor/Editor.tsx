@@ -80,7 +80,6 @@ import {
   CLAUDE_SETTINGS_TAB_PATH,
   BRIDGE_SETTINGS_TAB_PATH,
   GRAPHIFY_SETTINGS_TAB_PATH,
-  JIRA_SETTINGS_TAB_PATH,
   MOBILE_SETTINGS_TAB_PATH,
   GENERAL_SETTINGS_TAB_PATH,
   TODO_SETTINGS_TAB_PATH,
@@ -100,7 +99,6 @@ import { BrowserSettingsPage } from '@/components/Settings/BrowserSettingsPage'
 import { ClaudeSettingsPage } from '@/components/Settings/ClaudeSettingsPage'
 import { BridgeSettingsPage } from '@/components/Settings/BridgeSettingsPage'
 import { GraphifySettingsPage } from '@/components/Settings/GraphifySettingsPage'
-import { JiraSettingsPage } from '@/components/Settings/JiraSettingsPage'
 import { MobileSettingsPage } from '@/components/Settings/MobileSettingsPage'
 import { GeneralSettingsPage } from '@/components/Settings/GeneralSettingsPage'
 import { TodoSettingsPage } from '@/components/Settings/TodoSettingsPage'
@@ -719,8 +717,6 @@ function EditorPane({ paneId }: { paneId: string }) {
             <BridgeSettingsPage />
           ) : activeTab.path === GRAPHIFY_SETTINGS_TAB_PATH ? (
             <GraphifySettingsPage />
-          ) : activeTab.path === JIRA_SETTINGS_TAB_PATH ? (
-            <JiraSettingsPage />
           ) : activeTab.path === MOBILE_SETTINGS_TAB_PATH ? (
             <MobileSettingsPage />
           ) : activeTab.path === TODO_SETTINGS_TAB_PATH ? (

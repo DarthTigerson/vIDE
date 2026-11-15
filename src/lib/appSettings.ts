@@ -2,7 +2,6 @@ import type { MovableAppId } from './appFavorites'
 import {
   GIT_SETTINGS_TAB_PATH,
   GRAPHIFY_SETTINGS_TAB_PATH,
-  JIRA_SETTINGS_TAB_PATH,
   LLAMA_SETTINGS_TAB_PATH,
   MOBILE_SETTINGS_TAB_PATH,
   NOTES_SETTINGS_TAB_PATH,
@@ -10,7 +9,6 @@ import {
   TODO_SETTINGS_TAB_PATH,
 } from '@/components/Settings/paths'
 import { useGraphifySettingsStore } from '@/stores/graphifySettingsStore'
-import { useJiraSettingsStore } from '@/stores/jiraSettingsStore'
 import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
 import { useMobileSettingsStore } from '@/stores/mobileSettingsStore'
 import { useNotesSettingsStore } from '@/stores/notesSettingsStore'
@@ -27,7 +25,6 @@ export const APP_SETTINGS_PATHS: Record<MovableAppId, string> = {
   notes: NOTES_SETTINGS_TAB_PATH,
   scripts: SCRIPTS_SETTINGS_TAB_PATH,
   'git-remote': GIT_SETTINGS_TAB_PATH,
-  jira: JIRA_SETTINGS_TAB_PATH,
 }
 
 // Sets an app's Enable switch, the same as flipping it on its settings page.
@@ -41,7 +38,6 @@ export function appEnabledSetter(id: MovableAppId): ((enabled: boolean) => void)
     case 'todos': return useTodoSettingsStore.getState().setEnabled
     case 'notes': return useNotesSettingsStore.getState().setEnabled
     case 'scripts': return useScriptsSettingsStore.getState().setEnabled
-    case 'jira': return useJiraSettingsStore.getState().setEnabled
     case 'git-remote': return null
   }
 }
