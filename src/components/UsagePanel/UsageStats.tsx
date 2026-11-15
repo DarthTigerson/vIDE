@@ -1,5 +1,5 @@
 import { formatBurnRate, formatCountdown, formatResetTime, formatSpend, formatSpendRate } from './format'
-import { computePace, type PaceStatus } from './pace'
+import { computePace, projectAtReset, type PaceStatus } from './pace'
 import { useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { clampToViewport } from '../ui/clampToViewport'
@@ -175,89 +175,47 @@ export function PaceBar({
   )
 }
 
-const RADIUS = 38
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS
-
-export function Gauge({ pct, label }: { pct: number | null; label: string }) {
-  const clamped = pct == null ? 0 : Math.max(0, Math.min(100, pct))
-  const offset = CIRCUMFERENCE * (1 - clamped / 100)
+// Estimated spend for one window, laid out like a PaceBar header (no bar,
+// since there is no dollar limit to fill): figure + "Estimate" tag, a chip
+// with projected spend at reset, and a reset/rate footer. Rows wrap instead
+// of clipping. Shared by the chat sidebar's CostPanel and the Usage Graph page.
+export function CostSummary({
+  label, spendUsd, ratePerHour, resetAt, now,
+}: {
+  label: string
+  spendUsd: number | null
+  ratePerHour: number | null
+  resetAt: number | null
+  now: number
+}) {
+  const projected = projectAtReset(spendUsd, ratePerHour, resetAt, now)
 
   return (
-    <svg viewBox="0 0 100 100" className="w-[5.75rem] h-[5.75rem] shrink-0">
-      <circle cx="50" cy="50" r={RADIUS} fill="none" stroke="var(--color-border)" strokeWidth="9" />
-      <circle
-        cx="50"
-        cy="50"
-        r={RADIUS}
-        fill="none"
-        stroke="rgb(var(--color-accent))"
-        strokeWidth="9"
-        strokeDasharray={CIRCUMFERENCE}
-        strokeDashoffset={offset}
-        strokeLinecap="round"
-        transform="rotate(-90 50 50)"
-        style={{ transition: 'stroke-dashoffset 0.6s ease' }}
-      />
-      <text x="50" y="47" textAnchor="middle" fill="var(--color-fg)" fontSize="20" fontWeight="700">
-        {pct == null ? '—' : `${pct}%`}
-      </text>
-      <text x="50" y="63" textAnchor="middle" fill="var(--color-fg-muted)" fontSize="8.5" letterSpacing="0.5">
-        {label}
-      </text>
-    </svg>
-  )
-}
-
-export function ResetInfo({ label, resetAt, now }: { label: string; resetAt: number | null; now: number }) {
-  return (
-    <div className="whitespace-nowrap">
-      <div className="text-xs text-fg-muted">{label}</div>
-      <div className="text-sm text-fg font-medium">{formatResetTime(resetAt)}</div>
-      <div className="text-xs text-accent font-mono">{formatCountdown(resetAt, now)}</div>
-    </div>
-  )
-}
-
-export function BurnRateStat({ label, ratePerHour }: { label: string; ratePerHour: number | null }) {
-  return (
-    <div className="whitespace-nowrap">
-      <div className="text-sm text-fg font-mono">{formatBurnRate(ratePerHour)}</div>
-      <div className="text-[0.625rem] text-fg-muted uppercase tracking-wider">{label}</div>
-    </div>
-  )
-}
-
-export function RequestsStat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="whitespace-nowrap">
-      <div className="text-2xl text-fg font-bold font-mono">{value.toLocaleString()}</div>
-      <div className="text-[0.625rem] text-fg-muted uppercase tracking-wider">{label}</div>
-    </div>
-  )
-}
-
-export function SpendStat({ label, spendUsd, ratePerHour }: { label: string; spendUsd: number; ratePerHour: number | null }) {
-  return (
-    <div className="whitespace-nowrap">
-      <div className="text-2xl text-fg font-bold font-mono">{formatSpend(spendUsd)}</div>
-      <div className="text-xs text-accent font-mono">{formatSpendRate(ratePerHour)}</div>
-      <div className="text-[0.625rem] text-fg-muted uppercase tracking-wider">{label}</div>
-    </div>
-  )
-}
-
-export function CutoffStat({ label, cutoffAt, now }: { label: string; cutoffAt: number | null; now: number }) {
-  return (
-    <div className="whitespace-nowrap">
-      {cutoffAt == null ? (
-        <div className="text-sm text-fg-muted font-mono">on track</div>
-      ) : (
-        <>
-          <div className="text-sm text-amber-400 font-medium">{formatResetTime(cutoffAt)}</div>
-          <div className="text-xs text-amber-400/80 font-mono">{formatCountdown(cutoffAt, now)}</div>
-        </>
-      )}
-      <div className="text-[0.625rem] text-fg-muted uppercase tracking-wider">{label}</div>
+    <div className="min-w-0">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 mb-1.5">
+        <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+          <span className="text-[0.625rem] text-fg-muted uppercase tracking-wider font-semibold">{label}</span>
+          <span className="text-xl text-fg font-bold font-mono tabular-nums">{formatSpend(spendUsd)}</span>
+          <span className="rounded-full border border-border px-1.5 py-px text-[0.5625rem] font-mono uppercase tracking-wider text-fg-muted">
+            Estimate
+          </span>
+        </div>
+        {projected != null && (
+          <span
+            data-testid="cost-projection"
+            className="rounded-full border border-accent/50 px-2 py-0.5 text-[0.625rem] font-mono uppercase tracking-wider text-accent whitespace-nowrap"
+          >
+            ≈{formatSpend(projected)} at reset
+          </span>
+        )}
+      </div>
+      <div className="flex flex-wrap justify-between gap-x-3 gap-y-0.5 text-xs text-fg-muted">
+        <span>
+          Resets in <span className="text-accent font-mono tabular-nums">{formatCountdown(resetAt, now)}</span>
+          {' · '}{formatResetTime(resetAt)}
+        </span>
+        <span className="font-mono tabular-nums">{formatSpendRate(ratePerHour)}</span>
+      </div>
     </div>
   )
 }
