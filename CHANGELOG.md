@@ -1,4 +1,14 @@
 # vIDE
+## v0.3.2 (2026-11-15)
+- **Other processes in the memory panel**: hovering the memory pill now adds an Other processes row for everything else vIDE starts, like the git commands behind vIDE Sync and the Git panel. Before, a git command using gigabytes of memory didn't show up anywhere in vIDE
+- **Quick messages above the bell**: short one-off messages, like "File not found" when you click a path in Claude's chat or "Switched to…" when the active repo changes, now pop up briefly above the notification bell, each with its own icon, instead of in the middle of the footer. They don't ring the bell, add to its count or stay in the notification panel
+- vIDE Sync now stores Claude usage history as one small file per day instead of one ever-growing file, so each sync only changes today's file. The first sync after updating shrinks your config repo's history down to a single commit, once. Update vIDE on every synced machine, since an older vIDE will show the update screen instead of syncing
+
+**Bug fixes**
+- Fixed vIDE crashing machines with 8 GB of RAM on launch. Every sync stored a new full copy of the Claude usage history, which grows a line a minute and is never trimmed, so after a few months the config repo held thousands of copies of a 20+ MB file. Fetching or tidying that repo started several git processes using gigabytes of memory each. Sync git commands now have strict memory limits, and a timed-out sync now stops git's helper processes too instead of leaving them running. Syncs also no longer start a second fetch while one is still running. Once the config repo is compacted, each machine also clears out its local copy of the old history (about 200 MB down to under 1 MB)
+
+
+
 ## v0.3.1 (2026-11-11)
 - **PDF viewer**: PDF files now open in a built-in viewer with page navigation and zoom controls, the same way images, SVGs and Markdown do
 - **Safer vIDE Sync across versions**: when an out-of-date copy of vIDE receives settings from a newer version it can't read, it now shows an update screen and waits for you to update instead of failing to start. While it waits it won't push its older settings over your newer machine, and it falls back to the vIDE theme with no background image
