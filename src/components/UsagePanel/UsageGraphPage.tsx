@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLatestUsage } from './useLatestUsage'
 import { CostSummary, PaceBar } from './UsageStats'
-import { UsageChart, type UsageMetric } from './UsageChart'
+import { Segmented, UsageChart, type UsageMetric } from './UsageChart'
 import { UsageSkills } from './UsageSkills'
 import { SESSION_WINDOW_HOURS, WEEKLY_WINDOW_HOURS } from './pace'
 
@@ -26,36 +26,6 @@ function loadChartView(): { kind: ChartKind; window: ChartWindow } {
     if (v.kind in CHART_METRICS && v.window in CHART_METRICS.usage) return v
   } catch { /* fall through to the default */ }
   return { kind: 'usage', window: 'all' }
-}
-
-function Segmented<T extends string>({
-  label, value, options, onChange,
-}: {
-  label: string
-  value: T
-  options: { value: T; label: string }[]
-  onChange: (v: T) => void
-}) {
-  return (
-    <div role="group" aria-label={label} className="flex items-center gap-1">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          onClick={() => onChange(o.value)}
-          aria-pressed={o.value === value}
-          className={[
-            'px-2 py-1 text-xs rounded border transition-colors',
-            o.value === value
-              ? 'border-fg-muted bg-white/5 text-fg'
-              : 'border-border text-fg-muted hover:text-fg hover:bg-white/5 hover:border-fg-muted',
-          ].join(' ')}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  )
 }
 
 const card = 'border border-border rounded-lg p-4 bg-sidebar min-w-0'
@@ -95,7 +65,7 @@ export function UsageGraphPage() {
   return (
     <div className="h-full overflow-auto bg-panel p-8">
       <div className="max-w-5xl mx-auto flex flex-col gap-5">
-        <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(18rem,1fr))]">
+        <div className="grid gap-4 grid-cols-2">
           <div className={card}>
             <PaceBar
               label="Session"
@@ -152,10 +122,11 @@ export function UsageGraphPage() {
 
         <div className={card}>
           <UsageChart
-            key={metrics.join('+')}
             latest={latest}
             metrics={metrics}
             title={CHART_TITLE[view.kind][view.window]}
+            rangeId="usageGraph"
+            defaultRange="24h"
             controls={
               <>
                 <Segmented

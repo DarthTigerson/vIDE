@@ -106,13 +106,44 @@ const SERIES_COLOR: Record<UsageMetric, string> = {
 // different natural defaults (24h vs. 7d) — a user zooming the session
 // chart to 1h shouldn't also collapse the weekly chart down to 1h. A single
 // metric keeps its original key so existing stored ranges still apply.
-function rangeStorageKey(metrics: UsageMetric[]): string {
-  return `vide.usageChart.range.${metrics.join('+')}`
+function rangeStorageKey(storageId: string): string {
+  return `vide.usageChart.range.${storageId}`
 }
 
-function loadStoredRange(metrics: UsageMetric[]): UsageRange | null {
-  const stored = localStorage.getItem(rangeStorageKey(metrics))
+function loadStoredRange(storageId: string): UsageRange | null {
+  const stored = localStorage.getItem(rangeStorageKey(storageId))
   return (USAGE_RANGES as readonly string[]).includes(stored ?? '') ? (stored as UsageRange) : null
+}
+
+// Joined button group (one bordered track, buttons inside it) used for the
+// range picker and the Usage Graph page's metric/window switches, so related
+// options read as one control.
+export function Segmented<T extends string>({
+  label, value, options, onChange,
+}: {
+  label: string
+  value: T
+  options: { value: T; label: string }[]
+  onChange: (v: T) => void
+}) {
+  return (
+    <div role="group" aria-label={label} className="inline-flex items-center gap-0.5 rounded border border-border p-0.5">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          aria-pressed={o.value === value}
+          className={[
+            'px-2 py-0.5 text-xs rounded-sm transition-colors',
+            o.value === value ? 'bg-white/10 text-fg' : 'text-fg-muted hover:text-fg hover:bg-white/5',
+          ].join(' ')}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
 }
 
 function fmtAxisTime(ts: number, range: UsageRange): string {
@@ -134,23 +165,31 @@ interface Hover {
 // normalized together against the largest visible dollar value so they stay
 // comparable. `title` overrides the first metric's own title; `controls`
 // renders beside the range buttons (the graph page's Usage/Cost and
-// All/Session/Week switches).
+// All/Session/Week switches). `rangeId` pins the remembered range to one
+// storage slot regardless of which metrics are drawn, so switching what the
+// chart shows never changes the range the user picked; without it the range
+// is remembered per metric set.
 export function UsageChart({
-  latest, metrics, title, controls,
+  latest, metrics, title, controls, rangeId, defaultRange,
 }: {
   latest: LatestUsage
   metrics: UsageMetric[]
   title?: string
   controls?: ReactNode
+  rangeId?: string
+  defaultRange?: UsageRange
 }) {
   const configs = metrics.map((m) => ({ metric: m, ...METRIC[m] }))
   const primary = configs[0]
   const isPercent = primary.isPercent
-  const [range, setRangeState] = useState<UsageRange>(() => loadStoredRange(metrics) ?? primary.defaultRange)
+  const storageId = rangeId ?? metrics.join('+')
+  const [range, setRangeState] = useState<UsageRange>(
+    () => loadStoredRange(storageId) ?? defaultRange ?? primary.defaultRange,
+  )
 
   function setRange(next: UsageRange) {
     setRangeState(next)
-    localStorage.setItem(rangeStorageKey(metrics), next)
+    localStorage.setItem(rangeStorageKey(storageId), next)
   }
   const [snapshots, setSnapshots] = useState<UsageSnapshot[]>([])
   const [hover, setHover] = useState<Hover | null>(null)
@@ -230,24 +269,12 @@ export function UsageChart({
         <div className="text-xs text-fg-muted uppercase tracking-wider font-semibold">{title ?? primary.title}</div>
         <div className="flex flex-wrap items-center gap-2">
           {controls}
-          <div className="flex items-center gap-1">
-            {USAGE_RANGES.map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => setRange(r)}
-                aria-pressed={r === range}
-                className={[
-                  'px-2 py-1 text-xs rounded border transition-colors',
-                  r === range
-                    ? 'border-fg-muted bg-white/5 text-fg'
-                    : 'border-border text-fg-muted hover:text-fg hover:bg-white/5 hover:border-fg-muted',
-                ].join(' ')}
-              >
-                {r.toUpperCase()}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            label="Range"
+            value={range}
+            options={USAGE_RANGES.map((r) => ({ value: r, label: r.toUpperCase() }))}
+            onChange={setRange}
+          />
         </div>
       </div>
 

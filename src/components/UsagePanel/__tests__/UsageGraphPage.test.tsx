@@ -80,4 +80,16 @@ describe('UsageGraphPage', () => {
     render(<UsageGraphPage />)
     await waitFor(() => expect(screen.getByText('Weekly cost')).toBeTruthy())
   })
+
+  it('keeps the picked range when switching between all, session and week', async () => {
+    mockApi({ usageGetLatest: vi.fn().mockResolvedValue(SAMPLE) })
+    render(<UsageGraphPage />)
+    await waitFor(() => expect(screen.getByText('Session & week usage')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: '1H' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Week' }))
+    expect(screen.getByRole('button', { name: '1H' }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: 'Session' }))
+    expect(screen.getByRole('button', { name: '1H' }).getAttribute('aria-pressed')).toBe('true')
+  })
 })
