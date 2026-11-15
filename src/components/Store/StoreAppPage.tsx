@@ -8,6 +8,7 @@ import type { AppContributes } from '@/types/api'
 import { AppMonogram, FromFileBadge, MadeByVsuite, formatReleased, formatSize } from './storeUi'
 import { StoreScreenshots } from './StoreScreenshots'
 import { StoreReadme } from './StoreReadme'
+import { AgentToolList } from './AgentToolList'
 import { StoreAppAction } from './StoreAppAction'
 
 // One app's Store page (store://app/<id>), mockup board 2.
@@ -43,6 +44,8 @@ export function StoreAppPage({ appId }: { appId: string }) {
 
   const { latest } = app
   const released = app.publishedAt ? formatReleased(app.publishedAt) : null
+  // The catalog's list shows before install; the installed manifest's covers apps it does not list.
+  const tools = app.agentTools ?? installed?.agentTools ?? []
   const adds = installed ? addsToVide(installed.contributes) : []
   return (
     <div className="h-full overflow-y-auto bg-bg text-fg">
@@ -68,6 +71,14 @@ export function StoreAppPage({ appId }: { appId: string }) {
 
         <div className="flex flex-wrap gap-8">
           <section className="flex-[999_1_420px] min-w-0 flex flex-col gap-5">
+            {tools.length > 0 && (
+              <div className="flex flex-col gap-2.5">
+                <h2 className="text-[0.625rem] font-bold tracking-wider uppercase text-fg-subtle">Agent tools</h2>
+                <div className="bg-panel border border-border rounded-[10px] px-4 py-3">
+                  <AgentToolList tools={tools} label={`${app.name} agent tools`} />
+                </div>
+              </div>
+            )}
             <StoreReadme appId={app.id} hasReadme={!!app.readmeUrl} version={latest.version} />
             <div className="flex flex-col gap-2.5">
               <h2 className="text-[0.625rem] font-bold tracking-wider uppercase text-fg-subtle">What's new in {latest.version}</h2>

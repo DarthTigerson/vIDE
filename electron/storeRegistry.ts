@@ -33,9 +33,14 @@ export interface StoreApp {
   readmeUrl?: string
   size?: number
   publishedAt?: string
+  // Tools the app gives agents, so the Store can show them before install.
+  agentTools?: { name: string; description: string }[]
 }
 
 export const MAX_SCREENSHOTS = 8
+export const MAX_AGENT_TOOLS = 32
+// Same rule as the manifest's tool names (appManifest imports this file, so it is repeated, not imported).
+const TOOL_NAME_RE = /^[a-z][a-z0-9_]{0,63}$/
 export const DEFAULT_CATEGORY = 'applications'
 export const DEFAULT_TARGETS = ['vide']
 
@@ -72,6 +77,22 @@ function parseOptionalFields(raw: Record<string, unknown>): Partial<StoreApp> {
   if (isHttpsUrl(raw.readmeUrl)) out.readmeUrl = raw.readmeUrl
   if (typeof raw.size === 'number' && Number.isInteger(raw.size) && raw.size >= 0) out.size = raw.size
   if (typeof raw.publishedAt === 'string' && !Number.isNaN(Date.parse(raw.publishedAt))) out.publishedAt = raw.publishedAt
+  const tools = parseAgentTools(raw.agentTools)
+  if (tools.length > 0) out.agentTools = tools
+  return out
+}
+
+// Entry by entry: a bad tool is dropped, the rest (and the app) stay.
+function parseAgentTools(raw: unknown): { name: string; description: string }[] {
+  if (!Array.isArray(raw)) return []
+  const out: { name: string; description: string }[] = []
+  const seen = new Set<string>()
+  for (const t of raw) {
+    if (out.length >= MAX_AGENT_TOOLS) break
+    if (!isObject(t) || typeof t.name !== 'string' || !TOOL_NAME_RE.test(t.name) || seen.has(t.name) || !nonEmptyString(t.description)) continue
+    seen.add(t.name)
+    out.push({ name: t.name, description: t.description })
+  }
   return out
 }
 

@@ -1,6 +1,9 @@
 import { create } from 'zustand'
 import type { AppInfo, FileSummary, InstallOutcome, RegistryState, StoreListing } from '@/types/api'
 import { useAppContribStore } from '@/apps/appContribStore'
+import { useEditorStore } from '@/stores/editorStore'
+import { STORE_TAB_PATH } from '@/components/Settings/paths'
+import type { Category } from '@/lib/storeFilter'
 import { DISMISSED_UPDATES_KEY, MOVED_NOTICE_DISMISSED_KEY, hasUpdate, readMovedNoticeDismissed, updateNoticeId } from '@/lib/storeUpdates'
 
 // The vSuite Store catalog as the main process last reported it
@@ -28,6 +31,9 @@ interface StoreStoreState {
   // A vide://store/<id> link asked for this app's page (null id = the Store).
   openRequest: { id: string | null; seq: number } | null
   requestOpen: (id: string | null) => void
+  // A category the Store tab should show next (it clears this once applied).
+  presetCategory: Category | null
+  openWithCategory: (category: Category) => void
   // Update-notice ids the user closed with the bell's x; survives restarts.
   dismissedUpdates: string[]
   dismissUpdate: (noticeId: string) => void
@@ -81,6 +87,11 @@ export const useStoreStore = create<StoreStoreState>((set, get) => ({
   pendingFile: null,
   openRequest: null,
   requestOpen: (id) => set({ openRequest: { id, seq: ++openSeq } }),
+  presetCategory: null,
+  openWithCategory: (category) => {
+    set({ presetCategory: category })
+    useEditorStore.getState().openTab({ path: STORE_TAB_PATH, content: '', dirty: false })
+  },
   install: async (id) => {
     const listing = findStoreApp(get().registry, id)
     // A failed update already shows on the update notice; only a first

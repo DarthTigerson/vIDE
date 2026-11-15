@@ -6,10 +6,10 @@ import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync
 import { join } from 'path'
 import type { StoreApp } from '../storeRegistry'
 import type { AppInstaller } from './appInstaller'
-import { APP_API_VERSION, parseManifest, type AppManifest } from './appManifest'
+import { APP_API_VERSION, parseManifest, type AgentToolDecl, type AppManifest } from './appManifest'
 import type { AppContributes, AppInfo, AppStatus } from './appTypes'
 import { readInstalled, writeInstalled } from './installedApps'
-import { createMainVideApi } from './mainVideApi'
+import { createMainVideApi, type AgentToolHandler } from './mainVideApi'
 import { PackageHolder, inspectPackage, type FileSummary } from './installFromFile'
 
 export type { AppContributes, AppStatus, AppInfo }
@@ -23,7 +23,18 @@ export interface AppHostOptions {
   broadcast: (channel: string, ...args: unknown[]) => void
   sendTo: (windowId: number, channel: string, ...args: unknown[]) => void
   requireFn?: (path: string) => unknown
+  // Names of vIDE's own agent tools; an app tool with one of these is skipped.
+  reservedToolNames?: () => Iterable<string>
 }
+
+export interface AppAgentTools {
+  appId: string
+  appName: string
+  instructions?: string
+  tools: AgentToolDecl[]
+}
+
+export const AGENT_TOOL_TIMEOUT_MS = 60_000
 
 interface Entry {
   manifest: AppManifest
@@ -36,6 +47,7 @@ interface Entry {
   loadSeq?: number
   mainModule?: { deactivate?: () => void }
   handlers: Map<string, Function>
+  toolHandlers: Map<string, AgentToolHandler>
   closeListeners: Set<(id: number) => void>
   children: Map<{ kill(): void }, number | undefined>
 }
@@ -89,10 +101,62 @@ export class AppHost {
         contributes: e.manifest.contributes,
         status: e.status
       }
+      if (e.manifest.agentTools) {
+        info.agentTools = e.manifest.agentTools.tools.map(({ name, description }) => ({ name, description }))
+      }
       if (e.manifest.icon) info.icon = e.manifest.icon
       if (e.error) info.error = e.error
       return info
     })
+  }
+
+  // Agent tools of every enabled app, apps ordered by id. A tool whose name
+  // is reserved (built-in) or already taken by an earlier app is skipped.
+  agentToolList(reservedNames: Iterable<string> = this.opts.reservedToolNames?.() ?? []): AppAgentTools[] {
+    const taken = new Set(reservedNames)
+    const out: AppAgentTools[] = []
+    const entries = [...this.entries.values()]
+      .filter((e) => e.status === 'loaded' && e.manifest.agentTools)
+      .sort((a, b) => (a.manifest.id < b.manifest.id ? -1 : a.manifest.id > b.manifest.id ? 1 : 0))
+    for (const e of entries) {
+      const decl = e.manifest.agentTools!
+      const tools = decl.tools.filter((t) => {
+        if (taken.has(t.name)) {
+          console.warn(`[apps] ${e.manifest.id}: agent tool "${t.name}" skipped, the name is already taken`)
+          return false
+        }
+        taken.add(t.name)
+        return true
+      })
+      if (tools.length === 0) continue
+      out.push({
+        appId: e.manifest.id,
+        appName: e.manifest.name,
+        ...(decl.instructions ? { instructions: decl.instructions } : {}),
+        tools
+      })
+    }
+    return out
+  }
+
+  // Runs an app's handler for an agent tool call. Activates nothing: a tool
+  // whose handler was never registered is an error naming the app.
+  async callAgentTool(name: string, args: Record<string, unknown>, windowId?: number): Promise<string> {
+    const owner = this.agentToolList().find((a) => a.tools.some((t) => t.name === name))
+    if (!owner) throw new Error(`Unknown tool: ${name}`)
+    const entry = this.entries.get(owner.appId)!
+    const fn = entry.toolHandlers.get(name)
+    if (!fn) throw new Error(`${owner.appName} did not register ${name}`)
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${name} did not finish within ${AGENT_TOOL_TIMEOUT_MS / 1000}s`)), AGENT_TOOL_TIMEOUT_MS)
+    })
+    try {
+      const result = await Promise.race([Promise.resolve().then(() => fn(args, { windowId })), timeout])
+      return typeof result === 'string' ? result : String(result?.text ?? '')
+    } finally {
+      clearTimeout(timer)
+    }
   }
 
   async install(id: string): Promise<InstallOutcome> {
@@ -315,6 +379,7 @@ export class AppHost {
   private teardown(e: Entry): void {
     try { e.mainModule?.deactivate?.() } catch { /* best effort */ }
     e.handlers.clear()
+    e.toolHandlers.clear()
     e.closeListeners.clear()
     this.killChildren(e)
   }
@@ -339,7 +404,7 @@ export class AppHost {
         this.entries.set(expectedId, {
           manifest: { id: expectedId, name: expectedId, version: '', apiVersion: APP_API_VERSION, minVide: '0.0.0', renderer: 'renderer.js', contributes: {} },
           root: dir, source, status: 'failed', error: reason, mainActivated: false,
-          handlers: new Map(), closeListeners: new Set(), children: new Map()
+          handlers: new Map(), toolHandlers: new Map(), closeListeners: new Set(), children: new Map()
         })
       }
       return reason
@@ -347,7 +412,7 @@ export class AppHost {
 
     const entry: Entry = {
       manifest, root: dir, source, status: 'loaded', mainActivated: false,
-      handlers: new Map(), closeListeners: new Set(), children: new Map(),
+      handlers: new Map(), toolHandlers: new Map(), closeListeners: new Set(), children: new Map(),
       loadSeq: ++this.loadCounter
     }
     const previous = this.entries.get(manifest.id)
@@ -367,6 +432,8 @@ export class AppHost {
         entry.mainModule = mod
         const vide = createMainVideApi(manifest.id, {
           handlers: entry.handlers,
+          declaredTools: manifest.agentTools?.tools,
+          toolHandlers: entry.toolHandlers,
           closeListeners: entry.closeListeners,
           trackChild: (child, windowId) => {
             entry.children.set(child, windowId)

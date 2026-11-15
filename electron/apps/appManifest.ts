@@ -15,6 +15,21 @@ export interface AppContributes {
   agentTools?: boolean
 }
 
+// A tool an app offers to AI agents. The handler lives in the app's main.js.
+export interface AgentToolDecl {
+  name: string
+  description: string
+  inputSchema: Record<string, unknown>
+}
+
+export interface AgentToolsDecl {
+  instructions?: string
+  tools: AgentToolDecl[]
+}
+
+export const TOOL_NAME_RE = /^[a-z][a-z0-9_]{0,63}$/
+export const MAX_AGENT_TOOLS = 32
+
 export interface AppManifest {
   id: string
   name: string
@@ -29,6 +44,7 @@ export interface AppManifest {
   screenshots?: string[]
   // App stylesheet, loaded while the app is active.
   style?: string
+  agentTools?: AgentToolsDecl
   contributes: AppContributes
 }
 
@@ -44,6 +60,26 @@ function isSafeRelPath(value: unknown): value is string {
 }
 
 const MAX_SCREENSHOTS = 8
+
+// A bad tool is dropped, never the install; so is a whole malformed block.
+function parseAgentTools(raw: unknown): AgentToolsDecl | undefined {
+  if (!isObject(raw) || !Array.isArray(raw.tools)) return undefined
+  const tools: AgentToolDecl[] = []
+  const seen = new Set<string>()
+  for (const t of raw.tools) {
+    if (tools.length >= MAX_AGENT_TOOLS) break
+    if (!isObject(t)) continue
+    const { name, description, inputSchema } = t
+    if (typeof name !== 'string' || !TOOL_NAME_RE.test(name) || seen.has(name)) continue
+    if (typeof description !== 'string' || description.trim() === '') continue
+    if (!isObject(inputSchema) || inputSchema.type !== 'object') continue
+    seen.add(name)
+    tools.push({ name, description, inputSchema })
+  }
+  if (tools.length === 0) return undefined
+  const instructions = typeof raw.instructions === 'string' && raw.instructions.trim() !== '' ? raw.instructions : undefined
+  return { ...(instructions !== undefined ? { instructions } : {}), tools }
+}
 
 function parseContributes(raw: unknown): AppContributes {
   if (!isObject(raw)) return {}
@@ -93,5 +129,7 @@ export function parseManifest(raw: unknown): AppManifest | string {
   if (style !== undefined) manifest.style = style
   if (description !== undefined) manifest.description = description
   if (screenshots !== undefined) manifest.screenshots = screenshots
+  const agentTools = parseAgentTools(raw.agentTools)
+  if (agentTools) manifest.agentTools = agentTools
   return manifest
 }

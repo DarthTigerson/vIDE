@@ -2,6 +2,7 @@ import { app, ipcMain } from 'electron'
 import { execFile } from 'child_process'
 import { join } from 'path'
 import { mkdir, writeFile } from 'fs/promises'
+import { existsSync } from 'fs'
 import { isIsolatedDevProfile } from '../devProfile'
 
 export const MCP_SERVER_NAME = 'vide-todos'
@@ -10,6 +11,7 @@ export const BROWSER_MCP_SERVER_NAME = 'vide-browser'
 export const SCRIPTS_MCP_SERVER_NAME = 'vide-scripts'
 export const SEARCH_MCP_SERVER_NAME = 'vide-search'
 export const DOCS_MCP_SERVER_NAME = 'vide-docs'
+export const APPS_MCP_SERVER_NAME = 'vide-apps'
 
 function run(command: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
@@ -335,50 +337,6 @@ export function registerScriptsMcpHandlers(): void {
   ipcMain.handle('scripts:mcp:disable', () => disableScriptsMcp())
 }
 
-function searchMcpScriptPath(): string {
-  return join(__dirname, 'searchMcpServer.js')
-}
-
-// Simplest of the lot: web search is self-contained (an outbound HTTPS
-// request + parse), so no `-e` data dir and no per-window socket — just the
-// ELECTRON_RUN_AS_NODE flag so the packaged Electron binary runs the bundled
-// script. Available in every vIDE-launched Claude session.
-export async function enableSearchMcp(): Promise<void> {
-  const claudeBin = await resolveClaudeBinary()
-  try { await runClaude(claudeBin, ['mcp', 'remove', SEARCH_MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
-  try {
-    await runClaude(claudeBin, [
-      'mcp',
-      'add',
-      SEARCH_MCP_SERVER_NAME,
-      '--scope',
-      'user',
-      '-e',
-      'ELECTRON_RUN_AS_NODE=1',
-      '--',
-      process.execPath,
-      searchMcpScriptPath(),
-    ])
-  } catch (err) {
-    const msg = ((err as { stderr?: string }).stderr ?? '') + ((err as Error).message ?? '')
-    if (!msg.includes('already exists')) throw err
-  }
-}
-
-export async function disableSearchMcp(): Promise<void> {
-  try {
-    const claudeBin = await resolveClaudeBinary()
-    await runClaude(claudeBin, ['mcp', 'remove', SEARCH_MCP_SERVER_NAME, '--scope', 'user'])
-  } catch {
-    // ignore
-  }
-}
-
-export function registerSearchMcpHandlers(): void {
-  ipcMain.handle('search:mcp:enable', () => enableSearchMcp())
-  ipcMain.handle('search:mcp:disable', () => disableSearchMcp())
-}
-
 function docsMcpScriptPath(): string {
   return join(__dirname, 'docsMcpServer.js')
 }
@@ -406,4 +364,38 @@ export async function enableDocsMcp(): Promise<void> {
     const msg = ((err as { stderr?: string }).stderr ?? '') + ((err as Error).message ?? '')
     if (!msg.includes('already exists')) throw err
   }
+}
+
+// Tools from store apps: one server, so apps never need their own `claude mcp`
+// entry. Registered on every launch (no toggle), like vide-docs.
+export async function enableAppsMcp(): Promise<void> {
+  const claudeBin = await resolveClaudeBinary()
+  try { await runClaude(claudeBin, ['mcp', 'remove', APPS_MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
+  try {
+    await runClaude(claudeBin, [
+      'mcp',
+      'add',
+      APPS_MCP_SERVER_NAME,
+      '--scope',
+      'user',
+      '-e',
+      'ELECTRON_RUN_AS_NODE=1',
+      '--',
+      process.execPath,
+      join(__dirname, 'appsMcpServer.js'),
+    ])
+  } catch (err) {
+    const msg = ((err as { stderr?: string }).stderr ?? '') + ((err as Error).message ?? '')
+    if (!msg.includes('already exists')) throw err
+  }
+}
+
+// Web search moved to a Store app: drop the old core `vide-search` entry once
+// per machine (marker file), so it stops showing up in Claude Code.
+export async function removeLegacySearchMcp(userDataDir: string): Promise<void> {
+  const marker = join(userDataDir, '.legacy-vide-search-removed')
+  if (existsSync(marker)) return
+  const claudeBin = await resolveClaudeBinary()
+  try { await runClaude(claudeBin, ['mcp', 'remove', SEARCH_MCP_SERVER_NAME, '--scope', 'user']) } catch { /* not registered */ }
+  await writeFile(marker, '')
 }

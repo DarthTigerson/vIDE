@@ -38,6 +38,8 @@ export function pendingUpdates(
 // their Enable switch (set to 'true' by the user before the update).
 export const BUILT_IN_ENABLED_KEYS: Record<string, string> = {
   docker: 'vide:docker:enabled',
+  // The core web-search toggle (removed with vide-search); the DuckDuckGo app replaces it.
+  'web-search': 'vide:search:mcpEnabled',
 }
 
 // Per machine, not synced (outside every sync category prefix).

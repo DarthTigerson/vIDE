@@ -59,10 +59,16 @@ function sentToolNames(fetchMock: ReturnType<typeof vi.fn>, call = 0): string[] 
 
 describe('buildVideTools', () => {
   it('builds the same tool groups the MCP servers expose, with their instructions', () => {
-    const { tools, instructions } = buildVideTools(['todos', 'notes', 'search'], { dataDir: '/data' }, 1)
+    const { tools, instructions } = buildVideTools(['todos', 'notes'], { dataDir: '/data' }, 1)
     const names = tools.map((t) => t.name)
-    expect(names).toEqual(expect.arrayContaining(['create_todo', 'start_todo', 'add_todo_comment', 'write_note', 'web_search']))
+    expect(names).toEqual(expect.arrayContaining(['create_todo', 'start_todo', 'add_todo_comment', 'write_note']))
     expect(instructions.some((i) => i.includes('start_todo'))).toBe(true)
+  })
+
+  it('ignores a stored group that no longer exists (the old search group)', () => {
+    const { tools } = buildVideTools(['notes', 'search' as never], { dataDir: '/data' }, 1)
+    expect(tools.map((t) => t.name)).not.toContain('web_search')
+    expect(tools.length).toBeGreaterThan(0)
   })
 
   it('skips browser tools without the shim socket', () => {
@@ -105,7 +111,7 @@ describe('BridgeManager with vIDE tools', () => {
 
     await send({ sender: win }, { cwd: dataDir, messages: [{ role: 'user', content: 'hi' }], agentMode: true, settings: SETTINGS })
 
-    expect(sentToolNames(fetchMock)).toEqual(expect.arrayContaining(['read_file', 'create_todo', 'write_note', 'create_script', 'web_search']))
+    expect(sentToolNames(fetchMock)).toEqual(expect.arrayContaining(['read_file', 'create_todo', 'write_note', 'create_script']))
     const system = JSON.parse(fetchMock.mock.calls[0][1].body).messages[0].content
     expect(system).toContain('start_todo')
   })
@@ -118,7 +124,7 @@ describe('BridgeManager with vIDE tools', () => {
     await send({ sender: win }, { cwd: dataDir, messages: [{ role: 'user', content: 'hi' }], agentMode: true, settings: { ...SETTINGS, videTools: ['notes'] } })
 
     const names = sentToolNames(fetchMock)
-    expect(names).toEqual(expect.arrayContaining(['write_note', 'web_search']))
+    expect(names).toEqual(expect.arrayContaining(['write_note']))
     expect(names).not.toContain('create_todo')
   })
 

@@ -65,6 +65,18 @@ describe('StorePage', () => {
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent).filter((t) => t === 'Alpha' || t === 'Zed')).toEqual(['Zed', 'Alpha'])
   })
 
+  it('has an Agent tools category and opens preset to it', () => {
+    const tool = listing('ddg', 'DuckDuckGo', 'Web search.', { category: 'agent-tools' })
+    setRegistry({ ...ok, apps: [...ok.apps, tool] } as RegistryState)
+    useStoreStore.setState({ presetCategory: 'agent-tools' })
+    render(<StorePage />)
+    expect(screen.getByRole('button', { name: /^Agent tools/ }).textContent).toBe('Agent tools1')
+    expect(screen.getByRole('button', { name: /^Agent tools/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('heading', { name: 'DuckDuckGo' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Docker' })).toBeNull()
+    expect(useStoreStore.getState().presetCategory).toBeNull()
+  })
+
   it('shows the site filters in order with counts', () => {
     render(<StorePage />)
     const titles = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)

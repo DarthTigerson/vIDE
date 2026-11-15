@@ -167,6 +167,28 @@ describe('parseRegistry', () => {
       expect(app.size).toBe(15234)
     })
 
+    it('keeps valid agentTools and drops bad tools one by one', () => {
+      const [a] = apps({ schema: 1, apps: [entry({ agentTools: [
+        { name: 'web_search', description: 'Search the web.' },
+        { name: 'Bad Name', description: 'x' },
+        { name: 'no_desc', description: '  ' },
+        { name: 'web_search', description: 'duplicate' },
+        'junk',
+      ] })] })
+      expect(a.agentTools).toEqual([{ name: 'web_search', description: 'Search the web.' }])
+    })
+
+    it('leaves agentTools off when missing, not a list, or empty after validation', () => {
+      expect(apps({ schema: 1, apps: [entry()] })[0].agentTools).toBeUndefined()
+      expect(apps({ schema: 1, apps: [entry({ agentTools: 'x' })] })[0].agentTools).toBeUndefined()
+      expect(apps({ schema: 1, apps: [entry({ agentTools: [{ name: '1', description: 'd' }] })] })[0].agentTools).toBeUndefined()
+    })
+
+    it('caps agentTools at 32', () => {
+      const many = Array.from({ length: 40 }, (_, i) => ({ name: `t${i}`, description: 'd' }))
+      expect(apps({ schema: 1, apps: [entry({ agentTools: many })] })[0].agentTools).toHaveLength(32)
+    })
+
     it('accepts size 0', () => {
       expect(apps({ schema: 1, apps: [entry({ size: 0 })] })[0].size).toBe(0)
     })

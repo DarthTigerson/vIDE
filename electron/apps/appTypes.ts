@@ -17,6 +17,8 @@ export interface AppInfo {
   hasMain: boolean
   icon?: string
   contributes: AppContributes
+  // Tools the app offers agents (also for disabled apps, so the Store/Settings can list them).
+  agentTools?: { name: string; description: string }[]
   status: AppStatus
   error?: string
 }

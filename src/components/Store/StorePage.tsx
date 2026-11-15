@@ -27,6 +27,7 @@ export function StorePage() {
   const openTab = useEditorStore((s) => s.openTab)
   const installedApps = useAppContribStore((s) => s.apps)
   const [filters, setFilters] = useState<StoreFilters>(DEFAULT_STORE_FILTERS)
+  const presetCategory = useStoreStore((s) => s.presetCategory)
   const [show, setShow] = useState<'all' | 'installed' | 'updates'>('all')
 
   // Show what the main process already has, then refresh in the background
@@ -35,6 +36,14 @@ export function StorePage() {
     const hadRegistry = useStoreStore.getState().registry !== null
     void load(false).then(() => { if (hadRegistry) void load(true) })
   }, [load])
+
+  // "Get more tools in the Store" opens this tab with a category chosen.
+  useEffect(() => {
+    if (!presetCategory) return
+    setFilters({ ...DEFAULT_STORE_FILTERS, category: presetCategory })
+    setShow('all')
+    useStoreStore.setState({ presetCategory: null })
+  }, [presetCategory])
 
   const openApp = (id: string) => openTab({ path: buildStoreAppPath(id), content: '', dirty: false })
   const set = (patch: Partial<StoreFilters>) => setFilters((f) => ({ ...f, ...patch }))
@@ -98,7 +107,7 @@ export function StorePage() {
                 </button>
               }
             >
-              {([['all', 'All'], ['applications', 'Applications']] as [Category, string][]).map(([id, label]) => (
+              {([['all', 'All'], ['applications', 'Applications'], ['agent-tools', 'Agent tools']] as [Category, string][]).map(([id, label]) => (
                 <FilterRow key={id} label={label} count={counts.category[id]} active={filters.category === id} onClick={() => set({ category: id })} />
               ))}
             </FilterGroup>

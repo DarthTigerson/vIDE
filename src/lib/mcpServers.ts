@@ -3,7 +3,6 @@ import { useTodoMcpStore } from '@/stores/todoMcpStore'
 import { useBrowserMcpStore } from '@/stores/browserMcpStore'
 import { useNotesMcpStore } from '@/stores/notesMcpStore'
 import { useScriptsMcpStore } from '@/stores/scriptsMcpStore'
-import { useSearchMcpStore } from '@/stores/searchMcpStore'
 
 export type { McpServerId }
 
@@ -16,7 +15,7 @@ export interface McpServerMeta {
   agents: string
 }
 
-// vIDE's own MCP servers, in panel order. Servers registered in Claude Code
+// vIDE's own MCP servers, in list order. Servers registered in Claude Code
 // by anything else (claude.ai connectors, plugins) are Claude Code's to
 // manage and stay out of this list.
 export const MCP_SERVERS: McpServerMeta[] = [
@@ -50,12 +49,6 @@ export const MCP_SERVERS: McpServerMeta[] = [
     description: 'Reads large Markdown docs one section at a time instead of whole files.',
     agents: 'Always on for Claude Code, Bridge and Llama sessions.',
   },
-  {
-    id: 'search',
-    name: 'vide-search',
-    description: 'Web search without leaving vIDE.',
-    agents: 'Claude Code while enabled. Bridge and Llama sessions always have it.',
-  },
 ]
 
 export interface McpServerState {
@@ -72,7 +65,6 @@ export function useMcpServerStates(): Record<McpServerId, McpServerState> {
   const browser = useBrowserMcpStore()
   const notes = useNotesMcpStore()
   const scripts = useScriptsMcpStore()
-  const search = useSearchMcpStore()
   const pick = (s: McpServerState): McpServerState => ({ enabled: s.enabled, pending: s.pending, error: s.error, setEnabled: s.setEnabled })
   return {
     todos: pick(todos),
@@ -80,6 +72,5 @@ export function useMcpServerStates(): Record<McpServerId, McpServerState> {
     notes: pick(notes),
     scripts: pick(scripts),
     docs: { enabled: true, pending: false, error: null },
-    search: pick(search),
   }
 }

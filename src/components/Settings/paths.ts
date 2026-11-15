@@ -24,6 +24,7 @@ export const NOTES_SETTINGS_TAB_PATH = 'settings://Notes'
 export const SCRIPTS_SETTINGS_TAB_PATH = 'settings://Scripts'
 export const LLAMA_SETTINGS_TAB_PATH = 'settings://Llama'
 export const STORE_SETTINGS_TAB_PATH = 'settings://Store'
+export const AGENT_TOOLING_SETTINGS_TAB_PATH = 'settings://AgentTooling'
 // Version, update check and release history (VIDE-143).
 export const ABOUT_SETTINGS_TAB_PATH = 'settings://About'
 export const GIT_LOG_TAB_PATH = 'git-log://Git Log'
@@ -109,12 +110,6 @@ export function getTodoDetailIds(path: string): { projectId: string; todoId: str
   return { projectId, todoId }
 }
 
-
-// An MCP server's detail page (MCP panel).
-const MCP_SERVER_PREFIX = 'mcp-server://'
-export function isMcpServerTab(path: string): boolean { return path.startsWith(MCP_SERVER_PREFIX) }
-export function buildMcpServerPath(serverId: string): string { return MCP_SERVER_PREFIX + serverId }
-export function getMcpServerId(path: string): string { return path.slice(MCP_SERVER_PREFIX.length) }
 
 // A script's editor page (Scripts app).
 const SCRIPT_PREFIX = 'script://'

@@ -48,6 +48,26 @@ describe('StoreAppPage', () => {
     expect(screen.getByText('0.4.0 or newer')).toBeInTheDocument()
   })
 
+  it('shows an Agent tools section from the catalog, and no Screenshots without any', () => {
+    setApps([docker({ agentTools: [{ name: 'web_search', description: 'Search the web.' }] })])
+    render(<StoreAppPage appId="docker" />)
+    expect(screen.getByText('Agent tools')).toBeInTheDocument()
+    expect(screen.getByText('web_search')).toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: 'Screenshots' })).toBeNull()
+  })
+
+  it('falls back to the installed manifest tools, and shows no section when there are none', () => {
+    useAppContribStore.setState({
+      apps: [{ id: 'docker', name: 'Docker', version: '1.1.0', source: 'store', rendererUrl: '', hasMain: true, contributes: {}, status: 'loaded', agentTools: [{ name: 'run_it', description: 'Runs it.' }] }],
+    })
+    const { unmount } = render(<StoreAppPage appId="docker" />)
+    expect(screen.getByText('run_it')).toBeInTheDocument()
+    unmount()
+    useAppContribStore.setState({ apps: [] })
+    render(<StoreAppPage appId="docker" />)
+    expect(screen.queryByText('Agent tools')).toBeNull()
+  })
+
   it('says when the id is not in the Store', () => {
     render(<StoreAppPage appId="nope" />)
     expect(screen.getByText('App not found in the Store.')).toBeInTheDocument()

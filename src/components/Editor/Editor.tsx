@@ -65,8 +65,6 @@ import {
   getTodoBoardProjectId,
   isTodoDetailTab,
   getTodoDetailIds,
-  isMcpServerTab,
-  getMcpServerId,
   isLlamaModelTab,
   getLlamaModelId,
   isTerminalTab,
@@ -88,6 +86,7 @@ import {
   TODO_SETTINGS_TAB_PATH,
   NOTES_SETTINGS_TAB_PATH,
   STORE_SETTINGS_TAB_PATH,
+  AGENT_TOOLING_SETTINGS_TAB_PATH,
   LLAMA_SETTINGS_TAB_PATH,
 } from '@/components/Settings/paths'
 import { TerminalTab } from '@/components/Terminal/TerminalTab'
@@ -107,6 +106,7 @@ import { GeneralSettingsPage } from '@/components/Settings/GeneralSettingsPage'
 import { TodoSettingsPage } from '@/components/Settings/TodoSettingsPage'
 import { NotesSettingsPage } from '@/components/Settings/NotesSettingsPage'
 import { StoreSettingsPage } from '@/components/Settings/StoreSettingsPage'
+import { AgentToolingSettingsPage } from '@/components/Settings/AgentToolingSettingsPage'
 import { LlamaCreateModelPage } from '@/components/Llama/LlamaCreateModelPage'
 import { LlamaSettingsPage } from '@/components/Settings/LlamaSettingsPage'
 import { isGitDiffTab, parseGitDiffPath, isGitCommitDiffTab, parseGitCommitDiffPath } from '@/components/Git/paths'
@@ -125,7 +125,6 @@ import { TodoBoardPage } from '@/components/Todo/TodoBoardPage'
 import { ScriptEditorPage } from '@/components/Scripts/ScriptEditorPage'
 import { ScriptsSettingsPage } from '@/components/Settings/ScriptsSettingsPage'
 import { TodoDetailPage } from '@/components/Todo/TodoDetailPage'
-import { McpServerPage } from '@/components/Mcp/McpServerPage'
 import {
   isImagePreviewTab,
   parseImagePreviewPath,
@@ -497,7 +496,6 @@ function EditorPane({ paneId }: { paneId: string }) {
   const isTodoBoard = !!activeTab && isTodoBoardTab(activeTab.path)
   const isScript = !!activeTab && isScriptTab(activeTab.path)
   const isTodoDetail = !!activeTab && isTodoDetailTab(activeTab.path)
-  const isMcpServer = !!activeTab && isMcpServerTab(activeTab.path)
   const isTodoTrash = !!activeTab && isTodoTrashTab(activeTab.path)
   const isStore = !!activeTab && isStoreTab(activeTab.path)
   const isAppTab = !!activeTab && isAppTabPath(activeTab.path)
@@ -514,7 +512,7 @@ function EditorPane({ paneId }: { paneId: string }) {
     !!activeTab &&
     !isVirtual && !isTerminal && !isBrowser &&
     !isDiff && !isCommitDiff && !isGitLog && !isGitGraph && !isGitBranchDiff &&
-    !isGraphifyGraph && !isUsageGraph && !isAlarms && !isUpdate && !isTodoBoard && !isScript && !isTodoDetail && !isTodoTrash && !isMcpServer && !isStore && !isAppTab &&
+    !isGraphifyGraph && !isUsageGraph && !isAlarms && !isUpdate && !isTodoBoard && !isScript && !isTodoDetail && !isTodoTrash && !isStore && !isAppTab &&
     !isLlamaModel && !isImagePreview && !isMarkdownPreview && !isSvgViewer && !isPdfViewer &&
     // A scratch tab has no file on disk yet, so there is no path to show —
     // without this the breadcrumb splits 'scratch://<uuid>' on '/' and
@@ -729,6 +727,8 @@ function EditorPane({ paneId }: { paneId: string }) {
             <TodoSettingsPage />
           ) : activeTab.path === NOTES_SETTINGS_TAB_PATH ? (
             <NotesSettingsPage />
+          ) : activeTab.path === AGENT_TOOLING_SETTINGS_TAB_PATH ? (
+            <AgentToolingSettingsPage />
           ) : activeTab.path === STORE_SETTINGS_TAB_PATH ? (
             <StoreSettingsPage />
           ) : activeTab.path === SCRIPTS_SETTINGS_TAB_PATH ? (
@@ -781,8 +781,6 @@ function EditorPane({ paneId }: { paneId: string }) {
           />
         ) : isTodoDetail ? (
           <TodoDetailPage key={activeTab.path} {...getTodoDetailIds(activeTab.path)} />
-        ) : isMcpServer ? (
-          <McpServerPage key={activeTab.path} serverId={getMcpServerId(activeTab.path)} />
         ) : isGitBranchDiff ? (
           <GitBranchDiffPage />
         ) : isImagePreview ? (

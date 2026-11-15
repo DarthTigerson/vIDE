@@ -143,7 +143,7 @@ export interface BridgeSettings {
   rocky?: boolean
 }
 
-export type VideToolGroup = 'todos' | 'notes' | 'scripts' | 'browser' | 'search' | 'docs'
+export type VideToolGroup = 'todos' | 'notes' | 'scripts' | 'browser' | 'docs'
 
 export interface RecentProject {
   path: string
@@ -487,8 +487,6 @@ declare global {
       onScriptRunRequest: (cb: (req: { terminalId: string; scriptId: string; command: string }) => void) => () => void
       browserMcpEnable: () => Promise<void>
       browserMcpDisable: () => Promise<void>
-      searchMcpEnable: () => Promise<void>
-      searchMcpDisable: () => Promise<void>
       // Tool names and descriptions of every vIDE MCP server, for the MCP panel.
       mcpCatalog: () => Promise<Record<McpServerId, McpToolInfo[]>>
 

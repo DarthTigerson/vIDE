@@ -71,6 +71,11 @@ describe('movedApps', () => {
     expect(movedApps(reg(dockerListing), [installed('docker', '1.0.0')], enabled, false)).toEqual([])
     expect(movedApps(reg(dockerListing), [installed('docker', '1.0.0', { source: 'dev' })], enabled, false)).toEqual([])
   })
+  it('lists the web-search replacement when the core search toggle was on', () => {
+    const ddg = listing('duckduckgo', '0.1.0', { replacesBuiltIn: 'web-search' })
+    expect(movedApps(reg(ddg), [], keys({ 'vide:search:mcpEnabled': 'true' }), false).map((a) => a.id)).toEqual(['duckduckgo'])
+    expect(movedApps(reg(ddg), [], keys({ 'vide:search:mcpEnabled': 'false' }), false)).toEqual([])
+  })
   it('lists nothing once dismissed', () => {
     expect(movedApps(reg(dockerListing), [], enabled, true)).toEqual([])
   })

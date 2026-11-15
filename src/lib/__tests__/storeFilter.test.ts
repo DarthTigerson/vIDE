@@ -45,9 +45,15 @@ describe('storeFilter', () => {
     expect(isDefaultStoreFilters({ ...DEFAULT_STORE_FILTERS, targets: [] })).toBe(false)
   })
 
+  it('counts and filters the agent-tools category', () => {
+    const tool = { ...docker, id: 'ddg', category: 'agent-tools' }
+    expect(storeFilterCounts([docker, tool]).category).toEqual({ all: 2, applications: 1, 'agent-tools': 1 })
+    expect(filterStoreApps([docker, tool], { ...DEFAULT_STORE_FILTERS, category: 'agent-tools' }).map((a) => a.id)).toEqual(['ddg'])
+  })
+
   it('counts apps per filter row', () => {
     expect(storeFilterCounts([docker, notes])).toEqual({
-      category: { all: 2, applications: 2 },
+      category: { all: 2, applications: 2, 'agent-tools': 0 },
       maker: { all: 2, vsuite: 2, community: 0 },
     })
   })

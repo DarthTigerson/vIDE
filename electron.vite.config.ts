@@ -16,8 +16,8 @@ export default defineConfig({
           notesMcpServer: 'electron/mcp/notesMcpServer.ts',
           browserMcpServer: 'electron/mcp/browserMcpServer.ts',
           scriptsMcpServer: 'electron/mcp/scriptsMcpServer.ts',
-          searchMcpServer: 'electron/mcp/searchMcpServer.ts',
           docsMcpServer: 'electron/mcp/docsMcpServer.ts',
+          appsMcpServer: 'electron/mcp/appsMcpServer.ts',
           todoEnforcerHookMain: 'electron/mcp/todoEnforcerHookMain.ts',
         },
       }

@@ -3,19 +3,19 @@ import { buildTodoTools, TODO_WORKFLOW_INSTRUCTIONS } from './mcp/todoTools'
 import { buildNotesTools } from './mcp/notesTools'
 import { buildScriptsTools, socketRunner, SCRIPTS_INSTRUCTIONS } from './mcp/scriptsTools'
 import { buildBrowserTools, BROWSER_INSTRUCTIONS } from './mcp/browserTools'
-import { buildSearchTools, SEARCH_INSTRUCTIONS } from './mcp/searchTools'
 import { buildDocsTools, DOCS_INSTRUCTIONS } from './mcp/docsTools'
+import { appToolSet, type AppToolSource } from './mcp/appsTools'
 
 // The vIDE tool groups Claude reaches over MCP (electron/mcp/*McpServer.ts).
 // Bridge/llama sessions get the exact same McpToolDef objects, called
 // in-process, so every agent has the same tools — a new vIDE tool is written
 // once in electron/mcp/ and shows up everywhere.
-export type VideToolGroup = 'todos' | 'notes' | 'scripts' | 'browser' | 'search' | 'docs'
+export type VideToolGroup = 'todos' | 'notes' | 'scripts' | 'browser' | 'docs'
 
-export const ALL_VIDE_TOOL_GROUPS: VideToolGroup[] = ['todos', 'notes', 'scripts', 'browser', 'search', 'docs']
+export const ALL_VIDE_TOOL_GROUPS: VideToolGroup[] = ['todos', 'notes', 'scripts', 'browser', 'docs']
 
 // Groups with no per-feature toggle: always on for every agent.
-export const ALWAYS_ON_VIDE_TOOL_GROUPS: VideToolGroup[] = ['search', 'docs']
+export const ALWAYS_ON_VIDE_TOOL_GROUPS: VideToolGroup[] = ['docs']
 
 export interface VideToolContext {
   dataDir: string
@@ -23,6 +23,8 @@ export interface VideToolContext {
   // script-running tools need it plus the window id; without it those groups
   // are skipped, like the MCP servers do outside a vIDE-launched session.
   socketPath?: string
+  // Store apps' agent tools, added to every session (no group, no toggle).
+  apps?: AppToolSource
 }
 
 // Who a Bridge session's todo tickets and comments are attributed to.
@@ -55,15 +57,16 @@ export function buildVideTools(groups: VideToolGroup[], ctx: VideToolContext, wi
         tools.push(...buildBrowserTools(ctx.socketPath, win))
         instructions.push(BROWSER_INSTRUCTIONS)
         break
-      case 'search':
-        tools.push(...buildSearchTools())
-        instructions.push(SEARCH_INSTRUCTIONS)
-        break
       case 'docs':
         tools.push(...buildDocsTools())
         instructions.push(DOCS_INSTRUCTIONS)
         break
     }
+  }
+  if (ctx.apps) {
+    const fromApps = appToolSet(ctx.apps, windowId)
+    tools.push(...fromApps.tools)
+    instructions.push(...fromApps.instructions)
   }
   return { tools, instructions }
 }

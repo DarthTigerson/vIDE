@@ -4,7 +4,7 @@
 import type { StoreListing } from '@/types/api'
 
 export type Maker = 'all' | 'vsuite' | 'community'
-export type Category = 'all' | 'applications'
+export type Category = 'all' | 'applications' | 'agent-tools'
 
 export interface StoreFilters {
   query: string
@@ -44,6 +44,7 @@ export function storeFilterCounts(apps: StoreListing[]) {
     category: {
       all: apps.length,
       applications: apps.filter((a) => a.category === 'applications').length,
+      'agent-tools': apps.filter((a) => a.category === 'agent-tools').length,
     },
     maker: {
       all: apps.length,

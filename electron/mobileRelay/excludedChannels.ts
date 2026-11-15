@@ -44,7 +44,6 @@ export const EXCLUDED_CHANNELS = new Set<string>([
   'todos:mcp:enable', 'todos:mcp:disable',
   'notes:mcp:enable', 'notes:mcp:disable',
   'scripts:mcp:enable', 'scripts:mcp:disable',
-  'search:mcp:enable', 'search:mcp:disable',
   'mcp:catalog',
 
   // Scripts — run by typing into desktop terminals; desktop-only for now (the

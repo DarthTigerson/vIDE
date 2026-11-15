@@ -31,14 +31,15 @@ import { childrenByParent, otherDescendantsRssBytes, readProcessTable, treeRssBy
 import { fitBoundsToDisplays } from './windowBounds'
 import { registerRecentProjectsHandlers, readRecents, addRecentProject, clearRecentProjects } from './recentProjects'
 import { registerTodoHandlers } from './todos'
-import { registerTodoMcpHandlers, registerNotesMcpHandlers, registerBrowserMcpHandlers, registerScriptsMcpHandlers, registerSearchMcpHandlers, enableDocsMcp } from './mcp/mcpRegistration'
-import { registerMcpCatalogHandlers } from './mcp/mcpCatalog'
+import { registerTodoMcpHandlers, registerNotesMcpHandlers, registerBrowserMcpHandlers, registerScriptsMcpHandlers, enableDocsMcp, enableAppsMcp, removeLegacySearchMcp } from './mcp/mcpRegistration'
+import { registerMcpCatalogHandlers, builtInToolNames } from './mcp/mcpCatalog'
 import { registerNotesHandlers } from './notes'
 import { registerScriptsHandlers, registerScriptRunRoute } from './scripts'
 import { registerSearchHandlers } from './search'
 import { UpdateChecker } from './updateChecker'
 import { StoreService, DEFAULT_REGISTRY_URL } from './store'
 import { AppHost } from './apps/appHost'
+import { registerAppToolRoutes, type AppToolSource } from './mcp/appsTools'
 import { AppInstaller } from './apps/appInstaller'
 import { registerAppScheme, handleAppProtocol } from './apps/appProtocol'
 import { UpdateRunner } from './updateRunner'
@@ -927,10 +928,11 @@ app.whenReady().then(async () => {
   registerScriptsHandlers()
   registerBrowserMcpHandlers()
   registerScriptsMcpHandlers()
-  registerSearchMcpHandlers()
   registerMcpCatalogHandlers()
   // Best-effort: no Claude CLI installed just means Claude panels lack it.
   enableDocsMcp().catch(() => {})
+  enableAppsMcp().catch(() => {})
+  removeLegacySearchMcp(app.getPath('userData')).catch(() => {})
   registerWindowHandlers()
   registerSystemHandlers()
   registerOnboardingHandlers()
@@ -943,6 +945,13 @@ app.whenReady().then(async () => {
   const browserBridge = new BrowserBridge(app.getPath('userData'), browserViewMgr)
   browserBridge.start()
   registerScriptRunRoute(browserBridge, ptyMgr)
+  // appHost is created further down; routes and Bridge only run later.
+  const appTools: AppToolSource = {
+    agentToolList: () => appHost?.agentToolList() ?? [],
+    callAgentTool: (name, args, windowId) =>
+      appHost ? appHost.callAgentTool(name, args, windowId) : Promise.reject(new Error('Apps are not loaded yet')),
+  }
+  registerAppToolRoutes(browserBridge, appTools)
   // claude-sessions/ is machine-local (transcripts live in this machine's
   // ~/.claude) — deliberately not part of vIDE Sync.
   claudeMgr = new ClaudeManager(browserBridge, join(app.getPath('userData'), 'claude-sessions'))
@@ -961,7 +970,7 @@ app.whenReady().then(async () => {
   gitWatcher.registerHandlers()
   fileWatcher = new FileWatcher()
   fileWatcher.registerHandlers()
-  bridgeMgr = new BridgeManager({ dataDir: app.getPath('userData'), socketPath: browserBridge.socketPath })
+  bridgeMgr = new BridgeManager({ dataDir: app.getPath('userData'), socketPath: browserBridge.socketPath, apps: appTools })
   bridgeMgr.registerHandlers()
   autocompleteMgr = new AutocompleteManager()
   autocompleteMgr.registerHandlers()
@@ -1060,6 +1069,7 @@ app.whenReady().then(async () => {
     },
     isDev: !app.isPackaged,
     currentVersion: app.getVersion(),
+    reservedToolNames: builtInToolNames,
     broadcast: (channel, ...args) => {
       for (const w of BrowserWindow.getAllWindows()) {
         if (!w.isDestroyed()) w.webContents.send(channel, ...args)

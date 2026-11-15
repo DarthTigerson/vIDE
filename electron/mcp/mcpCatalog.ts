@@ -3,7 +3,6 @@ import { buildTodoTools } from './todoTools'
 import { buildNotesTools } from './notesTools'
 import { buildBrowserTools } from './browserTools'
 import { buildScriptsTools } from './scriptsTools'
-import { buildSearchTools } from './searchTools'
 import { buildDocsTools } from './docsTools'
 import type { McpServerId, McpToolInfo } from './mcpTypes'
 
@@ -19,10 +18,14 @@ export function mcpToolCatalog(): Record<McpServerId, McpToolInfo[]> {
     notes: info(buildNotesTools('')),
     scripts: info(buildScriptsTools('')),
     docs: info(buildDocsTools()),
-    search: info(buildSearchTools()),
   }
 }
 
 export function registerMcpCatalogHandlers(): void {
   ipcMain.handle('mcp:catalog', () => mcpToolCatalog())
+}
+
+// Every built-in vIDE tool name; an app tool may not reuse one.
+export function builtInToolNames(): string[] {
+  return Object.values(mcpToolCatalog()).flatMap((tools) => tools.map((t) => t.name))
 }

@@ -3,9 +3,9 @@ import { useState } from 'react'
 // Small pieces shared by the Store tab and the per-app Store page.
 
 // The app's real icon when the catalog has one that loads, else the initials tile.
-export function AppMonogram({ name, size = 'md', icon }: { name: string; size?: 'md' | 'lg'; icon?: string }) {
+export function AppMonogram({ name, size = 'md', icon }: { name: string; size?: 'sm' | 'md' | 'lg'; icon?: string }) {
   const [broken, setBroken] = useState(false)
-  const box = size === 'lg' ? 'w-16 h-16 rounded-2xl text-[1.375rem]' : 'w-10 h-10 rounded-[9px] text-sm'
+  const box = size === 'lg' ? 'w-16 h-16 rounded-2xl text-[1.375rem]' : size === 'sm' ? 'w-6 h-6 rounded-md text-[0.625rem]' : 'w-10 h-10 rounded-[9px] text-sm'
   if (icon && !broken) {
     return (
       <img

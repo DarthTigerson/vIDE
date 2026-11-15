@@ -1,7 +1,13 @@
 // The `vide` object handed to a store app's main.js `activate(vide)`.
 
 import { spawn as spawnChild } from 'child_process'
+import type { AgentToolDecl } from './appManifest'
 import { binaryEnv, resolveBinaryPath } from '../lsp/shellPath'
+
+export type AgentToolHandler = (
+  args: Record<string, unknown>,
+  ctx: { windowId?: number }
+) => string | { text: string } | Promise<string | { text: string }>
 
 export interface MainVideApi {
   apiVersion: 1
@@ -9,6 +15,10 @@ export interface MainVideApi {
   app: {
     handle(method: string, fn: (payload: any, ctx: { windowId: number }) => unknown | Promise<unknown>): () => void
     emit(event: string, payload?: unknown, opts?: { windowId?: number }): void
+  }
+  agentTools: {
+    // Only names declared in the manifest's `agentTools` are accepted.
+    handle(name: string, fn: AgentToolHandler): () => void
   }
   process: {
     exec(bin: string, args: string[], opts?: { timeoutMs?: number; windowId?: number }): Promise<{ code: number; stdout: string; stderr: string; timedOut?: boolean; errorCode?: string }>
@@ -25,6 +35,9 @@ export interface MainVideApi {
 
 export interface MainVideApiDeps {
   handlers: Map<string, Function>
+  // Tools the manifest declares, and where their handlers go (kept apart from `handlers` so an app method can't shadow a tool).
+  declaredTools?: AgentToolDecl[]
+  toolHandlers?: Map<string, AgentToolHandler>
   emit: (event: string, payload: unknown, windowId?: number) => void
   closeListeners: Set<(id: number) => void>
   resolveBin?: (bin: string) => Promise<string | null>
@@ -52,6 +65,17 @@ export function createMainVideApi(appId: string, deps: MainVideApiDeps): MainVid
       },
       emit(event, payload, opts) {
         deps.emit(event, payload, opts?.windowId)
+      }
+    },
+    agentTools: {
+      handle(name, fn) {
+        if (!deps.declaredTools?.some((t) => t.name === name)) {
+          throw new Error(`Agent tool "${name}" is not declared in the manifest`)
+        }
+        deps.toolHandlers?.set(name, fn)
+        return () => {
+          if (deps.toolHandlers?.get(name) === fn) deps.toolHandlers.delete(name)
+        }
       }
     },
     process: {
