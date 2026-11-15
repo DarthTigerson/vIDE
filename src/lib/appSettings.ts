@@ -16,7 +16,7 @@ import { useScriptsSettingsStore } from '@/stores/scriptsSettingsStore'
 import { useTodoSettingsStore } from '@/stores/todoSettingsStore'
 
 // The settings page each app's right-click "Settings" opens. The GitHub/GitLab
-// app is configured from Settings: Git (its remote URL lives there).
+// app is configured from Settings: Git (its Remote launcher section).
 export const APP_SETTINGS_PATHS: Record<MovableAppId, string> = {
   llama: LLAMA_SETTINGS_TAB_PATH,
   mobile: MOBILE_SETTINGS_TAB_PATH,
@@ -28,8 +28,8 @@ export const APP_SETTINGS_PATHS: Record<MovableAppId, string> = {
 }
 
 // Sets an app's Enable switch, the same as flipping it on its settings page.
-// null for the GitHub/GitLab app: it has no switch, it shows whenever a
-// remote URL is set.
+// null for the GitHub/GitLab app: it has no switch, it shows whenever the
+// active repo has a git remote.
 export function appEnabledSetter(id: MovableAppId): ((enabled: boolean) => void) | null {
   switch (id) {
     case 'llama': return useLlamaSettingsStore.getState().setEnabled

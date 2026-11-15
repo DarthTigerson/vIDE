@@ -256,7 +256,7 @@ describe('AllAppsPanel', () => {
     it('shows matching disabled apps while searching, even when collapsed', () => {
       localStorage.removeItem(ALL_APPS_DISABLED_OPEN_KEY)
       renderWith()
-      fireEvent.change(screen.getByLabelText('Search apps'), { target: { value: 'jir' } })
+      fireEvent.change(screen.getByLabelText('Search apps'), { target: { value: 'gra' } })
       expect(screen.getByText('Graphify')).toBeTruthy()
       expect(screen.queryByText('Scripts')).toBeNull()
     })

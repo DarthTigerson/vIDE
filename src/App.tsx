@@ -100,6 +100,7 @@ import { useOnboardingStore } from './stores/onboardingStore'
 import { useBrowserStore } from './stores/browserStore'
 import { useBrowserSettingsStore } from './stores/browserSettingsStore'
 import { useGitRemoteSettingsStore } from './stores/gitRemoteSettingsStore'
+import { useGitRemoteUrlStore, gitRemoteBrowserId } from './stores/gitRemoteUrlStore'
 import { useGitPanelOpenAlertStore } from './stores/gitPanelOpenAlertStore'
 import { useTodoSettingsStore } from './stores/todoSettingsStore'
 import { useNotesSettingsStore } from './stores/notesSettingsStore'
@@ -122,7 +123,7 @@ import { countUnsaved, type UnsavedState } from './lib/unsavedState'
 import type { Tab } from './types/index'
 import { useDiscardScratchStore, requestCloseTab } from './stores/discardScratchStore'
 import { ConfirmDiscardScratchModal } from './components/Editor/ConfirmDiscardScratchModal'
-import { buildTerminalPath, buildBrowserPath, buildAppSettingsPath, GIT_SETTINGS_TAB_PATH, USAGE_GRAPH_TAB_PATH } from './components/Settings/paths'
+import { buildTerminalPath, buildBrowserPath, buildAppSettingsPath, USAGE_GRAPH_TAB_PATH } from './components/Settings/paths'
 import { TodoPanel } from './components/Todo/TodoPanel'
 import { NotesPanel } from './components/Notes/NotesPanel'
 import { ScriptsPanel } from './components/Scripts/ScriptsPanel'
@@ -155,7 +156,6 @@ function DiscardScratchPromptHost() {
   )
 }
 
-const GIT_REMOTE_BROWSER_ID = 'git-remote-external'
 // Must match CLAUDE_TAB_ID in electron/browserViews.ts — same reserved id,
 // addressed independently by both sides (main creates/navigates the view,
 // renderer opens/focuses its tab-strip entry for it).
@@ -283,11 +283,17 @@ export default function App() {
   const periodicFetchEnabled = useGitSettingsStore((s) => s.periodicFetchEnabled)
   const periodicFetchIntervalMinutes = useGitSettingsStore((s) => s.periodicFetchIntervalMinutes)
   const activeTabPath = useEditorStore((s) => s.activeTabPath)
-  useGitRemoteSettingsStore((s) => s.externalUrl)
-  useGitRemoteSettingsStore((s) => s.projectUrls)
-  const gitRemoteUrl = useGitRemoteSettingsStore.getState().getEffectiveUrl(projectRoot)
-  const gitRemoteReady = gitRemoteUrl.trim() !== ''
-  const gitRemoteProvider = detectGitRemoteProvider(gitRemoteUrl)
+  // The remote launcher follows the active repo: its URL comes from that
+  // repo's git remote. In a multi-repo project with no repo open yet it
+  // still shows, and opens the repo picker instead.
+  const gitRepoCount = useGitReposStore((s) => s.repos.length)
+  const gitRemoteUrl = useGitRemoteUrlStore((s) => (activeRepo ? s.urls[activeRepo] ?? null : null))
+  const gitRemoteNeedsRepoPick = !activeRepo && gitRepoCount > 1
+  const gitRemoteReady = !!gitRemoteUrl || gitRemoteNeedsRepoPick
+  const gitRemoteProvider = detectGitRemoteProvider(gitRemoteUrl ?? '')
+  useEffect(() => {
+    if (activeRepo) void useGitRemoteUrlStore.getState().refresh(activeRepo)
+  }, [activeRepo])
   useEffect(() => {
     useConfigRepoStore.getState().syncOnLaunch()
   }, [])
@@ -353,17 +359,19 @@ export default function App() {
     useEditorStore.getState().openTab({ path: buildBrowserPath(CLAUDE_BROWSER_ID), content: '', dirty: false })
   }
 
-  // Opens the remote's web page in a fixed browser tab. Its Settings config
-  // lives inside the Git settings page (a dedicated section) rather than its
-  // own tab, so the empty-URL fallback opens that instead of a page of its own.
-  function openGitRemote() {
-    const url = useGitRemoteSettingsStore.getState().getEffectiveUrl(projectRoot)
-    if (!url) {
-      useEditorStore.getState().openTab({ path: GIT_SETTINGS_TAB_PATH, content: '', dirty: false })
+  // Opens the active repo's web page (from its git remote) in that repo's
+  // own browser tab. Multi-repo with no repo open: pick one first.
+  async function openGitRemote() {
+    if (!activeRepo) {
+      if (gitRepoCount > 1) useSearchStore.getState().openRepoPalette()
       return
     }
-    useBrowserStore.getState().ensureTab(GIT_REMOTE_BROWSER_ID, url)
-    const tab = { path: buildBrowserPath(GIT_REMOTE_BROWSER_ID), content: '', dirty: false }
+    // Re-read on click so a remote changed since the repo was selected is honored.
+    const url = await useGitRemoteUrlStore.getState().refresh(activeRepo)
+    if (!url) return
+    const id = gitRemoteBrowserId(activeRepo)
+    useBrowserStore.getState().ensureTab(id, url)
+    const tab = { path: buildBrowserPath(id), content: '', dirty: false }
     useEditorStore.getState().openTab(tab)
     if (useGitRemoteSettingsStore.getState().closeSidePanelOnOpen) setLeftPanel(null)
   }
@@ -1064,8 +1072,8 @@ export default function App() {
               id: 'git-remote',
               icon: gitRemoteIcon(gitRemoteProvider),
               title: gitRemoteLabel(gitRemoteProvider),
-              active: activeTabPath === buildBrowserPath(GIT_REMOTE_BROWSER_ID),
-              onClick: openGitRemote,
+              active: !!activeRepo && activeTabPath === buildBrowserPath(gitRemoteBrowserId(activeRepo)),
+              onClick: () => { void openGitRemote() },
             } : null,
           }
           // Installed store apps with a panel can sit on the bar too (`app:<id>`).

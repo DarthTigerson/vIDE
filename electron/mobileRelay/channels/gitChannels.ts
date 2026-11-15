@@ -5,7 +5,7 @@ import {
   discardFileChanges, discardAllChanges, commit, getDiffContent,
   getFileAtHead, getCommitDiffContent, getGitGraph, getGitBranches,
   getDefaultBranch, getBranchList, getGitBranchDiff, getGitShowStat,
-  fetchRemote, getStagedDiff, discoverRepos, getFileBlame,
+  fetchRemote, getStagedDiff, discoverRepos, getFileBlame, getRemoteWebUrl,
 } from '../../git'
 
 // Plain request/response git channels, mirroring the ipcMain.handle wiring in
@@ -32,6 +32,7 @@ export function registerGitRelayChannels(): void {
   registerChannel('git:graph', (cwd: string, offset?: number, limit?: number) => getGitGraph(cwd, offset, limit))
   registerChannel('git:branches', (cwd: string) => getGitBranches(cwd))
   registerChannel('git:defaultBranch', (cwd: string) => getDefaultBranch(cwd))
+  registerChannel('git:remoteWebUrl', (cwd: string) => getRemoteWebUrl(cwd))
   registerChannel('git:branchList', (cwd: string) => getBranchList(cwd))
   registerChannel('git:branchDiff', (cwd: string, source: string, target: string, offset?: number, limit?: number) =>
     getGitBranchDiff(cwd, source, target, offset, limit))
