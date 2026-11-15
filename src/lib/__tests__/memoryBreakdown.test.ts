@@ -16,6 +16,7 @@ describe('memoryRows', () => {
         terminalsBytes: 20 * MB,
         languageServersBytes: 70 * MB,
         autocompleteBytes: 1900 * MB,
+        otherBytes: 3000 * MB,
       },
       { a: '#live' }
     )
@@ -27,12 +28,13 @@ describe('memoryRows', () => {
       ['Terminals', '#7F8CA8'],
       ['Language servers', '#A08670'],
       ['vIDE Autocomplete', '#6FA8B8'],
+      ['Other processes', '#8A8A8A'],
     ])
-    expect(totalBytes).toBe(3810 * MB)
+    expect(totalBytes).toBe(6810 * MB)
   })
 
-  it('hides terminal, language-server and autocomplete rows when nothing is running', () => {
-    const { rows } = memoryRows({ appBytes: 1, sessions: [], terminalsBytes: 0, languageServersBytes: 0, autocompleteBytes: 0 }, {})
+  it('hides terminal, language-server, autocomplete and other rows when nothing is running', () => {
+    const { rows } = memoryRows({ appBytes: 1, sessions: [], terminalsBytes: 0, languageServersBytes: 0, autocompleteBytes: 0, otherBytes: 0 }, {})
     expect(rows.map((r) => r.key)).toEqual(['app'])
   })
 })

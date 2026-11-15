@@ -29,7 +29,7 @@ import {
 } from './fsOps'
 import { writeClipboardFiles, readClipboardFiles } from './fileClipboard'
 import { registerSessionHandlers, loadSession, saveSession, loadOpenWindows, saveOpenWindows, getAgentSessionInfo, type WindowBounds } from './session'
-import { childrenByParent, readProcessTable, treeRssBytes } from './processMemory'
+import { childrenByParent, otherDescendantsRssBytes, readProcessTable, treeRssBytes } from './processMemory'
 import { fitBoundsToDisplays } from './windowBounds'
 import { registerRecentProjectsHandlers, readRecents, addRecentProject, clearRecentProjects } from './recentProjects'
 import { registerTodoHandlers } from './todos'
@@ -112,9 +112,21 @@ function registerSystemHandlers(): void {
     const table = await readProcessTable().catch(() => new Map())
     const children = childrenByParent(table)
     const sumTrees = (pids: number[]) => pids.reduce((sum, pid) => sum + treeRssBytes(pid, table, children), 0)
+    // Electron's own processes are already in appBytes; the rest are tracked
+    // below. Whatever else hangs off the main process (git via execFile, ...)
+    // is reported as "other".
+    const claudeProcesses = claudeMgr.listProcesses()
+    const excluded = new Set<number>([
+      ...app.getAppMetrics().map((p) => p.pid),
+      ...claudeProcesses.map((p) => p.pid),
+      ...ptyMgr.listPids(),
+      ...lspMgr.listPids(),
+    ])
+    if (autocompleteMgr.pid) excluded.add(autocompleteMgr.pid)
     return {
       appBytes: electronAppBytes(),
-      sessions: claudeMgr.listProcesses().map(({ windowId, instanceId, pid }) => ({
+      otherBytes: otherDescendantsRssBytes(process.pid, table, children, excluded),
+      sessions: claudeProcesses.map(({ windowId, instanceId, pid }) => ({
         instanceId,
         projectRoot: windowProjectRoots.get(windowId) ?? null,
         ...getAgentSessionInfo(instanceId),
