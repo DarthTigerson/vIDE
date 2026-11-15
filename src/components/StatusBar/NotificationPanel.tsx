@@ -46,7 +46,7 @@ export function NotificationPanel() {
   }, [open])
 
   // Auto-close rather than leave the panel open on an empty list — the
-  // condition that was showing (usage back on track, Docker restarted, etc.)
+  // condition that was showing (usage back on track, an update installed, etc.)
   // has already resolved itself.
   useEffect(() => {
     if (open && items.length === 0) close()
@@ -101,6 +101,7 @@ export function NotificationPanel() {
               type="button"
               onMouseUp={(e) => {
                 if (e.button !== 0) return
+                items.forEach((item) => item.onDismiss?.())
                 dismiss(items.map((item) => item.id))
               }}
               className="text-fg-muted hover:text-fg transition-colors"
@@ -143,6 +144,7 @@ export function NotificationPanel() {
                 onMouseUp={(e) => {
                   if (e.button !== 0) return
                   e.stopPropagation()
+                  item.onDismiss?.()
                   dismiss([item.id])
                 }}
                 className="shrink-0 w-6 h-6 mr-1 flex items-center justify-center rounded text-fg-subtle hover:text-fg hover:bg-white/10"

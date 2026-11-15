@@ -18,6 +18,10 @@
     "electron/ignoredSegments.ts",
     "electron/searchShared.ts",
     "electron/searchTypes.ts",
-    "electron/autocomplete/catalog.ts"
+    "electron/autocomplete/catalog.ts",
+    "electron/storeRegistry.ts",
+    "electron/apps/appManifest.ts",
+    "electron/apps/appTypes.ts",
+    "electron/mcp/mcpTypes.ts"
   ]
 }

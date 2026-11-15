@@ -11,8 +11,6 @@ import { createGraphifyInstaller } from './graphifyInstall'
 import { LlamaManager } from './llama'
 import { bundledLlamaDir, findInstalledLlamaServer, installLlama } from './autocomplete/llamaInstall'
 import { GitWatcher } from './gitWatcher'
-import { DockerRunner } from './dockerRunner'
-import { DockerWatcher } from './dockerWatcher'
 import { FileWatcher } from './fileWatcher'
 import { MobileServer, MOBILE_RELAY_WINDOW_ID } from './mobile'
 import { UsageManager } from './usageManager'
@@ -33,11 +31,17 @@ import { childrenByParent, otherDescendantsRssBytes, readProcessTable, treeRssBy
 import { fitBoundsToDisplays } from './windowBounds'
 import { registerRecentProjectsHandlers, readRecents, addRecentProject, clearRecentProjects } from './recentProjects'
 import { registerTodoHandlers } from './todos'
-import { registerTodoMcpHandlers, registerNotesMcpHandlers, registerBrowserMcpHandlers, registerScriptsMcpHandlers, registerSearchMcpHandlers, enableDocsMcp } from './mcp/mcpRegistration'
+import { registerTodoMcpHandlers, registerNotesMcpHandlers, registerBrowserMcpHandlers, registerScriptsMcpHandlers, enableDocsMcp, enableAppsMcp, removeLegacySearchMcp } from './mcp/mcpRegistration'
+import { registerMcpCatalogHandlers, builtInToolNames } from './mcp/mcpCatalog'
 import { registerNotesHandlers } from './notes'
 import { registerScriptsHandlers, registerScriptRunRoute } from './scripts'
 import { registerSearchHandlers } from './search'
 import { UpdateChecker } from './updateChecker'
+import { StoreService, DEFAULT_REGISTRY_URL } from './store'
+import { AppHost } from './apps/appHost'
+import { registerAppToolRoutes, type AppToolSource } from './mcp/appsTools'
+import { AppInstaller } from './apps/appInstaller'
+import { registerAppScheme, handleAppProtocol } from './apps/appProtocol'
 import { UpdateRunner } from './updateRunner'
 import { getChangelogForVersion, getChangelogReleases } from './changelog'
 import { getSystemMemoryUsage } from './systemMemory'
@@ -45,6 +49,7 @@ import { getBatteryStatus } from './systemBattery'
 import { registerOnboardingHandlers } from './onboarding'
 import { registerConfigRepoHandlers } from './configRepo'
 import { applyDevProfile } from './devProfile'
+import { parseVideUrl, videUrlFromArgv, type VideUrlRequest } from './videUrl'
 
 function registerFsHandlers(): void {
   ipcMain.handle('fs:readDir', (_e, path: string) => buildTree(path))
@@ -379,7 +384,7 @@ function createWindow(projectRoot?: string, savedBounds?: WindowBounds): Browser
     ptyMgr.disposeWindow(win.id)
     claudeMgr.disposeWindow(win.id)
     gitWatcher.disposeWindow(win.id)
-    dockerWatcher.disposeWindow(win.id)
+    appHost?.disposeWindow(win.id)
     fileWatcher.disposeWindow(win.id)
     bridgeMgr.disposeWindow(win.id)
     browserViewMgr.disposeWindow(win.id)
@@ -457,6 +462,67 @@ async function restoreOpenWindows(): Promise<void> {
 
 app.name = 'vIDE'
 applyDevProfile()
+registerAppScheme()
+
+// vide://store/<id> links from vsuite.tech. Packaged builds only: a dev build
+// must never take the scheme over from the installed app.
+// The renderer learns about a request two ways (an event, and a pull on mount)
+// so a window that is still loading does not miss it; whichever sees it first
+// takes it from `pendingStoreOpen`.
+let pendingStoreOpen: VideUrlRequest | null = null
+const queuedVideUrls: string[] = []
+let appIsReady = false
+
+function routeVideUrl(raw: string): void {
+  const req = parseVideUrl(raw)
+  if (!req) return
+  pendingStoreOpen = req
+  const target = BrowserWindow.getFocusedWindow() ?? [...windows.values()].find((w) => !w.isDestroyed())
+  if (!target) {
+    if (appIsReady && !restoringWindows) createWindow()
+    return
+  }
+  if (target.isMinimized()) target.restore()
+  target.show()
+  target.focus()
+  target.webContents.send('store:open')
+}
+
+if (app.isPackaged) {
+  app.setAsDefaultProtocolClient('vide')
+  // macOS delivers links here, possibly before 'ready': queue those.
+  app.on('open-url', (event, url) => {
+    event.preventDefault()
+    if (appIsReady) routeVideUrl(url)
+    else queuedVideUrls.push(url)
+  })
+  if (process.platform === 'linux') {
+    // Linux starts a new process per link; with the lock held, the link
+    // arrives in the running instance's argv instead. (Without a lock the
+    // second process would open its own window and the link would go nowhere.)
+    if (!app.requestSingleInstanceLock()) {
+      app.exit(0)
+    } else {
+      app.on('second-instance', (_event, argv) => {
+        const url = videUrlFromArgv(argv)
+        if (url) {
+          routeVideUrl(url)
+          return
+        }
+        const win = [...windows.values()].find((w) => !w.isDestroyed())
+        if (win) {
+          if (win.isMinimized()) win.restore()
+          win.show()
+          win.focus()
+        } else if (appIsReady && !restoringWindows) {
+          createWindow()
+        }
+      })
+      const initial = videUrlFromArgv(process.argv)
+      if (initial) queuedVideUrls.push(initial)
+    }
+  }
+}
 
 // One-time, non-destructive migration for users upgrading from Huginn: copy
 // the old userData directory (settings, usage history, etc.) into the new
@@ -828,7 +894,6 @@ async function buildMenu(): Promise<void> {
 let ptyMgr: PtyManager
 let claudeMgr: ClaudeManager
 let gitWatcher: GitWatcher
-let dockerWatcher: DockerWatcher
 let fileWatcher: FileWatcher
 let bridgeMgr: BridgeManager
 let browserViewMgr: BrowserViewManager
@@ -837,6 +902,7 @@ let inlineEditMgr: InlineEditManager
 let commitMessageMgr: CommitMessageManager
 let lspMgr: LanguageServerManager
 let updateChecker: UpdateChecker | null = null
+let appHost: AppHost | null = null
 
 app.whenReady().then(async () => {
   await migrateUserDataFromHuginn()
@@ -862,9 +928,11 @@ app.whenReady().then(async () => {
   registerScriptsHandlers()
   registerBrowserMcpHandlers()
   registerScriptsMcpHandlers()
-  registerSearchMcpHandlers()
+  registerMcpCatalogHandlers()
   // Best-effort: no Claude CLI installed just means Claude panels lack it.
   enableDocsMcp().catch(() => {})
+  enableAppsMcp().catch(() => {})
+  removeLegacySearchMcp(app.getPath('userData')).catch(() => {})
   registerWindowHandlers()
   registerSystemHandlers()
   registerOnboardingHandlers()
@@ -877,14 +945,19 @@ app.whenReady().then(async () => {
   const browserBridge = new BrowserBridge(app.getPath('userData'), browserViewMgr)
   browserBridge.start()
   registerScriptRunRoute(browserBridge, ptyMgr)
+  // appHost is created further down; routes and Bridge only run later.
+  const appTools: AppToolSource = {
+    agentToolList: () => appHost?.agentToolList() ?? [],
+    callAgentTool: (name, args, windowId) =>
+      appHost ? appHost.callAgentTool(name, args, windowId) : Promise.reject(new Error('Apps are not loaded yet')),
+  }
+  registerAppToolRoutes(browserBridge, appTools)
   // claude-sessions/ is machine-local (transcripts live in this machine's
   // ~/.claude) — deliberately not part of vIDE Sync.
   claudeMgr = new ClaudeManager(browserBridge, join(app.getPath('userData'), 'claude-sessions'))
   claudeMgr.registerHandlers()
   const gitRunner = new GitRunner()
   gitRunner.registerHandlers()
-  const dockerRunner = new DockerRunner()
-  dockerRunner.registerHandlers()
 
   const graphifyMgr = new GraphifyManager(createGraphifyInstaller(app.getPath('userData')))
   graphifyMgr.registerHandlers()
@@ -895,11 +968,9 @@ app.whenReady().then(async () => {
   llamaMgr.registerHandlers()
   gitWatcher = new GitWatcher()
   gitWatcher.registerHandlers()
-  dockerWatcher = new DockerWatcher()
-  dockerWatcher.registerHandlers()
   fileWatcher = new FileWatcher()
   fileWatcher.registerHandlers()
-  bridgeMgr = new BridgeManager({ dataDir: app.getPath('userData'), socketPath: browserBridge.socketPath })
+  bridgeMgr = new BridgeManager({ dataDir: app.getPath('userData'), socketPath: browserBridge.socketPath, apps: appTools })
   bridgeMgr.registerHandlers()
   autocompleteMgr = new AutocompleteManager()
   autocompleteMgr.registerHandlers()
@@ -913,7 +984,15 @@ app.whenReady().then(async () => {
   buildMenu()
   // Not awaited: the IPC handlers registered below must be in place before
   // any restored window's renderer starts calling them.
-  void restoreOpenWindows()
+  void restoreOpenWindows().then(() => {
+    appIsReady = true
+    for (const url of queuedVideUrls.splice(0)) routeVideUrl(url)
+  })
+  ipcMain.handle('store:takePendingOpen', () => {
+    const req = pendingStoreOpen
+    pendingStoreOpen = null
+    return req
+  })
 
   // MobileServer and UsageManager (deliberately left untouched — app-wide
   // singletons per the spec, not per-window) push events to whatever `win`
@@ -965,6 +1044,45 @@ app.whenReady().then(async () => {
   })
   updateChecker.registerHandlers()
   updateChecker.start()
+  const storeService = new StoreService({
+    url: process.env.VIDE_STORE_REGISTRY_URL ?? DEFAULT_REGISTRY_URL,
+    cacheFile: join(app.getPath('userData'), 'apps', 'registry-cache.json'),
+    currentVersion: app.getVersion(),
+  })
+  storeService.registerHandlers()
+  // Catalog refresh at startup and every 6 h so update notices show up even
+  // with the Store tab closed; renderers reload when the result changed.
+  const broadcastStoreChanged = () => {
+    for (const w of BrowserWindow.getAllWindows()) {
+      if (!w.isDestroyed()) w.webContents.send('store:changed')
+    }
+  }
+  void storeService.getRegistry(true)
+  storeService.startPeriodicRefresh(undefined, broadcastStoreChanged)
+  const appsDir = join(app.getPath('userData'), 'apps')
+  appHost = new AppHost({
+    appsDir,
+    installer: new AppInstaller({ appsDir, currentVersion: app.getVersion() }),
+    getListing: async (id) => {
+      const r = await storeService.getRegistry(false)
+      return r.status === 'ok' ? r.apps.find((a) => a.id === id) ?? null : null
+    },
+    isDev: !app.isPackaged,
+    currentVersion: app.getVersion(),
+    reservedToolNames: builtInToolNames,
+    broadcast: (channel, ...args) => {
+      for (const w of BrowserWindow.getAllWindows()) {
+        if (!w.isDestroyed()) w.webContents.send(channel, ...args)
+      }
+    },
+    sendTo: (windowId, channel, ...args) => {
+      const w = BrowserWindow.fromId(windowId)
+      if (w && !w.isDestroyed()) w.webContents.send(channel, ...args)
+    },
+  })
+  appHost.registerHandlers()
+  handleAppProtocol((id) => appHost?.rootFor(id) ?? null)
+  await appHost.start()
   new UpdateRunner().registerHandlers()
 
   ipcMain.on('update:restart', () => {

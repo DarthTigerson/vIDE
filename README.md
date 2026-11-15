@@ -73,8 +73,6 @@ memory indicator built into the status bar is there to keep that honest.
   agents can navigate, click, and read pages directly
 - **Docker panel** — manage containers and see memory/resource usage
   without leaving the app
-- **Jira** — point it at your team's Jira instance and it opens as an
-  in-app browser tab
 - **Mobile Display** — pair a phone over your local network (QR code + PIN)
   to either view usage stats on a second screen, or load the real vIDE
   editor/terminal/agent panels as a fully interactive second client of the

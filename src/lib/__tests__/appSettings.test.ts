@@ -11,7 +11,7 @@ vi.hoisted(() => {
 import { MOVABLE_APP_IDS } from '../appFavorites'
 import { APP_SETTINGS_PATHS, appEnabledSetter } from '../appSettings'
 import { SETTINGS_PAGES } from '@/components/Search/pageCommands'
-import { useDockerSettingsStore } from '@/stores/dockerSettingsStore'
+import { useNotesSettingsStore } from '@/stores/notesSettingsStore'
 
 describe('appSettings', () => {
   it('points every app at an existing settings page', () => {
@@ -24,9 +24,9 @@ describe('appSettings', () => {
   })
 
   it("flips the app's Enable switch", () => {
-    appEnabledSetter('docker')!(true)
-    expect(useDockerSettingsStore.getState().enabled).toBe(true)
-    appEnabledSetter('docker')!(false)
-    expect(useDockerSettingsStore.getState().enabled).toBe(false)
+    appEnabledSetter('notes')!(true)
+    expect(useNotesSettingsStore.getState().enabled).toBe(true)
+    appEnabledSetter('notes')!(false)
+    expect(useNotesSettingsStore.getState().enabled).toBe(false)
   })
 })

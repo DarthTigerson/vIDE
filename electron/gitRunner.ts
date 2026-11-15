@@ -2,7 +2,7 @@ import { ipcMain, BrowserWindow } from 'electron'
 import * as pty from 'node-pty'
 import type { GitCommandAction, GitCommandPayload } from '../src/types/index'
 import { buildGitArgs, gitEnvFor } from './gitArgs'
-import { getGitBranch, getGitBranches, getDefaultBranch, getBranchList, getAheadBehind, getGitStatus, stageFiles, unstageFiles, stageAll, unstageAll, commit, discardFileChanges, discardAllChanges, getDiffContent, getFileAtHead, getCommitDiffContent, getGitGraph, getGitBranchDiff, getGitShowStat, getIgnoredPaths, fetchRemote, getStagedDiff, discoverRepos, getFileBlame } from './git'
+import { getGitBranch, getGitBranches, getDefaultBranch, getBranchList, getAheadBehind, getGitStatus, stageFiles, unstageFiles, stageAll, unstageAll, commit, discardFileChanges, discardAllChanges, getDiffContent, getFileAtHead, getCommitDiffContent, getGitGraph, getGitBranchDiff, getGitShowStat, getIgnoredPaths, fetchRemote, getStagedDiff, discoverRepos, getFileBlame, getRemoteWebUrl } from './git'
 import { getMobileBroadcaster } from './mobile'
 
 function hasValidSize(cols: number, rows: number): boolean {
@@ -81,6 +81,7 @@ export class GitRunner {
     ipcMain.handle('git:graph', (_e, cwd: string, offset?: number, limit?: number) => getGitGraph(cwd, offset, limit))
     ipcMain.handle('git:branches', (_e, cwd: string) => getGitBranches(cwd))
     ipcMain.handle('git:defaultBranch', (_e, cwd: string) => getDefaultBranch(cwd))
+    ipcMain.handle('git:remoteWebUrl', (_e, cwd: string) => getRemoteWebUrl(cwd))
     ipcMain.handle('git:branchList', (_e, cwd: string) => getBranchList(cwd))
     ipcMain.handle('git:branchDiff', (_e, cwd: string, source: string, target: string, offset?: number, limit?: number) => getGitBranchDiff(cwd, source, target, offset, limit))
     ipcMain.handle('git:showStat', (_e, cwd: string, hash: string) => getGitShowStat(cwd, hash))

@@ -2,9 +2,6 @@ import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { useUsageAlertStore } from '@/stores/usageAlertStore'
 import { useUpdateStore } from '@/stores/updateStore'
-import { useDockerSettingsStore } from '@/stores/dockerSettingsStore'
-import { useDockerStore } from '@/stores/dockerStore'
-import { useDockerOffAlertStore } from '@/stores/dockerOffAlertStore'
 import { useGitStore } from '@/stores/gitStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitPanelOpenAlertStore } from '@/stores/gitPanelOpenAlertStore'
@@ -16,7 +13,11 @@ import { usePanelRequestStore } from '@/stores/panelRequestStore'
 import { formatCountdownClock } from '@/components/UsagePanel/format'
 import { useEditorStore } from '@/stores/editorStore'
 import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
-import { ClaudeIcon, DockerIcon, GitIcon, GraphIcon, LlamaIcon, UpdateAvailableIcon } from '@/components/ActivityBar/ActivityBar'
+import { useAppContribStore } from '@/apps/appContribStore'
+import { StoreBagIcon } from '@/components/Store/storeUi'
+import { useStoreStore, startStoreUpdates } from '@/stores/storeStore'
+import { MOVED_NOTICE_ID, movedApps, pendingUpdates, readLocalKey, updateNoticeId } from '@/lib/storeUpdates'
+import { ClaudeIcon, GitIcon, GraphIcon, LlamaIcon, UpdateAvailableIcon } from '@/components/ActivityBar/ActivityBar'
 
 export interface NotificationItem {
   id: string
@@ -24,14 +25,13 @@ export interface NotificationItem {
   disabled: boolean
   icon: ReactNode
   onClick?: () => void
+  // Extra work when the panel's x / Dismiss all clears this row (e.g. persisting it).
+  onDismiss?: () => void
 }
 
 export function useNotificationItems(): NotificationItem[] {
   const usageAlerts = useUsageAlertStore((s) => s.alerts)
   const gitRepos = useGitStore((s) => s.repos)
-  const dockerEnabled = useDockerSettingsStore((s) => s.enabled)
-  const dockerStatus = useDockerStore((s) => s.status)
-  const requestDockerOpen = useDockerOffAlertStore((s) => s.requestOpen)
   const llamaEnabled = useLlamaSettingsStore((s) => s.enabled)
   const llamaAvailable = useLlamaStore((s) => s.available)
   const graphifyEnabled = useGraphifySettingsStore((s) => s.enabled)
@@ -45,6 +45,19 @@ export function useNotificationItems(): NotificationItem[] {
   const startUpdate = useUpdateStore((s) => s.startUpdate)
   const openUpdatePage = useUpdateStore((s) => s.openUpdatePage)
   const restart = useUpdateStore((s) => s.restart)
+
+  const appNotifications = useAppContribStore((s) => s.notifications)
+  const installedApps = useAppContribStore((s) => s.apps)
+  const storeRegistry = useStoreStore((s) => s.registry)
+  const dismissedUpdates = useStoreStore((s) => s.dismissedUpdates)
+  const storeErrors = useStoreStore((s) => s.errors)
+  const storeEvents = useStoreStore((s) => s.events)
+  const movedNoticeDismissed = useStoreStore((s) => s.movedNoticeDismissed)
+
+  // The bell needs the catalog even when the Store tab was never opened.
+  useEffect(() => {
+    startStoreUpdates()
+  }, [])
 
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -76,7 +89,7 @@ export function useNotificationItems(): NotificationItem[] {
 
   // A repo's commitError persists in gitStore until the next successful
   // commit (or the message is edited) — same "stays active until the
-  // underlying condition clears" shape as the usage/docker/update items
+  // underlying condition clears" shape as the usage/update items
   // above, so it plugs into the same acknowledge/reconcile rules for free.
   for (const [cwd, repoState] of Object.entries(gitRepos)) {
     if (!repoState.commitError) continue
@@ -107,16 +120,6 @@ export function useNotificationItems(): NotificationItem[] {
         useGitReposStore.getState().selectRepo(cwd)
         useGitPanelOpenAlertStore.getState().requestOpen()
       },
-    })
-  }
-
-  if (dockerEnabled && dockerStatus === 'stopped') {
-    items.push({
-      id: 'docker',
-      text: "Docker isn't running",
-      disabled: false,
-      icon: <DockerIcon />,
-      onClick: requestDockerOpen,
     })
   }
 
@@ -181,6 +184,54 @@ export function useNotificationItems(): NotificationItem[] {
     // Updating: reopen the Update page (VIDE-142) to watch its progress.
     const onClick = status === 'ready' ? restart : status === 'updating' ? openUpdatePage : startUpdate
     items.push({ id: 'update', text, disabled: false, icon: <UpdateAvailableIcon />, onClick })
+  }
+
+  // Notifications registered by store apps (vide.notifications.add).
+  for (const n of appNotifications) {
+    items.push({
+      id: `app-${n.appId}-${n.id}`,
+      text: n.text,
+      disabled: false,
+      icon: <StoreBagIcon size={16} />,
+      onClick: n.onClick,
+    })
+  }
+
+  // One notice per app version; click installs it, x silences that version.
+  for (const u of pendingUpdates(storeRegistry, installedApps, dismissedUpdates)) {
+    const noticeId = updateNoticeId(u.id, u.version)
+    items.push({
+      id: noticeId,
+      text: storeErrors[u.id] ? `Couldn't update ${u.name}: ${storeErrors[u.id]}` : `${u.name} ${u.version} is available`,
+      disabled: false,
+      icon: <StoreBagIcon size={16} />,
+      onClick: () => void useStoreStore.getState().install(u.id),
+      onDismiss: () => useStoreStore.getState().dismissUpdate(noticeId),
+    })
+  }
+
+  // Built-ins that moved to the Store and were enabled here: click opens the
+  // install list; x dismisses it for good (see storeStore.dismissMovedNotice).
+  if (movedApps(storeRegistry, installedApps, readLocalKey, movedNoticeDismissed).length > 0) {
+    items.push({
+      id: MOVED_NOTICE_ID,
+      text: 'Some apps moved to the Store',
+      disabled: false,
+      icon: <StoreBagIcon size={16} />,
+      onClick: () => useStoreStore.getState().setMovedNoticeOpen(true),
+      onDismiss: () => useStoreStore.getState().dismissMovedNotice(),
+    })
+  }
+
+  // Install results: one item per event, so each peeks once; x removes it.
+  for (const ev of storeEvents) {
+    items.push({
+      id: ev.id,
+      text: ev.text,
+      disabled: false,
+      icon: <StoreBagIcon size={16} />,
+      onDismiss: () => useStoreStore.getState().dismissEvent(ev.id),
+    })
   }
 
   return items

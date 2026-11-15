@@ -65,6 +65,16 @@ describe('view commands', () => {
   it('View: Alarms opens the Alarms tab', () => {
     expect(find('view-alarms').label).toBe('View: Alarms')
   })
+
+  it('View: Store opens the Store tab', async () => {
+    const { useEditorStore } = await import('@/stores/editorStore')
+    const openTab = vi.spyOn(useEditorStore.getState(), 'openTab').mockImplementation(() => {})
+    const cmd = find('view-store')
+    expect(cmd.label).toBe('View: Store')
+    ;(cmd as { action: () => void }).action()
+    expect(openTab).toHaveBeenCalledWith({ path: 'store://Store', content: '', dirty: false })
+    openTab.mockRestore()
+  })
 })
 
 describe('alarm commands', () => {
@@ -89,5 +99,16 @@ describe('alarm commands', () => {
     useAlarmStore.getState().ring(id)
     find('alarm-stop').action?.()
     expect(useAlarmStore.getState().ringing).toBeNull()
+  })
+})
+
+describe('app settings pages', () => {
+  it('adds a Settings row for each store app settings page', async () => {
+    const { useAppContribStore } = await import('@/apps/appContribStore')
+    useAppContribStore.getState().registerSettingsPage({ appId: 'hello', title: 'Hello', component: () => null })
+    const cmd = pageCommands().find((c) => c.id === 'settings-app-hello')
+    expect(cmd?.label).toBe('Settings: Hello')
+    useAppContribStore.getState().clearApp('hello')
+    expect(pageCommands().some((c) => c.id === 'settings-app-hello')).toBe(false)
   })
 })

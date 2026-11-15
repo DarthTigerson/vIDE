@@ -11,8 +11,11 @@ export const EXCLUDED_CHANNELS = new Set<string>([
   // Panel search spawns ripgrep on this machine and pushes results to the requesting window
   // (search:results / search:done); same per-connection streaming gap as the channels above
   'search:start', 'search:cancel',
-  // Docker event streaming — new streaming wiring comparable to term:data, deferred
-  'docker:runLogs', 'docker:stopLogs', 'docker:watch', 'docker:unwatch',
+
+  // vSuite Store: installs apps into this desktop's vIDE; the Store UI is desktop-only in phase 1
+  'store:getRegistry', 'store:getReadme', 'store:takePendingOpen',  // vide://store links target this desktop's windows
+  'apps:pickPackage', 'apps:installPackage', 'apps:discardPackage',  // install-from-file: native open dialog on this desktop
+  'apps:list', 'apps:install', 'apps:uninstall', 'apps:setEnabled', 'apps:call', 'apps:isDev', 'apps:loadDevFolder', 'apps:unloadDev', 'apps:restart',
 
   // Desktop-only native features
   'devtools:attach', 'devtools:detach',    // native developer tools
@@ -41,7 +44,7 @@ export const EXCLUDED_CHANNELS = new Set<string>([
   'todos:mcp:enable', 'todos:mcp:disable',
   'notes:mcp:enable', 'notes:mcp:disable',
   'scripts:mcp:enable', 'scripts:mcp:disable',
-  'search:mcp:enable', 'search:mcp:disable',
+  'mcp:catalog',
 
   // Scripts — run by typing into desktop terminals; desktop-only for now (the
   // mobile shim stubs an empty list). run-request is Claude's run_script

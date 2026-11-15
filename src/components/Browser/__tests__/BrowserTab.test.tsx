@@ -162,7 +162,7 @@ describe('BrowserTab', () => {
     expect(queryByLabelText('Add to favorites')).toBeNull()
   })
 
-  // A tab seeded with a url before mount (Jira, git-remote, and the
+  // A tab seeded with a url before mount (git-remote and the
   // Claude-controlled tab) registers its native view at mount, so the next
   // navigation must go through browserViewNavigate — a second
   // browserViewCreate would be a no-op in the main process and silently drop

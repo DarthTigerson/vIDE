@@ -4,17 +4,24 @@ import type { InlineEditStartPayload, InlineEditEvent } from '../../electron/inl
 import type { LatestUsage, UsageSnapshot } from '../../electron/usagePoller'
 import type { UpdateInfo, UpdateCheckStatus } from '../../electron/updateChecker'
 import type { ChangelogRelease } from '../../electron/changelog'
+import type { RegistryState, StoreListing } from '../../electron/store'
+import type { AppInfo, AppStatus, AppContributes } from '../../electron/apps/appTypes'
 import type { GraphifyGraph } from './graphify'
 import type { DefinitionLocation, DetectResult, LspCompletionItem, LspHoverResult, LspServerId } from '../../electron/lsp/types'
-import type { DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats } from '../../electron/docker'
 import type { LlamaLaunchConfig } from '../../electron/llama'
+import type { McpServerId, McpToolInfo } from '../../electron/mcp/mcpTypes'
 import type { OnboardingStatus, GitIdentity } from '../../electron/onboarding'
 import type { ConfigRepoSettings } from '../../electron/configRepo'
 import type { SearchHit, SearchOptions, SearchBatch, SearchDone } from '../../electron/searchTypes'
 import type { Script } from '../../electron/scriptsData'
 import type { ScriptTags } from '../../electron/scriptTags'
 
-export type { LatestUsage, UsageSnapshot, UpdateInfo, DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats }
+export type { RegistryState, StoreListing }
+export type { AppInfo, AppStatus, AppContributes }
+export type PickPackageResult = import('../../electron/apps/appHost').PickResult
+export type InstallOutcome = import('../../electron/apps/appHost').InstallOutcome
+export type FileSummary = import('../../electron/apps/installFromFile').FileSummary
+export type { LatestUsage, UsageSnapshot, UpdateInfo }
 
 export type { Script, ScriptTags }
 export type ScriptInput = { title: string; description?: string; body?: string; shareOutput?: boolean }
@@ -136,7 +143,7 @@ export interface BridgeSettings {
   rocky?: boolean
 }
 
-export type VideToolGroup = 'todos' | 'notes' | 'scripts' | 'browser' | 'search' | 'docs'
+export type VideToolGroup = 'todos' | 'notes' | 'scripts' | 'browser' | 'docs'
 
 export interface RecentProject {
   path: string
@@ -282,6 +289,7 @@ declare global {
       gitGraph: (cwd: string, offset?: number, limit?: number) => Promise<GitCommit[]>
       gitBranches: (cwd: string) => Promise<string[]>
       gitDefaultBranch: (cwd: string) => Promise<string | null>
+      gitRemoteWebUrl: (cwd: string) => Promise<string | null>
       gitBranchList: (cwd: string) => Promise<GitBranchList>
       gitBranchDiff: (cwd: string, source: string, target: string, offset?: number, limit?: number) => Promise<GitBranchDiff>
       gitShowStat: (cwd: string, hash: string) => Promise<string[]>
@@ -292,25 +300,6 @@ declare global {
       onGitChanged: (cb: (cwd: string) => void) => () => void
       gitBlame: (cwd: string, path: string) => Promise<GitFileBlame>
 
-      dockerStatus: () => Promise<DockerStatus>
-      dockerListContainers: () => Promise<DockerContainer[]>
-      dockerStartContainer: (id: string) => Promise<DockerActionResult>
-      dockerStopContainer: (id: string) => Promise<DockerActionResult>
-      dockerRestartContainer: (id: string) => Promise<DockerActionResult>
-      dockerRemoveContainer: (id: string) => Promise<DockerActionResult>
-      dockerStartContainers: (ids: string[]) => Promise<DockerActionResult>
-      dockerStopContainers: (ids: string[]) => Promise<DockerActionResult>
-      dockerRemoveContainers: (ids: string[]) => Promise<DockerActionResult>
-      dockerGetContainerStats: () => Promise<Record<string, DockerContainerStats>>
-      dockerOpenApp: () => Promise<DockerActionResult>
-      dockerCloseApp: () => Promise<DockerActionResult>
-      dockerRunLogs: (streamId: string, containerId: string) => Promise<void>
-      dockerStopLogs: (streamId: string) => void
-      onDockerLogData: (cb: (streamId: string, data: string) => void) => () => void
-      onDockerLogExit: (cb: (streamId: string, code: number) => void) => () => void
-      dockerWatch: () => void
-      dockerUnwatch: () => void
-      onDockerChanged: (cb: () => void) => () => void
 
       termSpawn: (id: string, cwd?: string) => Promise<void>
       termKill: (id: string) => Promise<void>
@@ -375,6 +364,30 @@ declare global {
       // Settings > About (VIDE-143): last check outcome, and check now.
       updateGetStatus: () => Promise<UpdateCheckStatus>
       updateCheck: () => Promise<UpdateCheckStatus>
+      // vSuite Store catalog (electron/store.ts). refresh=false may return the session cache.
+      storeGetRegistry: (refresh?: boolean) => Promise<RegistryState>
+      // Fired (no args) when a periodic catalog refresh changed the result.
+      onStoreChanged: (cb: () => void) => () => void
+      // Store apps (electron/apps/appHost.ts)
+      storeGetReadme: (id: string) => Promise<{ ok: true; text: string } | { ok: false }>
+      // vide://store/<id> link waiting for this window (id null = just open the Store).
+      storeTakePendingOpen: () => Promise<{ kind: 'store'; id: string | null } | null>
+      onStoreOpen: (cb: () => void) => () => void
+      // Install from file: pick + inspect a .zip, then install it by token.
+      appsPickPackage: () => Promise<PickPackageResult>
+      appsInstallPackage: (token: string) => Promise<InstallOutcome>
+      appsDiscardPackage: (token: string) => Promise<void>
+      appsList: () => Promise<AppInfo[]>
+      appsInstall: (id: string) => Promise<InstallOutcome>
+      appsUninstall: (id: string) => Promise<{ ok: true } | { ok: false; error: string }>
+      appsSetEnabled: (id: string, enabled: boolean) => Promise<{ ok: true } | { ok: false; error: string }>
+      appsCall: (appId: string, method: string, payload?: unknown) => Promise<unknown>
+      appsIsDev: () => Promise<boolean>
+      appsLoadDevFolder: () => Promise<{ ok: true; id: string } | { ok: false; error: string }>
+      appsUnloadDev: (id: string) => Promise<void>
+      appsRestart: () => Promise<void>
+      onAppsEvent: (cb: (appId: string, event: string, payload: unknown) => void) => () => void
+      onAppsChanged: (cb: () => void) => () => void
       updateRestart: () => void
       // Relaunches every window (palette "App: Restart vIDE", Cmd+Alt+R).
       restartApp: () => void
@@ -475,8 +488,8 @@ declare global {
       onScriptRunRequest: (cb: (req: { terminalId: string; scriptId: string; command: string }) => void) => () => void
       browserMcpEnable: () => Promise<void>
       browserMcpDisable: () => Promise<void>
-      searchMcpEnable: () => Promise<void>
-      searchMcpDisable: () => Promise<void>
+      // Tool names and descriptions of every vIDE MCP server, for the MCP panel.
+      mcpCatalog: () => Promise<Record<McpServerId, McpToolInfo[]>>
 
       setWindowTitle: (root: string) => void
 

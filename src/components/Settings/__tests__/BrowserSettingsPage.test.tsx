@@ -12,9 +12,6 @@ vi.hoisted(() => {
     browserMcpEnable: () => Promise.resolve(),
     browserMcpDisable: () => Promise.resolve(),
     browserMcpSetEnabled: () => Promise.resolve(),
-    // searchMcpStore has the same module-load-time sync effect.
-    searchMcpEnable: () => Promise.resolve(),
-    searchMcpDisable: () => Promise.resolve(),
   }
 })
 

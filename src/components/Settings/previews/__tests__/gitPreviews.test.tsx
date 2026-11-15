@@ -6,7 +6,8 @@ import {
 } from '../gitPreviews'
 import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
 import { useGitSettingsStore } from '@/stores/gitSettingsStore'
-import { useGitRemoteSettingsStore } from '@/stores/gitRemoteSettingsStore'
+import { useGitRemoteUrlStore } from '@/stores/gitRemoteUrlStore'
+import { useGitReposStore } from '@/stores/gitReposStore'
 import { useFileStore } from '@/stores/fileStore'
 import { useGeneralSettingsStore } from '@/stores/generalSettingsStore'
 
@@ -14,7 +15,8 @@ const BLAME = 'Thomas, 2 days ago · Fixed sync auth'
 
 beforeEach(() => {
   useFileStore.setState({ projectRoot: null })
-  useGitRemoteSettingsStore.setState({ externalUrl: '', projectUrls: {} })
+  useGitRemoteUrlStore.setState({ urls: {} })
+  useGitReposStore.setState({ repos: [], selectedRepo: null })
 })
 afterEach(cleanup)
 
@@ -109,24 +111,23 @@ describe('GraphTabsPreview', () => {
 })
 
 describe('RemotePreview', () => {
-  it('names the host from the URL and survives a half-typed one', () => {
-    useGitRemoteSettingsStore.setState({ externalUrl: 'https://gitlab.com/acme/widgets' })
+  it('names the host from the active repo\'s remote', () => {
+    useGitReposStore.setState({ repos: ['/repo/a'], selectedRepo: '/repo/a' })
+    useGitRemoteUrlStore.setState({ urls: { '/repo/a': 'https://gitlab.com/acme/widgets' } })
     const { rerender } = render(<RemotePreview />)
     expect(screen.getByText('Open GitLab')).toBeInTheDocument()
 
-    useGitRemoteSettingsStore.setState({ externalUrl: 'gitl' })
+    useGitRemoteUrlStore.setState({ urls: { '/repo/a': 'https://git.corp.internal/acme/widgets' } })
     rerender(<RemotePreview />)
     expect(screen.getByText('Open Repository')).toBeInTheDocument()
 
-    useGitRemoteSettingsStore.setState({ externalUrl: '' })
+    useGitRemoteUrlStore.setState({ urls: { '/repo/a': null } })
     rerender(<RemotePreview />)
-    expect(screen.getByText(/Add a URL/)).toBeInTheDocument()
+    expect(screen.getByText('This repo has no git remote.')).toBeInTheDocument()
   })
 
-  it('prefers this project’s URL over the default', () => {
-    useFileStore.setState({ projectRoot: '/repo/a' })
-    useGitRemoteSettingsStore.setState({ externalUrl: 'https://github.com/acme/a', projectUrls: { '/repo/a': 'https://bitbucket.org/acme/a' } })
+  it('asks for a repo when none is active', () => {
     render(<RemotePreview />)
-    expect(screen.getByText('Open Bitbucket')).toBeInTheDocument()
+    expect(screen.getByText('Open a repo to see its launcher.')).toBeInTheDocument()
   })
 })

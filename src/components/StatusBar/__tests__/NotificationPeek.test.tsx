@@ -3,8 +3,8 @@ import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import { NotificationPeek, PEEK_MS } from '../NotificationPeek'
 import { useUsageAlertStore } from '@/stores/usageAlertStore'
 import { useUpdateStore } from '@/stores/updateStore'
-import { useDockerSettingsStore } from '@/stores/dockerSettingsStore'
-import { useDockerStore } from '@/stores/dockerStore'
+import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
+import { useLlamaStore } from '@/stores/llamaStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { useNotificationPanelStore } from '@/stores/notificationPanelStore'
 import { useNotificationAcknowledgedStore } from '@/stores/notificationAcknowledgedStore'
@@ -15,8 +15,8 @@ import { usePeekEventStore } from '@/stores/peekEventStore'
 function resetStores() {
   useUsageAlertStore.setState({ alerts: [] })
   useUpdateStore.setState({ available: null, status: 'idle' })
-  useDockerSettingsStore.setState({ enabled: false })
-  useDockerStore.setState({ status: 'unknown' })
+  useLlamaSettingsStore.setState({ enabled: false })
+  useLlamaStore.setState({ available: null })
   useEditorStore.setState({ activeTabPath: null })
   useNotificationPanelStore.setState({ open: false })
   useNotificationAcknowledgedStore.setState({ acknowledgedIds: [], dismissedIds: [] })
@@ -36,9 +36,9 @@ afterEach(() => {
 })
 
 const sessionAlert = () => ({ scope: 'session' as const, cutoffAt: Date.now() + 3_600_000, resetAt: null })
-const dockerOff = () => {
-  useDockerSettingsStore.setState({ enabled: true })
-  useDockerStore.setState({ status: 'stopped' })
+const llamaOff = () => {
+  useLlamaSettingsStore.setState({ enabled: true })
+  useLlamaStore.setState({ available: false })
 }
 
 describe('NotificationPeek', () => {
@@ -108,7 +108,7 @@ describe('NotificationPeek', () => {
   })
 
   it('offers "+N more" when others are active, which opens the full panel', () => {
-    dockerOff()
+    llamaOff()
     render(<NotificationPeek />)
     act(() => {
       vi.advanceTimersByTime(PEEK_MS)
@@ -131,12 +131,12 @@ describe('NotificationPeek', () => {
     act(() => {
       vi.advanceTimersByTime(3000)
     })
-    act(() => dockerOff())
+    act(() => llamaOff())
 
     const rows = screen.getAllByRole('listitem').map((li) => li.textContent)
     expect(rows).toHaveLength(2)
     expect(rows[0]).toMatch(/Session usage may run out/)
-    expect(rows[1]).toMatch(/Docker isn't running/)
+    expect(rows[1]).toMatch(/llama.cpp isn't installed/)
 
     // t=5s: the first row expires and fades; the second keeps going
     act(() => {
@@ -149,7 +149,7 @@ describe('NotificationPeek', () => {
     })
     const left = screen.getAllByRole('listitem')
     expect(left).toHaveLength(1)
-    expect(left[0].textContent).toMatch(/Docker isn't running/)
+    expect(left[0].textContent).toMatch(/llama.cpp isn't installed/)
     expect(screen.getByTestId('notification-peek').className).toMatch(/opacity-100/)
 
     // t=8s: the second's own 5s is up, so the whole peek closes
@@ -166,7 +166,7 @@ describe('NotificationPeek', () => {
     useUsageAlertStore.setState({ alerts: [sessionAlert()] })
     render(<NotificationPeek />)
     fireEvent.mouseEnter(screen.getByTestId('notification-peek'))
-    act(() => dockerOff())
+    act(() => llamaOff())
     expect(screen.getAllByRole('listitem')).toHaveLength(2)
   })
 
@@ -179,20 +179,20 @@ describe('NotificationPeek', () => {
     act(() => {
       vi.advanceTimersByTime(200)
     })
-    act(() => dockerOff())
+    act(() => llamaOff())
     const rows = screen.getAllByRole('listitem')
     expect(rows).toHaveLength(1)
-    expect(rows[0].textContent).toMatch(/Docker isn't running/)
+    expect(rows[0].textContent).toMatch(/llama.cpp isn't installed/)
   })
 
   it('clicking one stacked row leaves the others showing', () => {
     useUsageAlertStore.setState({ alerts: [sessionAlert()] })
     render(<NotificationPeek />)
-    act(() => dockerOff())
+    act(() => llamaOff())
     fireEvent.mouseUp(screen.getByText(/Session usage may run out/), { button: 0 })
     const rows = screen.getAllByRole('listitem')
     expect(rows).toHaveLength(1)
-    expect(rows[0].textContent).toMatch(/Docker isn't running/)
+    expect(rows[0].textContent).toMatch(/llama.cpp isn't installed/)
   })
 
   it('stays hidden while the full panel is open', () => {
@@ -221,7 +221,7 @@ describe('NotificationPeek peek-only events', () => {
   })
 
   it('does not count events in the "+N more" row', () => {
-    dockerOff()
+    llamaOff()
     useNotificationAcknowledgedStore.setState({ acknowledgedIds: [], dismissedIds: [] })
     render(<NotificationPeek />)
     act(() => usePeekEventStore.getState().show('Switched to repoB', 'git'))

@@ -16,17 +16,20 @@ import {
   CLAUDE_SETTINGS_TAB_PATH,
   BRIDGE_SETTINGS_TAB_PATH,
   GRAPHIFY_SETTINGS_TAB_PATH,
-  JIRA_SETTINGS_TAB_PATH,
-  DOCKER_SETTINGS_TAB_PATH,
   MOBILE_SETTINGS_TAB_PATH,
   TODO_SETTINGS_TAB_PATH,
   NOTES_SETTINGS_TAB_PATH,
   SCRIPTS_SETTINGS_TAB_PATH,
   LLAMA_SETTINGS_TAB_PATH,
+  STORE_SETTINGS_TAB_PATH,
+  AGENT_TOOLING_SETTINGS_TAB_PATH,
   USAGE_GRAPH_TAB_PATH,
   ALARMS_TAB_PATH,
   GRAPHIFY_GRAPH_TAB_PATH,
+  STORE_TAB_PATH,
+  buildAppSettingsPath,
 } from '@/components/Settings/paths'
+import { useAppContribStore } from '@/apps/appContribStore'
 import { useAlarmStore } from '@/stores/alarmStore'
 
 const noAlarmRinging = () => (useAlarmStore.getState().ringing ? null : 'No alarm is ringing')
@@ -52,14 +55,24 @@ export const SETTINGS_PAGES: SettingsPage[] = [
   { id: 'settings-claude', label: 'Settings: Claude', path: CLAUDE_SETTINGS_TAB_PATH, keywords: ['assistant', 'cli'] },
   { id: 'settings-bridge', label: 'Settings: Bridge', path: BRIDGE_SETTINGS_TAB_PATH, keywords: ['local', 'llm', 'openai'] },
   { id: 'settings-graphify', label: 'Settings: Graphify', path: GRAPHIFY_SETTINGS_TAB_PATH, keywords: ['knowledge', 'graph'] },
-  { id: 'settings-jira', label: 'Settings: Jira', path: JIRA_SETTINGS_TAB_PATH, keywords: ['tickets', 'issues'] },
-  { id: 'settings-docker', label: 'Settings: Docker', path: DOCKER_SETTINGS_TAB_PATH, keywords: ['containers'] },
   { id: 'settings-mobile', label: 'Settings: Mobile', path: MOBILE_SETTINGS_TAB_PATH, keywords: ['phone', 'qr', 'pair'] },
   { id: 'settings-todo', label: 'Settings: Todo', path: TODO_SETTINGS_TAB_PATH, keywords: ['tasks', 'board'] },
   { id: 'settings-notes', label: 'Settings: Notes', path: NOTES_SETTINGS_TAB_PATH, keywords: ['markdown'] },
   { id: 'settings-scripts', label: 'Settings: Scripts', path: SCRIPTS_SETTINGS_TAB_PATH, keywords: ['routine', 'shell', 'mcp'] },
+  { id: 'settings-agent-tooling', label: 'Settings: Agent Tooling', path: AGENT_TOOLING_SETTINGS_TAB_PATH, description: 'Tools agents can call, built in and from apps', keywords: ['mcp', 'tools', 'agent', 'search', 'web search'] },
+  { id: 'settings-store', label: 'Settings: Store', path: STORE_SETTINGS_TAB_PATH, description: 'Install apps from a file', keywords: ['apps', 'install', 'package', 'zip', 'vsuite'] },
   { id: 'settings-llama', label: 'Settings: Llama', path: LLAMA_SETTINGS_TAB_PATH, keywords: ['local', 'model', 'llm'] },
 ]
+
+// One row per store app settings page, computed at call time.
+function appSettingsPages(): SettingsPage[] {
+  return Object.values(useAppContribStore.getState().settingsPages).map((page) => ({
+    id: `settings-app-${page.appId}`,
+    label: `Settings: ${page.title}`,
+    path: buildAppSettingsPath(page.appId),
+    keywords: ['app'],
+  }))
+}
 
 export function pageCommands(): Command[] {
   return [
@@ -84,7 +97,7 @@ export function pageCommands(): Command[] {
       keywords: ['compare', 'diff', 'branch'],
       action: () => openGitTab(GIT_BRANCH_DIFF_TAB_PATH),
     },
-    ...SETTINGS_PAGES.map((page): Command => ({
+    ...[...SETTINGS_PAGES, ...appSettingsPages()].map((page): Command => ({
       id: page.id,
       label: page.label,
       description: page.description,
@@ -97,6 +110,13 @@ export function pageCommands(): Command[] {
       description: 'Open the usage graph',
       keywords: ['usage', 'stats'],
       action: () => openTab(USAGE_GRAPH_TAB_PATH),
+    },
+    {
+      id: 'view-store',
+      label: 'View: Store',
+      description: 'Browse and install vIDE apps',
+      keywords: ['store', 'apps', 'install', 'vsuite', 'plugins', 'extensions'],
+      action: () => openTab(STORE_TAB_PATH),
     },
     {
       id: 'view-alarms',

@@ -4,8 +4,8 @@ import { NotificationPanel } from '../NotificationPanel'
 import { useNotificationPanelStore } from '@/stores/notificationPanelStore'
 import { useUsageAlertStore } from '@/stores/usageAlertStore'
 import { useUpdateStore } from '@/stores/updateStore'
-import { useDockerSettingsStore } from '@/stores/dockerSettingsStore'
-import { useDockerStore } from '@/stores/dockerStore'
+import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
+import { useLlamaStore } from '@/stores/llamaStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { useNotificationAcknowledgedStore } from '@/stores/notificationAcknowledgedStore'
 import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
@@ -14,8 +14,8 @@ beforeEach(() => {
   useNotificationPanelStore.setState({ open: true })
   useUsageAlertStore.setState({ alerts: [{ scope: 'session', cutoffAt: Date.now() + 1000, resetAt: null }] })
   useUpdateStore.setState({ available: null, status: 'idle' })
-  useDockerSettingsStore.setState({ enabled: false })
-  useDockerStore.setState({ status: 'unknown' })
+  useLlamaSettingsStore.setState({ enabled: false })
+  useLlamaStore.setState({ available: null })
   useEditorStore.setState({ activeTabPath: null })
   useNotificationAcknowledgedStore.setState({ acknowledgedIds: [], dismissedIds: [] })
 })
@@ -85,8 +85,8 @@ describe('NotificationPanel', () => {
   })
 
   it('dismissing a row acknowledges it, removes it from the list, and leaves the panel open when another row remains', () => {
-    useDockerSettingsStore.setState({ enabled: true })
-    useDockerStore.setState({ status: 'stopped' })
+    useLlamaSettingsStore.setState({ enabled: true })
+    useLlamaStore.setState({ available: false })
     render(<NotificationPanel />)
     fireEvent.mouseUp(screen.getAllByRole('button', { name: 'Dismiss notification' })[0], { button: 0 })
 
@@ -102,14 +102,14 @@ describe('NotificationPanel', () => {
   })
 
   it('dismissing one row leaves other active rows visible', () => {
-    useDockerSettingsStore.setState({ enabled: true })
-    useDockerStore.setState({ status: 'stopped' })
+    useLlamaSettingsStore.setState({ enabled: true })
+    useLlamaStore.setState({ available: false })
     render(<NotificationPanel />)
 
     fireEvent.mouseUp(screen.getAllByRole('button', { name: 'Dismiss notification' })[0], { button: 0 })
 
     expect(screen.queryByText(/Session usage may run out/)).toBeNull()
-    expect(screen.getByText("Docker isn't running")).toBeInTheDocument()
+    expect(screen.getByText("llama.cpp isn't installed")).toBeInTheDocument()
   })
 
   it('dismissing the last visible row closes the panel', () => {
@@ -121,25 +121,25 @@ describe('NotificationPanel', () => {
 
 describe('NotificationPanel — header, unread dots and toggle clicks', () => {
   it('shows a header with the count', () => {
-    useDockerSettingsStore.setState({ enabled: true })
-    useDockerStore.setState({ status: 'stopped' })
+    useLlamaSettingsStore.setState({ enabled: true })
+    useLlamaStore.setState({ available: false })
     render(<NotificationPanel />)
     expect(screen.getByText('Notifications').parentElement?.textContent).toBe('Notifications · 2')
   })
 
   it('Dismiss all acknowledges every row and closes the panel', () => {
-    useDockerSettingsStore.setState({ enabled: true })
-    useDockerStore.setState({ status: 'stopped' })
+    useLlamaSettingsStore.setState({ enabled: true })
+    useLlamaStore.setState({ available: false })
     render(<NotificationPanel />)
     fireEvent.mouseUp(screen.getByRole('button', { name: 'Dismiss all' }), { button: 0 })
-    expect(useNotificationAcknowledgedStore.getState().acknowledgedIds).toEqual(expect.arrayContaining(['usage-session', 'docker']))
+    expect(useNotificationAcknowledgedStore.getState().acknowledgedIds).toEqual(expect.arrayContaining(['usage-session', 'llama-unavailable']))
     expect(useNotificationPanelStore.getState().open).toBe(false)
   })
 
   it('marks unread rows with a dot and seen rows without one', () => {
-    useDockerSettingsStore.setState({ enabled: true })
-    useDockerStore.setState({ status: 'stopped' })
-    useNotificationAcknowledgedStore.setState({ acknowledgedIds: ['docker'] })
+    useLlamaSettingsStore.setState({ enabled: true })
+    useLlamaStore.setState({ available: false })
+    useNotificationAcknowledgedStore.setState({ acknowledgedIds: ['llama-unavailable'] })
     render(<NotificationPanel />)
     const dots = screen.getAllByTestId('notification-unread-dot')
     expect(dots[0].className).toMatch(/bg-accent/)

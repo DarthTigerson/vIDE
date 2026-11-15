@@ -1,6 +1,7 @@
 import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
 import { useGitSettingsStore } from '@/stores/gitSettingsStore'
-import { useGitRemoteSettingsStore } from '@/stores/gitRemoteSettingsStore'
+import { useGitRemoteUrlStore } from '@/stores/gitRemoteUrlStore'
+import { useActiveRepo } from '@/stores/gitReposStore'
 import { useFileStore } from '@/stores/fileStore'
 import { useGeneralSettingsStore } from '@/stores/generalSettingsStore'
 import { detectGitRemoteProvider, gitRemoteIcon, gitRemoteLabel } from '@/lib/gitRemoteProvider'
@@ -150,8 +151,8 @@ export function GraphTabsPreview() {
 }
 
 export function RemotePreview() {
-  const projectRoot = useFileStore((s) => s.projectRoot)
-  const url = useGitRemoteSettingsStore((s) => (projectRoot && s.projectUrls[projectRoot]) || s.externalUrl)
+  const activeRepo = useActiveRepo()
+  const url = useGitRemoteUrlStore((s) => (activeRepo ? s.urls[activeRepo] ?? '' : ''))
   const provider = detectGitRemoteProvider(url)
   return (
     <PreviewFrame testId="remote-preview" caption="Git panel">
@@ -166,7 +167,7 @@ export function RemotePreview() {
           <span>↗</span>
         </div>
       ) : (
-        <div className="px-2.5 pb-2.5 text-fg-subtle">Add a URL to get a launcher button here.</div>
+        <div className="px-2.5 pb-2.5 text-fg-subtle">{activeRepo ? 'This repo has no git remote.' : 'Open a repo to see its launcher.'}</div>
       )}
     </PreviewFrame>
   )

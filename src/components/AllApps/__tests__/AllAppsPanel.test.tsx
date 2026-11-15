@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { AllAppsPanel, ALL_APPS_VIEW_KEY, ALL_APPS_DISABLED_OPEN_KEY } from '../AllAppsPanel'
 import { APP_DRAG_MIME } from '@/components/ActivityBar/ActivityBar'
+import { usePeekEventStore } from '@/stores/peekEventStore'
+import { useEditorStore } from '@/stores/editorStore'
 
 const apps = [
   { id: 'docker', title: 'Docker', icon: null, favorite: true, onOpen: vi.fn(), onSettings: vi.fn(), onDisable: vi.fn() },
@@ -21,6 +23,14 @@ function setup(open = true) {
 }
 
 describe('AllAppsPanel', () => {
+  it('opens the Store tab from the button at the bottom', () => {
+    const openTab = vi.spyOn(useEditorStore.getState(), 'openTab').mockImplementation(() => {})
+    setup()
+    fireEvent.click(screen.getByRole('button', { name: 'Store' }))
+    expect(openTab).toHaveBeenCalledWith({ path: 'store://Store', content: '', dirty: false })
+    openTab.mockRestore()
+  })
+
   it("shows an app's badge on its row", () => {
     setup()
     expect(screen.getByText('To Do').closest('button')!.textContent).toContain('2')
@@ -159,7 +169,7 @@ describe('AllAppsPanel', () => {
 
   describe('Disabled section', () => {
     const disabled = () => [
-      { id: 'jira', title: 'Jira', icon: null, onEnable: vi.fn(), onSettings: vi.fn() },
+      { id: 'graphify', title: 'Graphify', icon: null, onEnable: vi.fn(), onSettings: vi.fn() },
       { id: 'scripts', title: 'Scripts', icon: null, onEnable: vi.fn(), onSettings: vi.fn() },
     ]
     const renderWith = (list = disabled()) => {
@@ -173,10 +183,10 @@ describe('AllAppsPanel', () => {
       const toggle = screen.getByRole('button', { name: /Disabled/ })
       expect(toggle.getAttribute('aria-expanded')).toBe('false')
       expect(toggle.textContent).toContain('2')
-      expect(screen.queryByText('Jira')).toBeNull()
+      expect(screen.queryByText('Graphify')).toBeNull()
 
       fireEvent.click(toggle)
-      expect(screen.getByText('Jira')).toBeTruthy()
+      expect(screen.getByText('Graphify')).toBeTruthy()
       expect(localStorage.getItem(ALL_APPS_DISABLED_OPEN_KEY)).toBe('true')
       fireEvent.click(toggle)
       expect(localStorage.getItem(ALL_APPS_DISABLED_OPEN_KEY)).toBe('false')
@@ -203,7 +213,7 @@ describe('AllAppsPanel', () => {
     it('enables an app on click, and offers Enable and Settings on right-click', () => {
       localStorage.setItem(ALL_APPS_DISABLED_OPEN_KEY, 'true')
       const list = renderWith()
-      fireEvent.click(screen.getByText('Jira'))
+      fireEvent.click(screen.getByText('Graphify'))
       expect(list[0].onEnable).toHaveBeenCalled()
 
       fireEvent.contextMenu(screen.getByText('Scripts'))
@@ -222,9 +232,9 @@ describe('AllAppsPanel', () => {
       const onPlace = vi.fn()
       const onUnfavorite = vi.fn()
       render(<AllAppsPanel apps={apps} disabledApps={list} open onPlace={onPlace} onUnfavorite={onUnfavorite} />)
-      expect(screen.getByText('Jira').closest('button')!.draggable).toBe(true)
+      expect(screen.getByText('Graphify').closest('button')!.draggable).toBe(true)
 
-      fireEvent.drop(screen.getByRole('region', { name: 'More apps' }), { dataTransfer: dataTransfer({ [APP_DRAG_MIME]: 'jira' }) })
+      fireEvent.drop(screen.getByRole('region', { name: 'More apps' }), { dataTransfer: dataTransfer({ [APP_DRAG_MIME]: 'graphify' }) })
       expect(list[0].onEnable).toHaveBeenCalledTimes(1)
       expect(onUnfavorite).not.toHaveBeenCalled()
 
@@ -239,16 +249,47 @@ describe('AllAppsPanel', () => {
       const tileOf = (name: string) => screen.getByText(name).closest('button')!.querySelector('span')!
       expect(tileOf('Docker').className).toContain('border-accent')
       expect(tileOf('Notes').className).not.toContain('border-accent')
-      expect(tileOf('Jira').className).toContain('border-dashed')
-      expect(tileOf('Jira').className).toContain('text-fg-muted')
+      expect(tileOf('Graphify').className).toContain('border-dashed')
+      expect(tileOf('Graphify').className).toContain('text-fg-muted')
     })
 
     it('shows matching disabled apps while searching, even when collapsed', () => {
       localStorage.removeItem(ALL_APPS_DISABLED_OPEN_KEY)
       renderWith()
-      fireEvent.change(screen.getByLabelText('Search apps'), { target: { value: 'jir' } })
-      expect(screen.getByText('Jira')).toBeTruthy()
+      fireEvent.change(screen.getByLabelText('Search apps'), { target: { value: 'gra' } })
+      expect(screen.getByText('Graphify')).toBeTruthy()
       expect(screen.queryByText('Scripts')).toBeNull()
     })
+  })
+  it('lists a store app that cannot be favorited and offers Uninstall', () => {
+    const onUninstall = vi.fn().mockResolvedValue({ ok: true })
+    render(<AllAppsPanel apps={[{ id: 'hello', title: 'Hello', icon: null, favorite: false, favoritable: false, onOpen: vi.fn(), onSettings: vi.fn(), onUninstall }]} open onPlace={vi.fn()} onUnfavorite={vi.fn()} />)
+    const row = screen.getByText('Hello').closest('button')!
+    expect(row.draggable).toBe(false)
+    fireEvent.contextMenu(row)
+    expect(screen.queryByText('Favorite')).toBeNull()
+    fireEvent.click(screen.getByText('Uninstall'))
+    expect(screen.getByText('Uninstall Hello?')).toBeTruthy()
+    expect(onUninstall).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByText('Cancel'))
+    expect(onUninstall).not.toHaveBeenCalled()
+  })
+
+  it('uninstalls on confirm and peeks a failure', async () => {
+    const show = vi.spyOn(usePeekEventStore.getState(), 'show').mockImplementation(() => {})
+    const onUninstall = vi.fn().mockResolvedValue({ ok: false, error: 'nope' })
+    render(<AllAppsPanel apps={[{ id: 'hello', title: 'Hello', icon: null, favorite: false, favoritable: false, onSettings: vi.fn(), onUninstall }]} open onPlace={vi.fn()} onUnfavorite={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByText('Hello').closest('button')!)
+    fireEvent.click(screen.getByText('Uninstall'))
+    fireEvent.click(screen.getAllByText('Uninstall').pop()!)
+    expect(onUninstall).toHaveBeenCalled()
+    await vi.waitFor(() => expect(show).toHaveBeenCalledWith('nope', 'info'))
+    show.mockRestore()
+  })
+
+  it('shows a failed app with its subtitle and tooltip', () => {
+    render(<AllAppsPanel apps={[{ id: 'bad', title: 'Bad', icon: null, favorite: false, favoritable: false, subtitle: 'Failed to load', tooltip: 'boom', onSettings: vi.fn() }]} open onPlace={vi.fn()} onUnfavorite={vi.fn()} />)
+    expect(screen.getByText('Failed to load')).toBeTruthy()
+    expect(screen.getByText('Bad').closest('button')!.title).toBe('boom')
   })
 })

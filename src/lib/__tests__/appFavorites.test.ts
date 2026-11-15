@@ -12,7 +12,23 @@ import {
 describe('sanitizeFavorites', () => {
   it('falls back to the defaults for anything that is not an array', () => {
     expect(sanitizeFavorites(null)).toEqual(DEFAULT_FAVORITES)
-    expect(sanitizeFavorites('docker')).toEqual(DEFAULT_FAVORITES)
+    expect(sanitizeFavorites('mobile')).toEqual(DEFAULT_FAVORITES)
+  })
+
+  it('moves the old built-in docker slot to the Docker store app, idempotently', () => {
+    const once = sanitizeFavorites(['notes', 'docker', 'llama'])
+    expect(once).toEqual(['notes', 'app:docker', 'llama'])
+    expect(sanitizeFavorites(once)).toEqual(once)
+    expect(sanitizeFavorites(['docker', 'app:docker'])).toEqual(['app:docker'])
+  })
+
+  it('does not favorite docker for new users', () => {
+    expect(DEFAULT_FAVORITES).not.toContain('docker')
+    expect(DEFAULT_FAVORITES).not.toContain('app:docker')
+  })
+
+  it('keeps store app favorites and drops a bare app: prefix', () => {
+    expect(sanitizeFavorites(['app:hello', 'app:'])).toEqual(['app:hello'])
   })
 
   it('keeps an empty list empty (the user unfavorited everything)', () => {
@@ -20,56 +36,63 @@ describe('sanitizeFavorites', () => {
   })
 
   it('drops unknown, locked and duplicate ids', () => {
-    expect(sanitizeFavorites(['notes', 'files', 'bogus', 'notes', 'jira', 3])).toEqual(['notes', 'jira'])
+    expect(sanitizeFavorites(['notes', 'files', 'bogus', 'notes', 'jira', 3])).toEqual(['notes'])
   })
 })
 
 describe('placeFavorite', () => {
   it('reorders an existing favorite before or after a target', () => {
-    expect(placeFavorite(['docker', 'llama', 'notes'], 'notes', 'docker', 'before')).toEqual(['notes', 'docker', 'llama'])
-    expect(placeFavorite(['docker', 'llama', 'notes'], 'docker', 'llama', 'after')).toEqual(['llama', 'docker', 'notes'])
+    expect(placeFavorite(['mobile', 'llama', 'notes'], 'notes', 'mobile', 'before')).toEqual(['notes', 'mobile', 'llama'])
+    expect(placeFavorite(['mobile', 'llama', 'notes'], 'mobile', 'llama', 'after')).toEqual(['llama', 'mobile', 'notes'])
   })
 
   it('favorites a new app at the drop position', () => {
-    expect(placeFavorite(['docker', 'llama'], 'jira', 'llama', 'before')).toEqual(['docker', 'jira', 'llama'])
+    expect(placeFavorite(['mobile', 'llama'], 'scripts', 'llama', 'before')).toEqual(['mobile', 'scripts', 'llama'])
   })
 
   it('appends when dropped on the All Apps button or any non-favorite target', () => {
-    expect(placeFavorite(['docker'], 'notes', APPEND_TARGET, 'before')).toEqual(['docker', 'notes'])
+    expect(placeFavorite(['mobile'], 'notes', APPEND_TARGET, 'before')).toEqual(['mobile', 'notes'])
     expect(placeFavorite([], 'notes', APPEND_TARGET, 'after')).toEqual(['notes'])
-    expect(placeFavorite(['docker', 'notes'], 'docker', APPEND_TARGET, 'after')).toEqual(['notes', 'docker'])
+    expect(placeFavorite(['mobile', 'notes'], 'mobile', APPEND_TARGET, 'after')).toEqual(['notes', 'mobile'])
   })
 
   it('ignores locked or unknown ids and dropping onto itself', () => {
-    const favorites = ['docker', 'llama'] as const
-    expect(placeFavorite([...favorites], 'files', 'docker', 'before')).toEqual(favorites)
-    expect(placeFavorite([...favorites], 'session-1', 'docker', 'before')).toEqual(favorites)
-    expect(placeFavorite([...favorites], 'docker', 'docker', 'after')).toEqual(favorites)
+    const favorites = ['mobile', 'llama'] as const
+    expect(placeFavorite([...favorites], 'files', 'mobile', 'before')).toEqual(favorites)
+    expect(placeFavorite([...favorites], 'session-1', 'mobile', 'before')).toEqual(favorites)
+    expect(placeFavorite([...favorites], 'mobile', 'mobile', 'after')).toEqual(favorites)
   })
 })
 
 describe('removeFavorite', () => {
   it('removes a favorite and ignores anything else', () => {
-    expect(removeFavorite(['docker', 'llama'], 'docker')).toEqual(['llama'])
-    expect(removeFavorite(['docker'], 'session-1')).toEqual(['docker'])
+    expect(removeFavorite(['mobile', 'llama'], 'mobile')).toEqual(['llama'])
+    expect(removeFavorite(['mobile'], 'session-1')).toEqual(['mobile'])
   })
 })
 
 describe('splitApps', () => {
   it('keeps favorites in favorite order and the rest in default order', () => {
-    expect(splitApps(['docker', 'llama', 'todos', 'notes', 'jira'], ['notes', 'docker'])).toEqual({
-      favorites: ['notes', 'docker'],
-      others: ['llama', 'todos', 'jira'],
+    expect(splitApps(['mobile', 'llama', 'todos', 'notes', 'scripts'], ['notes', 'mobile'])).toEqual({
+      favorites: ['notes', 'mobile'],
+      others: ['llama', 'todos', 'scripts'],
+    })
+  })
+
+  it('puts unfavorited store apps after the built-ins', () => {
+    expect(splitApps(['app:docker', 'llama', 'app:x'], ['app:x'])).toEqual({
+      favorites: ['app:x'],
+      others: ['llama', 'app:docker'],
     })
   })
 
   it('leaves disabled apps out of both lists', () => {
-    expect(splitApps(['notes'], ['docker', 'notes'])).toEqual({ favorites: ['notes'], others: [] })
+    expect(splitApps(['notes'], ['mobile', 'notes'])).toEqual({ favorites: ['notes'], others: [] })
   })
 })
 
 describe('pickTemporaryApp', () => {
-  const others = ['mobile', 'notes', 'jira'] as const
+  const others = ['mobile', 'notes', 'scripts'] as const
 
   it('takes the active unfavorited app', () => {
     expect(pickTemporaryApp(others, 'notes', 'mobile')).toBe('notes')
@@ -80,7 +103,7 @@ describe('pickTemporaryApp', () => {
   })
 
   it('drops the last one once it is no longer unfavorited (or disabled)', () => {
-    expect(pickTemporaryApp(others, undefined, 'docker')).toBeNull()
+    expect(pickTemporaryApp(others, undefined, 'llama')).toBeNull()
     expect(pickTemporaryApp(others, undefined, null)).toBeNull()
   })
 })

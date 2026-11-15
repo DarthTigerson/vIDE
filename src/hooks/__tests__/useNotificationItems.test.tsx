@@ -3,9 +3,6 @@ import { renderHook, act } from '@testing-library/react'
 import { useNotificationItems } from '../useNotificationItems'
 import { useUsageAlertStore } from '@/stores/usageAlertStore'
 import { useUpdateStore } from '@/stores/updateStore'
-import { useDockerSettingsStore } from '@/stores/dockerSettingsStore'
-import { useDockerStore } from '@/stores/dockerStore'
-import { useDockerOffAlertStore } from '@/stores/dockerOffAlertStore'
 import { useGitStore, emptyRepoGitState } from '@/stores/gitStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitPanelOpenAlertStore } from '@/stores/gitPanelOpenAlertStore'
@@ -14,13 +11,13 @@ import { useLlamaStore } from '@/stores/llamaStore'
 import { usePanelRequestStore } from '@/stores/panelRequestStore'
 import { useGraphifySettingsStore } from '@/stores/graphifySettingsStore'
 import { useGraphifyStore } from '@/stores/graphifyStore'
+import { useStoreStore } from '@/stores/storeStore'
+import { useAppContribStore } from '@/apps/appContribStore'
+import type { RegistryState } from '@/types/api'
 
 beforeEach(() => {
   useUsageAlertStore.setState({ alerts: [] })
   useUpdateStore.setState({ available: null, status: 'idle' })
-  useDockerSettingsStore.setState({ enabled: false })
-  useDockerStore.setState({ status: 'unknown' })
-  useDockerOffAlertStore.setState({ openRequest: 0 })
   useGitStore.setState({ repos: {} })
   useGitReposStore.setState({ selectedRepo: null, hasExplicitSelection: false })
   useGitPanelOpenAlertStore.setState({ openRequest: 0 })
@@ -92,24 +89,6 @@ describe('useNotificationItems', () => {
     })
     const { result } = renderHook(() => useNotificationItems())
     expect(result.current[0].text).toBe('Session usage ran out')
-  })
-
-  it('is silent about Docker when disabled, even if stopped', () => {
-    useDockerSettingsStore.setState({ enabled: false })
-    useDockerStore.setState({ status: 'stopped' })
-    const { result } = renderHook(() => useNotificationItems())
-    expect(result.current.find((i) => i.id === 'docker')).toBeUndefined()
-  })
-
-  it('includes a Docker item when enabled but stopped, and its action requests the panel to open', () => {
-    useDockerSettingsStore.setState({ enabled: true })
-    useDockerStore.setState({ status: 'stopped' })
-    const { result } = renderHook(() => useNotificationItems())
-    const docker = result.current.find((i) => i.id === 'docker')
-    expect(docker?.text).toBe("Docker isn't running")
-    expect(docker?.icon).toBeTruthy()
-    act(() => docker!.onClick!())
-    expect(useDockerOffAlertStore.getState().openRequest).toBe(1)
   })
 
   it('includes an update-available item that starts the update on click', () => {
@@ -237,23 +216,19 @@ describe('useNotificationItems', () => {
     expect(result.current.find((i) => i.id === 'llama-unavailable')).toBeUndefined()
   })
 
-  it('orders the llama item after docker and before the update item', () => {
-    useDockerSettingsStore.setState({ enabled: true })
-    useDockerStore.setState({ status: 'stopped' })
+  it('orders the llama item before the update item', () => {
     useLlamaSettingsStore.setState({ enabled: true })
     useLlamaStore.setState({ available: false })
     useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com' }, status: 'idle' })
     const { result } = renderHook(() => useNotificationItems())
-    expect(result.current.map((i) => i.id)).toEqual(['docker', 'llama-unavailable', 'update'])
+    expect(result.current.map((i) => i.id)).toEqual(['llama-unavailable', 'update'])
   })
 
-  it('orders usage before docker before update', () => {
+  it('orders usage before update', () => {
     useUsageAlertStore.setState({ alerts: [{ scope: 'session', cutoffAt: Date.now() + 1000, resetAt: null }] })
-    useDockerSettingsStore.setState({ enabled: true })
-    useDockerStore.setState({ status: 'stopped' })
     useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com' }, status: 'idle' })
     const { result } = renderHook(() => useNotificationItems())
-    expect(result.current.map((i) => i.id)).toEqual(['usage-session', 'docker', 'update'])
+    expect(result.current.map((i) => i.id)).toEqual(['usage-session', 'update'])
   })
   it('prompts to gitignore graphify-out, adding it on click', () => {
     const addToGitignore = vi.fn()
@@ -307,5 +282,77 @@ describe('useNotificationItems', () => {
     useGraphifyStore.setState({ claudeSkillPrompts: { '/code/app': null } })
     const { result } = renderHook(() => useNotificationItems())
     expect(result.current).toEqual([])
+  })
+})
+
+describe('store update notices', () => {
+  const registry: RegistryState = {
+    status: 'ok', checkedAt: 1, fromCache: false,
+    apps: [{
+      id: 'docker', name: 'Docker', description: 'd', repo: 'o/r', firstParty: true, compatible: true,
+      recommended: false, category: 'applications', targets: ['vide'],
+      latest: { version: '1.1.0', commit: 'a'.repeat(40), url: 'u', sha256: 'b'.repeat(64), minVide: '0.4.0' },
+    }],
+  }
+  const installedDocker = { id: 'docker', name: 'Docker', version: '1.0.0', source: 'store' as const, rendererUrl: '', hasMain: false, contributes: {}, status: 'loaded' as const }
+
+  it('adds one row per pending update; click installs, dismiss persists the version', () => {
+    const install = vi.fn()
+    const dismissUpdate = vi.fn()
+    useStoreStore.setState({ registry, dismissedUpdates: [], install, dismissUpdate })
+    useAppContribStore.setState({ apps: [installedDocker] })
+    const { result } = renderHook(() => useNotificationItems())
+    const item = result.current.find((i) => i.id === 'store-update-docker-1.1.0')!
+    expect(item.text).toBe('Docker 1.1.0 is available')
+    item.onClick?.()
+    expect(install).toHaveBeenCalledWith('docker')
+    item.onDismiss?.()
+    expect(dismissUpdate).toHaveBeenCalledWith('store-update-docker-1.1.0')
+  })
+
+  it('turns the row into a failure line when the install errored', () => {
+    useStoreStore.setState({ registry, dismissedUpdates: [], errors: { docker: 'Checksum mismatch' } })
+    useAppContribStore.setState({ apps: [installedDocker] })
+    const { result } = renderHook(() => useNotificationItems())
+    expect(result.current.find((i) => i.id === 'store-update-docker-1.1.0')!.text).toBe("Couldn't update Docker: Checksum mismatch")
+    useStoreStore.setState({ errors: {} })
+  })
+
+  it('hides a dismissed version', () => {
+    useStoreStore.setState({ registry, dismissedUpdates: ['store-update-docker-1.1.0'] })
+    useAppContribStore.setState({ apps: [installedDocker] })
+    const { result } = renderHook(() => useNotificationItems())
+    expect(result.current.some((i) => i.id.startsWith('store-update-'))).toBe(false)
+  })
+
+  describe('moved-to-Store notice', () => {
+    beforeEach(() => {
+      localStorage.clear()
+      useStoreStore.setState({ registry: null, movedNoticeDismissed: false, movedNoticeOpen: false })
+      useAppContribStore.setState({ apps: [] })
+    })
+    const moved: RegistryState = {
+      status: 'ok', checkedAt: 1, fromCache: false,
+      apps: [{ ...(registry as Extract<RegistryState, { status: 'ok' }>).apps[0], replacesBuiltIn: 'docker' }],
+    }
+
+    it('shows one row when the built-in was enabled and the app is not installed; click opens the modal', () => {
+      localStorage.setItem('vide:docker:enabled', 'true')
+      useStoreStore.setState({ registry: moved })
+      const { result } = renderHook(() => useNotificationItems())
+      const item = result.current.find((i) => i.id === 'store-moved-apps')!
+      expect(item.text).toBe('Some apps moved to the Store')
+      item.onClick?.()
+      expect(useStoreStore.getState().movedNoticeOpen).toBe(true)
+      item.onDismiss?.()
+      expect(useStoreStore.getState().movedNoticeDismissed).toBe(true)
+      expect(localStorage.getItem('vide:store:movedNoticeDismissed')).toBe('true')
+    })
+
+    it('stays silent when the built-in was not enabled', () => {
+      useStoreStore.setState({ registry: moved })
+      const { result } = renderHook(() => useNotificationItems())
+      expect(result.current.some((i) => i.id === 'store-moved-apps')).toBe(false)
+    })
   })
 })

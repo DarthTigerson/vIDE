@@ -87,6 +87,7 @@ contextBridge.exposeInMainWorld('api', {
   gitGraph: (cwd: string, offset?: number, limit?: number) => ipcRenderer.invoke('git:graph', cwd, offset, limit),
   gitBranches: (cwd: string) => ipcRenderer.invoke('git:branches', cwd),
   gitDefaultBranch: (cwd: string) => ipcRenderer.invoke('git:defaultBranch', cwd),
+  gitRemoteWebUrl: (cwd: string) => ipcRenderer.invoke('git:remoteWebUrl', cwd),
   gitBranchList: (cwd: string) => ipcRenderer.invoke('git:branchList', cwd),
   gitBranchDiff: (cwd: string, source: string, target: string, offset?: number, limit?: number) =>
     ipcRenderer.invoke('git:branchDiff', cwd, source, target, offset, limit),
@@ -102,48 +103,6 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('git:changed', handler)
   },
   gitBlame: (cwd: string, path: string) => ipcRenderer.invoke('git:blame', cwd, path),
-
-  dockerStatus: () => ipcRenderer.invoke('docker:status') as Promise<import('./docker').DockerStatus>,
-  dockerListContainers: () =>
-    ipcRenderer.invoke('docker:listContainers') as Promise<import('./docker').DockerContainer[]>,
-  dockerStartContainer: (id: string) =>
-    ipcRenderer.invoke('docker:startContainer', id) as Promise<import('./docker').DockerActionResult>,
-  dockerStopContainer: (id: string) =>
-    ipcRenderer.invoke('docker:stopContainer', id) as Promise<import('./docker').DockerActionResult>,
-  dockerRestartContainer: (id: string) =>
-    ipcRenderer.invoke('docker:restartContainer', id) as Promise<import('./docker').DockerActionResult>,
-  dockerRemoveContainer: (id: string) =>
-    ipcRenderer.invoke('docker:removeContainer', id) as Promise<import('./docker').DockerActionResult>,
-  dockerStartContainers: (ids: string[]) =>
-    ipcRenderer.invoke('docker:startContainers', ids) as Promise<import('./docker').DockerActionResult>,
-  dockerStopContainers: (ids: string[]) =>
-    ipcRenderer.invoke('docker:stopContainers', ids) as Promise<import('./docker').DockerActionResult>,
-  dockerRemoveContainers: (ids: string[]) =>
-    ipcRenderer.invoke('docker:removeContainers', ids) as Promise<import('./docker').DockerActionResult>,
-  dockerGetContainerStats: () =>
-    ipcRenderer.invoke('docker:getContainerStats') as Promise<Record<string, import('./docker').DockerContainerStats>>,
-  dockerOpenApp: () => ipcRenderer.invoke('docker:openApp') as Promise<import('./docker').DockerActionResult>,
-  dockerCloseApp: () => ipcRenderer.invoke('docker:closeApp') as Promise<import('./docker').DockerActionResult>,
-  dockerRunLogs: (streamId: string, containerId: string) =>
-    ipcRenderer.invoke('docker:runLogs', streamId, containerId),
-  dockerStopLogs: (streamId: string) => ipcRenderer.send('docker:stopLogs', streamId),
-  onDockerLogData: (cb: (streamId: string, data: string) => void) => {
-    const handler = (_: Electron.IpcRendererEvent, streamId: string, data: string) => cb(streamId, data)
-    ipcRenderer.on('docker:log:data', handler)
-    return () => ipcRenderer.removeListener('docker:log:data', handler)
-  },
-  onDockerLogExit: (cb: (streamId: string, code: number) => void) => {
-    const handler = (_: Electron.IpcRendererEvent, streamId: string, code: number) => cb(streamId, code)
-    ipcRenderer.on('docker:log:exit', handler)
-    return () => ipcRenderer.removeListener('docker:log:exit', handler)
-  },
-  dockerWatch: () => ipcRenderer.send('docker:watch'),
-  dockerUnwatch: () => ipcRenderer.send('docker:unwatch'),
-  onDockerChanged: (cb: () => void) => {
-    const handler = () => cb()
-    ipcRenderer.on('docker:changed', handler)
-    return () => ipcRenderer.removeListener('docker:changed', handler)
-  },
 
   termSpawn: (id: string, cwd?: string) => ipcRenderer.invoke('term:spawn', id, cwd),
   termKill: (id: string) => ipcRenderer.invoke('term:kill', id),
@@ -221,6 +180,45 @@ contextBridge.exposeInMainWorld('api', {
   updateGetLatest: () => ipcRenderer.invoke('update:getLatest'),
   updateGetStatus: () => ipcRenderer.invoke('update:getStatus'),
   updateCheck: () => ipcRenderer.invoke('update:check'),
+  storeGetRegistry: (refresh = false) =>
+    ipcRenderer.invoke('store:getRegistry', refresh) as Promise<import('./store').RegistryState>,
+  onStoreChanged: (cb: () => void) => {
+    const handler = () => cb()
+    ipcRenderer.on('store:changed', handler)
+    return () => ipcRenderer.removeListener('store:changed', handler)
+  },
+  storeGetReadme: (id: string) => ipcRenderer.invoke('store:getReadme', id) as Promise<import('./store').ReadmeResult>,
+  storeTakePendingOpen: () =>
+    ipcRenderer.invoke('store:takePendingOpen') as Promise<{ kind: 'store'; id: string | null } | null>,
+  onStoreOpen: (cb: () => void) => {
+    const handler = () => cb()
+    ipcRenderer.on('store:open', handler)
+    return () => ipcRenderer.removeListener('store:open', handler)
+  },
+  appsPickPackage: () =>
+    ipcRenderer.invoke('apps:pickPackage') as Promise<import('./apps/appHost').PickResult>,
+  appsInstallPackage: (token: string) =>
+    ipcRenderer.invoke('apps:installPackage', token) as Promise<import('./apps/appHost').InstallOutcome>,
+  appsDiscardPackage: (token: string) => ipcRenderer.invoke('apps:discardPackage', token) as Promise<void>,
+  appsList: () => ipcRenderer.invoke('apps:list') as Promise<import('./apps/appTypes').AppInfo[]>,
+  appsInstall: (id: string) => ipcRenderer.invoke('apps:install', id) as Promise<import('./apps/appHost').InstallOutcome>,
+  appsUninstall: (id: string) => ipcRenderer.invoke('apps:uninstall', id) as Promise<{ ok: true } | { ok: false; error: string }>,
+  appsSetEnabled: (id: string, enabled: boolean) => ipcRenderer.invoke('apps:setEnabled', id, enabled) as Promise<{ ok: true } | { ok: false; error: string }>,
+  appsCall: (appId: string, method: string, payload?: unknown) => ipcRenderer.invoke('apps:call', appId, method, payload) as Promise<unknown>,
+  appsIsDev: () => ipcRenderer.invoke('apps:isDev') as Promise<boolean>,
+  appsLoadDevFolder: () => ipcRenderer.invoke('apps:loadDevFolder') as Promise<{ ok: true; id: string } | { ok: false; error: string }>,
+  appsUnloadDev: (id: string) => ipcRenderer.invoke('apps:unloadDev', id) as Promise<void>,
+  appsRestart: () => ipcRenderer.invoke('apps:restart') as Promise<void>,
+  onAppsEvent: (cb: (appId: string, event: string, payload: unknown) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, appId: string, event: string, payload: unknown) => cb(appId, event, payload)
+    ipcRenderer.on('apps:event', handler)
+    return () => ipcRenderer.removeListener('apps:event', handler)
+  },
+  onAppsChanged: (cb: () => void) => {
+    const handler = () => cb()
+    ipcRenderer.on('apps:changed', handler)
+    return () => ipcRenderer.removeListener('apps:changed', handler)
+  },
   updateRestart: () => ipcRenderer.send('update:restart'),
   restartApp: () => ipcRenderer.send('app:restart'),
   updateRun: () => ipcRenderer.invoke('update:run'),
@@ -470,8 +468,7 @@ contextBridge.exposeInMainWorld('api', {
   },
   browserMcpEnable: () => ipcRenderer.invoke('browser:mcp:enable'),
   browserMcpDisable: () => ipcRenderer.invoke('browser:mcp:disable'),
-  searchMcpEnable: () => ipcRenderer.invoke('search:mcp:enable'),
-  searchMcpDisable: () => ipcRenderer.invoke('search:mcp:disable'),
+  mcpCatalog: () => ipcRenderer.invoke('mcp:catalog'),
 
   setWindowTitle: (root: string) => ipcRenderer.send('window:setTitle', root),
 

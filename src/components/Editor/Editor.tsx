@@ -58,6 +58,10 @@ import {
   getScriptId,
   SCRIPTS_SETTINGS_TAB_PATH,
   isTodoTrashTab,
+  isStoreTab,
+  isAppTabPath,
+  appSettingsIdFromPath,
+  storeAppIdFromPath,
   getTodoBoardProjectId,
   isTodoDetailTab,
   getTodoDetailIds,
@@ -76,12 +80,12 @@ import {
   CLAUDE_SETTINGS_TAB_PATH,
   BRIDGE_SETTINGS_TAB_PATH,
   GRAPHIFY_SETTINGS_TAB_PATH,
-  JIRA_SETTINGS_TAB_PATH,
-  DOCKER_SETTINGS_TAB_PATH,
   MOBILE_SETTINGS_TAB_PATH,
   GENERAL_SETTINGS_TAB_PATH,
   TODO_SETTINGS_TAB_PATH,
   NOTES_SETTINGS_TAB_PATH,
+  STORE_SETTINGS_TAB_PATH,
+  AGENT_TOOLING_SETTINGS_TAB_PATH,
   LLAMA_SETTINGS_TAB_PATH,
 } from '@/components/Settings/paths'
 import { TerminalTab } from '@/components/Terminal/TerminalTab'
@@ -95,16 +99,14 @@ import { BrowserSettingsPage } from '@/components/Settings/BrowserSettingsPage'
 import { ClaudeSettingsPage } from '@/components/Settings/ClaudeSettingsPage'
 import { BridgeSettingsPage } from '@/components/Settings/BridgeSettingsPage'
 import { GraphifySettingsPage } from '@/components/Settings/GraphifySettingsPage'
-import { JiraSettingsPage } from '@/components/Settings/JiraSettingsPage'
-import { DockerSettingsPage } from '@/components/Settings/DockerSettingsPage'
 import { MobileSettingsPage } from '@/components/Settings/MobileSettingsPage'
 import { GeneralSettingsPage } from '@/components/Settings/GeneralSettingsPage'
 import { TodoSettingsPage } from '@/components/Settings/TodoSettingsPage'
 import { NotesSettingsPage } from '@/components/Settings/NotesSettingsPage'
+import { StoreSettingsPage } from '@/components/Settings/StoreSettingsPage'
+import { AgentToolingSettingsPage } from '@/components/Settings/AgentToolingSettingsPage'
 import { LlamaCreateModelPage } from '@/components/Llama/LlamaCreateModelPage'
 import { LlamaSettingsPage } from '@/components/Settings/LlamaSettingsPage'
-import { DockerLogsPage } from '@/components/Docker/DockerLogsPage'
-import { isDockerLogsTab } from '@/components/Docker/paths'
 import { isGitDiffTab, parseGitDiffPath, isGitCommitDiffTab, parseGitCommitDiffPath } from '@/components/Git/paths'
 import { GitLogView } from '@/components/Git/GitLogView'
 import { GitGraphPage } from '@/components/Git/GitGraphPage'
@@ -114,6 +116,9 @@ import { UsageGraphPage } from '@/components/UsagePanel/UsageGraphPage'
 import { AlarmsPage } from '@/components/Alarms/AlarmsPage'
 import { UpdatePage } from '@/components/Update/UpdatePage'
 import { TodoTrashPage } from '@/components/Todo/TodoTrashPage'
+import { StorePage } from '@/components/Store/StorePage'
+import { AppTabView, AppSettingsView } from '@/apps/AppTabViews'
+import { StoreAppPage } from '@/components/Store/StoreAppPage'
 import { TodoBoardPage } from '@/components/Todo/TodoBoardPage'
 import { ScriptEditorPage } from '@/components/Scripts/ScriptEditorPage'
 import { ScriptsSettingsPage } from '@/components/Settings/ScriptsSettingsPage'
@@ -490,8 +495,9 @@ function EditorPane({ paneId }: { paneId: string }) {
   const isScript = !!activeTab && isScriptTab(activeTab.path)
   const isTodoDetail = !!activeTab && isTodoDetailTab(activeTab.path)
   const isTodoTrash = !!activeTab && isTodoTrashTab(activeTab.path)
+  const isStore = !!activeTab && isStoreTab(activeTab.path)
+  const isAppTab = !!activeTab && isAppTabPath(activeTab.path)
   const isLlamaModel = !!activeTab && isLlamaModelTab(activeTab.path)
-  const isDockerLogs = !!activeTab && isDockerLogsTab(activeTab.path)
   const isImagePreview = !!activeTab && isImagePreviewTab(activeTab.path)
   const isMarkdownPreview = !!activeTab && isMarkdownPreviewTab(activeTab.path)
   const isSvgViewer = !!activeTab && isSvgViewerTab(activeTab.path)
@@ -504,8 +510,8 @@ function EditorPane({ paneId }: { paneId: string }) {
     !!activeTab &&
     !isVirtual && !isTerminal && !isBrowser &&
     !isDiff && !isCommitDiff && !isGitLog && !isGitGraph && !isGitBranchDiff &&
-    !isGraphifyGraph && !isUsageGraph && !isAlarms && !isUpdate && !isTodoBoard && !isScript && !isTodoDetail && !isTodoTrash &&
-    !isLlamaModel && !isDockerLogs && !isImagePreview && !isMarkdownPreview && !isSvgViewer && !isPdfViewer &&
+    !isGraphifyGraph && !isUsageGraph && !isAlarms && !isUpdate && !isTodoBoard && !isScript && !isTodoDetail && !isTodoTrash && !isStore && !isAppTab &&
+    !isLlamaModel && !isImagePreview && !isMarkdownPreview && !isSvgViewer && !isPdfViewer &&
     // A scratch tab has no file on disk yet, so there is no path to show —
     // without this the breadcrumb splits 'scratch://<uuid>' on '/' and
     // renders the scheme and the uuid as if they were folders.
@@ -693,7 +699,9 @@ function EditorPane({ paneId }: { paneId: string }) {
         ) : isBrowser ? (
           <BrowserTab key={activeTab.path} browserId={getBrowserId(activeTab.path)} />
         ) : isVirtual ? (
-          activeTab.path === GIT_SETTINGS_TAB_PATH ? (
+          appSettingsIdFromPath(activeTab.path) ? (
+            <AppSettingsView key={activeTab.path} appId={appSettingsIdFromPath(activeTab.path)!} />
+          ) : activeTab.path === GIT_SETTINGS_TAB_PATH ? (
             <GitSettingsPage />
           ) : activeTab.path === EDITOR_SETTINGS_TAB_PATH ? (
             <EditorSettingsPage />
@@ -709,16 +717,16 @@ function EditorPane({ paneId }: { paneId: string }) {
             <BridgeSettingsPage />
           ) : activeTab.path === GRAPHIFY_SETTINGS_TAB_PATH ? (
             <GraphifySettingsPage />
-          ) : activeTab.path === JIRA_SETTINGS_TAB_PATH ? (
-            <JiraSettingsPage />
-          ) : activeTab.path === DOCKER_SETTINGS_TAB_PATH ? (
-            <DockerSettingsPage />
           ) : activeTab.path === MOBILE_SETTINGS_TAB_PATH ? (
             <MobileSettingsPage />
           ) : activeTab.path === TODO_SETTINGS_TAB_PATH ? (
             <TodoSettingsPage />
           ) : activeTab.path === NOTES_SETTINGS_TAB_PATH ? (
             <NotesSettingsPage />
+          ) : activeTab.path === AGENT_TOOLING_SETTINGS_TAB_PATH ? (
+            <AgentToolingSettingsPage />
+          ) : activeTab.path === STORE_SETTINGS_TAB_PATH ? (
+            <StoreSettingsPage />
           ) : activeTab.path === SCRIPTS_SETTINGS_TAB_PATH ? (
             <ScriptsSettingsPage />
           ) : activeTab.path === LLAMA_SETTINGS_TAB_PATH ? (
@@ -744,6 +752,13 @@ function EditorPane({ paneId }: { paneId: string }) {
           <UpdatePage />
         ) : isTodoTrash ? (
           <TodoTrashPage />
+        ) : isAppTab ? (
+          <AppTabView key={activeTab.path} path={activeTab.path} />
+        ) : isStore ? (
+          (() => {
+            const appId = storeAppIdFromPath(activeTab.path)
+            return appId ? <StoreAppPage key={appId} appId={appId} /> : <StorePage />
+          })()
         ) : isTodoBoard ? (
           <TodoBoardPage key={activeTab.path} projectId={getTodoBoardProjectId(activeTab.path)} />
         ) : isScript ? (
@@ -762,8 +777,6 @@ function EditorPane({ paneId }: { paneId: string }) {
           />
         ) : isTodoDetail ? (
           <TodoDetailPage key={activeTab.path} {...getTodoDetailIds(activeTab.path)} />
-        ) : isDockerLogs ? (
-          <DockerLogsPage path={activeTab.path} />
         ) : isGitBranchDiff ? (
           <GitBranchDiffPage />
         ) : isImagePreview ? (

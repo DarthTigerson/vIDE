@@ -3,8 +3,8 @@ import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import { NotificationBell } from '../NotificationBell'
 import { useUsageAlertStore } from '@/stores/usageAlertStore'
 import { useUpdateStore } from '@/stores/updateStore'
-import { useDockerSettingsStore } from '@/stores/dockerSettingsStore'
-import { useDockerStore } from '@/stores/dockerStore'
+import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
+import { useLlamaStore } from '@/stores/llamaStore'
 import { useNotificationPanelStore } from '@/stores/notificationPanelStore'
 import { useNotificationAcknowledgedStore } from '@/stores/notificationAcknowledgedStore'
 import { useNotificationArrivalStore } from '@/stores/notificationArrivalStore'
@@ -12,8 +12,8 @@ import { useNotificationArrivalStore } from '@/stores/notificationArrivalStore'
 beforeEach(() => {
   useUsageAlertStore.setState({ alerts: [] })
   useUpdateStore.setState({ available: null, status: 'idle' })
-  useDockerSettingsStore.setState({ enabled: false })
-  useDockerStore.setState({ status: 'unknown' })
+  useLlamaSettingsStore.setState({ enabled: false })
+  useLlamaStore.setState({ available: null })
   useNotificationPanelStore.setState({ open: false })
   useNotificationAcknowledgedStore.setState({ acknowledgedIds: [], dismissedIds: [] })
   useNotificationArrivalStore.setState({ knownIds: [], arrival: null })
@@ -25,8 +25,8 @@ afterEach(() => {
 
 const twoActive = () => {
   useUsageAlertStore.setState({ alerts: [{ scope: 'session', cutoffAt: Date.now() + 60_000, resetAt: null }] })
-  useDockerSettingsStore.setState({ enabled: true })
-  useDockerStore.setState({ status: 'stopped' })
+  useLlamaSettingsStore.setState({ enabled: true })
+  useLlamaStore.setState({ available: false })
 }
 
 describe('NotificationBell', () => {
@@ -58,7 +58,7 @@ describe('NotificationBell', () => {
     twoActive()
     render(<NotificationBell />)
     act(() => {
-      useNotificationAcknowledgedStore.getState().acknowledge(['usage-session', 'docker'])
+      useNotificationAcknowledgedStore.getState().acknowledge(['usage-session', 'llama-unavailable'])
     })
     const bell = screen.getByTestId('notification-bell')
     expect(bell.textContent).toBe('2')

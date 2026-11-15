@@ -9,7 +9,6 @@ import { RadioGroup } from '@/components/ui/RadioGroup'
 import { ColorPickerRow } from '@/components/ui/ColorPickerRow'
 import type { ChangeColorMode, ChangeStrength } from '@/lib/gitChangeColors'
 import { Select } from '@/components/ui/Select'
-import { TextField } from './SettingsLayout'
 import { FeatureBlock, SettingRow, NumberInput } from './FeatureBlock'
 import {
   BlamePreview, InlineDiffPreview, ForcePushPreview, GitLogPreview, FetchPreview, GraphTabsPreview, RemotePreview,
@@ -27,10 +26,6 @@ export function GitSettingsPage() {
     gitLogAutoShow, setGitLogAutoShow,
     repoScanDepth, setRepoScanDepth,
   } = useGitSettingsStore()
-  const gitRemoteUrl = useGitRemoteSettingsStore((s) => s.externalUrl)
-  const setGitRemoteUrl = useGitRemoteSettingsStore((s) => s.setExternalUrl)
-  const gitRemoteProjectUrls = useGitRemoteSettingsStore((s) => s.projectUrls)
-  const setGitRemoteProjectUrl = useGitRemoteSettingsStore((s) => s.setProjectUrl)
   const gitRemoteCloseSidePanelOnOpen = useGitRemoteSettingsStore((s) => s.closeSidePanelOnOpen)
   const setGitRemoteCloseSidePanelOnOpen = useGitRemoteSettingsStore((s) => s.setCloseSidePanelOnOpen)
   const blameAnnotationsEnabled = useEditorSettingsStore((s) => s.blameAnnotationsEnabled)
@@ -225,27 +220,9 @@ export function GitSettingsPage() {
 
         <FeatureBlock
           title="Remote launcher"
-          description="A button at the bottom of the Git panel that opens your repo's page on GitHub, GitLab or Bitbucket."
+          description="Opens the active repo's page on GitHub, GitLab or Bitbucket. The address comes from the repo's git remote, so each repo opens its own."
           preview={<RemotePreview />}
         >
-          <TextField
-            id="git-remote-external-url"
-            label="Default URL"
-            value={gitRemoteUrl}
-            onChange={setGitRemoteUrl}
-            placeholder="https://github.com/your-org/your-repo"
-            className="flex max-w-[460px] flex-col gap-1.5 py-1.5"
-          />
-          {projectRoot && (
-            <TextField
-              id="git-remote-project-url"
-              label="This project's URL"
-              value={gitRemoteProjectUrls[projectRoot] ?? ''}
-              onChange={(v) => setGitRemoteProjectUrl(projectRoot, v)}
-              placeholder={gitRemoteUrl || 'Same as default URL above'}
-              className="flex max-w-[460px] flex-col gap-1.5 py-1.5"
-            />
-          )}
           <SettingRow label="Close side panel when opening" description="Give the repo page the full width.">
             <Switch label="Close side panel when opening" checked={gitRemoteCloseSidePanelOnOpen} onChange={setGitRemoteCloseSidePanelOnOpen} />
           </SettingRow>
