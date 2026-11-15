@@ -1,4 +1,15 @@
 # vIDE
+## v0.3.3 (2026-11-15)
+- **vSuite Store**: a new Store page to browse, install, update and uninstall vSuite apps, with filters, screenshots and each app's README. Apps can also be installed from a file or from a `vide://` link, and switched off without uninstalling them. When an installed app has a newer version, the notification bell lets you know
+- **Docker is now a Store app**: the built-in Docker feature moved out to the Docker app in the Store. Your Docker favourites and settings carry over when you install it
+- **App tools for agents**: Store apps can give Claude and Bridge their own tools, served through one vIDE MCP server, so nothing extra gets added to Claude Code's MCP list. This replaces the built-in web search MCP server
+- **MCP Servers panel**: a new panel lists vIDE's own MCP servers and the tools each one offers
+- **Usage pace bars**: the usage panel's gauges are now pace bars that show where your usage is heading by the next reset, with details on hover. The cost panel is redesigned around projected spend at reset
+- **One usage chart**: the usage and cost charts are now one chart, with Usage/Cost and All/Session/Week controls. The range you pick stays the same across views
+- **Git remote links from the repo**: the button that opens a repo on GitHub, GitLab and the like now reads the URL from the repo's own git remote, so there's nothing to set up and each repo opens its own page. The Git settings field for it is gone
+- Removed the Jira integration and its settings page
+
+
 ## v0.3.2 (2026-11-15)
 - **Other processes in the memory panel**: hovering the memory pill now adds an Other processes row for everything else vIDE starts, like the git commands behind vIDE Sync and the Git panel. Before, a git command using gigabytes of memory didn't show up anywhere in vIDE
 - **Quick messages above the bell**: short one-off messages, like "File not found" when you click a path in Claude's chat or "Switched to…" when the active repo changes, now pop up briefly above the notification bell, each with its own icon, instead of in the middle of the footer. They don't ring the bell, add to its count or stay in the notification panel
