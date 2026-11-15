@@ -45,6 +45,29 @@ export function treeRssBytes(rootPid: number, table: ProcessTable, children: Map
   return total
 }
 
+// Everything under rootPid (not rootPid itself) that is not in `excluded`.
+// An excluded pid takes its whole subtree with it: those processes are already
+// counted elsewhere. What is left is the untracked children, e.g. `git`
+// started through execFile.
+export function otherDescendantsRssBytes(
+  rootPid: number,
+  table: ProcessTable,
+  children: Map<number, number[]>,
+  excluded: Set<number>
+): number {
+  let total = 0
+  const stack = [...(children.get(rootPid) ?? [])]
+  const seen = new Set<number>([rootPid])
+  while (stack.length > 0) {
+    const pid = stack.pop()!
+    if (seen.has(pid) || excluded.has(pid)) continue
+    seen.add(pid)
+    total += table.get(pid)?.rssBytes ?? 0
+    stack.push(...(children.get(pid) ?? []))
+  }
+  return total
+}
+
 export async function readProcessTable(): Promise<ProcessTable> {
   const { stdout } = await execFileAsync('ps', ['-axo', 'pid=,ppid=,rss='])
   return parseProcessTable(stdout)

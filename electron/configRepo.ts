@@ -1,13 +1,16 @@
 import { ipcMain, app, BrowserWindow } from 'electron'
 import { readFile, writeFile, mkdir, access, readdir } from 'fs/promises'
 import { join, dirname, relative } from 'path'
-import { execFile } from 'child_process'
+import { spawn } from 'child_process'
 import { readTodosData, writeTodosData } from './todosStore'
 import type { TodosData } from './todosStore'
 import { mergeTodosData } from './todosMerge'
 import { readScriptsData, mutateScriptsData, type ScriptsData } from './scriptsData'
 import { mergeScriptsData } from './scriptsMerge'
 import { shouldSkipUsageOnlyCommit } from './usageCommitThrottle'
+import {
+  LEGACY_USAGE_FILE, USAGE_SHARD_DIR, mergeIntoLocalUsage, readLocalUsageDays, shardsToPull, syncUsageHistory,
+} from './usageHistorySync'
 import { buildAuthUrl, SYNC_GIT_CONFIG_ARGS, SYNC_GIT_ENV } from './configRepoAuth'
 
 export interface ConfigRepoSettings {
@@ -22,8 +25,10 @@ export interface ConfigRepoSettings {
 // meta.json on every push; a build that pulls a higher number than this knows
 // the config came from a newer vIDE and shows the update wall instead of
 // applying it (see src/lib/preBootSync.ts, VIDE-162). Repos written before
-// meta.json existed read as version 1.
-export const CONFIG_SCHEMA_VERSION = 2
+// meta.json existed read as version 1. Version 3 moved usage history into
+// daily shards and squashes the old history once (see compactHistory): an
+// older build pushing the single file back would regrow it.
+export const CONFIG_SCHEMA_VERSION = 3
 const META_FILE = 'meta.json'
 
 // Set true by the renderer (configRepo:setGated) once pre-boot sync detects an
@@ -62,20 +67,65 @@ function repoDir(): string {
   return join(app.getPath('userData'), 'config-repo')
 }
 
-// Run git with args as an array — execFile never invokes a shell,
-// so no shell metacharacter injection is possible regardless of arg content.
+// Delta resolution in fetch (index-pack) and repack (pack-objects) defaults to
+// one thread per core with an unbounded window. On a repo full of large
+// near-identical blobs that reached several GB per process and crashed 8 GB
+// machines at launch. Background gc/maintenance are off too: they run
+// detached, outside every timeout, and the sync repo is compacted by
+// cleanUpLocalRepo instead.
+const SYNC_GIT_MEMORY_ARGS = [
+  '-c', 'pack.threads=1',
+  '-c', 'pack.windowMemory=64m',
+  '-c', 'pack.deltaCacheSize=16m',
+  '-c', 'core.deltaBaseCacheSize=16m',
+  '-c', 'gc.auto=0',
+  '-c', 'maintenance.auto=false',
+]
+
+// Run git with args as an array — spawn never invokes a shell, so no shell
+// metacharacter injection is possible regardless of arg content. git runs in
+// its own process group so a timeout kills the whole group: killing only
+// `git fetch` left its `index-pack` child running (and growing), and the next
+// periodic fetch started another one next to it.
 function runGit(args: string[], opts: { timeout?: number; cwd?: string } = {}): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile(
-      'git',
-      [...SYNC_GIT_CONFIG_ARGS, ...args],
-      { timeout: opts.timeout, cwd: opts.cwd, encoding: 'utf8', env: { ...process.env, ...SYNC_GIT_ENV } },
-      (err, stdout) => {
-        if (err) reject(err)
-        else resolve(stdout as string)
-      },
-    )
+    const child = spawn('git', [...SYNC_GIT_CONFIG_ARGS, ...SYNC_GIT_MEMORY_ARGS, ...args], {
+      cwd: opts.cwd,
+      env: { ...process.env, ...SYNC_GIT_ENV },
+      detached: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    let stdout = ''
+    let stderr = ''
+    let timedOut = false
+    child.stdout.setEncoding('utf8').on('data', (chunk: string) => { stdout += chunk })
+    child.stderr.setEncoding('utf8').on('data', (chunk: string) => { stderr += chunk })
+    const timer = opts.timeout
+      ? setTimeout(() => {
+          timedOut = true
+          try { process.kill(-child.pid!, 'SIGKILL') } catch { /* already gone */ }
+        }, opts.timeout)
+      : null
+    child.on('error', (err) => {
+      if (timer) clearTimeout(timer)
+      reject(err)
+    })
+    child.on('close', (code) => {
+      if (timer) clearTimeout(timer)
+      if (code === 0 && !timedOut) return resolve(stdout)
+      const reason = timedOut ? `timed out after ${opts.timeout}ms` : `exited with code ${code}`
+      reject(Object.assign(new Error(`git ${args[0]} ${reason}: ${stderr}`), { stdout, stderr }))
+    })
   })
+}
+
+// checkRemote (every 30s), the periodic push and pull all fetch. A fetch that
+// is still running is joined rather than started a second time.
+let fetchInFlight: Promise<string> | null = null
+
+function fetchOrigin(dir: string): Promise<string> {
+  fetchInFlight ??= runGit(['fetch', 'origin'], { cwd: dir, timeout: 20000 }).finally(() => { fetchInFlight = null })
+  return fetchInFlight
 }
 
 // Walks dir recursively and returns relative paths of all .md files
@@ -130,7 +180,7 @@ async function connectRepo(repoUrl: string, token: string): Promise<void> {
 
   if (await isRepoCloned()) {
     await runGit(['remote', 'set-url', 'origin', authUrl], { cwd: dir })
-    await runGit(['fetch', 'origin'], { cwd: dir, timeout: 20000 })
+    await fetchOrigin(dir)
   } else {
     await mkdir(dir, { recursive: true })
     try {
@@ -199,19 +249,6 @@ function broadcastRemoteSettings(kvMap: Record<string, string>): void {
   }
 }
 
-// Merge two usage-history JSONL line arrays: union by snapshot timestamp,
-// sorted ascending. Duplicate ts values keep the first occurrence.
-function mergeUsageHistory(a: string[], b: string[]): string[] {
-  const byTs = new Map<number, string>()
-  for (const line of [...a, ...b]) {
-    try {
-      const snap = JSON.parse(line) as { ts: number }
-      if (!byTs.has(snap.ts)) byTs.set(snap.ts, line)
-    } catch { /* skip corrupt lines */ }
-  }
-  return [...byTs.entries()].sort(([x], [y]) => x - y).map(([, line]) => line)
-}
-
 // Fetch remote and return its current localStorage settings. Never writes locally
 // (except for file-based categories — todos and notes — handled here directly).
 async function pullSettings(
@@ -220,7 +257,7 @@ async function pullSettings(
   if (!await isRepoCloned()) throw new Error('Repository not connected.')
   await ensureGitUserConfig()
   try {
-    await runGit(['fetch', 'origin'], { cwd: repoDir(), timeout: 20000 })
+    await fetchOrigin(repoDir())
   } catch { /* offline */ }
 
   const result: Record<string, Record<string, string>> = {}
@@ -255,14 +292,16 @@ async function pullSettings(
 
   // ── File-based: usage history ──────────────────────────────────────────────
   try {
-    const raw = await runGit(['show', 'origin/HEAD:usage-history.jsonl'], { cwd: repoDir(), timeout: 10000 })
-    const remoteLines = raw.trim().split('\n').filter(Boolean)
     const localFile = join(app.getPath('userData'), 'usage-history.jsonl')
-    let localLines: string[] = []
-    try { localLines = (await readFile(localFile, 'utf8')).trim().split('\n').filter(Boolean) } catch {}
-    const merged = mergeUsageHistory(localLines, remoteLines)
-    await writeFile(localFile, merged.join('\n') + (merged.length ? '\n' : ''), 'utf8')
-  } catch { /* no usage history in remote yet */ }
+    const listing = await runGit(['ls-tree', '--name-only', `origin/HEAD:${USAGE_SHARD_DIR}`], { cwd: repoDir(), timeout: 10000 })
+    const shardFiles = listing.trim().split('\n').filter((f) => f.endsWith('.jsonl'))
+    const remoteLines: string[] = []
+    for (const file of shardsToPull(shardFiles, await readLocalUsageDays(localFile), Date.now())) {
+      const raw = await runGit(['show', `origin/HEAD:${USAGE_SHARD_DIR}/${file}`], { cwd: repoDir(), timeout: 10000 })
+      remoteLines.push(...raw.trim().split('\n').filter(Boolean))
+    }
+    await mergeIntoLocalUsage(localFile, remoteLines)
+  } catch { /* no usage history in remote yet (or only the legacy file, which the next push folds in) */ }
 
   // ── File-based: notes ──────────────────────────────────────────────────────
   if (categories.notes) {
@@ -283,6 +322,52 @@ async function pullSettings(
   }
 
   return result
+}
+
+async function remoteHasLegacyUsageFile(dir: string): Promise<boolean> {
+  try {
+    const listing = await runGit(['ls-tree', '--name-only', 'origin/HEAD'], { cwd: dir, timeout: 10000 })
+    return listing.split('\n').includes(LEGACY_USAGE_FILE)
+  } catch {
+    return false
+  }
+}
+
+// One-time squash of a remote written before daily usage shards: replaces its
+// history with a single root commit of the current tree. --force-with-lease
+// against the tip we just reset to means a push another machine made in the
+// meantime is never lost — the push is rejected and the retry loop rebuilds
+// on top of it. Other machines need nothing special: every push starts with
+// fetch + reset --hard origin/HEAD, which follows the rewritten branch.
+async function compactHistory(dir: string): Promise<void> {
+  const remoteRef = (await runGit(['rev-parse', '--abbrev-ref', 'origin/HEAD'], { cwd: dir })).trim()
+  const branch = remoteRef.replace(/^origin\//, '')
+  const oldTip = (await runGit(['rev-parse', 'origin/HEAD'], { cwd: dir })).trim()
+  const tree = (await runGit(['rev-parse', 'HEAD^{tree}'], { cwd: dir })).trim()
+  const root = (await runGit(['commit-tree', tree, '-m', 'vIDE sync: compacted history'], { cwd: dir })).trim()
+  await runGit(['reset', '--soft', root], { cwd: dir })
+  await runGit(
+    ['push', `--force-with-lease=${branch}:${oldTip}`, 'origin', `HEAD:${branch}`],
+    { cwd: dir, timeout: 30000 },
+  )
+}
+
+// Once the remote is compacted, every clone still holds the old history's
+// objects locally (200+ MB). Dropping reflogs and pruning leaves only what
+// the new short history reaches, so this repack is small and cheap. Checked
+// once per launch; a no-op for a repo that's already small.
+const LOCAL_REPO_CLEANUP_BYTES = 64 * 1024 * 1024
+let localCleanupChecked = false
+
+async function cleanUpLocalRepo(dir: string): Promise<void> {
+  if (localCleanupChecked) return
+  localCleanupChecked = true
+  if (await remoteHasLegacyUsageFile(dir)) return
+  const stats = await runGit(['count-objects', '-v'], { cwd: dir })
+  const kib = (key: string) => Number(stats.match(new RegExp(`^${key}: (\\d+)`, 'm'))?.[1] ?? 0)
+  if ((kib('size') + kib('size-pack') + kib('size-garbage')) * 1024 < LOCAL_REPO_CLEANUP_BYTES) return
+  await runGit(['reflog', 'expire', '--expire=now', '--all'], { cwd: dir, timeout: 60000 })
+  await runGit(['gc', '--prune=now'], { cwd: dir, timeout: 120000 })
 }
 
 // Mutex: serialises concurrent pushSettings calls within the same process so
@@ -319,11 +404,15 @@ export async function pushSettings(data: Record<string, Record<string, string>>,
       // Fetch + reset to the current remote tip so our commit is always a
       // fast-forward, even if another machine pushed since we last fetched.
       try {
-        await runGit(['fetch', 'origin'], { cwd: dir, timeout: 20000 })
+        await fetchOrigin(dir)
       } catch { /* offline */ }
       try {
         await runGit(['reset', '--hard', 'origin/HEAD'], { cwd: dir, timeout: 10000 })
       } catch { /* no remote HEAD yet — empty repo */ }
+
+      // A remote still holding the single usage file was written before the
+      // daily shards, and so carries one full copy of it per commit.
+      const needsCompaction = await remoteHasLegacyUsageFile(dir)
 
       // Check whether remote has commits newer than our last push. If so,
       // another machine changed settings since we last synced — their state
@@ -394,16 +483,7 @@ export async function pushSettings(data: Record<string, Record<string, string>>,
 
       // ── File-based: usage history ──────────────────────────────────────────
       try {
-        const localFile = join(app.getPath('userData'), 'usage-history.jsonl')
-        const repoFile = join(dir, 'usage-history.jsonl')
-        let localLines: string[] = []
-        let repoLines: string[] = []
-        try { localLines = (await readFile(localFile, 'utf8')).trim().split('\n').filter(Boolean) } catch {}
-        try { repoLines = (await readFile(repoFile, 'utf8')).trim().split('\n').filter(Boolean) } catch {}
-        const merged = mergeUsageHistory(localLines, repoLines)
-        const content = merged.join('\n') + (merged.length ? '\n' : '')
-        await writeFile(repoFile, content, 'utf8')
-        await writeFile(localFile, content, 'utf8')
+        await syncUsageHistory(join(app.getPath('userData'), 'usage-history.jsonl'), dir)
       } catch { /* no usage history yet */ }
 
       // ── File-based: notes ──────────────────────────────────────────────────
@@ -444,7 +524,7 @@ export async function pushSettings(data: Record<string, Record<string, string>>,
       // would commit every couple of minutes. Wait it out (see usageCommitThrottle);
       // the local usage file keeps the data and the next real commit carries it.
       const staged = (await runGit(['diff', '--cached', '--name-only'], { cwd: dir })).split('\n').filter(Boolean)
-      if (shouldSkipUsageOnlyCommit(staged, lastCommitAt, Date.now())) {
+      if (!needsCompaction && shouldSkipUsageOnlyCommit(staged, lastCommitAt, Date.now())) {
         await runGit(['reset'], { cwd: dir })
         return
       }
@@ -456,11 +536,13 @@ export async function pushSettings(data: Record<string, Record<string, string>>,
       } catch { /* nothing changed — clean working tree */ }
 
       try {
-        await runGit(['push', 'origin', 'HEAD'], { cwd: dir, timeout: 30000 })
+        if (needsCompaction) await compactHistory(dir)
+        else await runGit(['push', 'origin', 'HEAD'], { cwd: dir, timeout: 30000 })
         if (committed) lastCommitAt = Date.now()
+        await cleanUpLocalRepo(dir).catch(() => { /* best-effort; retried next launch */ })
         return // success
       } catch (err) {
-        // Check both .stderr and .message — Node's execFile may put text in either
+        // Check both .stderr and .message — git's output can land in either
         const errText = ((err as { stderr?: string }).stderr ?? '') + ((err as Error).message ?? '')
         const isRace = errText.includes('non-fast-forward') || errText.includes('rejected') || errText.includes('cannot lock ref')
         if (attempt < 2 && isRace) {
@@ -484,7 +566,7 @@ async function checkRemote(lastSyncAt: number): Promise<void> {
   if (!await isRepoCloned()) return
   const dir = repoDir()
   try {
-    await runGit(['fetch', 'origin'], { cwd: dir, timeout: 20000 })
+    await fetchOrigin(dir)
   } catch { return /* offline */ }
 
   try {

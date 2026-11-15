@@ -29,6 +29,8 @@ export interface MemoryBreakdown {
   terminalsBytes: number
   languageServersBytes: number
   autocompleteBytes: number
+  // Untracked child processes of the main process (e.g. git spawned via execFile).
+  otherBytes: number
 }
 
 // Mirrors electron/autocomplete/types.ts: keep the two in step.

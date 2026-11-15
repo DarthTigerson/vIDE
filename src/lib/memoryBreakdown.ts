@@ -13,6 +13,7 @@ const VIDE_HUE = '#A8B95C'
 const TERMINALS_HUE = '#7F8CA8'
 const LANGUAGE_SERVERS_HUE = '#A08670'
 const AUTOCOMPLETE_HUE = '#6FA8B8'
+const OTHER_HUE = '#8A8A8A'
 const UNKNOWN_SESSION_HUE = '#D97757'
 
 // The rows under "vIDE total" in the RAM hover panel: vIDE itself, then one
@@ -20,7 +21,8 @@ const UNKNOWN_SESSION_HUE = '#D97757'
 // by their agent-bar colour. `ownHues` (this window's sessions) wins over the
 // colour main remembered from session files, which can lag a session that was
 // never saved. Terminal, language server and autocomplete rows only show while
-// one is running.
+// one is running; "Other processes" (untracked children such as git) comes last
+// and only when non-zero.
 export function memoryRows(breakdown: MemoryBreakdown, ownHues: Record<string, string>): { totalBytes: number; rows: MemoryRow[] } {
   const rows: MemoryRow[] = [
     { key: 'app', label: 'vIDE', bytes: breakdown.appBytes, hue: VIDE_HUE },
@@ -39,6 +41,9 @@ export function memoryRows(breakdown: MemoryBreakdown, ownHues: Record<string, s
   }
   if (breakdown.autocompleteBytes > 0) {
     rows.push({ key: 'autocomplete', label: 'vIDE Autocomplete', bytes: breakdown.autocompleteBytes, hue: AUTOCOMPLETE_HUE })
+  }
+  if (breakdown.otherBytes > 0) {
+    rows.push({ key: 'other', label: 'Other processes', bytes: breakdown.otherBytes, hue: OTHER_HUE })
   }
   return { totalBytes: rows.reduce((sum, row) => sum + row.bytes, 0), rows }
 }

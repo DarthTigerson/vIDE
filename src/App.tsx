@@ -1570,7 +1570,7 @@ function MemoryPill({ usage }: { usage: SystemUsage }) {
 
   const ownHues = Object.fromEntries(instances.map((inst) => [inst.id, inst.hue]))
   const { totalBytes: videBytes, rows: videRows } = memoryRows(
-    breakdown ?? { appBytes: usage.appBytes, sessions: [], terminalsBytes: 0, languageServersBytes: 0, autocompleteBytes: 0 },
+    breakdown ?? { appBytes: usage.appBytes, sessions: [], terminalsBytes: 0, languageServersBytes: 0, autocompleteBytes: 0, otherBytes: 0 },
     ownHues
   )
 

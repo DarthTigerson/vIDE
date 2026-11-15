@@ -40,6 +40,12 @@ describe('shouldSkipUsageOnlyCommit', () => {
     expect(shouldSkipUsageOnlyCommit(['notes/usage-history.jsonl'], NOW - MIN, NOW)).toBe(false)
   })
 
+  it('treats daily usage shards (and deleting the legacy file) as usage-only', () => {
+    expect(
+      shouldSkipUsageOnlyCommit(['usage-history.jsonl', 'usage-history/2026-11-15.jsonl'], NOW - MIN, NOW),
+    ).toBe(true)
+  })
+
   it('does not skip when nothing changed at all', () => {
     expect(shouldSkipUsageOnlyCommit([], NOW - MIN, NOW)).toBe(false)
   })
