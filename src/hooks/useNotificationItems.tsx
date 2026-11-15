@@ -16,6 +16,10 @@ import { usePanelRequestStore } from '@/stores/panelRequestStore'
 import { formatCountdownClock } from '@/components/UsagePanel/format'
 import { useEditorStore } from '@/stores/editorStore'
 import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
+import { useAppContribStore } from '@/apps/appContribStore'
+import { StoreBagIcon } from '@/components/Store/storeUi'
+import { useStoreStore, startStoreUpdates } from '@/stores/storeStore'
+import { pendingUpdates, updateNoticeId } from '@/lib/storeUpdates'
 import { ClaudeIcon, DockerIcon, GitIcon, GraphIcon, LlamaIcon, UpdateAvailableIcon } from '@/components/ActivityBar/ActivityBar'
 
 export interface NotificationItem {
@@ -24,6 +28,8 @@ export interface NotificationItem {
   disabled: boolean
   icon: ReactNode
   onClick?: () => void
+  // Extra work when the panel's x / Dismiss all clears this row (e.g. persisting it).
+  onDismiss?: () => void
 }
 
 export function useNotificationItems(): NotificationItem[] {
@@ -45,6 +51,17 @@ export function useNotificationItems(): NotificationItem[] {
   const startUpdate = useUpdateStore((s) => s.startUpdate)
   const openUpdatePage = useUpdateStore((s) => s.openUpdatePage)
   const restart = useUpdateStore((s) => s.restart)
+
+  const appNotifications = useAppContribStore((s) => s.notifications)
+  const installedApps = useAppContribStore((s) => s.apps)
+  const storeRegistry = useStoreStore((s) => s.registry)
+  const dismissedUpdates = useStoreStore((s) => s.dismissedUpdates)
+  const storeErrors = useStoreStore((s) => s.errors)
+
+  // The bell needs the catalog even when the Store tab was never opened.
+  useEffect(() => {
+    startStoreUpdates()
+  }, [])
 
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -181,6 +198,30 @@ export function useNotificationItems(): NotificationItem[] {
     // Updating: reopen the Update page (VIDE-142) to watch its progress.
     const onClick = status === 'ready' ? restart : status === 'updating' ? openUpdatePage : startUpdate
     items.push({ id: 'update', text, disabled: false, icon: <UpdateAvailableIcon />, onClick })
+  }
+
+  // Notifications registered by store apps (vide.notifications.add).
+  for (const n of appNotifications) {
+    items.push({
+      id: `app-${n.appId}-${n.id}`,
+      text: n.text,
+      disabled: false,
+      icon: <StoreBagIcon size={16} />,
+      onClick: n.onClick,
+    })
+  }
+
+  // One notice per app version; click installs it, x silences that version.
+  for (const u of pendingUpdates(storeRegistry, installedApps, dismissedUpdates)) {
+    const noticeId = updateNoticeId(u.id, u.version)
+    items.push({
+      id: noticeId,
+      text: storeErrors[u.id] ? `Couldn't update ${u.name}: ${storeErrors[u.id]}` : `${u.name} ${u.version} is available`,
+      disabled: false,
+      icon: <StoreBagIcon size={16} />,
+      onClick: () => void useStoreStore.getState().install(u.id),
+      onDismiss: () => useStoreStore.getState().dismissUpdate(noticeId),
+    })
   }
 
   return items

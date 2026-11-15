@@ -32,9 +32,18 @@ export interface StoreServiceOptions {
   fetchFn?: typeof fetch
 }
 
+// What a refresh must change for the renderer to care: the status and each
+// app's id + latest version (checkedAt/fromCache alone are not news).
+function signature(state: RegistryState | null): string {
+  if (!state) return 'none'
+  if (state.status !== 'ok') return state.status
+  return 'ok:' + state.apps.map((a) => `${a.id}@${a.latest.version}:${a.compatible}`).join(',')
+}
+
 export class StoreService {
   private memory: RegistryState | null = null
   private inFlight: Promise<RegistryState> | null = null
+  private timer: ReturnType<typeof setInterval> | null = null
   private readonly fetchFn: typeof fetch
 
   constructor(private readonly opts: StoreServiceOptions) {
@@ -48,6 +57,25 @@ export class StoreService {
     if (this.inFlight) return this.inFlight
     this.inFlight = this.load().finally(() => { this.inFlight = null })
     return this.inFlight
+  }
+
+  // Re-fetches the catalog on a timer (default 6 h) and calls onChanged only
+  // when the result differs (status, app ids or versions), so the renderer
+  // reloads and update notices appear without the Store tab being open.
+  startPeriodicRefresh(intervalMs = 6 * 60 * 60 * 1000, onChanged?: () => void): void {
+    this.stopPeriodicRefresh()
+    this.timer = setInterval(() => {
+      const before = signature(this.memory)
+      void this.getRegistry(true).then((after) => {
+        if (signature(after) !== before) onChanged?.()
+      }).catch(() => {})
+    }, intervalMs)
+    this.timer.unref?.()
+  }
+
+  stopPeriodicRefresh(): void {
+    if (this.timer) clearInterval(this.timer)
+    this.timer = null
   }
 
   registerHandlers(): void {

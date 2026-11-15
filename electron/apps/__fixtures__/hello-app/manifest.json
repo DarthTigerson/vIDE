@@ -1,0 +1,16 @@
+{
+  "id": "hello",
+  "name": "Hello",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "minVide": "0.4.0",
+  "renderer": "renderer.js",
+  "main": "main.js",
+  "contributes": {
+    "sidebarPanel": {
+      "title": "Hello"
+    },
+    "commands": true
+  },
+  "style": "style.css"
+}

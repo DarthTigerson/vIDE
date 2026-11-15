@@ -5,6 +5,7 @@ import type { LatestUsage, UsageSnapshot } from '../../electron/usagePoller'
 import type { UpdateInfo, UpdateCheckStatus } from '../../electron/updateChecker'
 import type { ChangelogRelease } from '../../electron/changelog'
 import type { RegistryState, StoreListing } from '../../electron/store'
+import type { AppInfo, AppStatus, AppContributes } from '../../electron/apps/appTypes'
 import type { GraphifyGraph } from './graphify'
 import type { DefinitionLocation, DetectResult, LspCompletionItem, LspHoverResult, LspServerId } from '../../electron/lsp/types'
 import type { DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats } from '../../electron/docker'
@@ -16,6 +17,7 @@ import type { Script } from '../../electron/scriptsData'
 import type { ScriptTags } from '../../electron/scriptTags'
 
 export type { RegistryState, StoreListing }
+export type { AppInfo, AppStatus, AppContributes }
 export type { LatestUsage, UsageSnapshot, UpdateInfo, DockerStatus, DockerContainer, DockerActionResult, DockerContainerStats }
 
 export type { Script, ScriptTags }
@@ -379,6 +381,19 @@ declare global {
       updateCheck: () => Promise<UpdateCheckStatus>
       // vSuite Store catalog (electron/store.ts). refresh=false may return the session cache.
       storeGetRegistry: (refresh?: boolean) => Promise<RegistryState>
+      // Fired (no args) when a periodic catalog refresh changed the result.
+      onStoreChanged: (cb: () => void) => () => void
+      // Store apps (electron/apps/appHost.ts)
+      appsList: () => Promise<AppInfo[]>
+      appsInstall: (id: string) => Promise<{ ok: true } | { ok: false; error: string }>
+      appsUninstall: (id: string) => Promise<{ ok: true } | { ok: false; error: string }>
+      appsCall: (appId: string, method: string, payload?: unknown) => Promise<unknown>
+      appsIsDev: () => Promise<boolean>
+      appsLoadDevFolder: () => Promise<{ ok: true; id: string } | { ok: false; error: string }>
+      appsUnloadDev: (id: string) => Promise<void>
+      appsRestart: () => Promise<void>
+      onAppsEvent: (cb: (appId: string, event: string, payload: unknown) => void) => () => void
+      onAppsChanged: (cb: () => void) => () => void
       updateRestart: () => void
       // Relaunches every window (palette "App: Restart vIDE", Cmd+Alt+R).
       restartApp: () => void

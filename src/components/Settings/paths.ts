@@ -115,3 +115,30 @@ const SCRIPT_PREFIX = 'script://'
 export function isScriptTab(path: string): boolean { return path.startsWith(SCRIPT_PREFIX) }
 export function buildScriptPath(scriptId: string): string { return SCRIPT_PREFIX + scriptId }
 export function getScriptId(path: string): string { return path.slice(SCRIPT_PREFIX.length) }
+
+// Store apps (vSuite): tab kinds an app registers open as
+// app-tab://<appId>/<kind>?p=<json params>, and each app's settings page is
+// settings://app/<appId>.
+const APP_TAB_PREFIX = 'app-tab://'
+const APP_SETTINGS_PREFIX = 'settings://app/'
+export function isAppTabPath(path: string): boolean { return path.startsWith(APP_TAB_PREFIX) }
+export function buildAppTabPath(appId: string, kind: string, params: unknown): string {
+  return `${APP_TAB_PREFIX}${appId}/${kind}?p=${encodeURIComponent(JSON.stringify(params ?? null))}`
+}
+export function parseAppTabPath(path: string): { appId: string; kind: string; params: unknown } | null {
+  if (!isAppTabPath(path)) return null
+  const rest = path.slice(APP_TAB_PREFIX.length)
+  const q = rest.indexOf('?p=')
+  const head = q === -1 ? rest : rest.slice(0, q)
+  const slash = head.indexOf('/')
+  if (slash <= 0 || slash === head.length - 1) return null
+  let params: unknown = null
+  if (q !== -1) {
+    try { params = JSON.parse(decodeURIComponent(rest.slice(q + 3))) } catch { return null }
+  }
+  return { appId: head.slice(0, slash), kind: head.slice(slash + 1), params }
+}
+export function buildAppSettingsPath(appId: string): string { return APP_SETTINGS_PREFIX + appId }
+export function appSettingsIdFromPath(path: string): string | null {
+  return path.startsWith(APP_SETTINGS_PREFIX) ? path.slice(APP_SETTINGS_PREFIX.length) || null : null
+}

@@ -4,8 +4,10 @@ import {
   GENERAL_SETTINGS_TAB_PATH, DISPLAY_TAB_PATH, EDITOR_SETTINGS_TAB_PATH, GIT_SETTINGS_TAB_PATH, FILE_TREE_SETTINGS_TAB_PATH,
   BROWSER_SETTINGS_TAB_PATH, CLAUDE_SETTINGS_TAB_PATH, BRIDGE_SETTINGS_TAB_PATH, GRAPHIFY_SETTINGS_TAB_PATH,
   JIRA_SETTINGS_TAB_PATH, DOCKER_SETTINGS_TAB_PATH, MOBILE_SETTINGS_TAB_PATH, NOTES_SETTINGS_TAB_PATH, SCRIPTS_SETTINGS_TAB_PATH,
-  TODO_SETTINGS_TAB_PATH, LLAMA_SETTINGS_TAB_PATH, ABOUT_SETTINGS_TAB_PATH,
+  TODO_SETTINGS_TAB_PATH, LLAMA_SETTINGS_TAB_PATH, ABOUT_SETTINGS_TAB_PATH, buildAppSettingsPath,
 } from './paths'
+import { useAppContribStore } from '@/apps/appContribStore'
+import { StoreBagIcon } from '@/components/Store/storeUi'
 import {
   SettingsIcon, EditorIcon, DisplaySettingsIcon, FilesIcon, ClaudeIcon, BridgeIcon, GitIcon, DockerIcon,
   BrowserIcon, JiraIcon, GraphIcon, PhoneIcon, NotesIcon, ScriptsIcon, TodoIcon, LlamaIcon,
@@ -69,6 +71,14 @@ const NAV_GROUPS: NavGroup[] = [
 
 export function SettingsPanel() {
   const activeTabPath = useEditorStore((s) => s.activeTabPath)
+  const appSettingsPages = useAppContribStore((s) => s.settingsPages)
+  const appPanels = useAppContribStore((s) => s.panels)
+  // One row per store app that registered a settings page, under the built-ins.
+  const appItems = Object.values(appSettingsPages).map((page) => {
+    const PanelIcon = appPanels[page.appId]?.icon
+    return { path: buildAppSettingsPath(page.appId), label: page.title, icon: PanelIcon ? <PanelIcon /> : <StoreBagIcon size={16} /> }
+  })
+  const navGroups = appItems.length > 0 ? [...NAV_GROUPS, { label: 'Apps', items: appItems }] : NAV_GROUPS
 
   return (
     <div className="h-full flex flex-col bg-sidebar border-r border-border overflow-hidden">
@@ -78,7 +88,7 @@ export function SettingsPanel() {
         </span>
       </div>
       <div className="flex-1 overflow-auto py-1">
-        {NAV_GROUPS.map((group, i) => (
+        {navGroups.map((group, i) => (
           <div key={group.label} className={i === 0 ? '' : 'mt-2'}>
             <div className="px-3 pb-0.5">
               <span className="text-[0.6875rem] font-semibold text-fg-subtle uppercase tracking-wider">

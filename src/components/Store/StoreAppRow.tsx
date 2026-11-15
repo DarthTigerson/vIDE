@@ -1,8 +1,9 @@
 import type { StoreListing } from '@/types/api'
+import { StoreAppAction } from './StoreAppAction'
 import { AppMonogram, MadeByVsuite, ghostPillClass } from './storeUi'
 
-// One app in the Store list (canvas board C). Install/Update arrive with the
-// app runtime (STORE Part 2); for now the row opens the app's page.
+// One app in the Store list (canvas board C): View opens the app's page, the
+// action button installs/updates/opens it.
 export function StoreAppRow({ app, onOpen }: { app: StoreListing; onOpen: () => void }) {
   return (
     <article
@@ -19,7 +20,6 @@ export function StoreAppRow({ app, onOpen }: { app: StoreListing; onOpen: () => 
       </div>
       <span className="text-[0.6875rem] text-fg-subtle text-right">
         {app.latest.version}
-        {!app.compatible && <span className="block text-accent">needs vIDE {app.latest.minVide}</span>}
       </span>
       <button
         type="button"
@@ -29,6 +29,7 @@ export function StoreAppRow({ app, onOpen }: { app: StoreListing; onOpen: () => 
       >
         View
       </button>
+      <StoreAppAction app={app} />
     </article>
   )
 }

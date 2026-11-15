@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, act, within } from '@testing-library/react'
 
 const { openTab, openUrlInBrowserTab } = vi.hoisted(() => ({ openTab: vi.fn(), openUrlInBrowserTab: vi.fn() }))
 vi.mock('@/stores/editorStore', () => ({
@@ -9,6 +9,8 @@ vi.mock('@/components/Chat/terminalLinks', () => ({ openUrlInBrowserTab }))
 
 import { StorePage } from '../StorePage'
 import { useStoreStore } from '@/stores/storeStore'
+import { useAppContribStore } from '@/apps/appContribStore'
+import type { AppInfo } from '@/types/api'
 import type { RegistryState, StoreListing } from '@/types/api'
 
 function listing(id: string, name: string, description: string, extra: Partial<StoreListing> = {}): StoreListing {
@@ -30,7 +32,18 @@ function setRegistry(registry: RegistryState | null, loading = false) {
   useStoreStore.setState({ registry, loading, load })
 }
 
-beforeEach(() => setRegistry(ok))
+const appsInstall = vi.fn()
+const appsRestart = vi.fn()
+function inst(id: string, version: string, extra: Partial<AppInfo> = {}): AppInfo {
+  return { id, name: id, version, source: 'store', rendererUrl: '', hasMain: false, contributes: {}, status: 'loaded', ...extra }
+}
+
+beforeEach(() => {
+  ;(window as any).api = { appsInstall, appsRestart }
+  useAppContribStore.setState({ apps: [], panels: {} })
+  useStoreStore.setState({ busy: {}, errors: {} })
+  setRegistry(ok)
+})
 afterEach(() => { cleanup(); vi.clearAllMocks() })
 
 describe('StorePage', () => {
@@ -140,5 +153,77 @@ describe('StorePage', () => {
     await act(async () => { render(<StorePage />) })
     expect(load).toHaveBeenCalledTimes(1)
     expect(load).toHaveBeenCalledWith(false)
+  })
+
+  it('Install calls appsInstall and shows Installing... while pending', async () => {
+    let done: (v: { ok: true }) => void = () => {}
+    appsInstall.mockReturnValue(new Promise((r) => { done = r }))
+    render(<StorePage />)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Install' })[0])
+    expect(appsInstall).toHaveBeenCalledWith('docker')
+    expect(await screen.findByRole('button', { name: 'Installing…' })).toBeDisabled()
+    await act(async () => { done({ ok: true }) })
+    expect(screen.queryByRole('button', { name: 'Installing…' })).toBeNull()
+  })
+
+  it('shows an install error in the row', async () => {
+    appsInstall.mockResolvedValue({ ok: false, error: 'Checksum mismatch' })
+    render(<StorePage />)
+    await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: 'Install' })[0]) })
+    expect(screen.getByText('Checksum mismatch')).toBeInTheDocument()
+  })
+
+  it('counts and filters Installed and Updates', () => {
+    setRegistry({ ...ok, apps: [{ ...listing('docker', 'Docker', 'x'), latest: { version: '1.1.0', commit: 'a'.repeat(40), url: 'u', sha256: 'b'.repeat(64), minVide: '0.4.0' } }, listing('jira', 'Jira', 'y')] } as RegistryState)
+    useAppContribStore.setState({ apps: [inst('docker', '1.0.0')] })
+    render(<StorePage />)
+    expect(screen.getByRole('button', { name: /^Updates/ }).textContent).toBe('Updates 1')
+    expect(screen.getByRole('button', { name: /^Installed/ }).textContent).toBe('Installed 1')
+    expect(screen.getByRole('button', { name: 'Update' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /^Updates/ }))
+    expect(screen.getByRole('heading', { name: 'Docker' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Jira' })).toBeNull()
+    fireEvent.click(within(screen.getByRole('group', { name: 'Show' })).getByRole('button', { name: /^All/ }))
+    expect(screen.getByRole('heading', { name: 'Jira' })).toBeInTheDocument()
+  })
+
+  it('does not count a restart-required app as an update', () => {
+    setRegistry({ ...ok, apps: [{ ...listing('docker', 'Docker', 'x'), latest: { version: '1.1.0', commit: 'a'.repeat(40), url: 'u', sha256: 'b'.repeat(64), minVide: '0.4.0' } }] } as RegistryState)
+    useAppContribStore.setState({ apps: [inst('docker', '1.0.0', { status: 'restart-required' })] })
+    render(<StorePage />)
+    expect(screen.getByRole('button', { name: /^Updates/ }).textContent).toBe('Updates 0')
+  })
+
+  it('Open requests the panel when the app has one, else opens its page', () => {
+    useAppContribStore.setState({ apps: [inst('docker', '1.0.0', { contributes: { sidebarPanel: { title: 'Docker' } } }), inst('jira', '1.0.0')] })
+    render(<StorePage />)
+    const [dockerOpen, jiraOpen] = screen.getAllByRole('button', { name: 'Open' })
+    fireEvent.click(dockerOpen)
+    expect(useAppContribStore.getState().panelRequest?.appId).toBe('docker')
+    fireEvent.click(jiraOpen)
+    expect(openTab).toHaveBeenCalledWith({ path: 'store://app/jira', content: '', dirty: false })
+  })
+
+  it('shows Restart to finish for a restart-required app and restarts', () => {
+    useAppContribStore.setState({ apps: [inst('docker', '1.0.0', { status: 'restart-required' })] })
+    render(<StorePage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Restart to finish' }))
+    expect(appsRestart).toHaveBeenCalled()
+  })
+
+  it('shows Failed to load with the error as title, and Needs vIDE', () => {
+    setRegistry({ ...ok, apps: [listing('docker', 'Docker', 'x'), listing('jira', 'Jira', 'y', { compatible: false })] } as RegistryState)
+    useAppContribStore.setState({ apps: [inst('docker', '1.0.0', { status: 'failed', error: 'boom' })] })
+    render(<StorePage />)
+    expect(screen.getByText('Failed to load')).toHaveAttribute('title', 'boom')
+    expect(screen.getByText('Needs vIDE 0.4.0')).toBeInTheDocument()
+  })
+
+  it('lists dev apps under "Loaded from folder" and never counts them as installed', () => {
+    useAppContribStore.setState({ apps: [inst('hello', '0.1.0', { name: 'Hello', source: 'dev' })] })
+    render(<StorePage />)
+    expect(screen.getByText('Loaded from folder')).toBeInTheDocument()
+    expect(screen.getByText('Dev')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Installed/ }).textContent).toContain('0')
   })
 })

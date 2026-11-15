@@ -1,16 +1,23 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useStoreStore, findStoreApp } from '@/stores/storeStore'
 import { useEditorStore } from '@/stores/editorStore'
+import { useAppContribStore } from '@/apps/appContribStore'
+import { ConfirmActionModal } from '@/components/Git/ConfirmActionModal'
 import { STORE_TAB_PATH } from '@/components/Settings/paths'
 import { openUrlInBrowserTab } from '@/components/Chat/terminalLinks'
-import { AppMonogram, MadeByVsuite } from './storeUi'
+import type { AppContributes } from '@/types/api'
+import { AppMonogram, MadeByVsuite, ghostPillClass } from './storeUi'
+import { StoreAppAction } from './StoreAppAction'
 
-// One app's Store page (store://app/<id>), mockup board 2. Install, Update,
-// Uninstall and "What it adds to vIDE" need the app runtime (STORE Part 2).
+// One app's Store page (store://app/<id>), mockup board 2.
 export function StoreAppPage({ appId }: { appId: string }) {
   const registry = useStoreStore((s) => s.registry)
   const load = useStoreStore((s) => s.load)
   const openTab = useEditorStore((s) => s.openTab)
+  const installed = useAppContribStore((s) => s.apps.find((a) => a.id === appId && a.source === 'store'))
+  const busy = useStoreStore((s) => s.busy[appId])
+  const uninstall = useStoreStore((s) => s.uninstall)
+  const [confirming, setConfirming] = useState(false)
 
   useEffect(() => { if (!useStoreStore.getState().registry) void load(false) }, [load])
 
@@ -37,6 +44,7 @@ export function StoreAppPage({ appId }: { appId: string }) {
   }
 
   const { latest } = app
+  const adds = installed ? addsToVide(installed.contributes) : []
   return (
     <div className="h-full overflow-y-auto bg-bg text-fg">
       <div className="px-10 py-7 flex flex-col gap-6 max-w-[1040px]">
@@ -48,6 +56,14 @@ export function StoreAppPage({ appId }: { appId: string }) {
             <h1 className="text-[1.375rem] font-bold">{app.name}</h1>
             <MadeByVsuite suffix={app.repo} />
             <p className="text-[0.8125rem] text-fg-muted">{app.description}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <StoreAppAction app={app} />
+            {installed && (
+              <button type="button" className={ghostPillClass} disabled={!!busy} onClick={() => setConfirming(true)}>
+                Uninstall
+              </button>
+            )}
           </div>
         </header>
 
@@ -63,11 +79,20 @@ export function StoreAppPage({ appId }: { appId: string }) {
                 'No release notes for this version.'
               )}
             </div>
+            {installed && adds.length > 0 && (
+              <>
+                <h2 className="text-[0.625rem] font-bold tracking-wider uppercase text-fg-subtle mt-3">What it adds to vIDE</h2>
+                <ul className="bg-panel border border-border rounded-[10px] px-4 py-2.5 text-xs text-fg-muted list-disc list-inside">
+                  {adds.map((line) => <li key={line}>{line}</li>)}
+                </ul>
+              </>
+            )}
           </section>
 
           <aside className="flex-[1_1_260px] min-w-0 flex flex-col gap-2.5">
             <h2 className="text-[0.625rem] font-bold tracking-wider uppercase text-fg-subtle">Details</h2>
             <dl className="bg-panel border border-border rounded-[10px] px-4 py-2.5 text-xs">
+              {installed && <Row label="Installed" value={installed.version} />}
               <Row label="Latest" value={latest.version} />
               <Row label="Commit" value={<span className="font-mono" title={latest.commit}>{latest.commit.slice(0, 7)}</span>} />
               <Row
@@ -87,8 +112,26 @@ export function StoreAppPage({ appId }: { appId: string }) {
           </aside>
         </div>
       </div>
+      {confirming && (
+        <ConfirmActionModal
+          title={`Uninstall ${app.name}?`}
+          message="Its settings stay, so reinstalling brings them back."
+          confirmLabel="Uninstall"
+          onConfirm={() => void uninstall(appId)}
+          onClose={() => setConfirming(false)}
+        />
+      )}
     </div>
   )
+}
+
+function addsToVide(c: AppContributes): string[] {
+  const out: string[] = []
+  if (c.sidebarPanel) out.push(`Sidebar panel "${c.sidebarPanel.title}"`)
+  if (c.settingsPage) out.push('Settings page')
+  if (c.commands) out.push('Palette commands')
+  if (c.notifications) out.push('Notifications')
+  return out
 }
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {

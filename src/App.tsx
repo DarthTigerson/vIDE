@@ -49,7 +49,10 @@ import {
 } from './components/ActivityBar/ActivityBar'
 import type { ActivityBarItem } from './components/ActivityBar/ActivityBar'
 import { BatteryPill } from './components/TitleBar/BatteryPill'
-import { AllAppsPanel } from './components/AllApps/AllAppsPanel'
+import { AllAppsPanel, type AllAppsEntry } from './components/AllApps/AllAppsPanel'
+import { useAppContribStore } from './apps/appContribStore'
+import { buildStoreAppEntries, storeAppPanelLeavesOnProjectClose, panelForRequest, storeEntriesHaveBadge } from './apps/storeAppItems'
+import { StoreAppPanel } from './apps/StoreAppPanel'
 import { useAppFavoritesStore } from './stores/appFavoritesStore'
 import { APPEND_TARGET, MOVABLE_APP_IDS, pickTemporaryApp, splitApps, type MovableAppId } from './lib/appFavorites'
 import { APP_SETTINGS_PATHS, appEnabledSetter } from './lib/appSettings'
@@ -126,7 +129,7 @@ import { countUnsaved, type UnsavedState } from './lib/unsavedState'
 import type { Tab } from './types/index'
 import { useDiscardScratchStore, requestCloseTab } from './stores/discardScratchStore'
 import { ConfirmDiscardScratchModal } from './components/Editor/ConfirmDiscardScratchModal'
-import { buildTerminalPath, buildBrowserPath, JIRA_SETTINGS_TAB_PATH, GIT_SETTINGS_TAB_PATH, USAGE_GRAPH_TAB_PATH } from './components/Settings/paths'
+import { buildTerminalPath, buildBrowserPath, buildAppSettingsPath, JIRA_SETTINGS_TAB_PATH, GIT_SETTINGS_TAB_PATH, USAGE_GRAPH_TAB_PATH } from './components/Settings/paths'
 import { TodoPanel } from './components/Todo/TodoPanel'
 import { NotesPanel } from './components/Notes/NotesPanel'
 import { ScriptsPanel } from './components/Scripts/ScriptsPanel'
@@ -202,6 +205,11 @@ function openAppSettings(id: MovableAppId) {
 
 export default function App() {
   const projectRoot = useFileStore((s) => s.projectRoot)
+  const storeApps = useAppContribStore((s) => s.apps)
+  const runtimeErrors = useAppContribStore((s) => s.runtimeErrors)
+  const appPanels = useAppContribStore((s) => s.panels)
+  const appSettingsPages = useAppContribStore((s) => s.settingsPages)
+  const appPanelRequest = useAppContribStore((s) => s.panelRequest)
   const selectedRepo = useGitReposStore((s) => s.selectedRepo)
   const refreshGitStatus = useGitStore((s) => s.refreshStatus)
   const instances = useClaudeStore((s) => s.instances)
@@ -223,13 +231,13 @@ export default function App() {
     running: isLlamaKind(o.kind) ? Boolean(llamaRuns[llamaModelId(o.kind)]?.running) : undefined,
   }))
   const repoName = projectRoot ? projectRoot.split('/').pop() : null
-  const [leftPanel, setLeftPanel] = useState<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'scripts' | 'llama' | 'settings' | 'apps' | null>('files')
+  const [leftPanel, setLeftPanel] = useState<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'scripts' | 'llama' | 'settings' | 'apps' | `app:${string}` | null>('files')
   const appFavorites = useAppFavoritesStore((s) => s.favorites)
   const placeFavorite = useAppFavoritesStore((s) => s.place)
   const unfavoriteApp = useAppFavoritesStore((s) => s.unfavorite)
   // The bar's temporary slot: the last unfavorited app that was opened.
   const lastTemporaryAppRef = useRef<string | null>(null)
-  const lastLeftPanelRef = useRef<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'scripts' | 'llama' | 'settings' | 'apps'>('files')
+  const lastLeftPanelRef = useRef<'files' | 'search' | 'git' | 'docker' | 'mobile' | 'graphify' | 'todos' | 'notes' | 'scripts' | 'llama' | 'settings' | 'apps' | `app:${string}`>('files')
   const [sidebarRem, setSidebarRem] = useState(() => loadRem(SIDEBAR_WIDTH_KEY, SIDEBAR_PANEL))
   const [chatRem, setChatRem] = useState(() => loadRem(CHAT_WIDTH_KEY, CHAT_PANEL))
   // The panel group's width and the root font size: the two numbers needed to
@@ -524,10 +532,17 @@ export default function App() {
   useEffect(() => {
     if (projectRoot) return
     const isProjectOnly = (p: typeof leftPanel) =>
-      p === 'search' || p === 'git' || p === 'docker' || p === 'mobile' || p === 'graphify'
+      p === 'search' || p === 'git' || p === 'docker' || p === 'mobile' || p === 'graphify' ||
+      storeAppPanelLeavesOnProjectClose(p, useAppContribStore.getState().panels)
     if (isProjectOnly(lastLeftPanelRef.current)) lastLeftPanelRef.current = 'files'
     setLeftPanel((p) => (isProjectOnly(p) ? 'files' : p))
   }, [projectRoot])
+
+  // vide.ui.openPanel() from a store app: show that app's sidebar panel.
+  useEffect(() => {
+    const next = panelForRequest(appPanelRequest)
+    if (next) setLeftPanel(next)
+  }, [appPanelRequest?.seq])
 
   // Mirrors the chat panel above: driven imperatively rather than
   // conditionally unmounted (see the sidebar Panel's own comment for why —
@@ -1129,13 +1144,20 @@ export default function App() {
           const temporaryId = pickTemporaryApp(otherIds, otherIds.find((id) => appItems[id]!.active), lastTemporaryAppRef.current)
           lastTemporaryAppRef.current = temporaryId
           const temporaryItem = temporaryId ? appItems[temporaryId]! : undefined
+          const storeEntries = buildStoreAppEntries({
+            apps: storeApps, runtimeErrors, panels: appPanels, settingsPages: appSettingsPages,
+            projectOpen: !!projectRoot,
+            openPanel: (appId) => setLeftPanel((p) => (p === `app:${appId}` ? null : `app:${appId}`)),
+            openSettings: (appId) => useEditorStore.getState().openTab({ path: buildAppSettingsPath(appId), content: '', dirty: false }),
+            uninstall: (appId) => window.api.appsUninstall(appId),
+          })
           // Badges of unfavorited apps are otherwise only visible inside the
           // panel, so All Apps carries a dot for them (the temporary slot
           // already shows its own).
-          const hiddenBadge = otherIds.some((id) => appItems[id] !== temporaryItem && hasBadge(appItems[id]!.badge))
+          const hiddenBadge = storeEntriesHaveBadge(storeEntries) || otherIds.some((id) => appItems[id] !== temporaryItem && hasBadge(appItems[id]!.badge))
           const primaryGroups: ActivityBarItem[][] = [
             [...lockedItems, ...favoriteItems],
-            ...(enabledApps.length > 0 ? [[
+            ...(enabledApps.length > 0 || storeEntries.length > 0 ? [[
               ...(temporaryItem ? [temporaryItem] : []),
               {
                 id: 'apps',
@@ -1152,7 +1174,7 @@ export default function App() {
           ]
           // Every enabled app, favorites included (the star shows which), with
           // favorites in their bar order and the rest in the default order.
-          const allAppsEntries = [...favoriteIds, ...MOVABLE_APP_IDS.filter((id) => !favoriteIds.includes(id))].filter((id) => appItems[id]).map((id) => ({
+          const allAppsEntries: AllAppsEntry[] = [...favoriteIds, ...MOVABLE_APP_IDS.filter((id) => !favoriteIds.includes(id))].filter((id) => appItems[id]).map((id) => ({
             id,
             title: appItems[id]!.title,
             icon: appItems[id]!.icon,
@@ -1162,6 +1184,7 @@ export default function App() {
             onSettings: () => openAppSettings(id),
             onDisable: appEnabledSetter(id) ? () => appEnabledSetter(id)!(false) : undefined,
           }))
+          allAppsEntries.push(...storeEntries)
           // Apps whose Enable switch is off, for All Apps' Disabled section.
           const appEnabled: Partial<Record<MovableAppId, boolean>> = {
             docker: dockerEnabled, llama: llamaEnabled, mobile: mobileEnabled, graphify: graphifyEnabled,
@@ -1227,7 +1250,7 @@ export default function App() {
           >
             {(() => {
               const activeLeftPanel = leftPanel ?? lastLeftPanelRef.current
-              return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'search' ? <SearchPanel /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'docker' ? <DockerPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : activeLeftPanel === 'todos' ? <TodoPanel /> : activeLeftPanel === 'notes' ? <NotesPanel /> : activeLeftPanel === 'scripts' ? <ScriptsPanel /> : activeLeftPanel === 'llama' ? <LlamaPanel /> : activeLeftPanel === 'apps' ? (
+              return activeLeftPanel === 'files' ? <Sidebar /> : activeLeftPanel === 'search' ? <SearchPanel /> : activeLeftPanel === 'git' ? <GitPanel /> : activeLeftPanel === 'docker' ? <DockerPanel /> : activeLeftPanel === 'mobile' ? <MobileDisplayPanel /> : activeLeftPanel === 'graphify' ? <GraphifyPanel /> : activeLeftPanel === 'todos' ? <TodoPanel /> : activeLeftPanel === 'notes' ? <NotesPanel /> : activeLeftPanel === 'scripts' ? <ScriptsPanel /> : activeLeftPanel === 'llama' ? <LlamaPanel /> : activeLeftPanel.startsWith('app:') ? <StoreAppPanel appId={activeLeftPanel.slice(4)} /> : activeLeftPanel === 'apps' ? (
                 <AllAppsPanel
                   apps={allAppsEntries}
                   disabledApps={disabledAppEntries}

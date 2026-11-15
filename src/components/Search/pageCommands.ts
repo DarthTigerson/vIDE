@@ -27,7 +27,9 @@ import {
   ALARMS_TAB_PATH,
   GRAPHIFY_GRAPH_TAB_PATH,
   STORE_TAB_PATH,
+  buildAppSettingsPath,
 } from '@/components/Settings/paths'
+import { useAppContribStore } from '@/apps/appContribStore'
 import { useAlarmStore } from '@/stores/alarmStore'
 
 const noAlarmRinging = () => (useAlarmStore.getState().ringing ? null : 'No alarm is ringing')
@@ -62,6 +64,16 @@ export const SETTINGS_PAGES: SettingsPage[] = [
   { id: 'settings-llama', label: 'Settings: Llama', path: LLAMA_SETTINGS_TAB_PATH, keywords: ['local', 'model', 'llm'] },
 ]
 
+// One row per store app settings page, computed at call time.
+function appSettingsPages(): SettingsPage[] {
+  return Object.values(useAppContribStore.getState().settingsPages).map((page) => ({
+    id: `settings-app-${page.appId}`,
+    label: `Settings: ${page.title}`,
+    path: buildAppSettingsPath(page.appId),
+    keywords: ['app'],
+  }))
+}
+
 export function pageCommands(): Command[] {
   return [
     {
@@ -85,7 +97,7 @@ export function pageCommands(): Command[] {
       keywords: ['compare', 'diff', 'branch'],
       action: () => openGitTab(GIT_BRANCH_DIFF_TAB_PATH),
     },
-    ...SETTINGS_PAGES.map((page): Command => ({
+    ...[...SETTINGS_PAGES, ...appSettingsPages()].map((page): Command => ({
       id: page.id,
       label: page.label,
       description: page.description,

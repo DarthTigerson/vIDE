@@ -7,8 +7,10 @@ import { useScriptsStore } from '@/stores/scriptsStore'
 import { scriptDisplayTitle } from '@/lib/scriptBody'
 import { useNotesStore } from '@/stores/notesStore'
 import { FileIcon, BrowserTabIcon } from '@/components/Sidebar/FileIcon'
-import { isTerminalTab, getTerminalId, isBrowserTab, getBrowserId, isTodoBoardTab, getTodoBoardProjectId, isTodoDetailTab, getTodoDetailIds, isLlamaModelTab, getLlamaModelId, isScriptTab, getScriptId, storeAppIdFromPath, isStoreTab } from '@/components/Settings/paths'
+import { isTerminalTab, getTerminalId, isBrowserTab, getBrowserId, isTodoBoardTab, getTodoBoardProjectId, isTodoDetailTab, getTodoDetailIds, isLlamaModelTab, getLlamaModelId, isScriptTab, getScriptId, storeAppIdFromPath, isStoreTab, parseAppTabPath, appSettingsIdFromPath } from '@/components/Settings/paths'
 import { useStoreStore, findStoreApp } from '@/stores/storeStore'
+import { useAppContribStore } from '@/apps/appContribStore'
+import type { Json } from '@/apps/videApiTypes'
 import { StoreBagIcon } from '@/components/Store/storeUi'
 import { useLlamaModelsStore } from '@/stores/llamaModelsStore'
 import { isCompactTabStrip, orderTabsForDisplay, truncateTabLabel } from './tabDisplay'
@@ -29,6 +31,8 @@ export function TabBar({ paneId }: { paneId: string }) {
   const notesRoot = useNotesStore((s) => s.root)
   const llamaModels = useLlamaModelsStore((s) => s.models)
   const storeRegistry = useStoreStore((s) => s.registry)
+  const appTabKinds = useAppContribStore((s) => s.tabKinds)
+  const appSettingsPages = useAppContribStore((s) => s.settingsPages)
   const paneTabs = useEditorStore((s) => s.paneTabs)
   const paneTabLists = useEditorStore((s) => s.paneTabLists)
   const pinnedPaths = useEditorStore((s) => s.pinnedPaths)
@@ -123,6 +127,14 @@ export function TabBar({ paneId }: { paneId: string }) {
                   const script = scripts.find((s) => s.id === getScriptId(tab.path))
                   return script ? scriptDisplayTitle(script) : 'Script'
                 })()
+            : parseAppTabPath(tab.path)
+              ? (() => {
+                  const parsed = parseAppTabPath(tab.path)!
+                  const kind = appTabKinds[`${parsed.appId}/${parsed.kind}`]
+                  try { return kind ? kind.title(parsed.params as Json) : parsed.kind } catch { return parsed.kind }
+                })()
+            : appSettingsIdFromPath(tab.path)
+              ? (appSettingsPages[appSettingsIdFromPath(tab.path)!]?.title ?? appSettingsIdFromPath(tab.path)!)
             : storeAppIdFromPath(tab.path)
               ? (findStoreApp(storeRegistry, storeAppIdFromPath(tab.path)!)?.name ?? 'Store')
             : isTodoBoardTab(tab.path)

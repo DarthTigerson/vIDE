@@ -1,0 +1,323 @@
+// Main-side host for store apps: loads installed (and dev) apps, activates
+// their main.js, routes `vide.app.call` requests and owns the apps:* IPC.
+
+import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync } from 'fs'
+import { join } from 'path'
+import type { StoreApp } from '../storeRegistry'
+import type { AppInstaller } from './appInstaller'
+import { APP_API_VERSION, parseManifest, type AppManifest } from './appManifest'
+import type { AppContributes, AppInfo, AppStatus } from './appTypes'
+import { readInstalled } from './installedApps'
+import { createMainVideApi } from './mainVideApi'
+
+export type { AppContributes, AppStatus, AppInfo }
+
+export interface AppHostOptions {
+  appsDir: string
+  installer: AppInstaller
+  getListing: (id: string) => Promise<StoreApp | null>
+  isDev: boolean
+  broadcast: (channel: string, ...args: unknown[]) => void
+  sendTo: (windowId: number, channel: string, ...args: unknown[]) => void
+  requireFn?: (path: string) => unknown
+}
+
+interface Entry {
+  manifest: AppManifest
+  root: string | null
+  source: 'store' | 'dev'
+  status: AppStatus
+  error?: string
+  mainActivated: boolean
+  // Bumps on every load, so a reloaded dev folder gets a fresh module URL.
+  loadSeq?: number
+  mainModule?: { deactivate?: () => void }
+  handlers: Map<string, Function>
+  closeListeners: Set<(id: number) => void>
+  children: Map<{ kill(): void }, number | undefined>
+}
+
+type Result = { ok: true } | { ok: false; error: string }
+
+const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e))
+
+// Versioned so a new version, or a dev reload, is fetched fresh.
+function assetUrl(e: Entry, rel: string): string {
+  const v = e.source === 'dev' ? `${e.manifest.version}-${e.loadSeq ?? 0}` : e.manifest.version
+  return `vide-app://${e.manifest.id}/${rel}?v=${v}`
+}
+
+export class AppHost {
+  private readonly entries = new Map<string, Entry>()
+  private readonly requireFn: (path: string) => unknown
+  private loadCounter = 0
+
+  constructor(private readonly opts: AppHostOptions) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    this.requireFn = opts.requireFn ?? ((p) => require(p))
+  }
+
+  async start(): Promise<void> {
+    this.sweep()
+    for (const rec of readInstalled(this.opts.appsDir)) {
+      await this.load(this.opts.installer.installDir(rec.id, rec.version), 'store', rec.id)
+    }
+    if (this.opts.isDev) {
+      for (const dir of this.readDev()) await this.load(dir, 'dev')
+    }
+    // A window may have asked for the list while main.js halves were still
+    // activating; tell it to ask again.
+    this.opts.broadcast('apps:changed')
+  }
+
+  list(): AppInfo[] {
+    return [...this.entries.values()].map((e) => {
+      const info: AppInfo = {
+        id: e.manifest.id,
+        name: e.manifest.name,
+        version: e.manifest.version,
+        source: e.source,
+        rendererUrl: assetUrl(e, e.manifest.renderer),
+        ...(e.manifest.style ? { styleUrl: assetUrl(e, e.manifest.style) } : {}),
+        hasMain: e.manifest.main !== undefined,
+        contributes: e.manifest.contributes,
+        status: e.status
+      }
+      if (e.manifest.icon) info.icon = e.manifest.icon
+      if (e.error) info.error = e.error
+      return info
+    })
+  }
+
+  async install(id: string): Promise<Result> {
+    try {
+      if (this.entries.get(id)?.source === 'dev') {
+        return { ok: false, error: `An app with id ${id} is loaded from a folder. Unload it first.` }
+      }
+      const listing = await this.opts.getListing(id)
+      if (!listing) return { ok: false, error: 'App not found in the Store.' }
+      const result = await this.opts.installer.install(listing)
+      if (!result.ok) return result
+      const dir = this.opts.installer.installDir(id, result.record.version)
+      const existing = this.entries.get(id)
+      if (existing?.mainActivated) {
+        // The old main.js keeps running until restart; the new folder is what
+        // renderer assets resolve against (the old one is gone).
+        existing.status = 'restart-required'
+        existing.root = dir
+      } else {
+        const loaded = await this.load(dir, 'store', id)
+        if (typeof loaded === 'string') {
+          this.opts.broadcast('apps:changed')
+          return { ok: false, error: loaded }
+        }
+      }
+      this.opts.broadcast('apps:changed')
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: msg(e) }
+    }
+  }
+
+  async uninstall(id: string): Promise<Result> {
+    try {
+      const result = this.opts.installer.uninstall(id)
+      if (!result.ok) return result
+      const existing = this.entries.get(id)
+      if (existing?.mainActivated) {
+        existing.status = 'restart-required'
+        existing.root = null
+        this.killChildren(existing)
+      } else if (existing) {
+        this.teardown(existing)
+        this.entries.delete(id)
+      }
+      this.opts.broadcast('apps:changed')
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: msg(e) }
+    }
+  }
+
+  async call(appId: string, method: string, payload: unknown, windowId: number): Promise<unknown> {
+    const fn = this.entries.get(appId)?.handlers.get(method)
+    if (!fn) throw new Error(`No handler ${method}`)
+    return fn(payload, { windowId })
+  }
+
+  async loadDevFolder(dir: string): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+    if (!this.opts.isDev) return { ok: false, error: 'Dev apps are only available in development builds.' }
+    const entry = await this.load(dir, 'dev')
+    if (typeof entry === 'string') return { ok: false, error: entry }
+    const dirs = this.readDev()
+    if (!dirs.includes(dir)) this.writeDev([...dirs, dir])
+    this.opts.broadcast('apps:changed')
+    return { ok: true, id: entry.manifest.id }
+  }
+
+  unloadDev(id: string): void {
+    const entry = this.entries.get(id)
+    if (!entry || entry.source !== 'dev') return
+    this.teardown(entry)
+    this.entries.delete(id)
+    this.writeDev(this.readDev().filter((d) => d !== entry.root))
+    this.opts.broadcast('apps:changed')
+  }
+
+  readonly rootFor = (appId: string): string | null => this.entries.get(appId)?.root ?? null
+
+  disposeWindow(windowId: number): void {
+    for (const e of this.entries.values()) {
+      for (const [child, wid] of [...e.children]) {
+        if (wid === windowId) { try { child.kill() } catch { /* already gone */ } e.children.delete(child) }
+      }
+      for (const cb of [...e.closeListeners]) {
+        try { cb(windowId) } catch { /* an app must not break window teardown */ }
+      }
+    }
+  }
+
+  registerHandlers(): void {
+    ipcMain.handle('apps:list', () => this.list())
+    ipcMain.handle('apps:install', (_e, id: string) => this.install(id))
+    ipcMain.handle('apps:uninstall', (_e, id: string) => this.uninstall(id))
+    ipcMain.handle('apps:call', (e, appId: string, method: string, payload: unknown) =>
+      this.call(appId, method, payload, BrowserWindow.fromWebContents(e.sender)?.id ?? -1))
+    ipcMain.handle('apps:isDev', () => this.opts.isDev)
+    ipcMain.handle('apps:loadDevFolder', async (e) => {
+      if (!this.opts.isDev) return { ok: false, error: 'Dev apps are only available in development builds.' }
+      const win = BrowserWindow.fromWebContents(e.sender)
+      const options = { properties: ['openDirectory' as const] }
+      const picked = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+      if (picked.canceled || picked.filePaths.length === 0) return { ok: false, error: 'Cancelled.' }
+      return this.loadDevFolder(picked.filePaths[0])
+    })
+    ipcMain.handle('apps:unloadDev', (_e, id: string) => this.unloadDev(id))
+    ipcMain.handle('apps:restart', () => {
+      // quit(), not exit(): lets the renderer's last localStorage writes flush
+      // (same reason as update:restart in main.ts).
+      app.relaunch()
+      app.quit()
+    })
+  }
+
+  // Loads one app folder into `entries`. Returns the entry, or a reason string
+  // when the manifest is unusable (no entry is created then, unless the id is known).
+  private killChildren(e: Entry): void {
+    for (const child of [...e.children.keys()]) {
+      try { child.kill() } catch { /* already gone */ }
+    }
+    e.children.clear()
+  }
+
+  // Stops an app's main half: deactivate, drop handlers/listeners, kill children.
+  private teardown(e: Entry): void {
+    try { e.mainModule?.deactivate?.() } catch { /* best effort */ }
+    e.handlers.clear()
+    e.closeListeners.clear()
+    this.killChildren(e)
+  }
+
+  private async load(dir: string, source: 'store' | 'dev', expectedId?: string): Promise<Entry | string> {
+    let manifest: AppManifest
+    try {
+      const parsed = parseManifest(JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8')))
+      if (typeof parsed === 'string') throw new Error(parsed)
+      manifest = parsed
+      if (manifest.apiVersion !== APP_API_VERSION) throw new Error('Built for a newer vIDE. Update vIDE first.')
+      if (!existsSync(join(dir, manifest.renderer))) throw new Error('renderer missing')
+      if (expectedId !== undefined && manifest.id !== expectedId) throw new Error('manifest id mismatch')
+      const clash = this.entries.get(manifest.id)
+      if (clash && clash.source !== source) throw new Error(`An app with id ${manifest.id} is already loaded.`)
+    } catch (e) {
+      const reason = msg(e)
+      if (expectedId !== undefined && this.entries.get(expectedId)?.source !== 'dev') {
+        // Keep the broken installed app visible as failed (never over a dev app).
+        this.entries.set(expectedId, {
+          manifest: { id: expectedId, name: expectedId, version: '', apiVersion: APP_API_VERSION, minVide: '0.0.0', renderer: 'renderer.js', contributes: {} },
+          root: dir, source, status: 'failed', error: reason, mainActivated: false,
+          handlers: new Map(), closeListeners: new Set(), children: new Map()
+        })
+      }
+      return reason
+    }
+
+    const entry: Entry = {
+      manifest, root: dir, source, status: 'loaded', mainActivated: false,
+      handlers: new Map(), closeListeners: new Set(), children: new Map(),
+      loadSeq: ++this.loadCounter
+    }
+    const previous = this.entries.get(manifest.id)
+    if (previous) this.teardown(previous)
+    this.entries.set(manifest.id, entry)
+    if (manifest.main) {
+      try {
+        // A dev folder is edited between loads: drop Node's cached copy.
+        if (source === 'dev' && !this.opts.requireFn) {
+          for (const key of Object.keys(require.cache)) if (key.startsWith(dir)) delete require.cache[key]
+        }
+        const mod = this.requireFn(join(dir, manifest.main)) as { activate?: (v: unknown) => void | Promise<void>; deactivate?: () => void }
+        entry.mainModule = mod
+        const vide = createMainVideApi(manifest.id, {
+          handlers: entry.handlers,
+          closeListeners: entry.closeListeners,
+          trackChild: (child, windowId) => {
+            entry.children.set(child, windowId)
+            return () => { entry.children.delete(child) }
+          },
+          emit: (event, payload, windowId) => {
+            if (windowId === undefined) this.opts.broadcast('apps:event', manifest.id, event, payload)
+            else this.opts.sendTo(windowId, 'apps:event', manifest.id, event, payload)
+          }
+        })
+        // A main half that never settles must not hold up vIDE's startup.
+        await withTimeout(Promise.resolve(mod.activate?.(vide)), ACTIVATE_TIMEOUT_MS)
+        entry.mainActivated = true
+      } catch (e) {
+        entry.status = 'failed'
+        entry.error = msg(e)
+        this.teardown(entry)
+      }
+    }
+    return entry
+  }
+
+  private sweep(): void {
+    const { appsDir } = this.opts
+    try { rmSync(join(appsDir, '.tmp'), { recursive: true, force: true }) } catch { /* ignore */ }
+    let ids: string[] = []
+    try { ids = readdirSync(appsDir) } catch { return }
+    for (const id of ids) {
+      try {
+        for (const name of readdirSync(join(appsDir, id))) {
+          if (name.includes('.old-')) rmSync(join(appsDir, id, name), { recursive: true, force: true })
+        }
+      } catch { /* not a directory */ }
+    }
+  }
+
+  private readDev(): string[] {
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(join(this.opts.appsDir, 'dev.json'), 'utf8'))
+      return Array.isArray(parsed) ? parsed.filter((d): d is string => typeof d === 'string') : []
+    } catch {
+      return []
+    }
+  }
+
+  private writeDev(dirs: string[]): void {
+    mkdirSync(this.opts.appsDir, { recursive: true })
+    writeFileSync(join(this.opts.appsDir, 'dev.json'), JSON.stringify(dirs, null, 2))
+  }
+}
+
+export const ACTIVATE_TIMEOUT_MS = 10_000
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`activate did not finish within ${ms / 1000}s`)), ms)
+  })
+  return Promise.race([p, timeout]).finally(() => clearTimeout(timer))
+}

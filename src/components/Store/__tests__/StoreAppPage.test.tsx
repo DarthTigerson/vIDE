@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 
 const { openTab, openUrlInBrowserTab } = vi.hoisted(() => ({ openTab: vi.fn(), openUrlInBrowserTab: vi.fn() }))
 vi.mock('@/stores/editorStore', () => ({
@@ -9,6 +9,7 @@ vi.mock('@/components/Chat/terminalLinks', () => ({ openUrlInBrowserTab }))
 
 import { StoreAppPage } from '../StoreAppPage'
 import { useStoreStore } from '@/stores/storeStore'
+import { useAppContribStore } from '@/apps/appContribStore'
 import type { RegistryState, StoreListing } from '@/types/api'
 
 const SHA = '0123456789abcdef0123456789abcdef01234567'
@@ -28,7 +29,13 @@ function setApps(apps: StoreListing[]) {
   useStoreStore.setState({ registry, loading: false, load })
 }
 
-beforeEach(() => setApps([docker()]))
+const appsUninstall = vi.fn().mockResolvedValue({ ok: true })
+beforeEach(() => {
+  ;(window as any).api = { appsUninstall, appsInstall: vi.fn(), appsRestart: vi.fn() }
+  useAppContribStore.setState({ apps: [], panels: {} })
+  useStoreStore.setState({ busy: {}, errors: {} })
+  setApps([docker()])
+})
 afterEach(() => { cleanup(); vi.clearAllMocks() })
 
 describe('StoreAppPage', () => {
@@ -67,5 +74,25 @@ describe('StoreAppPage', () => {
     expect(openUrlInBrowserTab).toHaveBeenCalledWith('https://github.com/o/r/releases/tag/v1.1.0')
     fireEvent.click(screen.getByRole('button', { name: 'View source' }))
     expect(openUrlInBrowserTab).toHaveBeenCalledWith('https://github.com/DarthTigerson/vIDE---Docker-App')
+  })
+
+  it('Uninstall confirms, then calls appsUninstall', async () => {
+    useAppContribStore.setState({ apps: [{ id: 'docker', name: 'Docker', version: '1.1.0', source: 'store', rendererUrl: '', hasMain: false, status: 'loaded', contributes: { sidebarPanel: { title: 'Docker' }, settingsPage: { title: 'Docker' }, commands: true } }] })
+    render(<StoreAppPage appId="docker" />)
+    expect(screen.getByText('Installed')).toBeInTheDocument()
+    expect(screen.getByText('Sidebar panel "Docker"')).toBeInTheDocument()
+    expect(screen.getByText('Palette commands')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Uninstall' }))
+    expect(screen.getByText('Uninstall Docker?')).toBeInTheDocument()
+    expect(screen.getByText('Its settings stay, so reinstalling brings them back.')).toBeInTheDocument()
+    expect(appsUninstall).not.toHaveBeenCalled()
+    await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: 'Uninstall' }).pop()!) })
+    expect(appsUninstall).toHaveBeenCalledWith('docker')
+  })
+
+  it('shows Restart to finish for a restart-required app', () => {
+    useAppContribStore.setState({ apps: [{ id: 'docker', name: 'Docker', version: '1.0.0', source: 'store', rendererUrl: '', hasMain: true, status: 'restart-required', contributes: {} }] })
+    render(<StoreAppPage appId="docker" />)
+    expect(screen.getByRole('button', { name: 'Restart to finish' })).toBeInTheDocument()
   })
 })

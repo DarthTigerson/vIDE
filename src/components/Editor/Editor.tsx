@@ -59,6 +59,8 @@ import {
   SCRIPTS_SETTINGS_TAB_PATH,
   isTodoTrashTab,
   isStoreTab,
+  isAppTabPath,
+  appSettingsIdFromPath,
   storeAppIdFromPath,
   getTodoBoardProjectId,
   isTodoDetailTab,
@@ -117,6 +119,7 @@ import { AlarmsPage } from '@/components/Alarms/AlarmsPage'
 import { UpdatePage } from '@/components/Update/UpdatePage'
 import { TodoTrashPage } from '@/components/Todo/TodoTrashPage'
 import { StorePage } from '@/components/Store/StorePage'
+import { AppTabView, AppSettingsView } from '@/apps/AppTabViews'
 import { StoreAppPage } from '@/components/Store/StoreAppPage'
 import { TodoBoardPage } from '@/components/Todo/TodoBoardPage'
 import { ScriptEditorPage } from '@/components/Scripts/ScriptEditorPage'
@@ -495,6 +498,7 @@ function EditorPane({ paneId }: { paneId: string }) {
   const isTodoDetail = !!activeTab && isTodoDetailTab(activeTab.path)
   const isTodoTrash = !!activeTab && isTodoTrashTab(activeTab.path)
   const isStore = !!activeTab && isStoreTab(activeTab.path)
+  const isAppTab = !!activeTab && isAppTabPath(activeTab.path)
   const isLlamaModel = !!activeTab && isLlamaModelTab(activeTab.path)
   const isDockerLogs = !!activeTab && isDockerLogsTab(activeTab.path)
   const isImagePreview = !!activeTab && isImagePreviewTab(activeTab.path)
@@ -509,7 +513,7 @@ function EditorPane({ paneId }: { paneId: string }) {
     !!activeTab &&
     !isVirtual && !isTerminal && !isBrowser &&
     !isDiff && !isCommitDiff && !isGitLog && !isGitGraph && !isGitBranchDiff &&
-    !isGraphifyGraph && !isUsageGraph && !isAlarms && !isUpdate && !isTodoBoard && !isScript && !isTodoDetail && !isTodoTrash && !isStore &&
+    !isGraphifyGraph && !isUsageGraph && !isAlarms && !isUpdate && !isTodoBoard && !isScript && !isTodoDetail && !isTodoTrash && !isStore && !isAppTab &&
     !isLlamaModel && !isDockerLogs && !isImagePreview && !isMarkdownPreview && !isSvgViewer && !isPdfViewer &&
     // A scratch tab has no file on disk yet, so there is no path to show —
     // without this the breadcrumb splits 'scratch://<uuid>' on '/' and
@@ -698,7 +702,9 @@ function EditorPane({ paneId }: { paneId: string }) {
         ) : isBrowser ? (
           <BrowserTab key={activeTab.path} browserId={getBrowserId(activeTab.path)} />
         ) : isVirtual ? (
-          activeTab.path === GIT_SETTINGS_TAB_PATH ? (
+          appSettingsIdFromPath(activeTab.path) ? (
+            <AppSettingsView key={activeTab.path} appId={appSettingsIdFromPath(activeTab.path)!} />
+          ) : activeTab.path === GIT_SETTINGS_TAB_PATH ? (
             <GitSettingsPage />
           ) : activeTab.path === EDITOR_SETTINGS_TAB_PATH ? (
             <EditorSettingsPage />
@@ -749,6 +755,8 @@ function EditorPane({ paneId }: { paneId: string }) {
           <UpdatePage />
         ) : isTodoTrash ? (
           <TodoTrashPage />
+        ) : isAppTab ? (
+          <AppTabView key={activeTab.path} path={activeTab.path} />
         ) : isStore ? (
           (() => {
             const appId = storeAppIdFromPath(activeTab.path)

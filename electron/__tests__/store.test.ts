@@ -132,3 +132,35 @@ describe('StoreService', () => {
     expect(fetchFn).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('StoreService periodic refresh', () => {
+  it('refetches on the interval and broadcasts store:changed only on change', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    try {
+      let minVide = '0.4.0'
+      const fetchFn = vi.fn().mockImplementation(async () => response(200, JSON.stringify(registry(minVide))))
+      const svc = service(fetchFn)
+      const onChanged = vi.fn()
+      await svc.getRegistry(true)
+      fetchFn.mockClear()
+      svc.startPeriodicRefresh(1000, onChanged)
+      vi.advanceTimersByTime(1000)
+      await vi.waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(1))
+      await svc.getRegistry(false)
+      await new Promise((r) => setTimeout(r, 50))
+      expect(onChanged).not.toHaveBeenCalled()
+      const next = { ...registry(), apps: [{ ...registry().apps[0], latest: { ...registry().apps[0].latest, version: '1.1.0' } }] }
+      fetchFn.mockResolvedValue(response(200, JSON.stringify(next)))
+      vi.advanceTimersByTime(1000)
+      await vi.waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1))
+      expect(fetchFn).toHaveBeenCalledTimes(2)
+      svc.stopPeriodicRefresh()
+      vi.advanceTimersByTime(5000)
+      await new Promise((r) => setTimeout(r, 20))
+      expect(fetchFn).toHaveBeenCalledTimes(2)
+      void minVide
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})

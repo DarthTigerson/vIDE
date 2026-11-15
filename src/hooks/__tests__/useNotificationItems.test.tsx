@@ -14,6 +14,9 @@ import { useLlamaStore } from '@/stores/llamaStore'
 import { usePanelRequestStore } from '@/stores/panelRequestStore'
 import { useGraphifySettingsStore } from '@/stores/graphifySettingsStore'
 import { useGraphifyStore } from '@/stores/graphifyStore'
+import { useStoreStore } from '@/stores/storeStore'
+import { useAppContribStore } from '@/apps/appContribStore'
+import type { RegistryState } from '@/types/api'
 
 beforeEach(() => {
   useUsageAlertStore.setState({ alerts: [] })
@@ -307,5 +310,46 @@ describe('useNotificationItems', () => {
     useGraphifyStore.setState({ claudeSkillPrompts: { '/code/app': null } })
     const { result } = renderHook(() => useNotificationItems())
     expect(result.current).toEqual([])
+  })
+})
+
+describe('store update notices', () => {
+  const registry: RegistryState = {
+    status: 'ok', checkedAt: 1, fromCache: false,
+    apps: [{
+      id: 'docker', name: 'Docker', description: 'd', repo: 'o/r', firstParty: true, compatible: true,
+      recommended: false, category: 'applications', targets: ['vide'],
+      latest: { version: '1.1.0', commit: 'a'.repeat(40), url: 'u', sha256: 'b'.repeat(64), minVide: '0.4.0' },
+    }],
+  }
+  const installedDocker = { id: 'docker', name: 'Docker', version: '1.0.0', source: 'store' as const, rendererUrl: '', hasMain: false, contributes: {}, status: 'loaded' as const }
+
+  it('adds one row per pending update; click installs, dismiss persists the version', () => {
+    const install = vi.fn()
+    const dismissUpdate = vi.fn()
+    useStoreStore.setState({ registry, dismissedUpdates: [], install, dismissUpdate })
+    useAppContribStore.setState({ apps: [installedDocker] })
+    const { result } = renderHook(() => useNotificationItems())
+    const item = result.current.find((i) => i.id === 'store-update-docker-1.1.0')!
+    expect(item.text).toBe('Docker 1.1.0 is available')
+    item.onClick?.()
+    expect(install).toHaveBeenCalledWith('docker')
+    item.onDismiss?.()
+    expect(dismissUpdate).toHaveBeenCalledWith('store-update-docker-1.1.0')
+  })
+
+  it('turns the row into a failure line when the install errored', () => {
+    useStoreStore.setState({ registry, dismissedUpdates: [], errors: { docker: 'Checksum mismatch' } })
+    useAppContribStore.setState({ apps: [installedDocker] })
+    const { result } = renderHook(() => useNotificationItems())
+    expect(result.current.find((i) => i.id === 'store-update-docker-1.1.0')!.text).toBe("Couldn't update Docker: Checksum mismatch")
+    useStoreStore.setState({ errors: {} })
+  })
+
+  it('hides a dismissed version', () => {
+    useStoreStore.setState({ registry, dismissedUpdates: ['store-update-docker-1.1.0'] })
+    useAppContribStore.setState({ apps: [installedDocker] })
+    const { result } = renderHook(() => useNotificationItems())
+    expect(result.current.some((i) => i.id.startsWith('store-update-'))).toBe(false)
   })
 })

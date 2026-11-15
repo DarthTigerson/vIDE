@@ -101,3 +101,14 @@ describe('alarm commands', () => {
     expect(useAlarmStore.getState().ringing).toBeNull()
   })
 })
+
+describe('app settings pages', () => {
+  it('adds a Settings row for each store app settings page', async () => {
+    const { useAppContribStore } = await import('@/apps/appContribStore')
+    useAppContribStore.getState().registerSettingsPage({ appId: 'hello', title: 'Hello', component: () => null })
+    const cmd = pageCommands().find((c) => c.id === 'settings-app-hello')
+    expect(cmd?.label).toBe('Settings: Hello')
+    useAppContribStore.getState().clearApp('hello')
+    expect(pageCommands().some((c) => c.id === 'settings-app-hello')).toBe(false)
+  })
+})

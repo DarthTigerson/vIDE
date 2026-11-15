@@ -31,6 +31,8 @@ export default defineConfig({
       ['src/components/Editor/__tests__/currentLineBlame.test.ts', 'jsdom'],
     ],
     include: [
+      'src/apps/__tests__/**/*.test.ts',
+      'src/apps/__tests__/**/*.test.tsx',
       'src/stores/__tests__/**/*.test.ts',
       'src/lib/__tests__/**/*.test.ts',
       'src/lib/**/__tests__/**/*.test.ts',

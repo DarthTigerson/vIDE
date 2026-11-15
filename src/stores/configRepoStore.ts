@@ -8,7 +8,7 @@ export const DEFAULT_CATEGORIES: Record<string, boolean> = {
   integrations: true, notes: true, todo: true, jira: true, scripts: true,
 }
 
-const CATEGORY_PREFIXES: Record<string, string[]> = {
+export const CATEGORY_PREFIXES: Record<string, string[]> = {
   general: [
     'vide:general:', 'vide:theme', 'vide:themeMatchSystem',
     'vide:font', 'vide:panelStyle',

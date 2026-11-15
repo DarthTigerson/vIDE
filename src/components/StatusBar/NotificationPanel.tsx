@@ -101,6 +101,7 @@ export function NotificationPanel() {
               type="button"
               onMouseUp={(e) => {
                 if (e.button !== 0) return
+                items.forEach((item) => item.onDismiss?.())
                 dismiss(items.map((item) => item.id))
               }}
               className="text-fg-muted hover:text-fg transition-colors"
@@ -143,6 +144,7 @@ export function NotificationPanel() {
                 onMouseUp={(e) => {
                   if (e.button !== 0) return
                   e.stopPropagation()
+                  item.onDismiss?.()
                   dismiss([item.id])
                 }}
                 className="shrink-0 w-6 h-6 mr-1 flex items-center justify-center rounded text-fg-subtle hover:text-fg hover:bg-white/10"

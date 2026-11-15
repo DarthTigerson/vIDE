@@ -36,8 +36,8 @@ export type ParsedRegistry =
   | { kind: 'too-new' }
   | { kind: 'invalid'; reason: string }
 
-const ID_RE = /^[a-z0-9-]+$/
-const SEMVER_RE = /^\d+\.\d+\.\d+$/
+export const ID_RE = /^[a-z0-9-]+$/
+export const SEMVER_RE = /^\d+\.\d+\.\d+$/
 const COMMIT_RE = /^[0-9a-f]{40}$/
 const SHA256_RE = /^[0-9a-f]{64}$/
 const REPO_RE = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/

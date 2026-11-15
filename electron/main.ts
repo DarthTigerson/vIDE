@@ -39,6 +39,9 @@ import { registerScriptsHandlers, registerScriptRunRoute } from './scripts'
 import { registerSearchHandlers } from './search'
 import { UpdateChecker } from './updateChecker'
 import { StoreService, DEFAULT_REGISTRY_URL } from './store'
+import { AppHost } from './apps/appHost'
+import { AppInstaller } from './apps/appInstaller'
+import { registerAppScheme, handleAppProtocol } from './apps/appProtocol'
 import { UpdateRunner } from './updateRunner'
 import { getChangelogForVersion, getChangelogReleases } from './changelog'
 import { getSystemMemoryUsage } from './systemMemory'
@@ -381,6 +384,7 @@ function createWindow(projectRoot?: string, savedBounds?: WindowBounds): Browser
     claudeMgr.disposeWindow(win.id)
     gitWatcher.disposeWindow(win.id)
     dockerWatcher.disposeWindow(win.id)
+    appHost?.disposeWindow(win.id)
     fileWatcher.disposeWindow(win.id)
     bridgeMgr.disposeWindow(win.id)
     browserViewMgr.disposeWindow(win.id)
@@ -458,6 +462,7 @@ async function restoreOpenWindows(): Promise<void> {
 
 app.name = 'vIDE'
 applyDevProfile()
+registerAppScheme()
 
 // One-time, non-destructive migration for users upgrading from Huginn: copy
 // the old userData directory (settings, usage history, etc.) into the new
@@ -838,6 +843,7 @@ let inlineEditMgr: InlineEditManager
 let commitMessageMgr: CommitMessageManager
 let lspMgr: LanguageServerManager
 let updateChecker: UpdateChecker | null = null
+let appHost: AppHost | null = null
 
 app.whenReady().then(async () => {
   await migrateUserDataFromHuginn()
@@ -966,11 +972,43 @@ app.whenReady().then(async () => {
   })
   updateChecker.registerHandlers()
   updateChecker.start()
-  new StoreService({
+  const storeService = new StoreService({
     url: process.env.VIDE_STORE_REGISTRY_URL ?? DEFAULT_REGISTRY_URL,
     cacheFile: join(app.getPath('userData'), 'apps', 'registry-cache.json'),
     currentVersion: app.getVersion(),
-  }).registerHandlers()
+  })
+  storeService.registerHandlers()
+  // Catalog refresh at startup and every 6 h so update notices show up even
+  // with the Store tab closed; renderers reload when the result changed.
+  const broadcastStoreChanged = () => {
+    for (const w of BrowserWindow.getAllWindows()) {
+      if (!w.isDestroyed()) w.webContents.send('store:changed')
+    }
+  }
+  void storeService.getRegistry(true)
+  storeService.startPeriodicRefresh(undefined, broadcastStoreChanged)
+  const appsDir = join(app.getPath('userData'), 'apps')
+  appHost = new AppHost({
+    appsDir,
+    installer: new AppInstaller({ appsDir, currentVersion: app.getVersion() }),
+    getListing: async (id) => {
+      const r = await storeService.getRegistry(false)
+      return r.status === 'ok' ? r.apps.find((a) => a.id === id) ?? null : null
+    },
+    isDev: !app.isPackaged,
+    broadcast: (channel, ...args) => {
+      for (const w of BrowserWindow.getAllWindows()) {
+        if (!w.isDestroyed()) w.webContents.send(channel, ...args)
+      }
+    },
+    sendTo: (windowId, channel, ...args) => {
+      const w = BrowserWindow.fromId(windowId)
+      if (w && !w.isDestroyed()) w.webContents.send(channel, ...args)
+    },
+  })
+  appHost.registerHandlers()
+  handleAppProtocol((id) => appHost?.rootFor(id) ?? null)
+  await appHost.start()
   new UpdateRunner().registerHandlers()
 
   ipcMain.on('update:restart', () => {

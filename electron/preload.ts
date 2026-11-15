@@ -223,6 +223,29 @@ contextBridge.exposeInMainWorld('api', {
   updateCheck: () => ipcRenderer.invoke('update:check'),
   storeGetRegistry: (refresh = false) =>
     ipcRenderer.invoke('store:getRegistry', refresh) as Promise<import('./store').RegistryState>,
+  onStoreChanged: (cb: () => void) => {
+    const handler = () => cb()
+    ipcRenderer.on('store:changed', handler)
+    return () => ipcRenderer.removeListener('store:changed', handler)
+  },
+  appsList: () => ipcRenderer.invoke('apps:list') as Promise<import('./apps/appTypes').AppInfo[]>,
+  appsInstall: (id: string) => ipcRenderer.invoke('apps:install', id) as Promise<{ ok: true } | { ok: false; error: string }>,
+  appsUninstall: (id: string) => ipcRenderer.invoke('apps:uninstall', id) as Promise<{ ok: true } | { ok: false; error: string }>,
+  appsCall: (appId: string, method: string, payload?: unknown) => ipcRenderer.invoke('apps:call', appId, method, payload) as Promise<unknown>,
+  appsIsDev: () => ipcRenderer.invoke('apps:isDev') as Promise<boolean>,
+  appsLoadDevFolder: () => ipcRenderer.invoke('apps:loadDevFolder') as Promise<{ ok: true; id: string } | { ok: false; error: string }>,
+  appsUnloadDev: (id: string) => ipcRenderer.invoke('apps:unloadDev', id) as Promise<void>,
+  appsRestart: () => ipcRenderer.invoke('apps:restart') as Promise<void>,
+  onAppsEvent: (cb: (appId: string, event: string, payload: unknown) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, appId: string, event: string, payload: unknown) => cb(appId, event, payload)
+    ipcRenderer.on('apps:event', handler)
+    return () => ipcRenderer.removeListener('apps:event', handler)
+  },
+  onAppsChanged: (cb: () => void) => {
+    const handler = () => cb()
+    ipcRenderer.on('apps:changed', handler)
+    return () => ipcRenderer.removeListener('apps:changed', handler)
+  },
   updateRestart: () => ipcRenderer.send('update:restart'),
   restartApp: () => ipcRenderer.send('app:restart'),
   updateRun: () => ipcRenderer.invoke('update:run'),

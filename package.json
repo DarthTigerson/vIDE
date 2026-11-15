@@ -28,6 +28,7 @@
     "chokidar": "^3.6.0",
     "d3-force": "^3.0.0",
     "diff": "^9.0.0",
+    "fflate": "^0.8.2",
     "minimatch": "^11.0.8",
     "node-pty": "^1.1.0",
     "pdfjs-dist": "^6.4.299",

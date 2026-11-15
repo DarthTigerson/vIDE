@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { RegistryState, StoreListing } from '@/types/api'
 import { useStoreStore } from '@/stores/storeStore'
+import { hasUpdate as hasUpdateRule } from '@/lib/storeUpdates'
+import { useAppContribStore } from '@/apps/appContribStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { buildStoreAppPath } from '@/components/Settings/paths'
 import {
@@ -8,18 +10,20 @@ import {
   type StoreFilters, type Category, type Maker,
 } from '@/lib/storeFilter'
 import { StoreAppRow } from './StoreAppRow'
-import { formatCheckedAgo, ghostPillClass } from './storeUi'
+import { AppMonogram, formatCheckedAgo, ghostPillClass } from './storeUi'
 
 // The Store tab (store://Store), canvas board C: the vsuite.tech filters
 // (Category, Made by, Applications) on the left, one app per row on the
-// right. Read-only until the app runtime lands, so Installed/Updates are
-// present but disabled.
+// right. The Show group (All / Installed / Updates) filters by what is
+// installed (appContribStore) and which installs have a newer listing.
 export function StorePage() {
   const registry = useStoreStore((s) => s.registry)
   const loading = useStoreStore((s) => s.loading)
   const load = useStoreStore((s) => s.load)
   const openTab = useEditorStore((s) => s.openTab)
+  const installedApps = useAppContribStore((s) => s.apps)
   const [filters, setFilters] = useState<StoreFilters>(DEFAULT_STORE_FILTERS)
+  const [show, setShow] = useState<'all' | 'installed' | 'updates'>('all')
 
   // Show what the main process already has, then refresh in the background
   // so a reopened tab is instant but never stale for long.
@@ -32,9 +36,15 @@ export function StorePage() {
   const set = (patch: Partial<StoreFilters>) => setFilters((f) => ({ ...f, ...patch }))
 
   const all = registry?.status === 'ok' ? registry.apps : []
-  const apps = sortStoreApps(filterStoreApps(all, filters))
+  const isInstalled = (a: StoreListing) => installedApps.some((i) => i.id === a.id && i.source === 'store')
+  const hasUpdate = (a: StoreListing) => hasUpdateRule(a, installedApps.find((i) => i.id === a.id))
+  const installedCount = all.filter(isInstalled).length
+  const updatesCount = all.filter(hasUpdate).length
+  const shown = show === 'installed' ? all.filter(isInstalled) : show === 'updates' ? all.filter(hasUpdate) : all
+  const apps = sortStoreApps(filterStoreApps(shown, filters))
   const counts = storeFilterCounts(all)
   const vide = filters.targets.includes('vide')
+  const devApps = installedApps.filter((a) => a.source === 'dev')
 
   return (
     <div className="h-full overflow-y-auto bg-bg text-fg">
@@ -124,20 +134,36 @@ export function StorePage() {
 
           <section aria-label="Apps" className="flex-[999_1_480px] min-w-0 flex flex-col gap-2">
             <div role="group" aria-label="Show" className="self-start mb-1.5 flex p-[3px] gap-0.5 rounded-lg border border-border bg-panel">
-              <ShowButton active>All <span className="opacity-70">{all.length}</span></ShowButton>
-              <ShowButton disabled title="Available once apps can be installed">Installed <span className="opacity-70">0</span></ShowButton>
-              <ShowButton disabled title="Available once apps can be installed">Updates <span className="opacity-70">0</span></ShowButton>
+              <ShowButton active={show === 'all'} onClick={() => setShow('all')}>All <span className="opacity-70">{all.length}</span></ShowButton>
+              <ShowButton active={show === 'installed'} onClick={() => setShow('installed')}>Installed <span className="opacity-70">{installedCount}</span></ShowButton>
+              <ShowButton active={show === 'updates'} onClick={() => setShow('updates')}>Updates <span className="opacity-70">{updatesCount}</span></ShowButton>
             </div>
 
             <Body
               registry={registry}
               loading={loading}
               apps={apps}
-              filtered={!isDefaultStoreFilters(filters)}
+              filtered={!isDefaultStoreFilters(filters) || show !== 'all'}
               onRetry={() => void load(true)}
               onOpenApp={openApp}
-              onClear={() => setFilters(DEFAULT_STORE_FILTERS)}
+              onClear={() => { setFilters(DEFAULT_STORE_FILTERS); setShow('all') }}
             />
+
+            {devApps.length > 0 && (
+              <div className="mt-3 flex flex-col gap-2">
+                <h2 className="text-[0.625rem] font-bold tracking-wider uppercase text-fg-subtle">Loaded from folder</h2>
+                {devApps.map((a) => (
+                  <article key={a.id} className="bg-panel border border-dashed border-border rounded-[10px] px-4 py-3 flex items-center gap-4 min-w-0">
+                    <AppMonogram name={a.name} />
+                    <div className="flex-1 min-w-0 flex items-baseline gap-2.5">
+                      <h2 className="text-sm font-semibold text-fg truncate">{a.name}</h2>
+                      <span className="text-[0.625rem] font-bold px-1.5 rounded bg-border text-fg-muted">Dev</span>
+                    </div>
+                    <span className="text-[0.6875rem] text-fg-subtle">{a.status === 'failed' ? 'Failed to load' : a.version}</span>
+                  </article>
+                ))}
+              </div>
+            )}
 
           </section>
         </div>
@@ -222,19 +248,17 @@ function FilterRow({ label, count, active, onClick }: { label: string; count: nu
   )
 }
 
-function ShowButton({ active, disabled, title, children }: {
+function ShowButton({ active, onClick, children }: {
   active?: boolean
-  disabled?: boolean
-  title?: string
+  onClick: () => void
   children: React.ReactNode
 }) {
   return (
     <button
       type="button"
       aria-pressed={active ?? false}
-      disabled={disabled}
-      title={title}
-      className={`h-[26px] px-2.5 rounded-md text-[0.6875rem] flex items-center gap-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+      onClick={onClick}
+      className={`h-[26px] px-2.5 rounded-md text-[0.6875rem] flex items-center gap-1.5 transition-colors ${
         active ? 'bg-accent/15 text-accent font-medium' : 'text-fg-muted hover:text-fg'
       }`}
     >

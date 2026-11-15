@@ -5,6 +5,8 @@ import { notifySettingChanged } from '@/lib/notifySettingChanged'
 import { pillButtonClass } from '@/components/ui/pillButton'
 import { useEditorStore } from '@/stores/editorStore'
 import { STORE_TAB_PATH } from '@/components/Settings/paths'
+import { ConfirmActionModal } from '@/components/Git/ConfirmActionModal'
+import { usePeekEventStore } from '@/stores/peekEventStore'
 import { AllAppsContextMenu } from './AllAppsContextMenu'
 
 export interface AllAppsEntry {
@@ -13,10 +15,18 @@ export interface AllAppsEntry {
   icon: React.ReactNode
   favorite: boolean
   badge?: string | number
-  onOpen: (event: React.MouseEvent<HTMLButtonElement>) => void
+  // Omitted for an app that failed to load (the row is inert).
+  onOpen?: (event: React.MouseEvent<HTMLButtonElement>) => void
   onSettings: () => void
   // Omitted for apps with no Enable switch.
   onDisable?: () => void
+  // Store apps: adds an "Uninstall" item to the row's menu.
+  onUninstall?: () => Promise<{ ok: true } | { ok: false; error: string }>
+  // False for store apps in phase 1: no star, no dragging onto the bar.
+  favoritable?: boolean
+  // Small second line ("Failed to load", "Restart to finish") and its tooltip.
+  subtitle?: string
+  tooltip?: string
 }
 
 // An app whose Enable switch is off, listed in the collapsible Disabled
@@ -82,9 +92,11 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
     onToggleFavorite?: () => void
     onSettings: () => void
     onDisable?: () => void
+    onUninstall?: () => void
     onEnable?: () => void
   } | null>(null)
   const closeMenu = useCallback(() => setMenu(null), [])
+  const [uninstalling, setUninstalling] = useState<AllAppsEntry | null>(null)
 
   function openMenu(e: React.MouseEvent, app: AllAppsEntry) {
     e.preventDefault()
@@ -94,9 +106,10 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
       y: e.clientY,
       id: app.id,
       favorite: app.favorite,
-      onToggleFavorite: () => (app.favorite ? onUnfavorite(app.id) : onPlace(app.id, null)),
+      onToggleFavorite: app.favoritable === false ? undefined : () => (app.favorite ? onUnfavorite(app.id) : onPlace(app.id, null)),
       onSettings: app.onSettings,
       onDisable: app.onDisable,
+      onUninstall: app.onUninstall ? () => setUninstalling(app) : undefined,
     })
   }
 
@@ -244,16 +257,18 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
             <button
               key={app.id}
               type="button"
-              draggable
+              draggable={app.favoritable !== false}
               onDragStart={(e) => startDrag(e, app.id)}
               onDragEnd={() => setDropZone(null)}
               onDrop={favorite ? (e) => dropOnFavorites(e, app.id) : undefined}
               onClick={app.onOpen}
+              title={app.tooltip}
               onContextMenu={(e) => openMenu(e, app)}
               className={`min-w-0 h-[4.75rem] px-1 rounded-md flex flex-col items-center justify-center gap-1.5 text-[0.6875rem] hover:text-fg hover:bg-white/5 transition-colors ${menuTargetClass(app)}`}
             >
               <AppIcon app={app} className={`w-10 h-10 rounded-[10px] [&>svg]:w-5 [&>svg]:h-5 ${tile}`} />
               <span className="max-w-full truncate">{app.title}</span>
+              {app.subtitle && <span className="max-w-full truncate text-[0.625rem] text-fg-subtle">{app.subtitle}</span>}
             </button>
           ))}
         </div>
@@ -263,16 +278,18 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
       <button
         key={app.id}
         type="button"
-        draggable
+        draggable={app.favoritable !== false}
         onDragStart={(e) => startDrag(e, app.id)}
         onDragEnd={() => setDropZone(null)}
         onDrop={favorite ? (e) => dropOnFavorites(e, app.id) : undefined}
         onClick={app.onOpen}
+        title={app.tooltip}
         onContextMenu={(e) => openMenu(e, app)}
         className={`w-full h-9 pl-3 pr-2 flex items-center gap-2.5 text-left text-sm hover:text-fg hover:bg-white/5 transition-colors ${menuTargetClass(app)}`}
       >
         <AppIcon app={app} className={`w-[1.625rem] h-[1.625rem] rounded-md [&>svg]:w-4 [&>svg]:h-4 ${tile}`} />
         <span className="truncate">{app.title}</span>
+        {app.subtitle && <span className="ml-auto shrink-0 text-[0.6875rem] text-fg-subtle">{app.subtitle}</span>}
       </button>
     ))
   }
@@ -385,6 +402,19 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
           Store
         </button>
       </div>
+      {uninstalling && (
+        <ConfirmActionModal
+          title={`Uninstall ${uninstalling.title}?`}
+          message="Its settings stay, so reinstalling brings them back."
+          confirmLabel="Uninstall"
+          onConfirm={() => {
+            void uninstalling.onUninstall!().then((r) => {
+              if (!r.ok) usePeekEventStore.getState().show(r.error, 'info')
+            })
+          }}
+          onClose={() => setUninstalling(null)}
+        />
+      )}
       {menu && (
         <AllAppsContextMenu
           x={menu.x}
@@ -393,6 +423,7 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
           onToggleFavorite={menu.onToggleFavorite}
           onSettings={menu.onSettings}
           onDisable={menu.onDisable}
+          onUninstall={menu.onUninstall}
           onEnable={menu.onEnable}
           onClose={closeMenu}
         />

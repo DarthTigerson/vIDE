@@ -69,4 +69,13 @@ if (preMountSyncResult.incompatible) {
       <App />
     </React.StrictMode>
   )
+
+  // Store apps: import each installed app's renderer half once App is mounted.
+  if (import.meta.env.VITE_MOBILE_CLIENT !== 'true') {
+    const { startAppRuntime } = await import('./apps/appRuntime')
+    void startAppRuntime()
+    // Ask now, so the dev-only palette commands are there on the first open.
+    const { askDevMode } = await import('./components/Search/appCommands')
+    askDevMode()
+  }
 }

@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { AllAppsPanel, ALL_APPS_VIEW_KEY, ALL_APPS_DISABLED_OPEN_KEY } from '../AllAppsPanel'
 import { APP_DRAG_MIME } from '@/components/ActivityBar/ActivityBar'
+import { usePeekEventStore } from '@/stores/peekEventStore'
 import { useEditorStore } from '@/stores/editorStore'
 
 const apps = [
@@ -259,5 +260,36 @@ describe('AllAppsPanel', () => {
       expect(screen.getByText('Jira')).toBeTruthy()
       expect(screen.queryByText('Scripts')).toBeNull()
     })
+  })
+  it('lists a store app that cannot be favorited and offers Uninstall', () => {
+    const onUninstall = vi.fn().mockResolvedValue({ ok: true })
+    render(<AllAppsPanel apps={[{ id: 'hello', title: 'Hello', icon: null, favorite: false, favoritable: false, onOpen: vi.fn(), onSettings: vi.fn(), onUninstall }]} open onPlace={vi.fn()} onUnfavorite={vi.fn()} />)
+    const row = screen.getByText('Hello').closest('button')!
+    expect(row.draggable).toBe(false)
+    fireEvent.contextMenu(row)
+    expect(screen.queryByText('Favorite')).toBeNull()
+    fireEvent.click(screen.getByText('Uninstall'))
+    expect(screen.getByText('Uninstall Hello?')).toBeTruthy()
+    expect(onUninstall).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByText('Cancel'))
+    expect(onUninstall).not.toHaveBeenCalled()
+  })
+
+  it('uninstalls on confirm and peeks a failure', async () => {
+    const show = vi.spyOn(usePeekEventStore.getState(), 'show').mockImplementation(() => {})
+    const onUninstall = vi.fn().mockResolvedValue({ ok: false, error: 'nope' })
+    render(<AllAppsPanel apps={[{ id: 'hello', title: 'Hello', icon: null, favorite: false, favoritable: false, onSettings: vi.fn(), onUninstall }]} open onPlace={vi.fn()} onUnfavorite={vi.fn()} />)
+    fireEvent.contextMenu(screen.getByText('Hello').closest('button')!)
+    fireEvent.click(screen.getByText('Uninstall'))
+    fireEvent.click(screen.getAllByText('Uninstall').pop()!)
+    expect(onUninstall).toHaveBeenCalled()
+    await vi.waitFor(() => expect(show).toHaveBeenCalledWith('nope', 'info'))
+    show.mockRestore()
+  })
+
+  it('shows a failed app with its subtitle and tooltip', () => {
+    render(<AllAppsPanel apps={[{ id: 'bad', title: 'Bad', icon: null, favorite: false, favoritable: false, subtitle: 'Failed to load', tooltip: 'boom', onSettings: vi.fn() }]} open onPlace={vi.fn()} onUnfavorite={vi.fn()} />)
+    expect(screen.getByText('Failed to load')).toBeTruthy()
+    expect(screen.getByText('Bad').closest('button')!.title).toBe('boom')
   })
 })
