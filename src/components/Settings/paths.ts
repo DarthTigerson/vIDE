@@ -110,6 +110,12 @@ export function getTodoDetailIds(path: string): { projectId: string; todoId: str
 }
 
 
+// An MCP server's detail page (MCP panel).
+const MCP_SERVER_PREFIX = 'mcp-server://'
+export function isMcpServerTab(path: string): boolean { return path.startsWith(MCP_SERVER_PREFIX) }
+export function buildMcpServerPath(serverId: string): string { return MCP_SERVER_PREFIX + serverId }
+export function getMcpServerId(path: string): string { return path.slice(MCP_SERVER_PREFIX.length) }
+
 // A script's editor page (Scripts app).
 const SCRIPT_PREFIX = 'script://'
 export function isScriptTab(path: string): boolean { return path.startsWith(SCRIPT_PREFIX) }

@@ -65,6 +65,8 @@ import {
   getTodoBoardProjectId,
   isTodoDetailTab,
   getTodoDetailIds,
+  isMcpServerTab,
+  getMcpServerId,
   isLlamaModelTab,
   getLlamaModelId,
   isTerminalTab,
@@ -123,6 +125,7 @@ import { TodoBoardPage } from '@/components/Todo/TodoBoardPage'
 import { ScriptEditorPage } from '@/components/Scripts/ScriptEditorPage'
 import { ScriptsSettingsPage } from '@/components/Settings/ScriptsSettingsPage'
 import { TodoDetailPage } from '@/components/Todo/TodoDetailPage'
+import { McpServerPage } from '@/components/Mcp/McpServerPage'
 import {
   isImagePreviewTab,
   parseImagePreviewPath,
@@ -494,6 +497,7 @@ function EditorPane({ paneId }: { paneId: string }) {
   const isTodoBoard = !!activeTab && isTodoBoardTab(activeTab.path)
   const isScript = !!activeTab && isScriptTab(activeTab.path)
   const isTodoDetail = !!activeTab && isTodoDetailTab(activeTab.path)
+  const isMcpServer = !!activeTab && isMcpServerTab(activeTab.path)
   const isTodoTrash = !!activeTab && isTodoTrashTab(activeTab.path)
   const isStore = !!activeTab && isStoreTab(activeTab.path)
   const isAppTab = !!activeTab && isAppTabPath(activeTab.path)
@@ -510,7 +514,7 @@ function EditorPane({ paneId }: { paneId: string }) {
     !!activeTab &&
     !isVirtual && !isTerminal && !isBrowser &&
     !isDiff && !isCommitDiff && !isGitLog && !isGitGraph && !isGitBranchDiff &&
-    !isGraphifyGraph && !isUsageGraph && !isAlarms && !isUpdate && !isTodoBoard && !isScript && !isTodoDetail && !isTodoTrash && !isStore && !isAppTab &&
+    !isGraphifyGraph && !isUsageGraph && !isAlarms && !isUpdate && !isTodoBoard && !isScript && !isTodoDetail && !isTodoTrash && !isMcpServer && !isStore && !isAppTab &&
     !isLlamaModel && !isImagePreview && !isMarkdownPreview && !isSvgViewer && !isPdfViewer &&
     // A scratch tab has no file on disk yet, so there is no path to show —
     // without this the breadcrumb splits 'scratch://<uuid>' on '/' and
@@ -777,6 +781,8 @@ function EditorPane({ paneId }: { paneId: string }) {
           />
         ) : isTodoDetail ? (
           <TodoDetailPage key={activeTab.path} {...getTodoDetailIds(activeTab.path)} />
+        ) : isMcpServer ? (
+          <McpServerPage key={activeTab.path} serverId={getMcpServerId(activeTab.path)} />
         ) : isGitBranchDiff ? (
           <GitBranchDiffPage />
         ) : isImagePreview ? (

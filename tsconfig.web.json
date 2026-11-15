@@ -21,6 +21,7 @@
     "electron/autocomplete/catalog.ts",
     "electron/storeRegistry.ts",
     "electron/apps/appManifest.ts",
-    "electron/apps/appTypes.ts"
+    "electron/apps/appTypes.ts",
+    "electron/mcp/mcpTypes.ts"
   ]
 }

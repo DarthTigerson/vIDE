@@ -318,6 +318,17 @@ export function FilesIcon() {
   )
 }
 
+// A plug: vIDE's MCP servers.
+export function McpIcon() {
+  return (
+    <svg width="1.5rem" height="1.5rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M9 3V7M15 3V7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M6.5 7H17.5V11C17.5 14.04 15.04 16.5 12 16.5C8.96 16.5 6.5 14.04 6.5 11V7Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+      <path d="M12 16.5V21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
 export function AllAppsIcon() {
   return (
     <svg width="1.5rem" height="1.5rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
