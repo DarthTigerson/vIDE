@@ -52,14 +52,14 @@ afterEach(() => localStorage.clear())
 describe('UsageChart — range persistence', () => {
   it('remembers the last range picked per metric across remounts', async () => {
     mockApi([snap(NOW - 604_800_000, 10), snap(NOW, 50)])
-    const { getByRole, unmount } = render(<UsageChart latest={usage()} metric="session" />)
+    const { getByRole, unmount } = render(<UsageChart latest={usage()} metrics={['session']} />)
     await waitFor(() => expect(window.api.usageGetRange).toHaveBeenCalledTimes(1))
 
     fireEvent.click(getByRole('button', { name: '7D' }))
     await waitFor(() => expect(window.api.usageGetRange).toHaveBeenCalledTimes(2))
     unmount()
 
-    render(<UsageChart latest={usage()} metric="session" />)
+    render(<UsageChart latest={usage()} metrics={['session']} />)
     await waitFor(() => expect(window.api.usageGetRange).toHaveBeenCalledTimes(3))
     const [from, to] = (window.api.usageGetRange as ReturnType<typeof vi.fn>).mock.calls[2]
     expect(to - from).toBe(604_800_000)
@@ -67,13 +67,13 @@ describe('UsageChart — range persistence', () => {
 
   it('keeps session and weekly range preferences independent', async () => {
     mockApi([snap(NOW - 3_600_000, 10), snap(NOW, 50)])
-    const { getByRole, unmount } = render(<UsageChart latest={usage()} metric="session" />)
+    const { getByRole, unmount } = render(<UsageChart latest={usage()} metrics={['session']} />)
     await waitFor(() => expect(window.api.usageGetRange).toHaveBeenCalledTimes(1))
     fireEvent.click(getByRole('button', { name: '1H' }))
     await waitFor(() => expect(window.api.usageGetRange).toHaveBeenCalledTimes(2))
     unmount()
 
-    const { getByRole: getByRoleWeekly } = render(<UsageChart latest={usage()} metric="weekly" />)
+    const { getByRole: getByRoleWeekly } = render(<UsageChart latest={usage()} metrics={['weekly']} />)
     await waitFor(() => expect(getByRoleWeekly('button', { name: '7D' }).getAttribute('aria-pressed')).toBe('true'))
   })
 })
@@ -81,7 +81,7 @@ describe('UsageChart — range persistence', () => {
 describe('UsageChart (session metric)', () => {
   it('shows a placeholder before there is enough history', async () => {
     mockApi([])
-    const { getByText, container } = render(<UsageChart latest={usage()} metric="session" />)
+    const { getByText, container } = render(<UsageChart latest={usage()} metrics={['session']} />)
     await waitFor(() => expect(window.api.usageGetRange).toHaveBeenCalled())
     expect(getByText(/not enough history/i)).toBeTruthy()
     expect(container.querySelector('polyline')).toBeNull()
@@ -89,7 +89,7 @@ describe('UsageChart (session metric)', () => {
 
   it('draws the session line and percent gridlines once history resolves', async () => {
     mockApi([snap(NOW - 3_600_000, 10), snap(NOW, 50)])
-    const { container, getByText } = render(<UsageChart latest={usage()} metric="session" />)
+    const { container, getByText } = render(<UsageChart latest={usage()} metrics={['session']} />)
 
     await waitFor(() => expect(container.querySelector('polyline')).toBeTruthy())
     expect(getByText('100%')).toBeTruthy()
@@ -99,7 +99,7 @@ describe('UsageChart (session metric)', () => {
   it('draws a dashed projection line to the session cutoff when it falls inside the visible window', async () => {
     mockApi([snap(NOW - 3_600_000, 10), snap(NOW, 50)])
     const cutoffAt = NOW + 60 * 60_000
-    const { container } = render(<UsageChart latest={usage({ sessionCutoffAt: cutoffAt })} metric="session" />)
+    const { container } = render(<UsageChart latest={usage({ sessionCutoffAt: cutoffAt })} metrics={['session']} />)
 
     await waitFor(() => expect(container.querySelector('polyline')).toBeTruthy())
     expect(container.querySelector('[data-testid="projection-line"]')).toBeTruthy()
@@ -107,7 +107,7 @@ describe('UsageChart (session metric)', () => {
 
   it('defaults to the 24h range and requests history for a 24h window', async () => {
     mockApi([snap(NOW - 3_600_000, 10), snap(NOW, 50)])
-    render(<UsageChart latest={usage()} metric="session" />)
+    render(<UsageChart latest={usage()} metrics={['session']} />)
 
     await waitFor(() => expect(window.api.usageGetRange).toHaveBeenCalled())
     const [from, to] = (window.api.usageGetRange as ReturnType<typeof vi.fn>).mock.calls[0]
@@ -116,7 +116,7 @@ describe('UsageChart (session metric)', () => {
 
   it('re-requests history for the newly selected range when a range button is clicked', async () => {
     mockApi([snap(NOW - 3_600_000, 10), snap(NOW, 50)])
-    const { getByRole } = render(<UsageChart latest={usage()} metric="session" />)
+    const { getByRole } = render(<UsageChart latest={usage()} metrics={['session']} />)
     await waitFor(() => expect(window.api.usageGetRange).toHaveBeenCalledTimes(1))
 
     fireEvent.click(getByRole('button', { name: '7D' }))
@@ -139,7 +139,7 @@ describe('UsageChart (session metric)', () => {
     const gapStart = before[before.length - 1].ts + 6 * 3_600_000
     const after = Array.from({ length: 10 }, (_, i) => snap(gapStart + i * 60_000, 40 + i))
     mockApi([...before, ...after])
-    const { container } = render(<UsageChart latest={usage()} metric="session" />)
+    const { container } = render(<UsageChart latest={usage()} metrics={['session']} />)
 
     await waitFor(() => expect(realPolylines(container).length).toBe(2))
   })
@@ -150,7 +150,7 @@ describe('UsageChart (session metric)', () => {
     const gapStart = before[before.length - 1].ts + 6 * 3_600_000
     const after = Array.from({ length: 10 }, (_, i) => ({ ...snap(gapStart + i * 60_000, 40 + i), sessionResetAt: notYetPassed }))
     mockApi([...before, ...after])
-    const { container } = render(<UsageChart latest={usage()} metric="session" />)
+    const { container } = render(<UsageChart latest={usage()} metrics={['session']} />)
 
     await waitFor(() => expect(container.querySelectorAll('[data-testid="gap-prediction-line"]').length).toBe(1))
   })
@@ -162,14 +162,14 @@ describe('UsageChart (session metric)', () => {
     const beforeWithReset = before.map((s) => ({ ...s, sessionResetAt: resetAt }))
     const after = Array.from({ length: 10 }, (_, i) => ({ ...snap(gapStart + i * 60_000, 40 + i), sessionResetAt: resetAt + 5 * 24 * 3_600_000 }))
     mockApi([...beforeWithReset, ...after])
-    const { container } = render(<UsageChart latest={usage()} metric="session" />)
+    const { container } = render(<UsageChart latest={usage()} metrics={['session']} />)
 
     await waitFor(() => expect(container.querySelectorAll('[data-testid="gap-prediction-line"]').length).toBe(2))
   })
 
   it('shows a tooltip with the nearest snapshot on hover', async () => {
     mockApi([snap(NOW - 3_600_000, 10), snap(NOW, 50)])
-    const { container } = render(<UsageChart latest={usage()} metric="session" />)
+    const { container } = render(<UsageChart latest={usage()} metrics={['session']} />)
     await waitFor(() => expect(container.querySelector('polyline')).toBeTruthy())
 
     const plot = container.querySelector('[data-testid="chart-plot"]') as HTMLElement
@@ -186,7 +186,7 @@ describe('UsageChart (session metric)', () => {
 describe('UsageChart (weekly metric)', () => {
   it('shows the "Weekly usage" title and defaults to the 7d range', async () => {
     mockApi([snap(NOW - 86_400_000, 10), snap(NOW, 50)])
-    const { getByText, getByRole } = render(<UsageChart latest={usage()} metric="weekly" />)
+    const { getByText, getByRole } = render(<UsageChart latest={usage()} metrics={['weekly']} />)
 
     expect(getByText('Weekly usage')).toBeTruthy()
     await waitFor(() => expect(window.api.usageGetRange).toHaveBeenCalled())
@@ -199,7 +199,7 @@ describe('UsageChart (weekly metric)', () => {
     mockApi([snap(NOW - 86_400_000, 10), snap(NOW, 50)])
     const cutoffAt = NOW + 24 * 60 * 60_000
     const { container } = render(
-      <UsageChart latest={usage({ sessionCutoffAt: null, weeklyCutoffAt: cutoffAt })} metric="weekly" />
+      <UsageChart latest={usage({ sessionCutoffAt: null, weeklyCutoffAt: cutoffAt })} metrics={['weekly']} />
     )
 
     await waitFor(() => expect(container.querySelector('polyline')).toBeTruthy())
@@ -208,7 +208,7 @@ describe('UsageChart (weekly metric)', () => {
 
   it('shows a tooltip labeled "week" using weeklyPct on hover', async () => {
     mockApi([snap(NOW - 86_400_000, 10), snap(NOW, 50)])
-    const { container } = render(<UsageChart latest={usage()} metric="weekly" />)
+    const { container } = render(<UsageChart latest={usage()} metrics={['weekly']} />)
     await waitFor(() => expect(container.querySelector('polyline')).toBeTruthy())
 
     const plot = container.querySelector('[data-testid="chart-plot"]') as HTMLElement
@@ -225,7 +225,7 @@ describe('UsageChart (weekly metric)', () => {
 describe('UsageChart (sessionSpend metric)', () => {
   it('shows the "Session cost" title and $-formatted gridlines scaled to the visible data\'s own max', async () => {
     mockApi([snapSpend(NOW - 3_600_000, 1), snapSpend(NOW, 4)])
-    const { getByText, container } = render(<UsageChart latest={usage()} metric="sessionSpend" />)
+    const { getByText, container } = render(<UsageChart latest={usage()} metrics={['sessionSpend']} />)
 
     expect(getByText('Session cost')).toBeTruthy()
     await waitFor(() => expect(container.querySelector('polyline')).toBeTruthy())
@@ -237,7 +237,7 @@ describe('UsageChart (sessionSpend metric)', () => {
   it('never draws a projection line, even with a cutoff-shaped latest snapshot', async () => {
     mockApi([snapSpend(NOW - 3_600_000, 1), snapSpend(NOW, 4)])
     const { container } = render(
-      <UsageChart latest={usage({ sessionCutoffAt: NOW + 3_600_000 })} metric="sessionSpend" />
+      <UsageChart latest={usage({ sessionCutoffAt: NOW + 3_600_000 })} metrics={['sessionSpend']} />
     )
 
     await waitFor(() => expect(container.querySelector('polyline')).toBeTruthy())
@@ -246,7 +246,7 @@ describe('UsageChart (sessionSpend metric)', () => {
 
   it('shows a tooltip with the dollar amount, not a raw percent', async () => {
     mockApi([snapSpend(NOW - 3_600_000, 1), snapSpend(NOW, 4)])
-    const { container } = render(<UsageChart latest={usage()} metric="sessionSpend" />)
+    const { container } = render(<UsageChart latest={usage()} metrics={['sessionSpend']} />)
     await waitFor(() => expect(container.querySelector('polyline')).toBeTruthy())
 
     const plot = container.querySelector('[data-testid="chart-plot"]') as HTMLElement
@@ -257,5 +257,39 @@ describe('UsageChart (sessionSpend metric)', () => {
 
     await waitFor(() => expect(container.querySelector('[data-testid="chart-tooltip"]')).toBeTruthy())
     expect(container.querySelector('[data-testid="chart-tooltip"]')?.textContent).toMatch(/\$4\.00 session/)
+  })
+})
+
+describe('UsageChart (session and week together)', () => {
+  it('draws one line per metric with a legend, and lists both values in the tooltip', async () => {
+    mockApi([snap(NOW - 3_600_000, 10), snap(NOW, 50)])
+    const { container, getByTestId } = render(
+      <UsageChart latest={usage()} metrics={['session', 'weekly']} title="Session & week usage" />
+    )
+    await waitFor(() => expect(container.querySelector('polyline')).toBeTruthy())
+
+    expect(container.querySelector('[data-series="session"] polyline')).toBeTruthy()
+    expect(container.querySelector('[data-series="weekly"] polyline')).toBeTruthy()
+    expect(getByTestId('chart-legend').textContent).toMatch(/Session.*Week.*Projected/)
+
+    const plot = container.querySelector('[data-testid="chart-plot"]') as HTMLElement
+    vi.spyOn(plot, 'getBoundingClientRect').mockReturnValue({
+      left: 0, right: 200, width: 200, top: 0, bottom: 100, height: 100, x: 0, y: 0, toJSON: () => {},
+    })
+    fireEvent.pointerDown(plot, { clientX: 198 })
+
+    await waitFor(() => expect(container.querySelector('[data-testid="chart-tooltip"]')).toBeTruthy())
+    const tip = container.querySelector('[data-testid="chart-tooltip"]')?.textContent ?? ''
+    expect(tip).toMatch(/50% session/)
+    expect(tip).toMatch(/50% week/)
+  })
+
+  it('keeps its own stored range, separate from either single-metric chart', async () => {
+    mockApi([snap(NOW - 3_600_000, 10), snap(NOW, 50)])
+    const { getByRole } = render(<UsageChart latest={usage()} metrics={['session', 'weekly']} />)
+    fireEvent.click(getByRole('button', { name: '1H' }))
+
+    expect(localStorage.getItem('vide.usageChart.range.session+weekly')).toBe('1h')
+    expect(localStorage.getItem('vide.usageChart.range.session')).toBeNull()
   })
 })

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { LatestUsage, UsageSnapshot } from '@/types/api'
 import { formatSpend } from './format'
 import {
@@ -91,16 +91,59 @@ const METRIC: Record<
 
 const GRID_PCTS = [100, 75, 50, 25, 0]
 
-// Persisted per metric (not shared) since session and weekly already have
-// different natural defaults (24h vs. 7d) — a user zooming the session
-// chart to 1h shouldn't also collapse the weekly chart down to 1h.
-function rangeStorageKey(metric: UsageMetric): string {
-  return `vide.usageChart.range.${metric}`
+// Session-window series use the accent; week-window series a blue that reads
+// on both the dark and light themes, so the two lines stay apart when a chart
+// draws both (the Usage Graph page's "All" view).
+const WEEK_COLOR = '#60a5fa'
+const SERIES_COLOR: Record<UsageMetric, string> = {
+  session: 'rgb(var(--color-accent))',
+  sessionSpend: 'rgb(var(--color-accent))',
+  weekly: WEEK_COLOR,
+  weeklySpend: WEEK_COLOR,
 }
 
-function loadStoredRange(metric: UsageMetric): UsageRange | null {
-  const stored = localStorage.getItem(rangeStorageKey(metric))
+// Persisted per metric set (not shared) since session and weekly already have
+// different natural defaults (24h vs. 7d) — a user zooming the session
+// chart to 1h shouldn't also collapse the weekly chart down to 1h. A single
+// metric keeps its original key so existing stored ranges still apply.
+function rangeStorageKey(storageId: string): string {
+  return `vide.usageChart.range.${storageId}`
+}
+
+function loadStoredRange(storageId: string): UsageRange | null {
+  const stored = localStorage.getItem(rangeStorageKey(storageId))
   return (USAGE_RANGES as readonly string[]).includes(stored ?? '') ? (stored as UsageRange) : null
+}
+
+// Joined button group (one bordered track, buttons inside it) used for the
+// range picker and the Usage Graph page's metric/window switches, so related
+// options read as one control.
+export function Segmented<T extends string>({
+  label, value, options, onChange,
+}: {
+  label: string
+  value: T
+  options: { value: T; label: string }[]
+  onChange: (v: T) => void
+}) {
+  return (
+    <div role="group" aria-label={label} className="inline-flex items-center gap-0.5 rounded border border-border p-0.5">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          aria-pressed={o.value === value}
+          className={[
+            'px-2 py-0.5 text-xs rounded-sm transition-colors',
+            o.value === value ? 'bg-white/10 text-fg' : 'text-fg-muted hover:text-fg hover:bg-white/5',
+          ].join(' ')}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
 }
 
 function fmtAxisTime(ts: number, range: UsageRange): string {
@@ -117,13 +160,36 @@ interface Hover {
   snapshot: UsageSnapshot
 }
 
-export function UsageChart({ latest, metric }: { latest: LatestUsage; metric: UsageMetric }) {
-  const config = METRIC[metric]
-  const [range, setRangeState] = useState<UsageRange>(() => loadStoredRange(metric) ?? config.defaultRange)
+// Draws one or more metrics on a shared time axis. All metrics in one chart
+// must share a scale kind (all percent, or all spend) — spend series are
+// normalized together against the largest visible dollar value so they stay
+// comparable. `title` overrides the first metric's own title; `controls`
+// renders beside the range buttons (the graph page's Usage/Cost and
+// All/Session/Week switches). `rangeId` pins the remembered range to one
+// storage slot regardless of which metrics are drawn, so switching what the
+// chart shows never changes the range the user picked; without it the range
+// is remembered per metric set.
+export function UsageChart({
+  latest, metrics, title, controls, rangeId, defaultRange,
+}: {
+  latest: LatestUsage
+  metrics: UsageMetric[]
+  title?: string
+  controls?: ReactNode
+  rangeId?: string
+  defaultRange?: UsageRange
+}) {
+  const configs = metrics.map((m) => ({ metric: m, ...METRIC[m] }))
+  const primary = configs[0]
+  const isPercent = primary.isPercent
+  const storageId = rangeId ?? metrics.join('+')
+  const [range, setRangeState] = useState<UsageRange>(
+    () => loadStoredRange(storageId) ?? defaultRange ?? primary.defaultRange,
+  )
 
   function setRange(next: UsageRange) {
     setRangeState(next)
-    localStorage.setItem(rangeStorageKey(metric), next)
+    localStorage.setItem(rangeStorageKey(storageId), next)
   }
   const [snapshots, setSnapshots] = useState<UsageSnapshot[]>([])
   const [hover, setHover] = useState<Hover | null>(null)
@@ -143,20 +209,34 @@ export function UsageChart({ latest, metric }: { latest: LatestUsage; metric: Us
 
   const now = Date.now()
   const from = now - USAGE_RANGE_MS[range]
-  const cutoffAt = config.cutoffOf(latest)
-  const to = cutoffAt != null && cutoffAt <= now + config.futureWindowMs ? Math.max(now, cutoffAt) : now
+  const cutoffs = configs.map((c) => {
+    const cutoffAt = c.cutoffOf(latest)
+    return cutoffAt != null && cutoffAt <= now + c.futureWindowMs ? cutoffAt : null
+  })
+  const to = Math.max(now, ...cutoffs.map((c) => c ?? now))
 
   // sparkline.ts's plotting math (yFor, buildLineSegments, ...) is fixed to
   // a 0-100 scale — for a percent metric valueOf is already on that scale,
-  // for a spend metric it's normalized here against the visible data's own
-  // max first. Actual dollar values are recovered for grid/tooltip labels
-  // via config.formatValue(config.valueOf(...)), never from this pct space.
-  const plotMax = config.isPercent ? 100 : Math.max(1e-9, ...snapshots.map(config.valueOf))
-  const pctOf = (s: UsageSnapshot) => (config.valueOf(s) / plotMax) * 100
+  // for spend metrics it's normalized here against the visible data's own
+  // max (across every drawn series) first. Actual dollar values are recovered
+  // for grid/tooltip labels via formatValue(valueOf(...)), never from this
+  // pct space.
+  const plotMax = isPercent
+    ? 100
+    : Math.max(1e-9, ...configs.flatMap((c) => snapshots.map(c.valueOf)))
 
-  const lineSegments = buildLineSegments(snapshots, from, to, pctOf)
-  const gapPredictions = buildGapPredictions(snapshots, from, to, pctOf, config.resetAtOf)
-  const projection = buildProjectionLine(snapshots[snapshots.length - 1], pctOf, cutoffAt, from, to)
+  const series = configs.map((c, i) => {
+    const pctOf = (s: UsageSnapshot) => (c.valueOf(s) / plotMax) * 100
+    return {
+      ...c,
+      color: SERIES_COLOR[c.metric],
+      pctOf,
+      lineSegments: buildLineSegments(snapshots, from, to, pctOf),
+      gapPredictions: buildGapPredictions(snapshots, from, to, pctOf, c.resetAtOf),
+      projection: buildProjectionLine(snapshots[snapshots.length - 1], pctOf, cutoffs[i], from, to),
+    }
+  })
+  const hasLines = series.some((s) => s.lineSegments.length > 0)
 
   function handlePointer(clientX: number) {
     const el = plotRef.current
@@ -179,39 +259,31 @@ export function UsageChart({ latest, metric }: { latest: LatestUsage; metric: Us
       setHover(null)
       return
     }
-    setHover({ x: xFor(snapshot.ts, from, to), y: yFor(pctOf(snapshot)), snapshot })
+    const topPct = Math.max(...series.map((s) => s.pctOf(snapshot)))
+    setHover({ x: xFor(snapshot.ts, from, to), y: yFor(topPct), snapshot })
   }
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <div className="text-xs text-fg-muted uppercase tracking-wider font-semibold">{config.title}</div>
-        <div className="flex items-center gap-1">
-          {USAGE_RANGES.map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setRange(r)}
-              aria-pressed={r === range}
-              className={[
-                'px-2 py-1 text-xs rounded border transition-colors',
-                r === range
-                  ? 'border-fg-muted bg-white/5 text-fg'
-                  : 'border-border text-fg-muted hover:text-fg hover:bg-white/5 hover:border-fg-muted',
-              ].join(' ')}
-            >
-              {r.toUpperCase()}
-            </button>
-          ))}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-xs text-fg-muted uppercase tracking-wider font-semibold">{title ?? primary.title}</div>
+        <div className="flex flex-wrap items-center gap-2">
+          {controls}
+          <Segmented
+            label="Range"
+            value={range}
+            options={USAGE_RANGES.map((r) => ({ value: r, label: r.toUpperCase() }))}
+            onChange={setRange}
+          />
         </div>
       </div>
 
-      {lineSegments.length > 0 ? (
+      {hasLines ? (
         <>
           <div className="flex gap-2 h-72">
             <div className="flex flex-col justify-between text-xs text-fg-subtle text-right leading-none">
               {GRID_PCTS.map((p) => (
-                <span key={p}>{config.formatValue((plotMax * p) / 100)}</span>
+                <span key={p}>{primary.formatValue((plotMax * p) / 100)}</span>
               ))}
             </div>
             <div
@@ -230,46 +302,51 @@ export function UsageChart({ latest, metric }: { latest: LatestUsage; metric: Us
                     <line key={p} x1="0" y1={100 - p} x2="100" y2={100 - p} strokeDasharray="1.5 2" />
                   ))}
                 </g>
-                {gapPredictions.map((points, i) => (
-                  <polyline
-                    key={i}
-                    data-testid="gap-prediction-line"
-                    points={points}
-                    fill="none"
-                    stroke="rgb(var(--color-accent))"
-                    strokeOpacity="0.45"
-                    strokeWidth="1.5"
-                    strokeDasharray="4 3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    vectorEffect="non-scaling-stroke"
-                  />
+                {series.map((s) => (
+                  <g key={s.metric} data-series={s.metric}>
+                    {s.gapPredictions.map((points, i) => (
+                      <polyline
+                        key={i}
+                        data-testid="gap-prediction-line"
+                        points={points}
+                        fill="none"
+                        stroke={s.color}
+                        strokeOpacity="0.45"
+                        strokeWidth="1.5"
+                        strokeDasharray="4 3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    ))}
+                    {s.lineSegments.map((points, i) => (
+                      <polyline
+                        key={i}
+                        points={points}
+                        fill="none"
+                        stroke={s.color}
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    ))}
+                    {s.projection && (
+                      <line
+                        data-testid="projection-line"
+                        x1={s.projection.x1}
+                        y1={s.projection.y1}
+                        x2={s.projection.x2}
+                        y2={s.projection.y2}
+                        stroke={s.color}
+                        strokeOpacity="0.8"
+                        strokeWidth="1.5"
+                        strokeDasharray="3 2"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    )}
+                  </g>
                 ))}
-                {lineSegments.map((points, i) => (
-                  <polyline
-                    key={i}
-                    points={points}
-                    fill="none"
-                    stroke="rgb(var(--color-accent))"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                ))}
-                {projection && (
-                  <line
-                    data-testid="projection-line"
-                    x1={projection.x1}
-                    y1={projection.y1}
-                    x2={projection.x2}
-                    y2={projection.y2}
-                    stroke="#fbbf24"
-                    strokeWidth="1.5"
-                    strokeDasharray="3 2"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                )}
                 {hover && (
                   <line
                     x1={hover.x}
@@ -294,7 +371,12 @@ export function UsageChart({ latest, metric }: { latest: LatestUsage; metric: Us
                   }}
                 >
                   <div className="text-fg-muted">{fmtAxisTime(hover.snapshot.ts, range)}</div>
-                  <div className="text-fg font-semibold">{config.formatValue(config.valueOf(hover.snapshot))} {config.label}</div>
+                  {series.map((s) => (
+                    <div key={s.metric} className="flex items-center gap-1.5 text-fg font-semibold">
+                      {series.length > 1 && <span className="w-1.5 h-1.5 rounded-full" style={{ background: s.color }} />}
+                      {s.formatValue(s.valueOf(hover.snapshot))} {s.label}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -303,6 +385,20 @@ export function UsageChart({ latest, metric }: { latest: LatestUsage; metric: Us
             <span>{fmtAxisTime(from, range)}</span>
             <span>{fmtAxisTime(to, range)}</span>
           </div>
+          {series.length > 1 && (
+            <div data-testid="chart-legend" className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-subtle">
+              {series.map((s) => (
+                <span key={s.metric} className="inline-flex items-center gap-1.5">
+                  <span className="w-3.5 h-0.5 rounded-full" style={{ background: s.color }} />
+                  {s.label === 'week' ? 'Week' : 'Session'}
+                </span>
+              ))}
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-3.5 border-t-2 border-dashed border-fg-subtle" />
+                Projected
+              </span>
+            </div>
+          )}
         </>
       ) : (
         <div className="h-72 flex items-center justify-center text-xs text-fg-muted">Not enough history yet for this range</div>

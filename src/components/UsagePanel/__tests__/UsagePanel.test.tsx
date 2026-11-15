@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { UsagePanel } from '@/components/UsagePanel/UsagePanel'
 import type { LatestUsage } from '@/types/api'
 
@@ -57,17 +57,17 @@ describe('UsagePanel', () => {
     expect(screen.getByText('No usage data yet')).toBeTruthy()
   })
 
-  it('renders gauges, burn-rate, and est. run out together once data resolves', async () => {
+  it('renders a pace bar per window with percent, burn rate and countdown', async () => {
     mockApi({ usageGetLatest: vi.fn().mockResolvedValue(SAMPLE) })
     render(<UsagePanel />)
 
     await waitFor(() => expect(screen.getByText('38%')).toBeTruthy())
     expect(screen.getByText('56%')).toBeTruthy()
-    expect(screen.getByText('SESSION')).toBeTruthy()
-    expect(screen.getByText('THIS WEEK')).toBeTruthy()
+    expect(screen.getByText('Session')).toBeTruthy()
+    expect(screen.getByText('Week')).toBeTruthy()
     expect(screen.getByText('≈30.55%/hr')).toBeTruthy()
     expect(screen.getByText('≈0.73%/hr')).toBeTruthy()
-    expect(screen.getByText('Est. run out')).toBeTruthy()
+    expect(screen.getAllByTestId('pace-now')).toHaveLength(2)
   })
 
   it('re-renders when a push update arrives', async () => {
@@ -86,49 +86,52 @@ describe('UsagePanel', () => {
     await waitFor(() => expect(screen.getByText('38%')).toBeTruthy())
   })
 
-  it('shows an estimated run-out date/time with an hours-and-minutes countdown underneath', async () => {
-    const cutoffAt = new Date(2026, 7, 13, 9, 59).getTime()
-    mockApi({ usageGetLatest: vi.fn().mockResolvedValue({ ...SAMPLE, sessionCutoffAt: cutoffAt }) })
+  it('shows a runs-out chip with a countdown when a cutoff is predicted', async () => {
+    mockApi({ usageGetLatest: vi.fn().mockResolvedValue({ ...SAMPLE, sessionCutoffAt: Date.now() + 2 * 3_600_000 + 5 * 60_000 }) })
     render(<UsagePanel />)
 
-    await waitFor(() => expect(screen.getByText('Est. run out')).toBeTruthy())
-    expect(screen.getByText(/Aug 13, 9:59/)).toBeTruthy()
-    expect(screen.getByText(/^\d+h \d+m$/)).toBeTruthy()
+    await waitFor(() => expect(screen.getByText(/^Runs out in \d+h \d+m$/)).toBeTruthy())
   })
 
-  it('shows "on track" for the run-out stat when there is no cutoff', async () => {
+  it('shows pace and projected-at-reset when there is no cutoff', async () => {
     mockApi({ usageGetLatest: vi.fn().mockResolvedValue(SAMPLE) })
     render(<UsagePanel />)
 
     await waitFor(() => expect(screen.getByText('38%')).toBeTruthy())
-    expect(screen.getAllByText('on track')).toHaveLength(2)
+    // Session: 1h left of 5h → 80% elapsed, 38% used → under pace; 38 + 30.55 ≈ 69% at reset.
+    expect(screen.getByText('Under pace · 69% at reset')).toBeTruthy()
+    expect(screen.getAllByTestId('pace-chip')).toHaveLength(2)
   })
 
-  it('keeps the Est. run out column visible regardless of panel width', async () => {
-    const originalDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth')
-    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get: () => 300 })
-
-    try {
-      mockApi({ usageGetLatest: vi.fn().mockResolvedValue(SAMPLE) })
-      render(<UsagePanel />)
-
-      await waitFor(() => expect(screen.getByText('Est. run out')).toBeTruthy())
-    } finally {
-      if (originalDescriptor) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', originalDescriptor)
-    }
-  })
-
-  it('clips instead of shrinking columns when the panel narrows', async () => {
+  it('wraps rather than clipping when the panel narrows', async () => {
     mockApi({ usageGetLatest: vi.fn().mockResolvedValue(SAMPLE) })
     const { container } = render(<UsagePanel />)
-    await waitFor(() => expect(screen.getByText('Est. run out')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('38%')).toBeTruthy())
 
-    // Overflow is clipped (no scrollbar), and each column refuses to shrink
-    // below its natural width — that's what keeps stat text on one line
-    // instead of wrapping and pushing shorter columns' content apart.
-    expect(container.firstElementChild?.className ?? '').toMatch(/overflow-x-hidden/)
-    const columns = container.querySelectorAll(':scope > div > div > div')
-    expect(columns.length).toBeGreaterThan(0)
-    columns.forEach((col) => expect(col.className).toMatch(/shrink-0/))
+    expect(container.firstElementChild?.className ?? '').not.toMatch(/overflow-x-hidden/)
+    expect(container.querySelectorAll('.flex-wrap').length).toBeGreaterThan(0)
+  })
+
+  it('names each part of the bar in a pill on hover', async () => {
+    mockApi({ usageGetLatest: vi.fn().mockResolvedValue(SAMPLE) })
+    render(<UsagePanel />)
+    await waitFor(() => expect(screen.getByText('38%')).toBeTruthy())
+
+    // Session: 38% used, 1h left of 5h → 80% elapsed, 38 + 30.55 ≈ 69% at reset, 31% remaining.
+    const bar = screen.getByRole('img', { name: 'Session 38% used' })
+    const tipText = () => screen.getByTestId('pace-tip').textContent
+    const part = (id: string) => bar.querySelector(`[data-testid="${id}"]`) as HTMLElement
+
+    fireEvent.mouseEnter(part('pace-used'))
+    expect(tipText()).toBe('Used38%')
+    fireEvent.mouseEnter(part('pace-projection'))
+    expect(tipText()).toBe('Projected at reset69%')
+    fireEvent.mouseEnter(part('pace-now'))
+    expect(tipText()).toBe('Time elapsed80%')
+    fireEvent.mouseEnter(part('pace-remaining'))
+    expect(tipText()).toBe('Remaining31%')
+
+    fireEvent.mouseLeave(bar)
+    expect(screen.queryByTestId('pace-tip')).toBeNull()
   })
 })
