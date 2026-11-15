@@ -11,9 +11,10 @@ import { StorePage } from '../StorePage'
 import { useStoreStore } from '@/stores/storeStore'
 import type { RegistryState, StoreListing } from '@/types/api'
 
-function listing(id: string, name: string, description: string): StoreListing {
+function listing(id: string, name: string, description: string, extra: Partial<StoreListing> = {}): StoreListing {
   return {
     id, name, description, repo: `o/${id}`, firstParty: true, compatible: true,
+    recommended: false, category: 'applications', targets: ['vide'], ...extra,
     latest: { version: '1.0.0', commit: 'a'.repeat(40), url: 'https://x', sha256: 'b'.repeat(64), minVide: '0.4.0' },
   }
 }
@@ -39,11 +40,45 @@ describe('StorePage', () => {
     expect(screen.getByText('Loading the Store…')).toBeInTheDocument()
   })
 
-  it('renders one card per app plus the Built something card', () => {
+  it('renders one row per app plus the other-authors note', () => {
     render(<StorePage />)
     expect(screen.getByRole('heading', { name: 'Docker' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Jira' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Built something?' })).toBeInTheDocument()
+    expect(screen.getByText(/marked as not made by vSuite/)).toBeInTheDocument()
+  })
+
+  it('lists recommended apps first', () => {
+    setRegistry({ ...ok, apps: [listing('a', 'Alpha', 'x'), listing('z', 'Zed', 'y', { recommended: true })] } as RegistryState)
+    render(<StorePage />)
+    expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent).filter((t) => t === 'Alpha' || t === 'Zed')).toEqual(['Zed', 'Alpha'])
+  })
+
+  it('shows the site filters in order with counts', () => {
+    render(<StorePage />)
+    const titles = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
+    expect(titles.slice(0, 3)).toEqual(['Category', 'Made by', 'Applications'])
+    expect(screen.getByRole('button', { name: /^Community/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Made by vSuite/ }).textContent).toBe('Made by vSuite2')
+    expect(screen.getByRole('checkbox', { name: 'vIDE' })).toBeChecked()
+  })
+
+  it('filters by Made by and clears back to the defaults', () => {
+    render(<StorePage />)
+    const clear = screen.getByRole('button', { name: 'Clear filters' })
+    expect(clear).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: /^Community/ }))
+    expect(screen.queryByRole('heading', { name: 'Docker' })).toBeNull()
+    expect(screen.getByText(/No apps match/)).toBeInTheDocument()
+    fireEvent.click(clear)
+    expect(screen.getByRole('heading', { name: 'Docker' })).toBeInTheDocument()
+  })
+
+  it('hides apps for other applications until vIDE is unticked', () => {
+    setRegistry({ ...ok, apps: [listing('docker', 'Docker', 'x'), listing('web', 'Web only', 'y', { targets: ['site'] })] } as RegistryState)
+    render(<StorePage />)
+    expect(screen.queryByRole('heading', { name: 'Web only' })).toBeNull()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'vIDE' }))
+    expect(screen.getByRole('heading', { name: 'Web only' })).toBeInTheDocument()
   })
 
   it('filters by search and says when nothing matches', () => {
@@ -52,14 +87,14 @@ describe('StorePage', () => {
     expect(screen.getByRole('heading', { name: 'Docker' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Jira' })).toBeNull()
     fireEvent.change(screen.getByLabelText('Search the store'), { target: { value: 'zzz' } })
-    expect(screen.getByText('No apps match.')).toBeInTheDocument()
+    expect(screen.getByText(/No apps match\./)).toBeInTheDocument()
   })
 
   it('shows the empty state', () => {
     setRegistry({ status: 'empty', checkedAt: Date.now() })
     render(<StorePage />)
     expect(screen.getByText('No apps yet.')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Built something?' })).toBeInTheDocument()
+    expect(screen.getByText(/marked as not made by vSuite/)).toBeInTheDocument()
   })
 
   it('asks for a vIDE update on a too-new catalog', () => {
@@ -93,6 +128,13 @@ describe('StorePage', () => {
     render(<StorePage />)
     fireEvent.click(screen.getByRole('button', { name: 'vsuite.tech' }))
     expect(openUrlInBrowserTab).toHaveBeenCalledWith('https://vsuite.tech')
+  })
+
+  it('refreshes the catalog from the refresh button', async () => {
+    await act(async () => { render(<StorePage />) })
+    load.mockClear()
+    fireEvent.click(screen.getByRole('button', { name: 'Check for new apps' }))
+    expect(load).toHaveBeenCalledWith(true)
   })
 
   it('loads on mount and refreshes in the background when a result already exists', async () => {

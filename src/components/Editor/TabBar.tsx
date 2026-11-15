@@ -7,8 +7,9 @@ import { useScriptsStore } from '@/stores/scriptsStore'
 import { scriptDisplayTitle } from '@/lib/scriptBody'
 import { useNotesStore } from '@/stores/notesStore'
 import { FileIcon, BrowserTabIcon } from '@/components/Sidebar/FileIcon'
-import { isTerminalTab, getTerminalId, isBrowserTab, getBrowserId, isTodoBoardTab, getTodoBoardProjectId, isTodoDetailTab, getTodoDetailIds, isLlamaModelTab, getLlamaModelId, isScriptTab, getScriptId, storeAppIdFromPath } from '@/components/Settings/paths'
+import { isTerminalTab, getTerminalId, isBrowserTab, getBrowserId, isTodoBoardTab, getTodoBoardProjectId, isTodoDetailTab, getTodoDetailIds, isLlamaModelTab, getLlamaModelId, isScriptTab, getScriptId, storeAppIdFromPath, isStoreTab } from '@/components/Settings/paths'
 import { useStoreStore, findStoreApp } from '@/stores/storeStore'
+import { StoreBagIcon } from '@/components/Store/storeUi'
 import { useLlamaModelsStore } from '@/stores/llamaModelsStore'
 import { isCompactTabStrip, orderTabsForDisplay, truncateTabLabel } from './tabDisplay'
 import { TabContextMenu } from './TabContextMenu'
@@ -234,7 +235,7 @@ export function TabBar({ paneId }: { paneId: string }) {
                 ].join(' ')}
               />
             )}
-            {isBrowser ? <BrowserTabIcon /> : <FileIcon name={name} />}
+            {isBrowser ? <BrowserTabIcon /> : isStoreTab(tab.path) ? <StoreBagIcon size={15} className="shrink-0 text-accent" /> : <FileIcon name={name} />}
             <span data-tab-label className={`min-w-0 truncate ${iconOnly ? 'hidden' : ''}`}>
               {displayName}
             </span>

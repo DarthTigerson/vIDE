@@ -21,7 +21,15 @@ export interface StoreApp {
   firstParty: true
   latest: StoreRelease
   replacesBuiltIn?: string
+  // Store-page metadata, shared with vsuite.tech. Defaults keep older
+  // registry entries (without these fields) listable.
+  recommended: boolean
+  category: string
+  targets: string[]
 }
+
+export const DEFAULT_CATEGORY = 'applications'
+export const DEFAULT_TARGETS = ['vide']
 
 export type ParsedRegistry =
   | { kind: 'ok'; apps: StoreApp[] }
@@ -62,7 +70,7 @@ function parseRelease(raw: unknown): StoreRelease | string {
 
 function parseApp(raw: unknown): StoreApp | string {
   if (!isObject(raw)) return 'not an object'
-  const { id, name, description, repo, firstParty, latest, replacesBuiltIn } = raw
+  const { id, name, description, repo, firstParty, latest, replacesBuiltIn, recommended, category, targets } = raw
   if (typeof id !== 'string' || !ID_RE.test(id)) return 'bad id'
   if (!nonEmptyString(name)) return 'bad name'
   if (!nonEmptyString(description)) return 'bad description'
@@ -72,9 +80,19 @@ function parseApp(raw: unknown): StoreApp | string {
   if (replacesBuiltIn !== undefined && (typeof replacesBuiltIn !== 'string' || !ID_RE.test(replacesBuiltIn))) {
     return 'bad replacesBuiltIn'
   }
+  if (recommended !== undefined && typeof recommended !== 'boolean') return 'bad recommended'
+  if (category !== undefined && (typeof category !== 'string' || !ID_RE.test(category))) return 'bad category'
+  if (targets !== undefined && (!Array.isArray(targets) || !targets.every((t) => typeof t === 'string' && ID_RE.test(t)))) {
+    return 'bad targets'
+  }
   const release = parseRelease(latest)
   if (typeof release === 'string') return release
-  const app: StoreApp = { id, name, description, repo, firstParty: true, latest: release }
+  const app: StoreApp = {
+    id, name, description, repo, firstParty: true, latest: release,
+    recommended: recommended === true,
+    category: category ?? DEFAULT_CATEGORY,
+    targets: targets ? [...targets] : [...DEFAULT_TARGETS],
+  }
   if (replacesBuiltIn !== undefined) app.replacesBuiltIn = replacesBuiltIn
   return app
 }

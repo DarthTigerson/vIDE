@@ -16,7 +16,7 @@ const SHA = '0123456789abcdef0123456789abcdef01234567'
 function docker(overrides: Partial<StoreListing> = {}, notesUrl: string | null = 'https://github.com/o/r/releases/tag/v1.1.0'): StoreListing {
   return {
     id: 'docker', name: 'Docker', description: 'Containers from the sidebar.', repo: 'DarthTigerson/vIDE---Docker-App',
-    firstParty: true, compatible: true,
+    firstParty: true, compatible: true, recommended: false, category: 'applications', targets: ['vide'],
     latest: { version: '1.1.0', commit: SHA, url: 'https://x', sha256: 'b'.repeat(64), minVide: '0.4.0', notesUrl: notesUrl ?? undefined },
     ...overrides,
   }

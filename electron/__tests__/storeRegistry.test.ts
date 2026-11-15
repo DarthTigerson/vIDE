@@ -35,7 +35,27 @@ describe('parseRegistry', () => {
   it('parses a valid entry', () => {
     const result = apps({ schema: 1, apps: [entry()] })
     expect(result).toHaveLength(1)
-    expect(result[0]).toEqual(entry())
+    expect(result[0]).toEqual({ ...entry(), recommended: false, category: 'applications', targets: ['vide'] })
+  })
+
+  it('reads the Store-page fields when present', () => {
+    const [app] = apps({ schema: 1, apps: [entry({ recommended: true, category: 'applications', targets: ['vide', 'other'] })] })
+    expect(app.recommended).toBe(true)
+    expect(app.category).toBe('applications')
+    expect(app.targets).toEqual(['vide', 'other'])
+  })
+
+  it('drops an entry with malformed Store-page fields', () => {
+    const result = apps({
+      schema: 1,
+      apps: [
+        entry({ id: 'bad-rec', recommended: 'yes' }),
+        entry({ id: 'bad-cat', category: 'Not Valid' }),
+        entry({ id: 'bad-targets', targets: 'vide' }),
+        entry({ id: 'good' }),
+      ],
+    })
+    expect(result.map((a) => a.id)).toEqual(['good'])
   })
 
   it('returns too-new for a higher schema', () => {

@@ -9,13 +9,13 @@ export function AppMonogram({ name, size = 'md' }: { name: string; size?: 'md' |
   )
 }
 
-export function MadeByVide({ suffix }: { suffix?: string }) {
+export function MadeByVsuite({ suffix }: { suffix?: string }) {
   return (
     <span className="flex items-center gap-1 text-[0.6875rem] text-fg-subtle min-w-0">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true" className="text-accent shrink-0">
         <path d="M5 12l5 5 9-10" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      <span className="truncate">Made by vIDE{suffix ? ` · ${suffix}` : ''}</span>
+      <span className="truncate">Made by vSuite{suffix ? ` · ${suffix}` : ''}</span>
     </span>
   )
 }
@@ -33,3 +33,12 @@ export function formatCheckedAgo(checkedAt: number, now = Date.now()): string {
 
 export const ghostPillClass =
   'h-7 px-3.5 rounded-full text-[0.6875rem] font-bold border border-border text-fg-muted hover:text-fg hover:bg-white/5 transition-colors'
+
+// The vSuite Store bag, same mark as the All Apps panel's Store button.
+export function StoreBagIcon({ className, size = 14 }: { className?: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+      <path d="M4 9h16l-1 11H5zM8 9V7a4 4 0 0 1 8 0v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}

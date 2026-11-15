@@ -3,7 +3,7 @@ import { useStoreStore, findStoreApp } from '@/stores/storeStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { STORE_TAB_PATH } from '@/components/Settings/paths'
 import { openUrlInBrowserTab } from '@/components/Chat/terminalLinks'
-import { AppMonogram, MadeByVide } from './storeUi'
+import { AppMonogram, MadeByVsuite } from './storeUi'
 
 // One app's Store page (store://app/<id>), mockup board 2. Install, Update,
 // Uninstall and "What it adds to vIDE" need the app runtime (STORE Part 2).
@@ -46,7 +46,7 @@ export function StoreAppPage({ appId }: { appId: string }) {
           <AppMonogram name={app.name} size="lg" />
           <div className="flex-[1_1_300px] min-w-0 flex flex-col gap-1">
             <h1 className="text-[1.375rem] font-bold">{app.name}</h1>
-            <MadeByVide suffix={app.repo} />
+            <MadeByVsuite suffix={app.repo} />
             <p className="text-[0.8125rem] text-fg-muted">{app.description}</p>
           </div>
         </header>
