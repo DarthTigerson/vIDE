@@ -1,5 +1,5 @@
 import { ipcMain, app, BrowserWindow } from 'electron'
-import { readFile, writeFile, mkdir, access, readdir } from 'fs/promises'
+import { readFile, writeFile, mkdir, access, readdir, rm } from 'fs/promises'
 import { join, dirname, relative } from 'path'
 import { spawn } from 'child_process'
 import { readTodosData, writeTodosData } from './todosStore'
@@ -366,6 +366,14 @@ async function cleanUpLocalRepo(dir: string): Promise<void> {
   const stats = await runGit(['count-objects', '-v'], { cwd: dir })
   const kib = (key: string) => Number(stats.match(new RegExp(`^${key}: (\\d+)`, 'm'))?.[1] ?? 0)
   if ((kib('size') + kib('size-pack') + kib('size-garbage')) * 1024 < LOCAL_REPO_CLEANUP_BYTES) return
+  // An interrupted fetch leaves its pack marked .keep, and gc never repacks
+  // or deletes a kept pack — on a real bloated clone those held most of the
+  // old history. Safe to drop once no fetch of ours is running.
+  await fetchInFlight?.catch(() => {})
+  const packDir = join(dir, '.git', 'objects', 'pack')
+  for (const file of await readdir(packDir).catch(() => [] as string[])) {
+    if (file.endsWith('.keep')) await rm(join(packDir, file), { force: true })
+  }
   await runGit(['reflog', 'expire', '--expire=now', '--all'], { cwd: dir, timeout: 60000 })
   await runGit(['gc', '--prune=now'], { cwd: dir, timeout: 120000 })
 }
