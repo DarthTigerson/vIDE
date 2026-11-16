@@ -71,6 +71,10 @@ export function formatCheckedAgo(checkedAt: number, now = Date.now()): string {
   return days === 1 ? '1 day ago' : `${days} days ago`
 }
 
+// Every Store action button (Install, Update, Uninstall, Remove, …) gets the
+// same width, wide enough for "Uninstalling…", so rows line up.
+export const storeActionWidth = 'min-w-[7.5rem]'
+
 export const ghostPillClass =
   'h-7 px-3.5 rounded-full text-[0.6875rem] font-bold border border-border text-fg-muted hover:text-fg hover:bg-white/5 transition-colors'
 

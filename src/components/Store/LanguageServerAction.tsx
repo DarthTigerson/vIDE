@@ -1,9 +1,9 @@
 import type { LanguageServerEntry } from '@/types/api'
 import { isInstalled, useLspStatusStore } from '@/stores/lspStatusStore'
 import { accentSolidColor } from '@/components/ui/pillButton'
-import { ghostPillClass } from './storeUi'
+import { ghostPillClass, storeActionWidth } from './storeUi'
 
-const solidPillClass = `h-7 px-3.5 rounded-full text-[0.6875rem] font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${accentSolidColor}`
+const solidPillClass = `${storeActionWidth} h-7 px-3.5 rounded-full text-[0.6875rem] font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${accentSolidColor}`
 
 // Install / Installing… / Retry / Remove for one language server; used on its
 // Store row and its page. Clicks never reach the row (which opens the page).
@@ -16,7 +16,7 @@ export function LanguageServerAction({ server }: { server: LanguageServerEntry }
   const stop = (fn: () => void) => (e: React.MouseEvent) => { e.stopPropagation(); fn() }
 
   if (installed && !installing) {
-    return <button type="button" className={ghostPillClass} onClick={stop(() => void uninstall(server.id))}>Remove</button>
+    return <button type="button" className={`${ghostPillClass} ${storeActionWidth}`} onClick={stop(() => void uninstall(server.id))}>Remove</button>
   }
   return (
     <button type="button" className={solidPillClass} disabled={installing} onClick={stop(() => void install(server.id))}>
