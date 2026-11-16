@@ -3,6 +3,7 @@ import type { ITheme } from '@xterm/xterm'
 import { useThemeStore, familyOf, THEME_OPTIONS, XTERM_THEMES, glassXtermTheme, XTERM_GLASS_ALPHA, type ThemeId } from './themeStore'
 import { useDisplayStore } from './displayStore'
 import { hexWithAlpha } from '@/lib/color'
+import { onOtherWindowChange } from '@/lib/crossWindowSettings'
 import { THEME_PALETTES } from '@/monacoThemes'
 
 const STORAGE_KEY = 'vide:customThemes'
@@ -381,3 +382,12 @@ export function useEditorBackground(): string {
   const variant = themeId.endsWith('-dark') ? 'dark' : 'light'
   return active ? active[variant]['--color-bg'] : THEME_PALETTES[themeId].background
 }
+
+// Custom themes created, edited or switched in another vIDE window.
+onOtherWindowChange([STORAGE_KEY], () => {
+  const next = load()
+  const active = next.activeId ? next.themes.find((t) => t.id === next.activeId) : undefined
+  if (active) applyPalette(active[currentVariant()])
+  else removePalette()
+  useCustomThemeStore.setState({ themes: next.themes, activeId: next.activeId })
+})

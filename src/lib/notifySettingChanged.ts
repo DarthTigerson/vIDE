@@ -1,3 +1,5 @@
+import { isApplyingOtherWindowChange } from './crossWindowSettings'
+
 // Lightweight bridge so any store can trigger a debounced push without
 // importing configRepoStore (which would create a circular dependency).
 let _schedulePush: (() => void) | undefined
@@ -12,6 +14,8 @@ export function registerNotePushCallback(fn: () => void): void {
 }
 
 export function notifySettingChanged(): void {
+  // Another window made this change and already scheduled its own push.
+  if (isApplyingOtherWindowChange()) return
   _schedulePush?.()
 }
 

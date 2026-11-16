@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { useThemeStore, familyOf } from './themeStore'
 import { notifySettingChanged } from '../lib/notifySettingChanged'
+import { onOtherWindowChange } from '../lib/crossWindowSettings'
 import { DEFAULT_TOKENS, type EditorBase, type HighContrastTokens } from '../monacoThemes'
 import { isValidHex } from '../lib/color'
 
@@ -168,28 +169,40 @@ export function basePanelColors(): { bg: string; panel: string; sidebar: string;
   return result
 }
 
-const storedFont = localStorage.getItem(FONT_KEY)
-const initialFont = storedFont && FONT_PRESETS.some((p) => p.value === storedFont) ? storedFont : DEFAULT_FONT
-const storedPanelStyle = localStorage.getItem(PANEL_STYLE_KEY)
-const initialPanelStyle: PanelStyle = PANEL_STYLE_OPTIONS.some((o) => o.value === storedPanelStyle)
-  ? (storedPanelStyle as PanelStyle)
-  : 'solid'
-const storedMemoryUsageVisible = localStorage.getItem(MEMORY_USAGE_VISIBLE_KEY)
-const initialMemoryUsageVisible = storedMemoryUsageVisible === null ? true : storedMemoryUsageVisible === 'true'
-// Migrates the old on/off toggle (pre-dating the None/vIDE/Clawd picker):
-// if a background image was already selected, this key exists and wins; if
-// only the old boolean is present, "on" carries forward as the vIDE badge
-// (the only option that used to exist) and "off"/absent becomes "none".
-const storedBackgroundImage = localStorage.getItem(BACKGROUND_IMAGE_KEY) as BackgroundImage | null
-const initialBackgroundImage: BackgroundImage = storedBackgroundImage && BACKGROUND_IMAGE_OPTIONS.some((o) => o.value === storedBackgroundImage)
-  ? storedBackgroundImage
-  : localStorage.getItem(BACKGROUND_IMAGE_VISIBLE_KEY) === 'true' ? 'vide' : 'none'
-const storedNavbarPosition = localStorage.getItem(NAVBAR_POSITION_KEY)
-const initialNavbarPosition: NavbarPosition = storedNavbarPosition === 'right' ? 'right' : 'left'
-const storedEditorColorScheme = localStorage.getItem(EDITOR_COLOR_SCHEME_KEY)
-const initialEditorColorScheme: EditorColorScheme = EDITOR_COLOR_SCHEME_OPTIONS.some((o) => o.value === storedEditorColorScheme)
-  ? (storedEditorColorScheme as EditorColorScheme)
-  : 'default'
+function readStoredDisplay() {
+  const storedFont = localStorage.getItem(FONT_KEY)
+  const font = storedFont && FONT_PRESETS.some((p) => p.value === storedFont) ? storedFont : DEFAULT_FONT
+  const storedPanelStyle = localStorage.getItem(PANEL_STYLE_KEY)
+  const panelStyle: PanelStyle = PANEL_STYLE_OPTIONS.some((o) => o.value === storedPanelStyle)
+    ? (storedPanelStyle as PanelStyle)
+    : 'solid'
+  const storedMemoryUsageVisible = localStorage.getItem(MEMORY_USAGE_VISIBLE_KEY)
+  const memoryUsageVisible = storedMemoryUsageVisible === null ? true : storedMemoryUsageVisible === 'true'
+  // Migrates the old on/off toggle (pre-dating the None/vIDE/Clawd picker):
+  // if a background image was already selected, this key exists and wins; if
+  // only the old boolean is present, "on" carries forward as the vIDE badge
+  // (the only option that used to exist) and "off"/absent becomes "none".
+  const storedBackgroundImage = localStorage.getItem(BACKGROUND_IMAGE_KEY) as BackgroundImage | null
+  const backgroundImage: BackgroundImage = storedBackgroundImage && BACKGROUND_IMAGE_OPTIONS.some((o) => o.value === storedBackgroundImage)
+    ? storedBackgroundImage
+    : localStorage.getItem(BACKGROUND_IMAGE_VISIBLE_KEY) === 'true' ? 'vide' : 'none'
+  const storedNavbarPosition = localStorage.getItem(NAVBAR_POSITION_KEY)
+  const navbarPosition: NavbarPosition = storedNavbarPosition === 'right' ? 'right' : 'left'
+  const storedEditorColorScheme = localStorage.getItem(EDITOR_COLOR_SCHEME_KEY)
+  const editorColorScheme: EditorColorScheme = EDITOR_COLOR_SCHEME_OPTIONS.some((o) => o.value === storedEditorColorScheme)
+    ? (storedEditorColorScheme as EditorColorScheme)
+    : 'default'
+  return { font, panelStyle, memoryUsageVisible, backgroundImage, navbarPosition, editorColorScheme }
+}
+
+const {
+  font: initialFont,
+  panelStyle: initialPanelStyle,
+  memoryUsageVisible: initialMemoryUsageVisible,
+  backgroundImage: initialBackgroundImage,
+  navbarPosition: initialNavbarPosition,
+  editorColorScheme: initialEditorColorScheme,
+} = readStoredDisplay()
 
 // One Custom palette per editor base. A single shared set can't work:
 // colours picked against a dark background (e.g. #ffffff strings) vanish on
@@ -321,4 +334,16 @@ useThemeStore.subscribe((state, prevState) => {
   if (family === familyOf(prevState.theme)) return
   const next = FAMILY_BACKGROUND[family]
   if (next) useDisplayStore.getState().setBackgroundImage(next)
+})
+
+// Display settings changed in another vIDE window. Re-applied without
+// writing back to localStorage.
+onOtherWindowChange([
+  FONT_KEY, PANEL_STYLE_KEY, MEMORY_USAGE_VISIBLE_KEY, BACKGROUND_IMAGE_KEY,
+  BACKGROUND_IMAGE_VISIBLE_KEY, NAVBAR_POSITION_KEY, EDITOR_COLOR_SCHEME_KEY, EDITOR_TOKEN_COLORS_KEY,
+], () => {
+  const next = readStoredDisplay()
+  document.documentElement.style.setProperty('--font-mono', next.font)
+  document.documentElement.setAttribute('data-panel-style', next.panelStyle)
+  useDisplayStore.setState({ ...next, editorTokenColors: loadEditorTokenColors() })
 })

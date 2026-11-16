@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
-import { watch, type FSWatcher } from 'chokidar'
+import type { FSWatcher } from 'chokidar'
+import { watch } from './fsWatchers'
 import { join } from 'path'
 import {
   createScript, deleteScript, liveScripts, readScriptsData, scriptsFile, updateScript, type Script,
