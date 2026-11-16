@@ -1303,11 +1303,18 @@ export default function App() {
                 active: chatVisible && inst.id === activeInstanceId,
                 disabled: !projectRoot,
                 onClick: () => {
+                  const store = useClaudeStore.getState()
                   if (inst.id !== activeInstanceId) {
-                    useClaudeStore.getState().setActiveInstance(inst.id)
-                    useClaudeStore.getState().setChatVisible(true)
+                    store.setActiveInstance(inst.id)
+                    store.setChatVisible(true)
                   } else {
-                    useClaudeStore.getState().toggleChatVisible()
+                    store.toggleChatVisible()
+                  }
+                  // Put the cursor in the session so typing works straight
+                  // away. A frame later: a Bridge chat only takes focus for a
+                  // focusToken bumped after it mounted.
+                  if (useClaudeStore.getState().chatVisible) {
+                    requestAnimationFrame(() => useClaudeStore.getState().focusChat())
                   }
                 },
                 onContextMenu: (e: MouseEvent) => {

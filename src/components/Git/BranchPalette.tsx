@@ -3,6 +3,7 @@ import type { KeyboardEvent } from 'react'
 import { useGitStore } from '@/stores/gitStore'
 import { useGitBranchStore, useRepoBranchState } from '@/stores/gitBranchStore'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
+import { useRestoreFocus } from '@/lib/useRestoreFocus'
 
 interface Props {
   projectRoot: string
@@ -16,6 +17,7 @@ type PaletteItem =
 
 export function BranchPalette({ projectRoot, onClose }: Props) {
   useCoverNativeViews()
+  useRestoreFocus()
   const { current, local, remote, loading } = useRepoBranchState(projectRoot)
   const load = useGitBranchStore((s) => s.load)
   const checkout = useGitStore((s) => s.checkout)
