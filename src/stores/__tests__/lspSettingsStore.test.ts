@@ -11,37 +11,33 @@ const { store, apiMock } = vi.hoisted(() => {
   return { store, apiMock }
 })
 
-import { LSP_SERVER_IDS, useLspSettingsStore } from '../lspSettingsStore'
+import { isServerEnabled, useLspSettingsStore } from '../lspSettingsStore'
 
 describe('lspSettingsStore', () => {
   beforeEach(() => {
     Object.keys(store).forEach((k) => delete store[k])
     vi.clearAllMocks()
-    useLspSettingsStore.setState({
-      enabled: Object.fromEntries(LSP_SERVER_IDS.map((id) => [id, false])) as Record<string, boolean> as any,
-    })
+    useLspSettingsStore.setState({ enabled: {} })
   })
 
-  it('defaults every language server to disabled', () => {
-    const { enabled } = useLspSettingsStore.getState()
-    for (const id of LSP_SERVER_IDS) expect(enabled[id]).toBe(false)
+  it('an installed server is on until the user switches it off', () => {
+    expect(isServerEnabled('go')).toBe(true)
+    store['vide:lsp:enabled:go'] = 'false'
+    expect(isServerEnabled('go')).toBe(false)
   })
 
   it('setEnabled updates state, persists to localStorage, and notifies the main process', () => {
-    useLspSettingsStore.getState().setEnabled('go', true)
+    useLspSettingsStore.getState().setEnabled('go', false)
 
-    expect(useLspSettingsStore.getState().enabled.go).toBe(true)
-    expect(store['vide:lsp:enabled:go']).toBe('true')
-    expect(apiMock.lspSetEnabled).toHaveBeenCalledWith('go', true)
+    expect(useLspSettingsStore.getState().enabled.go).toBe(false)
+    expect(store['vide:lsp:enabled:go']).toBe('false')
+    expect(apiMock.lspSetEnabled).toHaveBeenCalledWith('go', false)
   })
 
   it('does not affect other languages when one is toggled', () => {
-    useLspSettingsStore.getState().setEnabled('rust', true)
+    useLspSettingsStore.getState().setEnabled('rust', false)
 
-    const { enabled } = useLspSettingsStore.getState()
-    expect(enabled.rust).toBe(true)
-    expect(enabled.go).toBe(false)
-    expect(enabled.python).toBe(false)
-    expect(enabled.typescript).toBe(false)
+    expect(isServerEnabled('rust')).toBe(false)
+    expect(isServerEnabled('go')).toBe(true)
   })
 })

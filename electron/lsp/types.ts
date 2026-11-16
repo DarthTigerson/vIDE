@@ -1,4 +1,7 @@
-export type LspServerId = 'typescript' | 'python' | 'go' | 'rust' | 'yaml' | 'json'
+import type { LanguageServerEntry } from './catalog'
+
+// A catalog entry id (e.g. 'typescript', 'go'). Any id the Store lists.
+export type LspServerId = string
 
 export interface DetectResult {
   found: boolean
@@ -11,19 +14,9 @@ export interface SpawnSpec {
   args: string[]
 }
 
-export interface LspServerModule {
-  id: LspServerId
-  label: string
-  monacoLanguageIds: string[]
-  // Static approximate figure shown in Settings — real per-process
-  // measurement was ruled out for v1, see docs/superpowers/specs.
-  ramEstimate: string
-  detect(): Promise<DetectResult>
-  getSpawn(): Promise<SpawnSpec | null>
-  // All four installers are global (npm -g, go install ..., a home-dir
-  // download) — there's no project-scoped install here, so no cwd.
-  install(onData: (chunk: string) => void): Promise<void>
-}
+// An installed server as the renderer sees it: its catalog snapshot plus
+// whether the binary is (still) on this machine.
+export type InstalledServerInfo = DetectResult & { entry: LanguageServerEntry }
 
 export interface DefinitionLocation {
   path: string

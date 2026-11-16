@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { StoreListing } from '@/types/api'
 import {
-  DEFAULT_STORE_FILTERS, filterStoreApps, sortStoreApps, isDefaultStoreFilters, storeFilterCounts,
+  DEFAULT_STORE_FILTERS, filterLanguageServers, filterStoreApps, sortStoreApps, isDefaultStoreFilters, storeFilterCounts,
 } from '../storeFilter'
 
 function app(id: string, name: string, extra: Partial<StoreListing> = {}): StoreListing {
@@ -47,14 +47,28 @@ describe('storeFilter', () => {
 
   it('counts and filters the agent-tools category', () => {
     const tool = { ...docker, id: 'ddg', category: 'agent-tools' }
-    expect(storeFilterCounts([docker, tool]).category).toEqual({ all: 2, applications: 1, 'agent-tools': 1 })
+    expect(storeFilterCounts([docker, tool]).category).toEqual({ all: 2, applications: 1, 'agent-tools': 1, 'language-servers': 0 })
     expect(filterStoreApps([docker, tool], { ...DEFAULT_STORE_FILTERS, category: 'agent-tools' }).map((a) => a.id)).toEqual(['ddg'])
   })
 
   it('counts apps per filter row', () => {
     expect(storeFilterCounts([docker, notes])).toEqual({
-      category: { all: 2, applications: 2, 'agent-tools': 0 },
+      category: { all: 2, applications: 2, 'agent-tools': 0, 'language-servers': 0 },
       maker: { all: 2, vsuite: 2, community: 0 },
     })
+  })
+
+  it('language servers: own category, hidden by any Made by choice, searchable by language', () => {
+    const go = {
+      id: 'go', name: 'Go', description: 'gopls.', targets: ['vide'], languages: ['go'], binary: 'gopls',
+      args: [], versionArgs: ['version'], install: { method: 'go' as const, package: 'golang.org/x/tools/gopls@latest' },
+    }
+    expect(storeFilterCounts([docker], [go]).category).toEqual({ all: 2, applications: 1, 'agent-tools': 0, 'language-servers': 1 })
+    expect(filterStoreApps([docker], { ...DEFAULT_STORE_FILTERS, category: 'language-servers' })).toEqual([])
+    expect(filterLanguageServers([go], { ...DEFAULT_STORE_FILTERS, category: 'language-servers' })).toEqual([go])
+    expect(filterLanguageServers([go], { ...DEFAULT_STORE_FILTERS, category: 'applications' })).toEqual([])
+    expect(filterLanguageServers([go], { ...DEFAULT_STORE_FILTERS, maker: 'vsuite' })).toEqual([])
+    expect(filterLanguageServers([go], { ...DEFAULT_STORE_FILTERS, query: 'GO' })).toEqual([go])
+    expect(filterLanguageServers([go], { ...DEFAULT_STORE_FILTERS, query: 'python' })).toEqual([])
   })
 })

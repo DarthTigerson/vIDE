@@ -497,8 +497,15 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('inlineEdit:event', handler)
   },
 
-  lspDetectAll: () => ipcRenderer.invoke('lsp:detectAll'),
+  lspListInstalled: () => ipcRenderer.invoke('lsp:listInstalled'),
   lspInstall: (id: string) => ipcRenderer.invoke('lsp:install', id),
+  lspUninstall: (id: string) => ipcRenderer.invoke('lsp:uninstall', id),
+  lspAdopt: (id: string) => ipcRenderer.invoke('lsp:adopt', id),
+  onLspChanged: (cb: () => void) => {
+    const handler = () => cb()
+    ipcRenderer.on('lsp:changed', handler)
+    return () => ipcRenderer.removeListener('lsp:changed', handler)
+  },
   lspSetEnabled: (id: string, enabled: boolean) => ipcRenderer.send('lsp:setEnabled', id, enabled),
   lspGetDefinition: (params: {
     language: string

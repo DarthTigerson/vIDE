@@ -6,7 +6,7 @@ import { useAppContribStore } from '@/apps/appContribStore'
 import type { RegistryState } from '@/types/api'
 
 const registry: RegistryState = {
-  status: 'ok', checkedAt: 1, fromCache: false,
+  status: 'ok', checkedAt: 1, fromCache: false, languageServers: [],
   apps: [{
     id: 'docker', name: 'Docker', description: 'd', repo: 'o/r', firstParty: true, compatible: true,
     recommended: false, category: 'applications', targets: ['vide'], replacesBuiltIn: 'docker',

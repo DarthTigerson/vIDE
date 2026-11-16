@@ -21,6 +21,7 @@ import { InlineEditManager } from './inlineEdit'
 import { CommitMessageManager } from './commitMessage'
 import { BrowserViewManager } from './browserViews'
 import { LanguageServerManager } from './lsp/manager'
+import { InstalledServers } from './lsp/installed'
 import {
   listAllFiles, searchText, buildTree, readImageDataUrl, readImagePngDataUrl, readFileBytes,
   readTextFile, pathExists, getHomeDir, writeFile as fsWriteFile, mkdir, renamePath, trashPath, revealInFinder,
@@ -994,7 +995,8 @@ app.whenReady().then(async () => {
   inlineEditMgr.registerHandlers()
   commitMessageMgr = new CommitMessageManager()
   commitMessageMgr.registerHandlers()
-  lspMgr = new LanguageServerManager()
+  // Per machine (never synced): which language servers were installed from the Store.
+  lspMgr = new LanguageServerManager(new InstalledServers(join(app.getPath('userData'), 'language-servers.json')))
   lspMgr.registerHandlers()
 
   buildMenu()
@@ -1066,6 +1068,10 @@ app.whenReady().then(async () => {
     currentVersion: app.getVersion(),
   })
   storeService.registerHandlers()
+  lspMgr.setCatalog(async (id) => {
+    const registry = await storeService.getRegistry(false)
+    return registry.status === 'ok' ? registry.languageServers.find((l) => l.id === id) ?? null : null
+  })
   // Catalog refresh at startup and every 6 h so update notices show up even
   // with the Store tab closed; renderers reload when the result changed.
   const broadcastStoreChanged = () => {

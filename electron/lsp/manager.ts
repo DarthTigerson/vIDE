@@ -3,14 +3,16 @@ import { BrowserWindow, ipcMain } from 'electron'
 import { fileURLToPath, pathToFileURL } from 'url'
 import { LspConnection } from './protocol'
 import { binaryEnv } from './shellPath'
-import { LSP_SERVERS } from './servers'
+import type { LanguageServerEntry } from './catalog'
+import { InstalledServers } from './installed'
+import { detectServer, installServer, spawnSpecFor } from './installMethods'
 import type {
   DefinitionLocation,
+  InstalledServerInfo,
   LspCompletionItem,
   LspHoverResult,
   LspPositionParams,
   LspServerId,
-  LspServerModule,
 } from './types'
 
 interface RunningServer {
@@ -30,40 +32,83 @@ interface WindowState {
 // lives in types.ts since completion and hover share it.
 export type GetDefinitionParams = LspPositionParams
 
-// Owns one language-server child process per (window, language) pair —
+// Owns one language-server child process per (window, server) pair —
 // mirrors ClaudeManager's `byWindow` keying (electron/claude.ts) since each
-// window is its own project root here too. A server only spawns once its
-// toggle is enabled *and* a file of that language is actually opened
-// (ensureServer is only reached from the definition-request path), so
-// enabling e.g. Rust in a window with no .rs files open costs nothing.
+// window is its own project root here too. Which servers exist comes from
+// what the user installed from the Store (installed.ts); a server only spawns
+// once it is switched on *and* a file of one of its languages is actually
+// asked about, so an installed server with no open file costs nothing.
 export class LanguageServerManager {
   private byWindow = new Map<number, WindowState>()
+  // The Store catalog's entry for an id; set once the Store service exists.
+  private catalogEntry: (id: string) => Promise<LanguageServerEntry | null> = async () => null
+
+  constructor(private readonly installed: InstalledServers) {}
+
+  setCatalog(lookup: (id: string) => Promise<LanguageServerEntry | null>): void {
+    this.catalogEntry = lookup
+  }
+
+  private broadcastChanged(): void {
+    for (const w of BrowserWindow.getAllWindows()) {
+      if (!w.isDestroyed()) w.webContents.send('lsp:changed')
+    }
+  }
 
   registerHandlers(): void {
-    ipcMain.handle('lsp:detectAll', async () => {
-      const entries = await Promise.all(
-        Object.values(LSP_SERVERS).map(async (server) => {
-          const result = await server.detect()
-          return [server.id, { ...result, label: server.label, ramEstimate: server.ramEstimate }] as const
-        })
-      )
-      return Object.fromEntries(entries)
-    })
+    ipcMain.handle('lsp:listInstalled', async (): Promise<InstalledServerInfo[]> =>
+      Promise.all(this.installed.list().map(async (entry) => ({ entry, ...(await detectServer(entry)) })))
+    )
 
-    ipcMain.handle('lsp:install', async (event, id: string) => {
+    // Store install: run the entry's install method, then record it only once
+    // its binary is really there. Output streams as lsp:install:data.
+    ipcMain.handle('lsp:install', async (event, id: string): Promise<boolean> => {
       const win = BrowserWindow.fromWebContents(event.sender)
-      const server = LSP_SERVERS[id as LspServerId]
-      if (!server || !win) return
       const send = (chunk: string) => {
-        if (!win.isDestroyed()) win.webContents.send('lsp:install:data', id, chunk)
+        if (win && !win.isDestroyed()) win.webContents.send('lsp:install:data', id, chunk)
+      }
+      const exit = (code: number) => {
+        if (win && !win.isDestroyed()) win.webContents.send('lsp:install:exit', id, code)
+      }
+      const entry = (await this.catalogEntry(String(id))) ?? this.installed.get(String(id))
+      if (!entry) {
+        send('This language server is not in the Store catalog.\n')
+        exit(1)
+        return false
       }
       try {
-        await server.install(send)
-        if (!win.isDestroyed()) win.webContents.send('lsp:install:exit', id, 0)
+        await installServer(entry, send)
+        const found = await detectServer(entry)
+        if (!found.found) throw new Error(`Installed, but ${entry.binary} still can't be found.`)
+        this.installed.add(entry)
+        this.restartServer(entry.id)
+        this.broadcastChanged()
+        exit(0)
+        return true
       } catch (err) {
         send(`\nError: ${err instanceof Error ? err.message : String(err)}\n`)
-        if (!win.isDestroyed()) win.webContents.send('lsp:install:exit', id, 1)
+        exit(1)
+        return false
       }
+    })
+
+    // Removes it from vIDE only; the binary stays (other tools may use it).
+    ipcMain.handle('lsp:uninstall', (_event, id: string): boolean => {
+      const removed = this.installed.remove(String(id))
+      this.restartServer(String(id))
+      if (removed) this.broadcastChanged()
+      return removed
+    })
+
+    // Migration from built-in servers: record an id as installed without
+    // running anything, when its binary is already on this machine.
+    ipcMain.handle('lsp:adopt', async (_event, id: string): Promise<boolean> => {
+      if (this.installed.get(String(id))) return true
+      const entry = await this.catalogEntry(String(id))
+      if (!entry || !(await detectServer(entry)).found) return false
+      this.installed.add(entry)
+      this.broadcastChanged()
+      return true
     })
 
     ipcMain.on('lsp:setEnabled', (event, id: string, enabled: boolean) => {
@@ -95,6 +140,12 @@ export class LanguageServerManager {
     })
   }
 
+  // Stops this server in every window; the next request respawns it from the
+  // current install (or finds it uninstalled).
+  private restartServer(id: string): void {
+    for (const winId of this.byWindow.keys()) this.stopServer(winId, id)
+  }
+
   // The shared preamble for every position request: find the server for this
   // language, bail unless it's enabled, make sure it's running with the file
   // opened, then send the request. Returns null (not throwing) for any
@@ -106,7 +157,7 @@ export class LanguageServerManager {
   ): Promise<unknown | null> {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return null
-    const server = Object.values(LSP_SERVERS).find((s) => s.monacoLanguageIds.includes(params.language))
+    const server = this.installed.forLanguage(params.language)
     if (!server) return null
     const state = this.stateFor(win.id)
     if (!state.enabled.has(server.id)) return null
@@ -136,7 +187,7 @@ export class LanguageServerManager {
 
   private async ensureServer(
     winId: number,
-    server: LspServerModule,
+    server: LanguageServerEntry,
     projectRoot: string
   ): Promise<RunningServer | null> {
     const state = this.stateFor(winId)
@@ -149,7 +200,7 @@ export class LanguageServerManager {
       this.stopServer(winId, server.id)
     }
 
-    const spawnSpec = await server.getSpawn()
+    const spawnSpec = await spawnSpecFor(server)
     if (!spawnSpec) return null
 
     const proc = spawn(spawnSpec.command, spawnSpec.args, { cwd: projectRoot, env: binaryEnv(spawnSpec.command) }) as ChildProcessWithoutNullStreams

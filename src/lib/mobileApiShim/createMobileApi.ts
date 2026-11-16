@@ -427,9 +427,12 @@ export function createMobileApi(wsUrl: string) {
 
     // Language server management — ambiguous whether these should work
     // from mobile; deferred (relay-side exclusion)
-    lspInstall: stubInvoke(undefined as void),
+    lspInstall: stubInvoke(false),
+    lspUninstall: stubInvoke(false),
+    lspAdopt: stubInvoke(false),
     lspSetEnabled: stubSend(),
-    lspDetectAll: stubInvoke({} as unknown as Awaited<ReturnType<Window['api']['lspDetectAll']>>),
+    lspListInstalled: stubInvoke([] as Awaited<ReturnType<Window['api']['lspListInstalled']>>),
+    onLspChanged: stubOn(),
     lspGetDefinition: stubInvoke(null as unknown as Awaited<ReturnType<Window['api']['lspGetDefinition']>>),
     onLspInstallData: stubOn(),
     onLspInstallExit: stubOn(),

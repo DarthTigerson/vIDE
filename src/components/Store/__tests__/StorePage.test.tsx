@@ -11,7 +11,8 @@ import { StorePage } from '../StorePage'
 import { useStoreStore } from '@/stores/storeStore'
 import { useAppContribStore } from '@/apps/appContribStore'
 import type { AppInfo } from '@/types/api'
-import type { RegistryState, StoreListing } from '@/types/api'
+import type { LanguageServerEntry, RegistryState, StoreListing } from '@/types/api'
+import { useLspStatusStore } from '@/stores/lspStatusStore'
 
 function listing(id: string, name: string, description: string, extra: Partial<StoreListing> = {}): StoreListing {
   return {
@@ -22,7 +23,7 @@ function listing(id: string, name: string, description: string, extra: Partial<S
 }
 
 const ok: RegistryState = {
-  status: 'ok', checkedAt: Date.now(), fromCache: false,
+  status: 'ok', checkedAt: Date.now(), fromCache: false, languageServers: [],
   apps: [listing('docker', 'Docker', 'Containers from the sidebar.'), listing('jira', 'Jira', 'Issues next to your code.')],
 }
 
@@ -34,13 +35,26 @@ function setRegistry(registry: RegistryState | null, loading = false) {
 
 const appsInstall = vi.fn()
 const appsRestart = vi.fn()
+const lspInstall = vi.fn().mockResolvedValue(true)
+const lspUninstall = vi.fn().mockResolvedValue(true)
+const gopls: LanguageServerEntry = {
+  id: 'go', name: 'Go', description: 'gopls, the official Go language server.', targets: ['vide'], languages: ['go'],
+  binary: 'gopls', args: [], versionArgs: ['version'], ramEstimate: 'typically 300–800MB',
+  install: { method: 'go', package: 'golang.org/x/tools/gopls@latest' },
+}
 function inst(id: string, version: string, extra: Partial<AppInfo> = {}): AppInfo {
   return { id, name: id, version, source: 'store', rendererUrl: '', hasMain: false, contributes: {}, status: 'loaded', ...extra }
 }
 
 beforeEach(() => {
-  ;(window as any).api = { appsInstall, appsRestart }
+  ;(window as any).api = {
+    appsInstall, appsRestart, lspInstall, lspUninstall, lspSetEnabled: vi.fn(),
+    lspListInstalled: vi.fn().mockResolvedValue([]),
+    onLspChanged: vi.fn(() => () => {}),
+    onLspInstallData: vi.fn(() => () => {}),
+  }
   useAppContribStore.setState({ apps: [], panels: {} })
+  useLspStatusStore.setState({ installed: [], installing: {}, installOutput: {}, installFailed: {} })
   useStoreStore.setState({ busy: {}, errors: {} })
   setRegistry(ok)
 })
@@ -75,6 +89,49 @@ describe('StorePage', () => {
     expect(screen.getByRole('heading', { name: 'DuckDuckGo' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Docker' })).toBeNull()
     expect(useStoreStore.getState().presetCategory).toBeNull()
+  })
+
+  it('has a Language servers category showing the install source and installing by id', async () => {
+    setRegistry({ ...ok, languageServers: [gopls] } as RegistryState)
+    useStoreStore.setState({ presetCategory: 'language-servers' })
+    render(<StorePage />)
+    expect(screen.getByRole('button', { name: /^Language servers/ }).textContent).toBe('Language servers1')
+    expect(screen.getByRole('heading', { name: 'Go' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Docker' })).toBeNull()
+    expect(screen.getByText('go install golang.org/x/tools/gopls@latest')).toBeInTheDocument()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Install' })) })
+    expect(lspInstall).toHaveBeenCalledWith('go')
+  })
+
+  it('an installed language server offers Remove instead of Install', async () => {
+    setRegistry({ ...ok, languageServers: [gopls] } as RegistryState)
+    const installed = [{ entry: gopls, found: true, path: '/go/bin/gopls' }]
+    ;(window as any).api.lspListInstalled = vi.fn().mockResolvedValue(installed)
+    await act(async () => { render(<StorePage />) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Remove' })) })
+    expect(lspUninstall).toHaveBeenCalledWith('go')
+  })
+
+  it('in a narrow pane moves the filters into a Filters button and counts active ones', async () => {
+    const RO = (globalThis as any).ResizeObserver
+    ;(globalThis as any).ResizeObserver = class {
+      constructor(private cb: (e: { contentRect: { width: number } }[]) => void) {}
+      observe() { this.cb([{ contentRect: { width: 400 } }]) }
+      disconnect() {}
+    }
+    try {
+      render(<StorePage />)
+      expect(screen.queryByRole('heading', { name: 'Category' })).toBeNull()
+      const button = screen.getByRole('button', { name: 'Filters' })
+      fireEvent.click(button)
+      const sheet = screen.getByRole('dialog', { name: 'Filters' })
+      fireEvent.click(within(sheet).getByRole('button', { name: /^Agent tools/ }))
+      expect(screen.getByRole('button', { name: /^Filters/ }).textContent).toBe('Filters1')
+      fireEvent.keyDown(window, { key: 'Escape' })
+      expect(screen.queryByRole('dialog', { name: 'Filters' })).toBeNull()
+    } finally {
+      ;(globalThis as any).ResizeObserver = RO
+    }
   })
 
   it('shows the site filters in order with counts', () => {

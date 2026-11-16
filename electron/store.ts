@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from 'fs/promises'
 import { dirname } from 'path'
 import { compareVersions } from './updateChecker'
 import { parseRegistry, type StoreApp } from './storeRegistry'
+import type { LanguageServerEntry } from './lsp/catalog'
 
 // The vSuite Store catalog. VIDE_STORE_REGISTRY_URL points a dev build at a
 // local file server before vsuite.tech is live (or to test a draft catalog).
@@ -18,7 +19,7 @@ export type StoreListing = StoreApp & { compatible: boolean }
 export type ReadmeResult = { ok: true; text: string } | { ok: false }
 
 export type RegistryState =
-  | { status: 'ok'; apps: StoreListing[]; checkedAt: number; fromCache: boolean }
+  | { status: 'ok'; apps: StoreListing[]; languageServers: LanguageServerEntry[]; checkedAt: number; fromCache: boolean }
   | { status: 'empty'; checkedAt: number }
   | { status: 'too-new' }
   | { status: 'error'; message: string }
@@ -41,7 +42,8 @@ export interface StoreServiceOptions {
 function signature(state: RegistryState | null): string {
   if (!state) return 'none'
   if (state.status !== 'ok') return state.status
-  return 'ok:' + state.apps.map((a) => `${a.id}@${a.latest.version}:${a.compatible}`).join(',')
+  return 'ok:' + state.apps.map((a) => `${a.id}@${a.latest.version}:${a.compatible}`).join(',') +
+    '|' + state.languageServers.map((l) => l.id).join(',')
 }
 
 // Reads a response body as text, or null once it passes `max` bytes.
@@ -184,12 +186,12 @@ export class StoreService {
       console.warn('[store] invalid catalog:', parsed.reason)
       return { status: 'error', message: 'The Store sent a catalog vIDE could not read.' }
     }
-    if (parsed.apps.length === 0) return { status: 'empty', checkedAt }
+    if (parsed.apps.length === 0 && parsed.languageServers.length === 0) return { status: 'empty', checkedAt }
     const apps = parsed.apps.map((app) => ({
       ...app,
       compatible: compareVersions(this.opts.currentVersion, app.latest.minVide) >= 0,
     }))
-    return { status: 'ok', apps, checkedAt, fromCache }
+    return { status: 'ok', apps, languageServers: parsed.languageServers, checkedAt, fromCache }
   }
 
   private async fromCacheOr(message: string): Promise<RegistryState> {

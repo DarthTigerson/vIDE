@@ -1,3 +1,4 @@
+import { runLspMigration } from '@/lib/lspMigration'
 import { create } from 'zustand'
 import type { AppInfo, FileSummary, InstallOutcome, RegistryState, StoreListing } from '@/types/api'
 import { useAppContribStore } from '@/apps/appContribStore'
@@ -225,5 +226,8 @@ export function subscribeStoreOpen(): () => void {
 export function startStoreUpdates(): void {
   if (typeof window.api?.storeGetRegistry !== 'function') return
   subscribeStoreChanged()
+  // Built-in language servers → Store installs, once the catalog is in.
+  runLspMigration(useStoreStore.getState().registry)
+  useStoreStore.subscribe((state, prev) => { if (state.registry !== prev.registry) runLspMigration(state.registry) })
   if (!useStoreStore.getState().registry) void useStoreStore.getState().load(false)
 }

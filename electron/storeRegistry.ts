@@ -2,6 +2,8 @@
 // vsuite.tech). Kept free of Electron imports so it unit-tests in plain node.
 // Spec: docs/superpowers/specs/2026-11-15-vsuite-store-design.md
 
+import { parseLanguageServers, type LanguageServerEntry } from './lsp/catalog'
+
 export const REGISTRY_SCHEMA = 1
 
 export interface StoreRelease {
@@ -45,7 +47,7 @@ export const DEFAULT_CATEGORY = 'applications'
 export const DEFAULT_TARGETS = ['vide']
 
 export type ParsedRegistry =
-  | { kind: 'ok'; apps: StoreApp[] }
+  | { kind: 'ok'; apps: StoreApp[]; languageServers: LanguageServerEntry[] }
   | { kind: 'too-new' }
   | { kind: 'invalid'; reason: string }
 
@@ -166,5 +168,6 @@ export function parseRegistry(raw: unknown): ParsedRegistry {
     apps.push(parsed)
   }
   apps.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
-  return { kind: 'ok', apps }
+  // Language servers sit in their own list (older vIDE versions never read it).
+  return { kind: 'ok', apps, languageServers: parseLanguageServers(raw.languageServers) }
 }
