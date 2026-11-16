@@ -96,3 +96,19 @@ describe('installSourceText', () => {
       .toBe('Download from github.com/rust-lang/rust-analyzer releases')
   })
 })
+
+describe('display-only author and version', () => {
+  const base = {
+    id: 'go', name: 'Go', description: 'gopls.', languages: ['go'], binary: 'gopls',
+    install: { method: 'go', package: 'golang.org/x/tools/gopls@latest' },
+  }
+  it('keeps good ones and drops bad ones without dropping the entry', () => {
+    const ok = parseLanguageServer({ ...base, author: 'The Go team', version: 'v0.24.0' })
+    expect(ok).toMatchObject({ author: 'The Go team', version: 'v0.24.0' })
+    const bad = parseLanguageServer({ ...base, author: 'x'.repeat(61), version: '<b>' })
+    expect(typeof bad).toBe('object')
+    expect(bad).not.toHaveProperty('author')
+    expect(bad).not.toHaveProperty('version')
+  })
+})
+

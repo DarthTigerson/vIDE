@@ -1,6 +1,6 @@
 import { runLspMigration } from '@/lib/lspMigration'
 import { create } from 'zustand'
-import type { AppInfo, FileSummary, InstallOutcome, RegistryState, StoreListing } from '@/types/api'
+import type { AppInfo, FileSummary, InstallOutcome, LanguageServerEntry, RegistryState, StoreListing } from '@/types/api'
 import { useAppContribStore } from '@/apps/appContribStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { STORE_TAB_PATH } from '@/components/Settings/paths'
@@ -151,6 +151,10 @@ export const useStoreStore = create<StoreStoreState>((set, get) => ({
 
 function pushEvent(set: (partial: Partial<StoreStoreState>) => void, get: () => StoreStoreState, text: string): void {
   set({ events: [...get().events, { id: `store-event-${++eventSeq}`, text }] })
+}
+
+export function findLanguageServer(registry: RegistryState | null, id: string): LanguageServerEntry | null {
+  return registry?.status === 'ok' ? registry.languageServers.find((l) => l.id === id) ?? null : null
 }
 
 export function findStoreApp(registry: RegistryState | null, id: string): StoreListing | null {

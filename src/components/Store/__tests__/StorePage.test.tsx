@@ -40,6 +40,7 @@ const lspUninstall = vi.fn().mockResolvedValue(true)
 const gopls: LanguageServerEntry = {
   id: 'go', name: 'Go', description: 'gopls, the official Go language server.', targets: ['vide'], languages: ['go'],
   binary: 'gopls', args: [], versionArgs: ['version'], ramEstimate: 'typically 300–800MB',
+  author: 'The Go team', version: 'v0.24.0',
   install: { method: 'go', package: 'golang.org/x/tools/gopls@latest' },
 }
 function inst(id: string, version: string, extra: Partial<AppInfo> = {}): AppInfo {
@@ -98,10 +99,13 @@ describe('StorePage', () => {
     expect(screen.getByRole('button', { name: /^Language servers/ }).textContent).toBe('Language servers1')
     expect(screen.getByRole('heading', { name: 'Go' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Docker' })).toBeNull()
-    expect(screen.getByText('go install golang.org/x/tools/gopls@latest')).toBeInTheDocument()
-    expect(screen.getByTitle('Installs the newest upstream release').textContent).toBe('latest')
+    expect(screen.getByText('Language server · by The Go team')).toBeInTheDocument()
+    expect(screen.getByText('v0.24.0')).toBeInTheDocument()
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Install' })) })
     expect(lspInstall).toHaveBeenCalledWith('go')
+    expect(openTab).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('heading', { name: 'Go' }))
+    expect(openTab).toHaveBeenCalledWith(expect.objectContaining({ path: 'store://server/go' }))
   })
 
   it('an installed language server offers Remove instead of Install', async () => {
@@ -109,8 +113,8 @@ describe('StorePage', () => {
     const installed = [{ entry: gopls, found: true, path: '/go/bin/gopls', version: 'v0.16.2' }]
     ;(window as any).api.lspListInstalled = vi.fn().mockResolvedValue(installed)
     await act(async () => { render(<StorePage />) })
-    expect(screen.getByTitle('Installed version').textContent).toBe('v0.16.2')
-    expect(screen.getByText('Memory: typically 300–800MB')).toBeInTheDocument()
+    expect(screen.getByText('v0.16.2')).toBeInTheDocument()
+    expect(screen.queryByText('v0.24.0')).toBeNull()
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Remove' })) })
     expect(lspUninstall).toHaveBeenCalledWith('go')
   })

@@ -79,6 +79,12 @@ export const STORE_TAB_PATH = 'store://Store'
 const STORE_APP_PREFIX = 'store://app/'
 export function isStoreTab(path: string): boolean { return path.startsWith('store://') }
 export function buildStoreAppPath(id: string): string { return STORE_APP_PREFIX + id }
+// A language server's Store page (store://server/<id>).
+const STORE_SERVER_PREFIX = 'store://server/'
+export function buildStoreServerPath(id: string): string { return STORE_SERVER_PREFIX + id }
+export function storeServerIdFromPath(path: string): string | null {
+  return path.startsWith(STORE_SERVER_PREFIX) ? path.slice(STORE_SERVER_PREFIX.length) || null : null
+}
 export function storeAppIdFromPath(path: string): string | null {
   return path.startsWith(STORE_APP_PREFIX) ? path.slice(STORE_APP_PREFIX.length) || null : null
 }
