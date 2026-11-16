@@ -6,6 +6,7 @@ import { useBrowserStore } from '@/stores/browserStore'
 import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
 import { isBrowserTab, getBrowserId, buildBrowserPath, isTerminalTab, getTerminalId } from '@/components/Settings/paths'
 import { ScriptsSubmenu } from '@/components/Scripts/ScriptsSubmenu'
+import { SubmenuPanel } from '@/components/ui/SubmenuPanel'
 import { runScriptInTerminal } from '@/lib/runScript'
 import { clampToViewport } from '@/components/ui/clampToViewport'
 import { diffFilePathForTab, filePathForTab } from './breadcrumbPath'
@@ -81,13 +82,13 @@ function SubMenuButton({ label, disabled, items }: {
         <span className="text-fg-subtle">▸</span>
       </button>
       {open && !disabled && (
-        <div className="absolute left-full top-0 z-10 w-36 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50">
+        <SubmenuPanel className="w-36 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50">
           {items.map((item) => (
             <MenuButton key={item.id} onClick={item.onSelect}>
               {item.label}
             </MenuButton>
           ))}
-        </div>
+        </SubmenuPanel>
       )}
     </div>
   )

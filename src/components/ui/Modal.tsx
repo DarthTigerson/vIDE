@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
+import { useRestoreFocus } from '@/lib/useRestoreFocus'
 
 interface ModalProps {
   onClose: () => void
@@ -9,6 +10,7 @@ interface ModalProps {
 
 export function Modal({ onClose, children }: ModalProps) {
   useCoverNativeViews()
+  useRestoreFocus()
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)

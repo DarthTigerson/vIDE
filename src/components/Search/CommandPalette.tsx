@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useEditorStore } from '@/stores/editorStore'
 import { openFile as openFileByRoute } from '@/lib/openFile'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
+import { useRestoreFocus } from '@/lib/useRestoreFocus'
 
 interface Props {
   projectRoot: string
@@ -27,6 +28,7 @@ function scoreMatch(query: string, filePath: string): number {
 
 export function CommandPalette({ projectRoot, onClose }: Props) {
   useCoverNativeViews()
+  useRestoreFocus()
   const [query, setQuery] = useState('')
   const [allFiles, setAllFiles] = useState<string[]>([])
   const [activeIndex, setActiveIndex] = useState(0)

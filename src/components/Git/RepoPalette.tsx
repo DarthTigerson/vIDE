@@ -10,6 +10,7 @@ import { useSidebarUiStore } from '@/stores/sidebarUiStore'
 import { clampToViewport } from '@/components/ui/clampToViewport'
 import { ContextMenuButton } from './ContextMenu'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
+import { useRestoreFocus } from '@/lib/useRestoreFocus'
 
 function StarIcon({ filled }: { filled: boolean }) {
   return (
@@ -91,6 +92,7 @@ function RepoRow({ repo, active, onSelect, onHover, onContextMenu }: {
 // point-in-time snapshot, refreshed on demand.
 export function RepoPalette({ onClose }: Props) {
   useCoverNativeViews()
+  useRestoreFocus()
   const repos = useGitReposStore((s) => s.repos)
   const selectRepo = useGitReposStore((s) => s.selectRepo)
   const refresh = useGitStore((s) => s.refresh)

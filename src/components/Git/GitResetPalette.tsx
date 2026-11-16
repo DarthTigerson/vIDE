@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { useGitBranchStore, useRepoBranchState } from '@/stores/gitBranchStore'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
+import { useRestoreFocus } from '@/lib/useRestoreFocus'
 
 interface Props {
   projectRoot: string
@@ -21,6 +22,7 @@ type PaletteItem =
 // so no extra data source is needed to support them here.
 export function GitResetPalette({ projectRoot, onClose, onPick }: Props) {
   useCoverNativeViews()
+  useRestoreFocus()
   const { current, local, remote, loading } = useRepoBranchState(projectRoot)
   const load = useGitBranchStore((s) => s.load)
 
