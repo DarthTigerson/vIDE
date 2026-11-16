@@ -3,10 +3,10 @@ import type { StoreListing } from '@/types/api'
 import { useAppContribStore } from '@/apps/appContribStore'
 import { useStoreStore, appAction } from '@/stores/storeStore'
 import { accentSolidColor } from '@/components/ui/pillButton'
-import { ghostPillClass } from './storeUi'
+import { ghostPillClass, storeActionWidth } from './storeUi'
 import { UninstallAppConfirm } from './UninstallAppConfirm'
 
-const pill = 'h-7 px-3.5 rounded-full text-[0.6875rem] font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed'
+const pill = `${storeActionWidth} h-7 px-3.5 rounded-full text-[0.6875rem] font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed`
 const solidPillClass = `${pill} ${accentSolidColor}`
 const outlinePillClass = `${pill} border border-accent text-accent hover:bg-accent/10`
 
@@ -31,7 +31,7 @@ export function StoreAppAction({ app }: { app: StoreListing }) {
   } else if (action === 'update') {
     control = <button type="button" className={outlinePillClass} onClick={stop(() => void install(app.id))}>Update</button>
   } else if (action === 'uninstall') {
-    control = <button type="button" className={ghostPillClass} onClick={stop(() => setConfirming(true))}>Uninstall</button>
+    control = <button type="button" className={`${ghostPillClass} ${storeActionWidth}`} onClick={stop(() => setConfirming(true))}>Uninstall</button>
   } else if (action === 'restart') {
     control = <button type="button" className={outlinePillClass} onClick={stop(() => void window.api.appsRestart())}>Restart to finish</button>
   } else if (action === 'needs-vide') {

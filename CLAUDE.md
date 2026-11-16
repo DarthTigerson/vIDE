@@ -76,18 +76,26 @@ served web assets live in `electron/mobileWeb/` and are included verbatim
 in packaged builds (see `build.files` in `package.json`), not bundled by
 Vite.
 
-**Go-to-definition (Cmd+click)**: `electron/lsp/manager.ts` owns one real
-language-server child process per `(window, language)` pair — TypeScript/
-JavaScript, Python, Go, and Rust — spawned lazily only once a language is
-toggled on in Settings > Editor *and* a file of that language is actually
-open (`electron/lsp/servers/*.ts` hold each language's detect/spawn/install
-commands; `electron/lsp/protocol.ts` is a minimal LSP JSON-RPC client).
-`src/lib/lspClient.ts` registers Monaco's `DefinitionProvider` on the
-renderer side; the Cmd+click gesture itself is a Monaco/VS Code built-in
-that needs no custom wiring. Cross-file jumps are handled manually via
-`editorStore`'s `openTab`/`setRevealRequest` (the same path Search-in-files
-uses) rather than Monaco's own cross-model handling, which is unreliable
-outside the full VS Code workbench.
+**Go-to-definition (Cmd+click)**: language servers are not built in; users
+install them from the Store's *Language servers* category. The catalog
+(`registry.json`'s top-level `languageServers`, hand-written in the
+vsuite-store repo's `language-servers.json`) is data only: each entry names a
+binary, args, and one of three fixed install methods (`npm`, `go`,
+`github-release`) with its parameters — it can never make vIDE run a raw
+command. `electron/lsp/catalog.ts` validates entries (strict whitelists;
+`binary` reaches a login shell), `installMethods.ts` installs/locates them,
+and `installed.ts` keeps the per-machine installed list
+(`userData/language-servers.json`, catalog snapshots, not synced).
+`electron/lsp/manager.ts` owns one server child process per
+`(window, server)` pair, spawned lazily only once a server is installed, on
+(`vide:lsp:enabled:<id>`, default on), *and* a file of its language is asked
+about; `protocol.ts` is a minimal LSP JSON-RPC client. `src/lib/lspClient.ts`
+registers Monaco providers per language as servers get installed; the
+Cmd+click gesture itself is a Monaco/VS Code built-in. Cross-file jumps are
+handled manually via `editorStore`'s `openTab`/`setRevealRequest` (the same
+path Search-in-files uses) rather than Monaco's own cross-model handling,
+which is unreliable outside the full VS Code workbench. Users of the old
+built-in servers are migrated once per machine (`src/lib/lspMigration.ts`).
 
 **Git command animation/error surfacing**: any git action that should show
 the footer's running-dot animation, flash red on failure, and (per the

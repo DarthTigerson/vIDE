@@ -1,29 +1,26 @@
 import type { editor, languages, Position } from 'monaco-editor'
 import { useFileStore } from '@/stores/fileStore'
-import { LSP_SERVER_IDS, useLspSettingsStore, type LspServerId } from '@/stores/lspSettingsStore'
+import { isServerEnabled, useLspSettingsStore, type LspServerId } from '@/stores/lspSettingsStore'
+import { subscribeLspEvents, useLspStatusStore } from '@/stores/lspStatusStore'
 import { pathForModel } from './lspModelRegistry'
 import { openFileAtLocation } from './openFileLocation'
 
-const SUPPORTED_LANGUAGES: Record<string, LspServerId> = {
-  typescript: 'typescript',
-  javascript: 'typescript',
-  python: 'python',
-  go: 'go',
-  rust: 'rust',
-  yaml: 'yaml',
-  json: 'json',
-}
-
-let registered = false
+// Monaco language id → installed server id, rebuilt from the Store installs
+// (lspStatusStore) whenever they change.
+let serverByLanguage = new Map<string, LspServerId>()
+const registeredLanguages = new Set<string>()
+let started = false
 
 // The common preamble for every provider below: the file is only served by a
-// language server when that language's server is toggled on, and we need both
-// a project root and a real on-disk path to ask about. Returns null to mean
-// "this provider has nothing to contribute here".
+// language server when one is installed for its language and switched on,
+// and we need both a project root and a real on-disk path to ask about.
+// Returns null to mean "this provider has nothing to contribute here".
 function requestBase(model: editor.ITextModel, position: Position) {
   const language = model.getLanguageId()
-  const serverId = SUPPORTED_LANGUAGES[language]
-  if (!serverId || !useLspSettingsStore.getState().enabled[serverId]) return null
+  const serverId = serverByLanguage.get(language)
+  if (!serverId) return null
+  const enabled = useLspSettingsStore.getState().enabled[serverId] ?? isServerEnabled(serverId)
+  if (!enabled) return null
 
   const projectRoot = useFileStore.getState().projectRoot
   const filePath = pathForModel(model)
@@ -39,26 +36,30 @@ function requestBase(model: editor.ITextModel, position: Position) {
   }
 }
 
-// Registers go-to-definition, completion and hover against Monaco for every
-// language vIDE can back with a real language server. Each provider is a
-// no-op unless that language's server is enabled in Settings > Editor, so a
-// language the user hasn't turned on costs nothing. Completion and hover have
-// an extra global switch each (the footer's Display panel), letting the user
-// mute those two everywhere without stopping any server. The Cmd+click gesture
-// for definition is Monaco/VS Code's own built-in behavior — registering a
-// DefinitionProvider is all it needs.
+// Go-to-definition, completion and hover against Monaco for every language an
+// installed Store language server covers. Providers are registered per
+// language the first time a server for it is installed (Monaco has no way to
+// unregister a selector cleanly, and a provider whose server is gone simply
+// returns nothing). The Cmd+click gesture for definition is Monaco/VS Code's
+// own built-in behavior — registering a DefinitionProvider is all it needs.
 export function registerLspProviders(monaco: typeof import('monaco-editor')): void {
-  if (registered) return
-  registered = true
+  if (started) return
+  started = true
+  subscribeLspEvents()
+  const apply = () => {
+    const installed = useLspStatusStore.getState().installed
+    serverByLanguage = new Map(installed.flatMap((i) => i.entry.languages.map((l) => [l, i.entry.id] as const)))
+    // Main keeps the on/off set per window and only learns it via lsp:setEnabled.
+    for (const i of installed) window.api.lspSetEnabled(i.entry.id, isServerEnabled(i.entry.id))
+    const fresh = [...serverByLanguage.keys()].filter((l) => !registeredLanguages.has(l))
+    fresh.forEach((l) => registeredLanguages.add(l))
+    if (fresh.length > 0) registerFor(monaco, fresh)
+  }
+  useLspStatusStore.subscribe((state, prev) => { if (state.installed !== prev.installed) apply() })
+  void useLspStatusStore.getState().refresh()
+}
 
-  // Sync this window's enabled-language set into the main process once at
-  // startup — LanguageServerManager (electron/lsp/manager.ts) keeps that
-  // state per-window and only learns about it via lsp:setEnabled.
-  const enabled = useLspSettingsStore.getState().enabled
-  for (const id of LSP_SERVER_IDS) window.api.lspSetEnabled(id, enabled[id])
-
-  const languages = Object.keys(SUPPORTED_LANGUAGES)
-
+function registerFor(monaco: typeof import('monaco-editor'), languages: string[]): void {
   monaco.languages.registerDefinitionProvider(languages, {
     async provideDefinition(model, position) {
       const base = requestBase(model, position)

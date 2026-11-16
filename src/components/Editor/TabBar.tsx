@@ -7,8 +7,8 @@ import { useScriptsStore } from '@/stores/scriptsStore'
 import { scriptDisplayTitle } from '@/lib/scriptBody'
 import { useNotesStore } from '@/stores/notesStore'
 import { FileIcon, BrowserTabIcon } from '@/components/Sidebar/FileIcon'
-import { isTerminalTab, getTerminalId, isBrowserTab, getBrowserId, isTodoBoardTab, getTodoBoardProjectId, isTodoDetailTab, getTodoDetailIds, isLlamaModelTab, getLlamaModelId, isScriptTab, getScriptId, storeAppIdFromPath, isStoreTab, parseAppTabPath, appSettingsIdFromPath } from '@/components/Settings/paths'
-import { useStoreStore, findStoreApp } from '@/stores/storeStore'
+import { isTerminalTab, getTerminalId, isBrowserTab, getBrowserId, isTodoBoardTab, getTodoBoardProjectId, isTodoDetailTab, getTodoDetailIds, isLlamaModelTab, getLlamaModelId, isScriptTab, getScriptId, storeAppIdFromPath, storeServerIdFromPath, isStoreTab, parseAppTabPath, appSettingsIdFromPath } from '@/components/Settings/paths'
+import { useStoreStore, findStoreApp, findLanguageServer } from '@/stores/storeStore'
 import { useAppContribStore } from '@/apps/appContribStore'
 import type { Json } from '@/apps/videApiTypes'
 import { StoreBagIcon } from '@/components/Store/storeUi'
@@ -137,6 +137,8 @@ export function TabBar({ paneId }: { paneId: string }) {
               ? (appSettingsPages[appSettingsIdFromPath(tab.path)!]?.title ?? appSettingsIdFromPath(tab.path)!)
             : storeAppIdFromPath(tab.path)
               ? (findStoreApp(storeRegistry, storeAppIdFromPath(tab.path)!)?.name ?? 'Store')
+            : storeServerIdFromPath(tab.path)
+              ? (findLanguageServer(storeRegistry, storeServerIdFromPath(tab.path)!)?.name ?? 'Store')
             : isTodoBoardTab(tab.path)
               ? (todoProjects.find((p) => p.id === getTodoBoardProjectId(tab.path))?.name || 'To Do')
               : isTodoDetailTab(tab.path)

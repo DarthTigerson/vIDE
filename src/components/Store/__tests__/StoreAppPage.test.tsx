@@ -25,7 +25,7 @@ function docker(overrides: Partial<StoreListing> = {}, notesUrl: string | null =
 
 const load = vi.fn().mockResolvedValue(undefined)
 function setApps(apps: StoreListing[]) {
-  const registry: RegistryState = { status: 'ok', checkedAt: Date.now(), fromCache: false, apps }
+  const registry: RegistryState = { status: 'ok', checkedAt: Date.now(), fromCache: false, apps, languageServers: [] }
   useStoreStore.setState({ registry, loading: false, load })
 }
 

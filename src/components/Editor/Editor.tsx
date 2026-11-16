@@ -62,6 +62,7 @@ import {
   isAppTabPath,
   appSettingsIdFromPath,
   storeAppIdFromPath,
+  storeServerIdFromPath,
   getTodoBoardProjectId,
   isTodoDetailTab,
   getTodoDetailIds,
@@ -119,6 +120,7 @@ import { TodoTrashPage } from '@/components/Todo/TodoTrashPage'
 import { StorePage } from '@/components/Store/StorePage'
 import { AppTabView, AppSettingsView } from '@/apps/AppTabViews'
 import { StoreAppPage } from '@/components/Store/StoreAppPage'
+import { LanguageServerPage } from '@/components/Store/LanguageServerPage'
 import { TodoBoardPage } from '@/components/Todo/TodoBoardPage'
 import { ScriptEditorPage } from '@/components/Scripts/ScriptEditorPage'
 import { ScriptsSettingsPage } from '@/components/Settings/ScriptsSettingsPage'
@@ -757,7 +759,10 @@ function EditorPane({ paneId }: { paneId: string }) {
         ) : isStore ? (
           (() => {
             const appId = storeAppIdFromPath(activeTab.path)
-            return appId ? <StoreAppPage key={appId} appId={appId} /> : <StorePage />
+            const serverId = storeServerIdFromPath(activeTab.path)
+            return appId ? <StoreAppPage key={appId} appId={appId} />
+              : serverId ? <LanguageServerPage key={serverId} serverId={serverId} />
+              : <StorePage />
           })()
         ) : isTodoBoard ? (
           <TodoBoardPage key={activeTab.path} projectId={getTodoBoardProjectId(activeTab.path)} />

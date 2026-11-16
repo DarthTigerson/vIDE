@@ -1,5 +1,6 @@
+import { runLspMigration } from '@/lib/lspMigration'
 import { create } from 'zustand'
-import type { AppInfo, FileSummary, InstallOutcome, RegistryState, StoreListing } from '@/types/api'
+import type { AppInfo, FileSummary, InstallOutcome, LanguageServerEntry, RegistryState, StoreListing } from '@/types/api'
 import { useAppContribStore } from '@/apps/appContribStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { STORE_TAB_PATH } from '@/components/Settings/paths'
@@ -152,6 +153,10 @@ function pushEvent(set: (partial: Partial<StoreStoreState>) => void, get: () => 
   set({ events: [...get().events, { id: `store-event-${++eventSeq}`, text }] })
 }
 
+export function findLanguageServer(registry: RegistryState | null, id: string): LanguageServerEntry | null {
+  return registry?.status === 'ok' ? registry.languageServers.find((l) => l.id === id) ?? null : null
+}
+
 export function findStoreApp(registry: RegistryState | null, id: string): StoreListing | null {
   return registry?.status === 'ok' ? registry.apps.find((app) => app.id === id) ?? null : null
 }
@@ -225,5 +230,8 @@ export function subscribeStoreOpen(): () => void {
 export function startStoreUpdates(): void {
   if (typeof window.api?.storeGetRegistry !== 'function') return
   subscribeStoreChanged()
+  // Built-in language servers → Store installs, once the catalog is in.
+  runLspMigration(useStoreStore.getState().registry)
+  useStoreStore.subscribe((state, prev) => { if (state.registry !== prev.registry) runLspMigration(state.registry) })
   if (!useStoreStore.getState().registry) void useStoreStore.getState().load(false)
 }

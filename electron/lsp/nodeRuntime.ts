@@ -1,10 +1,11 @@
+import { execFile } from 'child_process'
 import { createHash } from 'crypto'
 import { existsSync } from 'fs'
 import { mkdir, mkdtemp, rename, rm, writeFile } from 'fs/promises'
 import { arch, homedir, platform, userInfo } from 'os'
 import { dirname, join } from 'path'
 import { download } from './download'
-import { resolveBinaryPath, runStreamed } from './shellPath'
+import { binaryEnv, resolveBinaryPath, runStreamed } from './shellPath'
 
 // The JSON, Python, TypeScript and YAML servers are npm packages. When npm
 // is missing, try in order: a private Node.js download into ~/.vide/lsp/node
@@ -27,7 +28,25 @@ export async function resolveNpmBinary(name: string): Promise<string | null> {
   const onPath = await resolveBinaryPath(name)
   if (onPath) return onPath
   const dirs = [...KNOWN_NPM_PATHS.map(dirname), MANAGED_BIN]
-  return dirs.map((d) => join(d, name)).find((p) => existsSync(p)) ?? null
+  const known = dirs.map((d) => join(d, name)).find((p) => existsSync(p))
+  if (known) return known
+  // A custom global prefix (`prefix=` in ~/.npmrc, the usual fix for EACCES
+  // on a system Node) puts binaries in <prefix>/bin, often not on PATH.
+  if (name === 'npm') return null
+  const bin = await npmGlobalBinDir()
+  return bin && existsSync(join(bin, name)) ? join(bin, name) : null
+}
+
+// <npm prefix -g>/bin, or null when npm is missing or does not answer.
+export async function npmGlobalBinDir(): Promise<string | null> {
+  const npm = await resolveNpmBinary('npm')
+  if (!npm) return null
+  return new Promise((resolve) => {
+    execFile(npm, ['prefix', '-g'], { env: binaryEnv(npm), timeout: 10_000 }, (err, stdout) => {
+      const prefix = err ? '' : stdout.trim()
+      resolve(prefix ? join(prefix, 'bin') : null)
+    })
+  })
 }
 
 export async function npmInstallGlobal(packages: string[], onData: OnData): Promise<void> {

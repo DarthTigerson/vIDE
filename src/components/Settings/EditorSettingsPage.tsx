@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
 import { useEditorSettingsStore, type MarkdownOpenMode } from '@/stores/editorSettingsStore'
 import { Select } from '@/components/ui/Select'
-import { LSP_SERVER_IDS } from '@/stores/lspSettingsStore'
-import { useLspStatusStore, subscribeLspInstallEvents } from '@/stores/lspStatusStore'
+import { useLspStatusStore, subscribeLspEvents } from '@/stores/lspStatusStore'
+import { useStoreStore } from '@/stores/storeStore'
 import { LspServerRow } from './LspServerRow'
 import { FeatureBlock, SettingRow } from './FeatureBlock'
 import { AutocompleteSection } from './AutocompleteSection'
@@ -20,9 +20,12 @@ export function EditorSettingsPage() {
   const svgOpenMode = useEditorSettingsStore((s) => s.svgOpenMode)
   const setSvgOpenMode = useEditorSettingsStore((s) => s.setSvgOpenMode)
   const refreshLspStatus = useLspStatusStore((s) => s.refresh)
+  const installedServers = useLspStatusStore((s) => s.installed)
+  const serversLoaded = useLspStatusStore((s) => s.loaded)
+  const openStore = useStoreStore((s) => s.openWithCategory)
 
   useEffect(() => {
-    subscribeLspInstallEvents()
+    subscribeLspEvents()
     refreshLspStatus()
   }, [refreshLspStatus])
 
@@ -91,26 +94,37 @@ export function EditorSettingsPage() {
 
         <FeatureBlock
           title="Go to definition"
-          description="⌘-click a symbol to jump to where it's defined — plus autocomplete and hover docs — backed by each language's own server. Off by default: a running server costs memory, so turn on only the languages you use."
+          description="⌘-click a symbol to jump to where it's defined — plus autocomplete and hover docs — backed by each language's own server. Install the languages you use from the Store; a running server costs memory."
           preview={<GoToDefinitionPreview />}
         >
-          <div className="max-w-[600px] pt-1">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="text-left text-[11px] font-medium uppercase tracking-wide text-fg-subtle">
-                  <th className="pb-2 pr-4">Language</th>
-                  <th className="pb-2 pr-4">Status</th>
-                  <th className="pb-2 pr-4">Memory</th>
-                  <th className="pb-2 pr-4 text-right">Enabled</th>
-                  <th className="pb-2 text-right">Install</th>
-                </tr>
-              </thead>
-              <tbody>
-                {LSP_SERVER_IDS.map((id) => (
-                  <LspServerRow key={id} id={id} />
-                ))}
-              </tbody>
-            </table>
+          <div className="flex max-w-[600px] flex-col gap-3 pt-1">
+            {serversLoaded && installedServers.length === 0 ? (
+              <p className="text-sm text-fg-muted">No language servers installed yet.</p>
+            ) : (
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="text-left text-[11px] font-medium uppercase tracking-wide text-fg-subtle">
+                    <th className="pb-2 pr-4">Language</th>
+                    <th className="pb-2 pr-4">Status</th>
+                    <th className="pb-2 pr-4">Memory</th>
+                    <th className="pb-2 pr-4 text-right">Enabled</th>
+                    <th className="pb-2 text-right" aria-label="Remove" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {installedServers.map((server) => (
+                    <LspServerRow key={server.entry.id} server={server} />
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <button
+              type="button"
+              className="self-start rounded-lg border border-border px-3 py-1 text-sm text-fg transition-colors hover:border-fg-subtle"
+              onClick={() => openStore('language-servers')}
+            >
+              Get language servers in the Store
+            </button>
           </div>
         </FeatureBlock>
       </div>

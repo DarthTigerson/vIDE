@@ -1,12 +1,21 @@
 /// <reference types="@testing-library/jest-dom" />
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, cleanup, within } from '@testing-library/react'
+import { render, screen, cleanup, within, fireEvent } from '@testing-library/react'
 
-vi.mock('@/stores/lspStatusStore', () => ({
-  useLspStatusStore: (sel: (s: { refresh: () => void }) => unknown) => sel({ refresh: () => {} }),
-  subscribeLspInstallEvents: () => {},
+const { lspState, openWithCategory } = vi.hoisted(() => ({
+  lspState: { refresh: () => {}, installed: [] as { entry: { id: string } }[], loaded: true },
+  openWithCategory: vi.fn(),
 }))
-vi.mock('../LspServerRow', () => ({ LspServerRow: ({ id }: { id: string }) => <div>lsp:{id}</div> }))
+vi.mock('@/stores/lspStatusStore', () => ({
+  useLspStatusStore: (sel: (s: typeof lspState) => unknown) => sel(lspState),
+  subscribeLspEvents: () => {},
+}))
+vi.mock('@/stores/storeStore', () => ({
+  useStoreStore: (sel: (s: { openWithCategory: typeof openWithCategory }) => unknown) => sel({ openWithCategory }),
+}))
+vi.mock('../LspServerRow', () => ({
+  LspServerRow: ({ server }: { server: { entry: { id: string } } }) => <tr><td>lsp:{server.entry.id}</td></tr>,
+}))
 
 import { EditorSettingsPage } from '../EditorSettingsPage'
 import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
@@ -43,8 +52,16 @@ describe('EditorSettingsPage — feature blocks', () => {
     expect(screen.getByTestId('markdown-preview').querySelector('[data-mode]')).toHaveAttribute('data-mode', 'split')
   })
 
-  it('still lists every language server', () => {
-    render(<EditorSettingsPage />)
-    expect(within(screen.getByRole('region', { name: 'Go to definition' })).getAllByText(/^lsp:/).length).toBeGreaterThan(0)
+  it('lists only installed language servers and links to the Store category', () => {
+    lspState.installed = []
+    const { rerender } = render(<EditorSettingsPage />)
+    const region = () => within(screen.getByRole('region', { name: 'Go to definition' }))
+    expect(region().getByText('No language servers installed yet.')).toBeInTheDocument()
+    fireEvent.click(region().getByRole('button', { name: 'Get language servers in the Store' }))
+    expect(openWithCategory).toHaveBeenCalledWith('language-servers')
+
+    lspState.installed = [{ entry: { id: 'go' } }, { entry: { id: 'rust' } }]
+    rerender(<EditorSettingsPage />)
+    expect(region().getAllByText(/^lsp:/).map((n) => n.textContent)).toEqual(['lsp:go', 'lsp:rust'])
   })
 })

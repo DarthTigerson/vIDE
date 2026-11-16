@@ -1,8 +1,7 @@
 import { create } from 'zustand'
 
-export type LspServerId = 'typescript' | 'python' | 'go' | 'rust' | 'yaml' | 'json'
-
-export const LSP_SERVER_IDS: LspServerId[] = ['go', 'json', 'python', 'rust', 'typescript', 'yaml']
+// Ids are Store catalog ids (e.g. 'typescript', 'go'); any installed one.
+export type LspServerId = string
 
 const KEY_PREFIX = 'vide:lsp:enabled:'
 const HOVER_KEY = 'vide:lsp:hover'
@@ -13,7 +12,16 @@ function getBool(key: string, def: boolean): boolean {
   return value === null ? def : value === 'true'
 }
 
+// Installing a server from the Store is the opt-in, so an installed server
+// is on unless the user switched it off (the key then exists as 'false').
+// Synced under 'vide:lsp:', so the choice follows the user between machines.
+export function isServerEnabled(id: LspServerId): boolean {
+  return getBool(KEY_PREFIX + id, true)
+}
+
 interface LspSettingsStore {
+  // Only ids the user toggled this session or that were read for display;
+  // isServerEnabled() is the source of truth for anything else.
   enabled: Record<LspServerId, boolean>
   setEnabled: (id: LspServerId, value: boolean) => void
   // Global on/off for the two editor-wide features, layered on top of the
@@ -28,13 +36,7 @@ interface LspSettingsStore {
 }
 
 export const useLspSettingsStore = create<LspSettingsStore>((set, get) => ({
-  // Off by default — spawning a language server has a real RAM cost, so
-  // enabling one per language is an opt-in the user makes deliberately from
-  // Settings > Editor rather than something that turns on for free.
-  enabled: Object.fromEntries(LSP_SERVER_IDS.map((id) => [id, getBool(KEY_PREFIX + id, false)])) as Record<
-    LspServerId,
-    boolean
-  >,
+  enabled: {},
 
   setEnabled: (id, value) => {
     localStorage.setItem(KEY_PREFIX + id, String(value))
@@ -57,3 +59,7 @@ export const useLspSettingsStore = create<LspSettingsStore>((set, get) => ({
     set({ completionEnabled: value })
   },
 }))
+
+export function useServerEnabled(id: LspServerId): boolean {
+  return useLspSettingsStore((s) => s.enabled[id] ?? isServerEnabled(id))
+}

@@ -7,7 +7,8 @@ import type { ChangelogRelease } from '../../electron/changelog'
 import type { RegistryState, StoreListing } from '../../electron/store'
 import type { AppInfo, AppStatus, AppContributes } from '../../electron/apps/appTypes'
 import type { GraphifyGraph } from './graphify'
-import type { DefinitionLocation, DetectResult, LspCompletionItem, LspHoverResult, LspServerId } from '../../electron/lsp/types'
+import type { DefinitionLocation, InstalledServerInfo, LspCompletionItem, LspHoverResult } from '../../electron/lsp/types'
+import type { LanguageServerEntry } from '../../electron/lsp/catalog'
 import type { LlamaLaunchConfig } from '../../electron/llama'
 import type { McpServerId, McpToolInfo } from '../../electron/mcp/mcpTypes'
 import type { OnboardingStatus, GitIdentity } from '../../electron/onboarding'
@@ -17,6 +18,7 @@ import type { Script } from '../../electron/scriptsData'
 import type { ScriptTags } from '../../electron/scriptTags'
 
 export type { RegistryState, StoreListing }
+export type { InstalledServerInfo, LanguageServerEntry }
 export type { AppInfo, AppStatus, AppContributes }
 export type PickPackageResult = import('../../electron/apps/appHost').PickResult
 export type InstallOutcome = import('../../electron/apps/appHost').InstallOutcome
@@ -542,8 +544,11 @@ declare global {
       onLlamaData: (cb: (id: string, data: string) => void) => () => void
       onLlamaExit: (cb: (id: string, code: number) => void) => () => void
 
-      lspDetectAll: () => Promise<Record<LspServerId, DetectResult & { label: string; ramEstimate: string }>>
-      lspInstall: (id: string) => Promise<void>
+      lspListInstalled: () => Promise<InstalledServerInfo[]>
+      lspInstall: (id: string) => Promise<boolean>
+      lspUninstall: (id: string) => Promise<boolean>
+      lspAdopt: (id: string) => Promise<boolean>
+      onLspChanged: (cb: () => void) => () => void
       lspSetEnabled: (id: string, enabled: boolean) => void
       lspGetDefinition: (params: {
         language: string

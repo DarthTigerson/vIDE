@@ -42,6 +42,7 @@ import {
   ScriptsIcon,
   LlamaIcon,
   AllAppsIcon,
+  StoreIcon,
   APP_DRAG_MIME,
   hasBadge,
 } from './components/ActivityBar/ActivityBar'
@@ -123,7 +124,7 @@ import { countUnsaved, type UnsavedState } from './lib/unsavedState'
 import type { Tab } from './types/index'
 import { useDiscardScratchStore, requestCloseTab } from './stores/discardScratchStore'
 import { ConfirmDiscardScratchModal } from './components/Editor/ConfirmDiscardScratchModal'
-import { buildTerminalPath, buildBrowserPath, buildAppSettingsPath, USAGE_GRAPH_TAB_PATH } from './components/Settings/paths'
+import { buildTerminalPath, buildBrowserPath, buildAppSettingsPath, STORE_TAB_PATH, USAGE_GRAPH_TAB_PATH } from './components/Settings/paths'
 import { TodoPanel } from './components/Todo/TodoPanel'
 import { NotesPanel } from './components/Notes/NotesPanel'
 import { ScriptsPanel } from './components/Scripts/ScriptsPanel'
@@ -1108,6 +1109,14 @@ export default function App() {
           // panel, so All Apps carries a dot for them (the temporary slot
           // already shows its own).
           const hiddenBadge = storeEntriesHaveBadge(storeEntries) || otherIds.some((id) => appItems[id] !== temporaryItem && hasBadge(appItems[id]!.badge))
+          const storeItem: ActivityBarItem = {
+            id: 'store',
+            icon: <StoreIcon />,
+            title: 'Store',
+            // Opens a tab, like New Browser Tab / New Terminal, so it never shows as selected.
+            active: false,
+            onClick: () => useEditorStore.getState().openTab({ path: STORE_TAB_PATH, content: '', dirty: false }),
+          }
           const primaryGroups: ActivityBarItem[][] = [
             [...lockedItems, ...favoriteItems],
             ...(enabledApps.length > 0 || storeEntries.length > 0 || storeDisabledEntries.length > 0 ? [[
@@ -1123,7 +1132,8 @@ export default function App() {
                 dragId: APPEND_TARGET,
                 dropOnly: true,
               },
-            ]] : []),
+              storeItem,
+            ]] : [[storeItem]]),
           ]
           // Every enabled app, favorites included (the star shows which), with
           // favorites in their bar order and the rest in the default order.

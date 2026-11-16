@@ -7,7 +7,7 @@ import type { RegistryState } from '@/types/api'
 const okState: RegistryState = {
   status: 'ok',
   checkedAt: 1,
-  fromCache: false,
+  fromCache: false, languageServers: [],
   apps: [{
     id: 'docker', name: 'Docker', description: 'd', repo: 'o/r', firstParty: true, compatible: true, recommended: false, category: 'applications', targets: ['vide'],
     latest: { version: '1.0.0', commit: 'a'.repeat(40), url: 'https://x', sha256: 'b'.repeat(64), minVide: '0.4.0' },
