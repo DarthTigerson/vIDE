@@ -1,4 +1,17 @@
 # vIDE
+## v0.3.4 (2026-11-16)
+- **Language servers in the Store**: go-to-definition servers (TypeScript/JavaScript, Python, Go, Rust, YAML and JSON) are no longer built into vIDE. Install the ones you need from the Store's new Language servers category. Each one shows who makes it, its latest version and its language's logo, and has its own page with the exact install command and how much memory it typically uses. vIDE installs from the official source (npm, the Go toolchain or the project's GitHub releases) and never runs anything else. Servers you already had installed are picked up automatically. Settings > Editor now lists only your installed servers, with a button to get more in the Store
+- **Store button in the activity bar**: a new Store button under All Apps opens the Store tab
+- **Store layout**: apps, agent tools and language servers now share one list, sorted by name with recommended items first. In a narrow pane the filters move into a Filters button with a count of active filters, and the Show tabs stretch across the full width. Install, Update, Uninstall and Remove buttons are now all the same width, so rows line up
+- **Settings sync across windows**: changing the theme, a custom theme, font size or display settings in one window now applies to every open vIDE window straight away
+- Submenus, like the tab and Scripts menus, now open on whichever side has room instead of running off the edge of the screen
+- Closing a palette or a dialog now puts the keyboard focus back in the terminal or editor you were using
+
+**Bug fixes**
+- Fixed vIDE sometimes hanging or crashing on quit. File watchers are now all closed before vIDE exits
+- Fixed npm-installed language servers not being found when npm uses a custom global folder (`prefix=` in `~/.npmrc`, the usual fix for permission errors with a system Node.js)
+
+
 ## v0.3.3 (2026-11-15)
 - **vSuite Store**: a new Store page to browse, install, update and uninstall vSuite apps, with filters, screenshots and each app's README. Apps can also be installed from a file or from a `vide://` link, and switched off without uninstalling them. When an installed app has a newer version, the notification bell lets you know
 - **Docker is now a Store app**: the built-in Docker feature moved out to the Docker app in the Store. Your Docker favourites and settings carry over when you install it
