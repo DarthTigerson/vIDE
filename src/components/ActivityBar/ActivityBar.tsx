@@ -340,6 +340,15 @@ export function AllAppsIcon() {
   )
 }
 
+// The vSuite Store bag, at activity-bar size (same mark as StoreBagIcon).
+export function StoreIcon() {
+  return (
+    <svg width="1.5rem" height="1.5rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 9h16l-1 11H5zM8 9V7a4 4 0 0 1 8 0v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 export function SearchIcon() {
   return (
     <svg width="1.5rem" height="1.5rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
