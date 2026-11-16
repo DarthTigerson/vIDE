@@ -31,6 +31,8 @@ export interface LanguageServerEntry {
   homepage?: string
   // Who makes the server (e.g. "Microsoft"); display only.
   author?: string
+  // Display only: the language's logo tile, served from vsuite.tech.
+  icon?: string
   // Upstream's newest release when the catalog was built; display only.
   version?: string
   install: LspInstallMethod
@@ -49,6 +51,7 @@ const NPM_PACKAGE_RE = /^(@[a-z0-9~][a-z0-9._~-]*\/)?[a-z0-9~][a-z0-9._~-]*(@[A-
 const GO_PACKAGE_RE = /^[a-z0-9][a-z0-9.-]*(\/[A-Za-z0-9._~-]+)+@[A-Za-z0-9._+-]+$/
 const REPO_RE = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/
 const ASSET_RE = /^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$/
+const ICON_RE = /^https:\/\/vsuite\.tech\/language-servers\/[a-z0-9-]+\.svg$/
 const VERSION_RE = /^v?[0-9A-Za-z][0-9A-Za-z._+-]{0,39}$/
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -95,7 +98,7 @@ function parseInstall(raw: unknown): LspInstallMethod | string {
 
 export function parseLanguageServer(raw: unknown): LanguageServerEntry | string {
   if (!isObject(raw)) return 'not an object'
-  const { id, name, description, targets, languages, binary, args, versionArgs, ramEstimate, homepage, author, version } = raw
+  const { id, name, description, targets, languages, binary, args, versionArgs, ramEstimate, homepage, author, version, icon } = raw
   if (typeof id !== 'string' || !ID_RE.test(id)) return 'bad id'
   if (!nonEmptyString(name)) return 'bad name'
   if (!nonEmptyString(description)) return 'bad description'
@@ -125,6 +128,7 @@ export function parseLanguageServer(raw: unknown): LanguageServerEntry | string 
   if (typeof homepage === 'string' && homepage.startsWith('https://')) entry.homepage = homepage
   if (nonEmptyString(author) && author.length <= 60) entry.author = author
   if (typeof version === 'string' && VERSION_RE.test(version)) entry.version = version
+  if (typeof icon === 'string' && ICON_RE.test(icon)) entry.icon = icon
   return entry
 }
 

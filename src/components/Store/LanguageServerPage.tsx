@@ -61,7 +61,7 @@ function Page({ server, back, output, showOutput }: {
         {back}
 
         <header className="flex flex-wrap gap-4 items-center">
-          <AppMonogram name={server.name} size="lg" />
+          <AppMonogram name={server.name} size="lg" icon={server.icon} />
           <div className="flex-[1_1_300px] min-w-0 flex flex-col gap-1">
             <h1 className="text-[1.375rem] font-bold">{server.name}</h1>
             <ByAuthor author={server.author} />

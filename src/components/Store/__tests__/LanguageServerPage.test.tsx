@@ -15,7 +15,7 @@ import type { LanguageServerEntry, RegistryState } from '@/types/api'
 const pyright: LanguageServerEntry = {
   id: 'python', name: 'Python', description: 'Pyright: go to definition for Python.', author: 'Microsoft', version: '1.1.414',
   targets: ['vide'], languages: ['python'], binary: 'pyright-langserver', args: ['--stdio'], versionArgs: ['--version'],
-  ramEstimate: 'typically 200–500MB', homepage: 'https://github.com/microsoft/pyright',
+  ramEstimate: 'typically 200–500MB', icon: 'https://vsuite.tech/language-servers/python.svg', homepage: 'https://github.com/microsoft/pyright',
   install: { method: 'npm', packages: ['pyright'] },
 }
 
@@ -32,7 +32,9 @@ afterEach(() => { cleanup(); vi.clearAllMocks() })
 
 describe('LanguageServerPage', () => {
   it('shows who makes it, the install source, memory and the latest version', async () => {
-    await act(async () => { render(<LanguageServerPage serverId="python" />) })
+    let container!: HTMLElement
+    await act(async () => { ({ container } = render(<LanguageServerPage serverId="python" />)) })
+    expect(container.querySelector('img[src="https://vsuite.tech/language-servers/python.svg"]')).not.toBeNull()
     expect(screen.getByRole('heading', { name: 'Python' })).toBeInTheDocument()
     expect(screen.getByText('Language server · by Microsoft')).toBeInTheDocument()
     expect(screen.getByText('npm install -g pyright')).toBeInTheDocument()

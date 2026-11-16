@@ -15,7 +15,7 @@ export function LanguageServerRow({ server }: { server: LanguageServerEntry }) {
       className="bg-panel border border-border rounded-[10px] px-4 py-3.5 flex flex-wrap items-center gap-x-4 gap-y-2 min-w-0 cursor-pointer hover:border-accent/45 transition-colors"
       onClick={open}
     >
-      <AppMonogram name={server.name} />
+      <AppMonogram name={server.name} icon={server.icon} />
       <div className="flex-[1_1_260px] min-w-0 flex flex-col gap-0.5">
         <div className="flex items-baseline gap-2.5 min-w-0">
           <h2 className="text-sm font-semibold text-fg truncate">{server.name}</h2>

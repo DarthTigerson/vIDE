@@ -110,5 +110,11 @@ describe('display-only author and version', () => {
     expect(bad).not.toHaveProperty('author')
     expect(bad).not.toHaveProperty('version')
   })
+
+  it('keeps a vsuite.tech icon and drops one from any other host', () => {
+    const icon = 'https://vsuite.tech/language-servers/go.svg'
+    expect(parseLanguageServer({ ...base, icon })).toMatchObject({ icon })
+    expect(parseLanguageServer({ ...base, icon: 'https://evil.example/go.svg' })).not.toHaveProperty('icon')
+  })
 })
 
