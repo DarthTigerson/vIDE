@@ -6,7 +6,7 @@ import { useAppContribStore } from '@/apps/appContribStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { buildStoreAppPath } from '@/components/Settings/paths'
 import {
-  DEFAULT_STORE_FILTERS, filterLanguageServers, filterStoreApps, sortStoreApps, isDefaultStoreFilters, storeFilterCounts,
+  DEFAULT_STORE_FILTERS, filterLanguageServers, filterStoreApps, mergeStoreItems, sortStoreApps, isDefaultStoreFilters, storeFilterCounts,
   type StoreFilters, type Category, type Maker,
 } from '@/lib/storeFilter'
 import { StoreAppRow } from './StoreAppRow'
@@ -340,17 +340,9 @@ function Body({ registry, loading, apps, servers, filtered, onRetry, onOpenApp, 
   }
   return (
     <>
-      {apps.map((app) => (
-        <StoreAppRow key={app.id} app={app} onOpen={() => onOpenApp(app.id)} />
-      ))}
-      {servers.length > 0 && (
-        <>
-          {apps.length > 0 && (
-            <h2 className="mt-3 text-[0.625rem] font-bold tracking-wider uppercase text-fg-subtle">Language servers</h2>
-          )}
-          {servers.map((server) => <LanguageServerRow key={server.id} server={server} />)}
-        </>
-      )}
+      {mergeStoreItems(apps, servers).map((item) => item.kind === 'app'
+        ? <StoreAppRow key={`app:${item.app.id}`} app={item.app} onOpen={() => onOpenApp(item.app.id)} />
+        : <LanguageServerRow key={`ls:${item.server.id}`} server={item.server} />)}
     </>
   )
 }

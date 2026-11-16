@@ -39,6 +39,20 @@ export function filterLanguageServers(list: LanguageServerEntry[], f: StoreFilte
   )
 }
 
+// Apps and language servers as one list: recommended first, then by name
+// (language servers are never recommended). `apps` is already sorted.
+export type StoreItem = { kind: 'app'; app: StoreListing } | { kind: 'server'; server: LanguageServerEntry }
+
+export function mergeStoreItems(apps: StoreListing[], servers: LanguageServerEntry[]): StoreItem[] {
+  const items: StoreItem[] = [
+    ...apps.map((app) => ({ kind: 'app' as const, app })),
+    ...servers.map((server) => ({ kind: 'server' as const, server })),
+  ]
+  const rec = (i: StoreItem) => (i.kind === 'app' ? Number(i.app.recommended) : 0)
+  const name = (i: StoreItem) => (i.kind === 'app' ? i.app.name : i.server.name)
+  return items.sort((a, b) => rec(b) - rec(a) || name(a).localeCompare(name(b), undefined, { sensitivity: 'base' }))
+}
+
 // Recommended first, then by name.
 export function sortStoreApps(apps: StoreListing[]): StoreListing[] {
   return apps.slice().sort((a, b) =>

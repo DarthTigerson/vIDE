@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { StoreListing } from '@/types/api'
 import {
-  DEFAULT_STORE_FILTERS, filterLanguageServers, filterStoreApps, sortStoreApps, isDefaultStoreFilters, storeFilterCounts,
+  DEFAULT_STORE_FILTERS, filterLanguageServers, filterStoreApps, mergeStoreItems, sortStoreApps, isDefaultStoreFilters, storeFilterCounts,
 } from '../storeFilter'
 
 function app(id: string, name: string, extra: Partial<StoreListing> = {}): StoreListing {
@@ -70,5 +70,16 @@ describe('storeFilter', () => {
     expect(filterLanguageServers([go], { ...DEFAULT_STORE_FILTERS, maker: 'vsuite' })).toEqual([])
     expect(filterLanguageServers([go], { ...DEFAULT_STORE_FILTERS, query: 'GO' })).toEqual([go])
     expect(filterLanguageServers([go], { ...DEFAULT_STORE_FILTERS, query: 'python' })).toEqual([])
+  })
+
+  it('merges apps and language servers into one list, recommended first then by name', () => {
+    const ls = (id: string, name: string) => ({
+      id, name, description: 'x', targets: ['vide'], languages: [id], binary: id, args: [], versionArgs: [],
+      install: { method: 'npm' as const, packages: [id] },
+    })
+    const zed = { ...docker, id: 'zed', name: 'Zed' }
+    const dock = { ...docker, recommended: false }
+    const items = mergeStoreItems([zed, dock], [ls('go', 'Go'), ls('ansible', 'Ansible')])
+    expect(items.map((i) => (i.kind === 'app' ? i.app.name : i.server.name))).toEqual(['Zed', 'Ansible', 'Docker', 'Go'])
   })
 })
