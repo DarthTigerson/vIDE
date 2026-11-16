@@ -12,6 +12,9 @@ const installPillClass = `h-7 px-3.5 rounded-full text-[0.6875rem] font-bold tra
 // and keeps that output on screen when an install fails.
 export function LanguageServerRow({ server }: { server: LanguageServerEntry }) {
   const installed = useLspStatusStore((s) => isInstalled(s.installed, server.id))
+  // The catalog pins no version (it installs upstream's latest), so the real
+  // one is only known once the binary is here and has answered --version.
+  const version = useLspStatusStore((s) => s.installed.find((i) => i.entry.id === server.id)?.version)
   const installing = useLspStatusStore((s) => s.installing[server.id] ?? false)
   const failed = useLspStatusStore((s) => s.installFailed[server.id] ?? false)
   const output = useLspStatusStore((s) => s.installOutput[server.id] ?? '')
@@ -31,10 +34,13 @@ export function LanguageServerRow({ server }: { server: LanguageServerEntry }) {
           <p className="font-mono text-[0.6875rem] text-fg-subtle [overflow-wrap:anywhere]" title="Where vIDE installs it from">
             {installSourceText(server.install)}
           </p>
+          {server.ramEstimate && (
+            <p className="text-[0.6875rem] text-fg-subtle">Memory: {server.ramEstimate}</p>
+          )}
         </div>
-        {server.ramEstimate && (
-          <span className="text-[0.6875rem] text-fg-subtle text-right max-w-[160px]">{server.ramEstimate}</span>
-        )}
+        <span className="text-[0.6875rem] text-fg-subtle text-right" title={installed ? 'Installed version' : 'Installs the newest upstream release'}>
+          {installed && version ? version : 'latest'}
+        </span>
         {installed && !installing ? (
           <button type="button" className={ghostPillClass} onClick={() => void uninstall(server.id)}>Remove</button>
         ) : (

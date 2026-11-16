@@ -99,15 +99,18 @@ describe('StorePage', () => {
     expect(screen.getByRole('heading', { name: 'Go' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Docker' })).toBeNull()
     expect(screen.getByText('go install golang.org/x/tools/gopls@latest')).toBeInTheDocument()
+    expect(screen.getByTitle('Installs the newest upstream release').textContent).toBe('latest')
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Install' })) })
     expect(lspInstall).toHaveBeenCalledWith('go')
   })
 
   it('an installed language server offers Remove instead of Install', async () => {
     setRegistry({ ...ok, languageServers: [gopls] } as RegistryState)
-    const installed = [{ entry: gopls, found: true, path: '/go/bin/gopls' }]
+    const installed = [{ entry: gopls, found: true, path: '/go/bin/gopls', version: 'v0.16.2' }]
     ;(window as any).api.lspListInstalled = vi.fn().mockResolvedValue(installed)
     await act(async () => { render(<StorePage />) })
+    expect(screen.getByTitle('Installed version').textContent).toBe('v0.16.2')
+    expect(screen.getByText('Memory: typically 300–800MB')).toBeInTheDocument()
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Remove' })) })
     expect(lspUninstall).toHaveBeenCalledWith('go')
   })
