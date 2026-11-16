@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { SubmenuPanel } from './SubmenuPanel'
 
 // Rows for the right-click menus (To Do, Notes, Site Tree): a plain item, an
 // item with a checkmark, an item with an on/off switch, a group heading, a
@@ -111,9 +112,9 @@ export function SubMenuButton({ label, width = 'w-40', children }: {
         <span className="text-fg-subtle">▸</span>
       </button>
       {open && (
-        <div className={`absolute left-full top-0 z-10 ${width} rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50`}>
+        <SubmenuPanel className={`${width} rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50`}>
           {children}
-        </div>
+        </SubmenuPanel>
       )}
     </div>
   )
