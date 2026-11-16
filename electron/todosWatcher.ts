@@ -1,5 +1,6 @@
 import { BrowserWindow } from 'electron'
-import { watch, type FSWatcher } from 'chokidar'
+import type { FSWatcher } from 'chokidar'
+import { watch } from './fsWatchers'
 
 const DEBOUNCE_MS = 300
 

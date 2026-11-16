@@ -1,5 +1,6 @@
 import { BrowserWindow, ipcMain } from 'electron'
-import { watch, type FSWatcher } from 'chokidar'
+import type { FSWatcher } from 'chokidar'
+import { watch } from './fsWatchers'
 import { existsSync } from 'fs'
 import { join } from 'path'
 import { getMobileBroadcaster } from './mobile'

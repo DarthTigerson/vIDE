@@ -1,7 +1,8 @@
 import { app, ipcMain, BrowserWindow } from 'electron'
 import { basename, join, dirname } from 'path'
 import { access, mkdir, readFile, readdir, rename, writeFile } from 'fs/promises'
-import { watch, type FSWatcher } from 'chokidar'
+import type { FSWatcher } from 'chokidar'
+import { watch } from './fsWatchers'
 import { buildTreeWithDates } from './fsOps'
 
 export function notesRoot(): string {

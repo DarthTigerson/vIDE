@@ -12,6 +12,7 @@ import { LlamaManager } from './llama'
 import { bundledLlamaDir, findInstalledLlamaServer, installLlama } from './autocomplete/llamaInstall'
 import { GitWatcher } from './gitWatcher'
 import { FileWatcher } from './fileWatcher'
+import { closeAllWatchers } from './fsWatchers'
 import { MobileServer, MOBILE_RELAY_WINDOW_ID } from './mobile'
 import { UsageManager } from './usageManager'
 import { BridgeManager, getBridgeSettings, setBridgeSettings } from './bridge'
@@ -233,8 +234,23 @@ app.on('before-quit', () => {
 // Never leave the multi-GB autocomplete model running after vIDE is gone.
 // will-quit, not before-quit: an unsaved-work prompt can still cancel a quit
 // after before-quit, and that would leave autocomplete dead but "running".
-app.on('will-quit', () => {
+// Also holds the quit until every chokidar/fsevents watcher has closed: one
+// left open aborts the process during Node teardown (see fsWatchers.ts).
+let watchersClosed = false
+app.on('will-quit', (e) => {
   autocompleteMgr?.dispose()
+  if (watchersClosed) return
+  e.preventDefault()
+  // Never let a stuck close keep vIDE from quitting.
+  const timeout = new Promise<void>((resolve) => setTimeout(resolve, 2000))
+  void Promise.race([closeAllWatchers(), timeout]).finally(() => {
+    watchersClosed = true
+    // exit(), not quit(): Electron ignores a second quit() once will-quit
+    // has been prevented, so vIDE would sit windowless in the Dock forever.
+    // before-quit/will-quit have already run, so nothing is skipped, and
+    // a pending app.relaunch() still fires on exit.
+    app.exit(0)
+  })
 })
 // Windows whose renderer has stopped responding, so reloadAllWindows() knows
 // to crash them first — a reload request alone never gets through to a hung
