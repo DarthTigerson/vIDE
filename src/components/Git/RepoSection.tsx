@@ -27,6 +27,7 @@ import { useGitOpenReposStore } from '@/stores/gitOpenReposStore'
 import { useSidebarUiStore } from '@/stores/sidebarUiStore'
 import { accentSolidColor, pillButtonClass } from '@/components/ui/pillButton'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
+import { BranchDiffIcon, CheckoutIcon, GitFunctionsIcon, GitGraphIcon, PublishIcon, PullIcon, PushIcon } from './gitIcons'
 
 // Unpushed commits turn the Push pill amber instead of the shared accent
 // fill — amber-400/500 is already this codebase's "needs your attention"
@@ -506,7 +507,10 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
           onClick={() => { selectRepo(repo); useSearchStore.getState().openBranchPalette() }}
         >
           <span className="leading-none text-[0.625rem] uppercase tracking-wide opacity-80">Checkout</span>
-          <span className="truncate max-w-full leading-none text-sm font-mono normal-case tracking-normal">{branch ?? '—'}</span>
+          <span className="flex items-center gap-1.5 max-w-full min-w-0 leading-none text-sm font-mono normal-case tracking-normal">
+            <CheckoutIcon />
+            <span className="truncate">{branch ?? '—'}</span>
+          </span>
         </button>
         <div className="relative flex gap-1.5">
           <SplitCommandButton
@@ -533,7 +537,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
               </div>
             }
           >
-            Pull
+            <span className="flex items-center gap-1.5"><PullIcon />Pull</span>
           </SplitCommandButton>
           <SplitCommandButton
             label={needsPublish ? 'Publish' : 'Push'}
@@ -593,7 +597,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
               </span>
             )}
           >
-            {needsPublish ? 'Publish' : 'Push'}
+            <span className="flex items-center gap-1.5">{needsPublish ? <PublishIcon /> : <PushIcon />}{needsPublish ? 'Publish' : 'Push'}</span>
           </SplitCommandButton>
         </div>
         {/* A pure dropdown trigger, not a split primary/secondary action
@@ -648,25 +652,27 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
             </div>
           }
         >
-          Git Functions
+          <span className="flex items-center gap-1.5"><GitFunctionsIcon />Git Functions</span>
         </SplitCommandButton>
         <div className="flex gap-1.5">
           <button
             type="button"
-            className={pillButtonClass}
+            className={`${pillButtonClass} gap-1.5`}
             onClick={() => {
               selectRepo(repo)
               openGitTab(GIT_GRAPH_TAB_PATH)
               loadGraph(repo)
             }}
           >
+            <GitGraphIcon />
             Graph
           </button>
           <button
             type="button"
-            className={pillButtonClass}
+            className={`${pillButtonClass} gap-1.5`}
             onClick={() => { selectRepo(repo); openGitTab(GIT_BRANCH_DIFF_TAB_PATH) }}
           >
+            <BranchDiffIcon />
             List Diff
           </button>
         </div>
