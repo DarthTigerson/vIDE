@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { ITheme } from '@xterm/xterm'
 import { hexWithAlpha } from '@/lib/color'
 import { notifySettingChanged } from '../lib/notifySettingChanged'
+import { onOtherWindowChange } from '../lib/crossWindowSettings'
 
 export type ThemeId =
   | 'claude-dark'   | 'claude-light'
@@ -40,11 +41,13 @@ function variantFor(family: string, dark: boolean): ThemeId {
 
 const systemDarkQuery = window.matchMedia('(prefers-color-scheme: dark)')
 
-const initialMatchSystem = localStorage.getItem(MATCH_SYSTEM_STORAGE_KEY) === 'true'
-const storedTheme = (localStorage.getItem(STORAGE_KEY) as ThemeId | null) ?? 'claude-dark'
-const initialTheme = initialMatchSystem
-  ? variantFor(familyOf(storedTheme), systemDarkQuery.matches)
-  : storedTheme
+function readStoredTheme(): { theme: ThemeId; matchSystem: boolean } {
+  const matchSystem = localStorage.getItem(MATCH_SYSTEM_STORAGE_KEY) === 'true'
+  const stored = (localStorage.getItem(STORAGE_KEY) as ThemeId | null) ?? 'claude-dark'
+  return { matchSystem, theme: matchSystem ? variantFor(familyOf(stored), systemDarkQuery.matches) : stored }
+}
+
+const { theme: initialTheme, matchSystem: initialMatchSystem } = readStoredTheme()
 applyTheme(initialTheme)
 
 export const useThemeStore = create<ThemeStore>((set, get) => ({
@@ -95,6 +98,13 @@ systemDarkQuery.addEventListener('change', (e) => {
   const next = variantFor(familyOf(theme), e.matches)
   applyTheme(next)
   useThemeStore.setState({ theme: next })
+})
+
+// Theme picked in another vIDE window. Re-applied without writing back.
+onOtherWindowChange([STORAGE_KEY, MATCH_SYSTEM_STORAGE_KEY], () => {
+  const { theme, matchSystem } = readStoredTheme()
+  document.documentElement.setAttribute('data-theme', theme)
+  useThemeStore.setState({ theme, matchSystem })
 })
 
 // Custom themes registered by defineMonacoThemes() (src/monacoThemes.ts) — the

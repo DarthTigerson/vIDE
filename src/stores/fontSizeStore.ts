@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { notifySettingChanged } from '../lib/notifySettingChanged'
+import { onOtherWindowChange } from '../lib/crossWindowSettings'
 
 const MIN = 5
 const MAX = 24
@@ -15,14 +16,22 @@ interface FontSizeStore {
 }
 
 function applyFontSize(size: number) {
-  // Scale rem-based UI text (file tree, tabs, labels) proportionally.
-  // Monaco and xterm are controlled separately via their own fontSize options.
-  document.documentElement.style.fontSize = `${(size / DEFAULT) * 16}px`
+  applyFontSizeToDOM(size)
   localStorage.setItem(STORAGE_KEY, String(size))
 }
 
-const stored = Number(localStorage.getItem(STORAGE_KEY) || DEFAULT)
-const initial = stored >= MIN && stored <= MAX ? stored : DEFAULT
+function readStoredFontSize(): number {
+  const stored = Number(localStorage.getItem(STORAGE_KEY) || DEFAULT)
+  return stored >= MIN && stored <= MAX ? stored : DEFAULT
+}
+
+function applyFontSizeToDOM(size: number) {
+  // Scale rem-based UI text (file tree, tabs, labels) proportionally.
+  // Monaco and xterm are controlled separately via their own fontSize options.
+  document.documentElement.style.fontSize = `${(size / DEFAULT) * 16}px`
+}
+
+const initial = readStoredFontSize()
 applyFontSize(initial)
 
 export const useFontSizeStore = create<FontSizeStore>((set, get) => ({
@@ -51,3 +60,10 @@ export const useFontSizeStore = create<FontSizeStore>((set, get) => ({
     set({ fontSize: clamped })
   },
 }))
+
+// Font size changed in another vIDE window.
+onOtherWindowChange([STORAGE_KEY], () => {
+  const size = readStoredFontSize()
+  applyFontSizeToDOM(size)
+  useFontSizeStore.setState({ fontSize: size })
+})
