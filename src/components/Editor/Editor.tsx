@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import MonacoEditor, { DiffEditor, loader } from '@monaco-editor/react'
 import type * as Monaco from 'monaco-editor'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
@@ -13,7 +13,8 @@ import {
   defineMonacoThemes, glassMonacoThemeId, highContrastMonacoThemeId, glassHighContrastMonacoThemeId, MARIO_MODE_THEME_ID,
   defineCustomHighContrastTheme, CUSTOM_HIGH_CONTRAST_THEME_ID,
   defineCustomDefaultTheme, CUSTOM_DEFAULT_THEME_ID,
-  defineCustomTokenTheme, CUSTOM_TOKENS_THEME_ID, editorBaseFor,
+  defineCustomTokenTheme, CUSTOM_TOKENS_THEME_ID, editorBaseFor, editorChromeFor, THEME_PALETTES,
+  type EditorChrome,
 } from '@/monacoThemes'
 import { useFontSizeStore } from '@/stores/fontSizeStore'
 import { useInstanceFontSizeStore } from '@/stores/instanceFontSizeStore'
@@ -219,48 +220,52 @@ export function Editor() {
   const editorBackground = useEditorBackground()
   useCoverNativeViewsWhileDragging()
 
+  // The editor's chrome (background, text, cursor, guides, line numbers):
+  // the active custom app theme's own colours when one is active, otherwise
+  // the built-in family's. Shared by the custom-theme definitions below.
+  const customChrome = useMemo<EditorChrome | null>(() => {
+    const active = activeCustomId ? customThemes.find((t) => t.id === activeCustomId) : undefined
+    if (!active) return null
+    const palette = active[themeId.endsWith('-dark') ? 'dark' : 'light']
+    return {
+      background: palette['--color-bg'],
+      foreground: palette['--color-fg'],
+      accent: palette['--color-accent'],
+      border: palette['--color-border'],
+      fgMuted: palette['--color-fg-muted'],
+      fgSubtle: palette['--color-fg-subtle'],
+    }
+  }, [activeCustomId, customThemes, themeId])
+
   // Keeps CUSTOM_DEFAULT_THEME_ID/CUSTOM_HIGH_CONTRAST_THEME_ID's definitions
-  // in sync with the active custom theme's own colours (background for
+  // in sync with the active custom theme's own colours (its chrome for
   // Default — see defineCustomDefaultTheme; derived syntax tokens for High
   // Contrast — see deriveHighContrastTokens), both in monacoThemes.ts. Only
   // bothers defining the one matching the current scheme; EditorPane below
   // only ever selects a custom theme id in that same condition, so defining
   // the other one here would be invisible until the user actually switched.
   useEffect(() => {
-    if (!activeCustomId || editorColorScheme === 'mario-mode' || editorColorScheme === 'custom') return
-    const active = customThemes.find((t) => t.id === activeCustomId)
-    if (!active) return
-    const variant = themeId.endsWith('-dark') ? 'dark' : 'light'
-    const palette = active[variant]
+    if (!customChrome || editorColorScheme === 'mario-mode' || editorColorScheme === 'custom') return
     loader.init().then((monaco) => {
-      if (editorColorScheme === 'high-contrast') {
-        defineCustomHighContrastTheme(monaco, {
-          background: palette['--color-bg'],
-          foreground: palette['--color-fg'],
-          accent: palette['--color-accent'],
-          border: palette['--color-border'],
-          fgMuted: palette['--color-fg-muted'],
-          fgSubtle: palette['--color-fg-subtle'],
-        }, panelStyle === 'glass')
-      } else {
-        defineCustomDefaultTheme(monaco, themeId, palette['--color-bg'], panelStyle === 'glass')
-      }
+      if (editorColorScheme === 'high-contrast') defineCustomHighContrastTheme(monaco, customChrome, panelStyle === 'glass')
+      else defineCustomDefaultTheme(monaco, customChrome, panelStyle === 'glass')
     })
-  }, [editorColorScheme, activeCustomId, customThemes, themeId, panelStyle])
+  }, [editorColorScheme, customChrome, panelStyle])
 
   // Same job for CUSTOM_TOKENS_THEME_ID, but kept separate from the effect
   // above: that one only runs with a custom *app theme* active, while the
   // Custom Editor Colors scheme works on any theme, built-in included. The
-  // background still follows whatever theme is active (a custom theme's own
-  // --color-bg when one is selected), so only the syntax colours are the
-  // user's — from their light or dark set, whichever that background reads as.
+  // chrome still follows whatever theme is active (a custom theme's own when
+  // one is selected), so only the syntax colours are the user's — from their
+  // light or dark set, whichever that background reads as.
   useEffect(() => {
     if (editorColorScheme !== 'custom') return
     const tokens = editorTokenColors[editorBaseFor(editorBackground)]
+    const chrome = customChrome ?? editorChromeFor(THEME_PALETTES[themeId])
     loader.init().then((monaco) => {
-      defineCustomTokenTheme(monaco, tokens, themeId, editorBackground, panelStyle === 'glass')
+      defineCustomTokenTheme(monaco, tokens, chrome, panelStyle === 'glass')
     })
-  }, [editorColorScheme, editorTokenColors, editorBackground, themeId, panelStyle])
+  }, [editorColorScheme, editorTokenColors, editorBackground, customChrome, themeId, panelStyle])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

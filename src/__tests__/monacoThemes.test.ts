@@ -2,10 +2,12 @@ import { describe, it, expect, vi } from 'vitest'
 import {
   deriveHighContrastTokens, defineCustomHighContrastTheme, CUSTOM_HIGH_CONTRAST_THEME_ID,
   defineCustomDefaultTheme, CUSTOM_DEFAULT_THEME_ID, THEME_PALETTES,
-  defineCustomTokenTheme, CUSTOM_TOKENS_THEME_ID, tokenRules,
+  defineCustomTokenTheme, CUSTOM_TOKENS_THEME_ID, tokenRules, editorChromeFor,
   highContrastMonacoThemeId, glassHighContrastMonacoThemeId,
 } from '../monacoThemes'
 import { hexToHsv, hexWithAlpha } from '@/lib/color'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 describe('deriveHighContrastTokens', () => {
   it('ties the keyword token directly to the accent hue, and comment to a dimmer version of it', () => {
@@ -113,84 +115,113 @@ describe('glassHighContrastMonacoThemeId / defineMonacoThemes (built-in themes)'
   })
 })
 
-describe('defineCustomDefaultTheme', () => {
-  function fakeMonaco() {
-    const defined: Record<string, any> = {}
-    return { editor: { defineTheme: (id: string, data: any) => { defined[id] = data } }, defined }
-  }
+// A custom app theme's chrome: deliberately unlike every built-in palette so
+// a test can tell whose colour landed where.
+const CHROME = {
+  background: '#102030', foreground: '#aaff00', accent: '#ff8800',
+  border: '#ff00aa', fgMuted: '#00aaff', fgSubtle: '#ffaa00',
+}
 
-  it('substitutes only the background, keeping the base family\'s own token/foreground colours', () => {
+function fakeMonaco() {
+  const defined: Record<string, any> = {}
+  return { editor: { defineTheme: (id: string, data: any) => { defined[id] = data } }, defined }
+}
+
+describe('defineCustomDefaultTheme', () => {
+  it('paints the custom theme\'s own text, accent and line-number colours, not the base family\'s', () => {
     const monaco = fakeMonaco()
-    defineCustomDefaultTheme(monaco as any, 'claude-dark', '#565656', false)
+    defineCustomDefaultTheme(monaco as any, CHROME, false)
     const theme = monaco.defined[CUSTOM_DEFAULT_THEME_ID]
     expect(theme.base).toBe('vs-dark')
-    expect(theme.colors['editor.background']).toBe('#565656')
-    expect(theme.colors['editor.foreground']).toBe(THEME_PALETTES['claude-dark'].foreground)
-    expect(theme.colors['editorCursor.foreground']).toBe(THEME_PALETTES['claude-dark'].accent)
+    expect(theme.rules).toEqual([])
+    expect(theme.colors['editor.background']).toBe('#102030')
+    expect(theme.colors['editor.foreground']).toBe('#aaff00')
+    expect(theme.colors['editorCursor.foreground']).toBe('#ff8800')
+    expect(theme.colors['editorLineNumber.foreground']).toBe('#ffaa00')
+    expect(theme.colors['editorLineNumber.activeForeground']).toBe('#00aaff')
+    expect(theme.colors['editorIndentGuide.background']).toBe('#ff00aa')
   })
 
   it('applies the glass alpha to the custom background when glass is true', () => {
     const monaco = fakeMonaco()
-    defineCustomDefaultTheme(monaco as any, 'claude-dark', '#565656', true)
-    expect(monaco.defined[CUSTOM_DEFAULT_THEME_ID].colors['editor.background']).toBe(hexWithAlpha('#565656', 0.25))
+    defineCustomDefaultTheme(monaco as any, CHROME, true)
+    expect(monaco.defined[CUSTOM_DEFAULT_THEME_ID].colors['editor.background']).toBe(hexWithAlpha('#102030', 0.25))
   })
 
-  it('follows the base family across families/variants, not just claude', () => {
+  it('picks the light base for a light custom background, whatever the base family', () => {
     const monaco = fakeMonaco()
-    defineCustomDefaultTheme(monaco as any, 'link-light', '#abcabc', false)
-    const theme = monaco.defined[CUSTOM_DEFAULT_THEME_ID]
-    expect(theme.base).toBe('vs')
-    expect(theme.colors['editor.foreground']).toBe(THEME_PALETTES['link-light'].foreground)
+    defineCustomDefaultTheme(monaco as any, { ...CHROME, background: '#f4f4f4' }, false)
+    expect(monaco.defined[CUSTOM_DEFAULT_THEME_ID].base).toBe('vs')
   })
 })
 
 describe('tokenRules', () => {
-  it('paints plain `type` tokens, which is what a YAML/JSON key tokenizes as', () => {
-    const rules = tokenRules(
-      { keyword: '#111111', string: '#222222', number: '#333333', type: '#444444', comment: '#555555' },
-      '#666666',
-    )
-    const type = rules.find((r) => r.token === 'type')
-    expect(type).toBeDefined()
-    expect(type!.foreground).toBe('444444')
+  const T = { keyword: '#111111', string: '#222222', number: '#333333', type: '#444444', comment: '#555555' }
+  const rules = tokenRules(T, '#666666', '#777777')
+  const colourOf = (token: string) => rules.find((r) => r.token === token)?.foreground
+
+  it('paints plain `type` tokens, which is what a YAML key tokenizes as', () => {
+    expect(colourOf('type')).toBe('444444')
     // 'type.identifier' would never match a bare 'type' token — Monaco
     // resolves theme rules by prefix, longest match wins.
     expect(rules.some((r) => r.token === 'type.identifier')).toBe(false)
   })
+
+  // Monaco's built-in vs/vs-dark carry rules for narrower tokens than our
+  // five; with inherit: true the longest prefix wins, so without an explicit
+  // rule of our own each of these kept Monaco's stock colour under Custom,
+  // Theme Colour Match and Mario Mode alike.
+  it.each([
+    ['string.value.json', '222222'], ['string.key.json', '444444'], ['keyword.json', '111111'],
+    ['number.hex', '333333'], ['keyword.flow', '111111'],
+    ['tag', '111111'], ['metatag', '111111'], ['metatag.html', '111111'], ['metatag.content.html', '444444'],
+    ['attribute.name', '444444'], ['attribute.value', '222222'], ['attribute.value.html', '222222'],
+    ['attribute.value.number.css', '333333'], ['attribute.value.unit.css', '333333'], ['attribute.value.hex.css', '333333'],
+    ['string.yaml', '222222'], ['string.html', '222222'], ['annotation', '444444'], ['key', '444444'],
+    ['delimiter.html', '666666'], ['delimiter.xml', '666666'],
+    ['variable', '777777'], ['variable.predefined', '777777'], ['variable.parameter', '777777'],
+  ])('overrides Monaco\'s own %s rule', (token, colour) => {
+    expect(colourOf(token)).toBe(colour)
+  })
+
+  it('leaves no coloured rule of Monaco\'s built-in vs or vs-dark themes un-overridden', () => {
+    const source = readFileSync(join(process.cwd(), 'node_modules/monaco-editor/esm/vs/editor/standalone/common/themes.js'), 'utf8')
+    const builtIn = [...source.matchAll(/token: '([^']+)', foreground:/g)].map((m) => m[1])
+    expect(builtIn.length).toBeGreaterThan(30)
+    // 'invalid' stays Monaco's error red on purpose.
+    const missing = [...new Set(builtIn)].filter((t) => t !== 'invalid' && !rules.some((r) => r.token === t))
+    expect(missing).toEqual([])
+  })
 })
 
 describe('defineCustomTokenTheme', () => {
-  function fakeMonaco() {
-    const defined: Record<string, any> = {}
-    return {
-      editor: { defineTheme: (id: string, data: any) => { defined[id] = data } },
-      defined,
-    }
-  }
-
   const tokens = { keyword: '#ff0000', string: '#00ff00', number: '#0000ff', type: '#ffff00', comment: '#ff00ff' }
 
-  it('uses the user\'s five colours over the active theme\'s own chrome', () => {
+  it('uses the user\'s five colours over the chrome it is given', () => {
     const monaco = fakeMonaco()
-    defineCustomTokenTheme(monaco as any, tokens, 'claude-dark', THEME_PALETTES['claude-dark'].background, false)
+    defineCustomTokenTheme(monaco as any, tokens, CHROME, false)
     const theme = monaco.defined[CUSTOM_TOKENS_THEME_ID]
     expect(theme.base).toBe('vs-dark')
-    expect(theme.colors['editor.background']).toBe(THEME_PALETTES['claude-dark'].background)
-    expect(theme.colors['editor.foreground']).toBe(THEME_PALETTES['claude-dark'].foreground)
+    expect(theme.colors['editor.background']).toBe('#102030')
+    expect(theme.colors['editor.foreground']).toBe('#aaff00')
+    expect(theme.colors['editorCursor.foreground']).toBe('#ff8800')
     expect(theme.rules.find((r: any) => r.token === 'type').foreground).toBe('ffff00')
     expect(theme.rules.find((r: any) => r.token === 'keyword').foreground).toBe('ff0000')
+    expect(theme.rules.find((r: any) => r.token === 'delimiter').foreground).toBe('00aaff')
   })
 
   it('follows the Glass panel style, like Default and Theme Colour Match', () => {
     const monaco = fakeMonaco()
-    defineCustomTokenTheme(monaco as any, tokens, 'claude-dark', '#1e1e1e', true)
-    expect(monaco.defined[CUSTOM_TOKENS_THEME_ID].colors['editor.background']).toBe(hexWithAlpha('#1e1e1e', 0.25))
+    defineCustomTokenTheme(monaco as any, tokens, CHROME, true)
+    expect(monaco.defined[CUSTOM_TOKENS_THEME_ID].colors['editor.background']).toBe(hexWithAlpha('#102030', 0.25))
   })
 
-  it('takes its background from the caller, so a custom app theme\'s own bg wins', () => {
+  it('takes a built-in family\'s chrome via editorChromeFor', () => {
     const monaco = fakeMonaco()
-    defineCustomTokenTheme(monaco as any, tokens, 'claude-dark', '#0a0f2b', false)
-    expect(monaco.defined[CUSTOM_TOKENS_THEME_ID].colors['editor.background']).toBe('#0a0f2b')
+    defineCustomTokenTheme(monaco as any, tokens, editorChromeFor(THEME_PALETTES['claude-dark']), false)
+    const theme = monaco.defined[CUSTOM_TOKENS_THEME_ID]
+    expect(theme.colors['editor.background']).toBe(THEME_PALETTES['claude-dark'].background)
+    expect(theme.colors['editor.foreground']).toBe(THEME_PALETTES['claude-dark'].foreground)
   })
 })
 
@@ -223,11 +254,11 @@ describe('defineMonacoThemes — the dynamically-redefined ids', () => {
     const defined: Record<string, any> = {}
     const monaco = { editor: { defineTheme: (id: string, data: any) => { defined[id] = data } } } as any
     const keyword = (id: string) => defined[id].rules.find((r: any) => r.token === 'keyword')?.foreground
-    m.defineCustomTokenTheme(monaco, { ...m.DEFAULT_TOKENS['vs-dark'], keyword: '#ff0000' }, 'claude-dark', '#1a1a1a', false)
+    m.defineCustomTokenTheme(monaco, { ...m.DEFAULT_TOKENS['vs-dark'], keyword: '#ff0000' }, { ...CHROME, background: '#1a1a1a' }, false)
     m.defineCustomHighContrastTheme(monaco, {
       background: '#12151f', foreground: '#ffffff', accent: '#5468c4', border: '#333333', fgMuted: '#999999', fgSubtle: '#666666',
     }, false)
-    m.defineCustomDefaultTheme(monaco, 'claude-dark', '#123456', false)
+    m.defineCustomDefaultTheme(monaco, { ...CHROME, background: '#123456' }, false)
     const hcKeyword = keyword(m.CUSTOM_HIGH_CONTRAST_THEME_ID)
     m.defineMonacoThemes(monaco)
     expect(keyword(m.CUSTOM_TOKENS_THEME_ID)).toBe('ff0000')

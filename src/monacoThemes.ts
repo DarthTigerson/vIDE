@@ -128,7 +128,7 @@ const GLASS_ALPHA = 0.25
 // 'editor.background' itself, which each caller substitutes separately (the
 // literal family colour, a glass-alpha'd version of it, or a custom theme's
 // own background).
-function baseEditorColors(p: ThemePalette) {
+function baseEditorColors(p: EditorChrome) {
   return {
     'editor.foreground':                   p.foreground,
     'editorCursor.foreground':              p.accent,
@@ -151,7 +151,39 @@ function baseEditorColors(p: ThemePalette) {
 // prefix, so a rule for 'type.identifier' never applies to a plain 'type'
 // token — which is what YAML/JSON keys and many languages' type names
 // actually tokenize as. Keyed on 'type' it covers both.
-export function tokenRules(tokens: HighContrastTokens, delimiterHex: string) {
+//
+// Monaco's own vs/vs-dark themes (which every scheme inherits) also carry
+// rules for NARROWER tokens — 'string.value.json', 'number.hex', 'tag',
+// 'attribute.name' and so on — and the longest matching prefix wins, so a
+// rule for 'string' alone never reached a JSON value: it kept Monaco's stock
+// colour no matter what the user picked. Every coloured base rule therefore
+// gets a rule of our own here, sorted into one of the five colours (or the
+// delimiter / plain-text colour). The tokenRules test reads Monaco's theme
+// source and fails if a future Monaco adds one this list doesn't cover.
+const TOKEN_CATEGORY: Record<string, keyof HighContrastTokens | 'delimiter' | 'foreground'> = {
+  // keywords and markup structure: tags, directives, literals like true/null
+  'keyword.flow': 'keyword', 'keyword.flow.scss': 'keyword', 'keyword.json': 'keyword',
+  constant: 'keyword', 'predefined.sql': 'keyword', meta: 'keyword', 'meta.scss': 'keyword',
+  tag: 'keyword', 'tag.id.pug': 'keyword', 'tag.class.pug': 'keyword',
+  metatag: 'keyword', 'metatag.html': 'keyword', 'metatag.xml': 'keyword', 'metatag.php': 'keyword',
+  // strings and quoted values
+  'string.value': 'string', 'string.value.json': 'string', 'string.html': 'string', 'string.sql': 'string', 'string.yaml': 'string',
+  'attribute.value': 'string', 'attribute.value.html': 'string', 'attribute.value.xml': 'string', 'meta.tag': 'string',
+  // numbers, including CSS measurements and colours
+  'number.hex': 'number', 'attribute.value.number': 'number', 'attribute.value.number.css': 'number',
+  'attribute.value.unit': 'number', 'attribute.value.unit.css': 'number', 'attribute.value.hex.css': 'number',
+  // names of things: keys, attributes, properties, decorators — same colour YAML keys get
+  'string.key': 'type', 'string.key.json': 'type', key: 'type', 'attribute.name': 'type', 'metatag.content.html': 'type', annotation: 'type',
+  // punctuation
+  'delimiter.html': 'delimiter', 'delimiter.xml': 'delimiter',
+  'operator.scss': 'delimiter', 'operator.sql': 'delimiter', 'operator.swift': 'delimiter',
+  // variables read as plain text, like identifiers in every other language
+  variable: 'foreground', 'variable.predefined': 'foreground', 'variable.parameter': 'foreground',
+}
+
+export function tokenRules(tokens: HighContrastTokens, delimiterHex: string, foregroundHex: string) {
+  const colourOf = (category: keyof HighContrastTokens | 'delimiter' | 'foreground') =>
+    stripHash(category === 'delimiter' ? delimiterHex : category === 'foreground' ? foregroundHex : tokens[category])
   return [
     { token: 'comment', foreground: stripHash(tokens.comment), fontStyle: 'italic' },
     { token: 'keyword', foreground: stripHash(tokens.keyword) },
@@ -160,6 +192,10 @@ export function tokenRules(tokens: HighContrastTokens, delimiterHex: string) {
     { token: 'type', foreground: stripHash(tokens.type) },
     { token: 'regexp', foreground: stripHash(tokens.string) },
     { token: 'delimiter', foreground: stripHash(delimiterHex) },
+    // Base themes leave these uncoloured but bold/italic; keep the plain-text colour.
+    { token: 'emphasis', foreground: stripHash(foregroundHex), fontStyle: 'italic' },
+    { token: 'strong', foreground: stripHash(foregroundHex), fontStyle: 'bold' },
+    ...Object.entries(TOKEN_CATEGORY).map(([token, category]) => ({ token, foreground: colourOf(category) })),
   ]
 }
 
@@ -199,7 +235,12 @@ export function deriveHighContrastTokens(accentHex: string, backgroundHex: strin
 // than one static id per ThemeId.
 export const CUSTOM_HIGH_CONTRAST_THEME_ID = 'custom-theme-hc'
 
-export interface CustomHighContrastPalette {
+// The editor's chrome — everything but the syntax token colours: background,
+// plain text, cursor/selection accent, guides and line numbers. A built-in
+// family supplies it via editorChromeFor(THEME_PALETTES[id]); an active
+// custom app theme supplies its own (Editor.tsx), so its Text, Text Muted,
+// Text Subtle, Accent and Border reach the editor and not just the panels.
+export interface EditorChrome {
   background: string
   foreground: string
   accent: string
@@ -208,27 +249,30 @@ export interface CustomHighContrastPalette {
   fgSubtle: string
 }
 
+export type CustomHighContrastPalette = EditorChrome
+
+export function editorChromeFor(p: ThemePalette): EditorChrome {
+  return { background: p.background, foreground: p.foreground, accent: p.accent, border: p.border, fgMuted: p.fgMuted, fgSubtle: p.fgSubtle }
+}
+
 // Default Editor Colors on a custom theme. Mirrors effectiveXtermTheme in
-// customThemeStore.ts: Monaco's syntax token colours keep following the base
-// family (that IS what "Default — follows the active theme's own syntax
-// colours" means; a custom theme only ever defines the 9 chrome vars, not
-// token colours), but leaving the editor on the base family's own stock
-// background while every other panel follows the custom theme's background
-// reads as a bug, not a design choice — same reasoning that already applies
-// to the terminal below. baseThemeId supplies the inherited family's token/
-// foreground colours; customBackground substitutes only 'editor.background'.
+// customThemeStore.ts: syntax token colours stay Monaco's stock ones for the
+// background's light/dark base (that IS what "Default" means; a custom theme
+// defines chrome colours, not token colours), but the chrome — background,
+// plain text, cursor, line numbers, guides — is the custom theme's own.
+// Leaving the editor on the base family's text colours while every panel
+// follows the custom theme read as the custom Text colour being ignored.
 export const CUSTOM_DEFAULT_THEME_ID = 'custom-theme-default'
 
-export function defineCustomDefaultTheme(monaco: Monaco, baseThemeId: ThemeId, customBackground: string, glass: boolean) {
+export function defineCustomDefaultTheme(monaco: Monaco, chrome: EditorChrome, glass: boolean) {
   defineMonacoThemes(monaco)
-  const p = THEME_PALETTES[baseThemeId]
   monaco.editor.defineTheme(CUSTOM_DEFAULT_THEME_ID, {
-    base: p.base,
+    base: editorBaseFor(chrome.background),
     inherit: true,
     rules: [],
     colors: {
-      ...baseEditorColors(p),
-      'editor.background': glass ? hexWithAlpha(customBackground, GLASS_ALPHA) : customBackground,
+      ...baseEditorColors(chrome),
+      'editor.background': glass ? hexWithAlpha(chrome.background, GLASS_ALPHA) : chrome.background,
     },
   })
 }
@@ -240,19 +284,10 @@ export function defineCustomHighContrastTheme(monaco: Monaco, palette: CustomHig
   monaco.editor.defineTheme(CUSTOM_HIGH_CONTRAST_THEME_ID, {
     base,
     inherit: true,
-    rules: tokenRules(tokens, palette.fgMuted),
+    rules: tokenRules(tokens, palette.fgMuted, palette.foreground),
     colors: {
-      'editor.foreground':                   palette.foreground,
-      'editor.background':                   glass ? hexWithAlpha(palette.background, GLASS_ALPHA) : palette.background,
-      'editorCursor.foreground':              palette.accent,
-      'editor.selectionBackground':           palette.accent + '40',
-      'editor.inactiveSelectionBackground':   palette.accent + '20',
-      'editor.lineHighlightBackground':       palette.accent + '12',
-      'editorLineNumber.foreground':          palette.fgSubtle,
-      'editorLineNumber.activeForeground':    palette.fgMuted,
-      'editorIndentGuide.background':         palette.border,
-      'editorIndentGuide.activeBackground':   palette.fgSubtle,
-      'editorWhitespace.foreground':          palette.border,
+      ...baseEditorColors(palette),
+      'editor.background': glass ? hexWithAlpha(palette.background, GLASS_ALPHA) : palette.background,
     },
   })
 }
@@ -260,30 +295,23 @@ export function defineCustomHighContrastTheme(monaco: Monaco, palette: CustomHig
 // The user-editable Editor Colors scheme. Like the two CUSTOM_* ids above
 // this is one definition redefined in place whenever the stored token
 // colours (or the active theme / panel style, which still supply the
-// background and chrome around them) change — only the five syntax colours
-// come from the user, so a Custom palette keeps looking like the rest of
-// the app rather than becoming a second, competing theme. Callers pass the
-// user's set for this background's base (displayStore keeps one per base),
-// since colours picked against a dark background vanish on a light one.
+// chrome around them) change — only the five syntax colours come from the
+// user, so a Custom palette keeps looking like the rest of the app rather
+// than becoming a second, competing theme. Callers pass the user's set for
+// this background's base (displayStore keeps one per base), since colours
+// picked against a dark background vanish on a light one, and the active
+// theme's chrome (a custom app theme's own, when one is active).
 export const CUSTOM_TOKENS_THEME_ID = 'custom-tokens'
 
-export function defineCustomTokenTheme(
-  monaco: Monaco,
-  tokens: HighContrastTokens,
-  baseThemeId: ThemeId,
-  background: string,
-  glass: boolean,
-) {
+export function defineCustomTokenTheme(monaco: Monaco, tokens: HighContrastTokens, chrome: EditorChrome, glass: boolean) {
   defineMonacoThemes(monaco)
-  const p = THEME_PALETTES[baseThemeId]
-  const base = editorBaseFor(background)
   monaco.editor.defineTheme(CUSTOM_TOKENS_THEME_ID, {
-    base,
+    base: editorBaseFor(chrome.background),
     inherit: true,
-    rules: tokenRules(tokens, p.fgMuted),
+    rules: tokenRules(tokens, chrome.fgMuted, chrome.foreground),
     colors: {
-      ...baseEditorColors(p),
-      'editor.background': glass ? hexWithAlpha(background, GLASS_ALPHA) : background,
+      ...baseEditorColors(chrome),
+      'editor.background': glass ? hexWithAlpha(chrome.background, GLASS_ALPHA) : chrome.background,
     },
   })
 }
@@ -339,7 +367,7 @@ export function defineMonacoThemes(monaco: Monaco) {
     // token colors change — but, like Default, still follows the Glass panel
     // style rather than forcing itself opaque (see glassHighContrastMonacoThemeId).
     const hc = HIGH_CONTRAST_TOKENS[id]
-    const hcRules = tokenRules(hc, p.fgMuted)
+    const hcRules = tokenRules(hc, p.fgMuted, p.foreground)
     monaco.editor.defineTheme(highContrastMonacoThemeId(id), {
       base: p.base,
       inherit: true,
@@ -376,7 +404,7 @@ export function defineMonacoThemes(monaco: Monaco) {
     monaco.editor.defineTheme(id, {
       base: ph.base,
       inherit: true,
-      rules: tokenRules(DEFAULT_TOKENS['vs-dark'], ph.fgMuted),
+      rules: tokenRules(DEFAULT_TOKENS['vs-dark'], ph.fgMuted, ph.foreground),
       colors: phColors,
     })
   }
@@ -386,7 +414,7 @@ export function defineMonacoThemes(monaco: Monaco) {
   monaco.editor.defineTheme(MARIO_MODE_THEME_ID, {
     base: 'vs-dark',
     inherit: true,
-    rules: tokenRules(MARIO_MODE_TOKENS, m.fgMuted),
+    rules: tokenRules(MARIO_MODE_TOKENS, m.fgMuted, m.foreground),
     colors: {
       'editor.foreground':                   m.foreground,
       'editorCursor.foreground':              m.accent,
