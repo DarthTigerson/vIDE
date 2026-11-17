@@ -6,7 +6,7 @@ import { getRecentColors, addRecentColor } from '@/lib/recentColors'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
 
 export function ColorPickerPopover({ anchorRef, value, onChange, onClose }: {
-  anchorRef: React.RefObject<HTMLElement>
+  anchorRef: React.RefObject<HTMLElement | null>
   value: string
   onChange: (hex: string) => void
   onClose: () => void
