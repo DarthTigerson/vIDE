@@ -41,7 +41,7 @@ export const PANEL_STYLE_OPTIONS: { value: PanelStyle; label: string; descriptio
   { value: 'glass',         label: 'Glass',       description: 'See-through' },
 ]
 
-export type BackgroundImage = 'none' | 'vide' | 'clawd' | 'atreus' | 'link' | 'techLines' | 'borahae' | 'wave' | 'gabriele' | 'rockhoppers' | 'malta' | 'goodGirl'
+export type BackgroundImage = 'none' | 'vide' | 'clawd' | 'atreus' | 'link' | 'techLines' | 'borahae' | 'wave' | 'gabriele' | 'rockhoppers' | 'malta' | 'cockpit' | 'goodGirl'
 
 // Shared between DisplayPage and the setup wizard's theme step, same as
 // PANEL_STYLE_OPTIONS below.
@@ -58,6 +58,7 @@ export const BACKGROUND_IMAGE_OPTIONS: { value: BackgroundImage; label: string }
   { value: 'techLines', label: 'Tech Lines' },
   { value: 'wave',      label: 'Wave' },
   { value: 'malta',       label: 'Malta' },
+  { value: 'cockpit',     label: 'Cockpit' },
 ]
 
 // Each built-in theme family's matching background — swapping the active

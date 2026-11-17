@@ -36,7 +36,7 @@ export const KNOWN_SYNCED_ENUMS: Record<string, readonly string[]> = {
   ],
   'vide:backgroundImage': [
     'none', 'vide', 'clawd', 'link', 'atreus', 'borahae',
-    'gabriele', 'rockhoppers', 'goodGirl', 'techLines', 'wave', 'malta',
+    'gabriele', 'rockhoppers', 'goodGirl', 'techLines', 'wave', 'malta', 'cockpit',
   ],
 }
 

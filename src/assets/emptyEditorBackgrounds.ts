@@ -9,6 +9,7 @@ import gabriele from './emptyEditorBackgroundGabriele.png'
 import rockhoppers from './emptyEditorBackgroundRockhoppers.png'
 import goodGirl from './emptyEditorBackgroundGoodGirl.png'
 import malta from './emptyEditorBackgroundMalta.jpg'
+import cockpit from './emptyEditorBackgroundCockpit.jpg'
 import type { CSSProperties } from 'react'
 import type { BackgroundImage } from '@/stores/displayStore'
 
@@ -26,13 +27,14 @@ export const EMPTY_EDITOR_BACKGROUNDS: Record<Exclude<BackgroundImage, 'none'>, 
   rockhoppers,
   goodGirl,
   malta,
+  cockpit,
 }
 
 // Every other background is a cut-out badge pinned to the right edge at full
 // height (the .empty-editor-bg / .app-bg-badge defaults). Full-scene images —
 // a whole wallpaper rather than a badge — fill the area instead, so they
 // don't leave a hard edge on wide windows.
-const FULL_SCENE: ReadonlySet<BackgroundImage> = new Set<BackgroundImage>(['malta'])
+const FULL_SCENE: ReadonlySet<BackgroundImage> = new Set<BackgroundImage>(['malta', 'cockpit'])
 
 export function backgroundImageStyle(image: Exclude<BackgroundImage, 'none'>): CSSProperties {
   const url = `url(${EMPTY_EDITOR_BACKGROUNDS[image]})`
