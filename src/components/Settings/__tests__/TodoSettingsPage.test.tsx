@@ -4,11 +4,17 @@ import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/re
 
 vi.hoisted(() => {
   const store: Record<string, string> = {}
-  ;(global as any).localStorage = {
-    getItem: (k: string) => store[k] ?? null,
-    setItem: (k: string, v: string) => { store[k] = v },
-    removeItem: (k: string) => { delete store[k] },
-  }
+  // jsdom's window.localStorage is a getter-only accessor under vitest 4+, so
+  // plain assignment throws; redefine the property instead.
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    writable: true,
+    value: {
+      getItem: (k: string) => store[k] ?? null,
+      setItem: (k: string, v: string) => { store[k] = v },
+      removeItem: (k: string) => { delete store[k] },
+    },
+  })
   ;(global as any).window = (global as any).window ?? {}
   ;(global as any).window.api = {
     todosMcpEnable: () => Promise.resolve(),

@@ -33,7 +33,12 @@ describe('onOtherWindowChange', () => {
 
   it('clears the flag even when the reload throws', () => {
     onOtherWindowChange(['vide:e'], () => { throw new Error('boom') })
+    // jsdom reports listener errors as a window 'error' event, which vitest 4+
+    // turns into an uncaught exception unless the test listens for it itself.
+    const swallow = (e: ErrorEvent) => e.preventDefault()
+    window.addEventListener('error', swallow)
     try { fire('vide:e') } catch { /* jsdom may rethrow listener errors */ }
+    finally { window.removeEventListener('error', swallow) }
     expect(isApplyingOtherWindowChange()).toBe(false)
   })
 })

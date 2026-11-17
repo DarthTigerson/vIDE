@@ -15,7 +15,7 @@ vi.mock('electron', () => ({
 
 const pollerInstances: any[] = []
 vi.mock('../usagePoller', () => ({
-  UsagePoller: vi.fn().mockImplementation((_historyFile, _settingsFile, onSnapshot) => {
+  UsagePoller: vi.fn().mockImplementation(function (_historyFile: unknown, _settingsFile: unknown, onSnapshot: unknown) {
     const instance = {
       start: vi.fn(),
       stop: vi.fn(),

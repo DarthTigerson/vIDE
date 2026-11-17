@@ -1,5 +1,5 @@
 /// <reference types="@testing-library/jest-dom" />
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { ScriptsPanel } from '../ScriptsPanel'
 import { useScriptsStore } from '@/stores/scriptsStore'
@@ -9,9 +9,9 @@ import type { Script } from '@/types/api'
 
 const mk = (id: string, title: string): Script => ({ id, title, description: `about ${title}`, body: 'ls', shareOutput: true, createdAt: 1, updatedAt: 1 })
 
-let openTab: ReturnType<typeof vi.fn>
-let remove: ReturnType<typeof vi.fn>
-let create: ReturnType<typeof vi.fn>
+let openTab: Mock<(...args: any[]) => any>
+let remove: Mock<(...args: any[]) => any>
+let create: Mock<(...args: any[]) => any>
 
 beforeEach(() => {
   openTab = vi.fn()

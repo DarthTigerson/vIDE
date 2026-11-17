@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import { createRequire } from 'module'
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'fs'
 import { tmpdir } from 'os'
@@ -18,10 +18,10 @@ const requireFresh = (p: string) => {
 }
 
 let dir: string
-let broadcast: ReturnType<typeof vi.fn>
-let sendTo: ReturnType<typeof vi.fn>
-let installer: { install: ReturnType<typeof vi.fn>; uninstall: ReturnType<typeof vi.fn>; installDir: (id: string, v: string) => string }
-let getListing: ReturnType<typeof vi.fn>
+let broadcast: Mock<(...args: any[]) => any>
+let sendTo: Mock<(...args: any[]) => any>
+let installer: { install: Mock<(...args: any[]) => any>; uninstall: Mock<(...args: any[]) => any>; installDir: (id: string, v: string) => string }
+let getListing: Mock<(...args: any[]) => any>
 
 function installFixture(id = 'hello', version = '1.0.0', mainSrc?: string) {
   const target = join(dir, id, version)

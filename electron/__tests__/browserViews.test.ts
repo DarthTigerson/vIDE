@@ -68,7 +68,7 @@ vi.mock('electron', () => ({
     },
     fromId: (id: number) => winsById.get(id),
   },
-  WebContentsView: vi.fn().mockImplementation(() => fakeWebContentsView()),
+  WebContentsView: vi.fn().mockImplementation(function () { return fakeWebContentsView() }),
   session: { fromPartition: vi.fn(() => fakeSession) },
 }))
 

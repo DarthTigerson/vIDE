@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useRunningLlamaCount } from '../useRunningLlamaCount'
 import { useLlamaModelsStore, defaultLlamaModelConfig, type LlamaModelConfig } from '@/stores/llamaModelsStore'
@@ -11,7 +11,7 @@ function model(id: string, port: number): LlamaModelConfig {
 const running = { running: true, output: '', error: null, exitCode: null }
 const stopped = { running: false, output: '', error: null, exitCode: 0 }
 
-let probeModel: ReturnType<typeof vi.fn>
+let probeModel: Mock<(...args: any[]) => any>
 
 beforeEach(() => {
   probeModel = vi.fn().mockResolvedValue(undefined)
