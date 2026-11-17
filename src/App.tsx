@@ -134,6 +134,7 @@ import { runScriptInNewTerminal, runScriptInAgentTerminal } from './lib/runScrip
 import { LlamaPanel } from './components/Llama/LlamaPanel'
 import { useNotificationSoundSettingsStore, playNotificationSound } from './stores/notificationSoundSettingsStore'
 import { useConfigRepoStore } from './stores/configRepoStore'
+import { startThemeShuffle } from './stores/themeShuffleStore'
 import type { AssistantKind, MemoryBreakdown } from './types/api'
 
 // Rendered once at the app root rather than per-TabBar: Cmd+W is handled here,
@@ -299,6 +300,7 @@ export default function App() {
   useEffect(() => {
     useConfigRepoStore.getState().syncOnLaunch()
   }, [])
+  useEffect(() => startThemeShuffle(), [])
 
   // Scripts live in the main process (and are written by the vide-scripts
   // MCP server and vIDE Sync too), so reload on every change it reports.

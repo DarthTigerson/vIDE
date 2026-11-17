@@ -4,10 +4,14 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { ThemeSection } from '../ThemeSection'
 import { useThemeStore } from '@/stores/themeStore'
 import { useCustomThemeStore, CUSTOM_COLOR_VARS } from '@/stores/customThemeStore'
+import { useThemeShuffleStore } from '@/stores/themeShuffleStore'
 
 beforeEach(() => {
   useThemeStore.setState({ theme: 'claude-dark', matchSystem: false })
   useCustomThemeStore.setState({ themes: [], activeId: null })
+  useThemeShuffleStore.setState({ enabled: false })
+  localStorage.removeItem('vide:themeShuffleLastDay')
+  localStorage.removeItem('vide:themeShuffleDaily')
 })
 
 afterEach(() => {
@@ -175,5 +179,41 @@ describe('ThemeSection', () => {
     fireEvent.click(screen.getByText('New Custom Theme'))
     expect(container.querySelector('dialog')).toBeNull()
     expect(container.querySelector('[role="dialog"]')).toBeNull()
+  })
+
+  describe('Shuffle daily', () => {
+    it('switching it on changes the theme to another built-in family and names it', () => {
+      const id = useCustomThemeStore.getState().createFromActive('Sunset')
+      useCustomThemeStore.getState().setActive(id)
+      render(<ThemeSection />)
+      expect(screen.queryByTestId('theme-shuffle-status')).toBeNull()
+      fireEvent.click(screen.getByRole('switch', { name: 'Shuffle daily' }))
+      expect(useThemeShuffleStore.getState().enabled).toBe(true)
+      expect(localStorage.getItem('vide:themeShuffleDaily')).toBe('true')
+      expect(useCustomThemeStore.getState().activeId).toBeNull()
+      expect(useThemeStore.getState().theme).not.toBe('claude-dark')
+      expect(useThemeStore.getState().theme).toMatch(/-dark$/)
+      expect(screen.getByTestId('theme-shuffle-status').textContent).toMatch(/^Today: .+ · changes at midnight$/)
+    })
+
+    it('a hand pick holds for the rest of the day, and the next day shuffles again', () => {
+      useThemeShuffleStore.getState().setEnabled(true)
+      render(<ThemeSection />)
+      fireEvent.click(screen.getByRole('button', { name: /^Malta/ }))
+      expect(useThemeStore.getState().theme).toBe('malta-dark')
+      useThemeShuffleStore.getState().applyIfDue(new Date())
+      expect(useThemeStore.getState().theme).toBe('malta-dark')
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      useThemeShuffleStore.getState().applyIfDue(tomorrow)
+      expect(useThemeStore.getState().theme).not.toBe('malta-dark')
+    })
+
+    it('does nothing while off', () => {
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      useThemeShuffleStore.getState().applyIfDue(tomorrow)
+      expect(useThemeStore.getState().theme).toBe('claude-dark')
+    })
   })
 })
