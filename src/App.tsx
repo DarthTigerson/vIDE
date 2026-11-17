@@ -275,6 +275,7 @@ export default function App() {
   const theme = useThemeStore((s) => s.theme)
   const font = useDisplayStore((s) => s.font)
   const memoryUsageVisible = useDisplayStore((s) => s.memoryUsageVisible)
+  const batteryVisible = useDisplayStore((s) => s.batteryVisible)
   const notificationSoundEnabled = useNotificationSoundSettingsStore((s) => s.enabled)
   const notificationSoundMuted = useNotificationSoundSettingsStore((s) => s.muted)
   const setNotificationSoundMuted = useNotificationSoundSettingsStore((s) => s.setMuted)
@@ -990,7 +991,7 @@ export default function App() {
           onClick={(e) => e.stopPropagation()}
         >
           {memoryUsageVisible && memoryUsage && <MemoryPill usage={memoryUsage} />}
-          <BatteryPill withDivider={!!(memoryUsageVisible && memoryUsage)} />
+          {batteryVisible && <BatteryPill withDivider={!!(memoryUsageVisible && memoryUsage)} />}
         </div>
       </div>
       <div className="flex flex-1 min-h-0">

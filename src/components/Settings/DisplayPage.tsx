@@ -1,7 +1,8 @@
 import { useDisplayStore } from '@/stores/displayStore'
 import { useBottomTerminalStore } from '@/stores/bottomTerminalStore'
-import { FeatureBlock } from './FeatureBlock'
-import { BottomTerminalPreview, MemoryPreview, NavbarPreview } from './previews/displayPreviews'
+import { FeatureBlock, SettingRow } from './FeatureBlock'
+import { Switch } from '@/components/ui/Toggle'
+import { BottomTerminalPreview, TitleBarPreview, NavbarPreview } from './previews/displayPreviews'
 import { ThemeSection } from './ThemeSection'
 import { PanelStyleSection } from './PanelStyleSection'
 import { FontSection } from './FontSection'
@@ -10,8 +11,8 @@ import { BackgroundSection } from './BackgroundSection'
 
 export function DisplayPage() {
   const {
-    memoryUsageVisible, navbarPosition,
-    setMemoryUsageVisible, setNavbarPosition,
+    memoryUsageVisible, batteryVisible, navbarPosition,
+    setMemoryUsageVisible, setBatteryVisible, setNavbarPosition,
   } = useDisplayStore()
   const bottomTerminal = useBottomTerminalStore((s) => s.enabled)
 
@@ -28,11 +29,17 @@ export function DisplayPage() {
         <BackgroundSection />
 
         <FeatureBlock
-          title="Memory usage"
-          description="Show how much RAM is in use, next to the model dropdown in the title bar."
-          toggle={{ checked: memoryUsageVisible, onChange: setMemoryUsageVisible }}
-          preview={<MemoryPreview />}
-        />
+          title="Title bar"
+          description="What shows on the right of the title bar."
+          preview={<TitleBarPreview />}
+        >
+          <SettingRow label="Memory usage" description="How much RAM is in use.">
+            <Switch label="Memory usage" checked={memoryUsageVisible} onChange={setMemoryUsageVisible} />
+          </SettingRow>
+          <SettingRow label="Battery" description="Charge level. Never shown on machines without a battery.">
+            <Switch label="Battery" checked={batteryVisible} onChange={setBatteryVisible} />
+          </SettingRow>
+        </FeatureBlock>
 
         <FeatureBlock
           title="Navbar on the right"

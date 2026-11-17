@@ -41,4 +41,11 @@ describe('displayStore — memory usage visibility', () => {
     expect(useDisplayStore.getState().memoryUsageVisible).toBe(false)
     expect(localStorageStore['vide:memoryUsageVisible']).toBe('false')
   })
+
+  it('defaults batteryVisible to true, and setBatteryVisible persists it', () => {
+    expect(useDisplayStore.getState().batteryVisible).toBe(true)
+    useDisplayStore.getState().setBatteryVisible(false)
+    expect(useDisplayStore.getState().batteryVisible).toBe(false)
+    expect(localStorageStore['vide:batteryVisible']).toBe('false')
+  })
 })
