@@ -68,14 +68,14 @@ export function ClaudeSessionContextMenu({
   return createPortal(
     <div
       ref={menuRef}
-      className="fixed z-[200] w-52 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50"
+      className="fixed z-[200] w-52 rounded-sm border border-border bg-popover p-1 shadow-2xl shadow-black/50"
       style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
     >
       <button
         type="button"
         onClick={() => { onRename(); onClose() }}
-        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
       >
         <RenameIcon />
         Rename…
@@ -86,7 +86,7 @@ export function ClaudeSessionContextMenu({
           <button
             type="button"
             onClick={() => { onContinuePreviousSession(); onClose() }}
-            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
           >
             <PreviousSessionIcon />
             Continue Previous Session
@@ -94,7 +94,7 @@ export function ClaudeSessionContextMenu({
           <button
             type="button"
             onClick={() => { onResumeSession(); onClose() }}
-            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
           >
             <ResumeSessionIcon />
             Resume Session…
@@ -104,7 +104,7 @@ export function ClaudeSessionContextMenu({
         <button
           type="button"
           onClick={() => { onRestorePrevious(); onClose() }}
-          className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
         >
           <PreviousSessionIcon />
           Restore Previous Conversation
@@ -115,7 +115,7 @@ export function ClaudeSessionContextMenu({
         <button
           type="button"
           onClick={() => { onCompact(); onClose() }}
-          className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
         >
           <CompactIcon />
           Compact
@@ -124,7 +124,7 @@ export function ClaudeSessionContextMenu({
       <button
         type="button"
         onClick={() => { onClear(); onClose() }}
-        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
       >
         <ClearIcon />
         Clear
@@ -133,7 +133,7 @@ export function ClaudeSessionContextMenu({
       <button
         type="button"
         onClick={() => { onCloseSession(); onClose() }}
-        className="w-full rounded px-2 py-1.5 text-left text-xs text-red-300 transition-colors hover:bg-red-500/15 hover:text-red-200"
+        className="w-full rounded-sm px-2 py-1.5 text-left text-xs text-red-300 transition-colors hover:bg-red-500/15 hover:text-red-200"
       >
         Close Session
       </button>
@@ -141,7 +141,7 @@ export function ClaudeSessionContextMenu({
         <button
           type="button"
           onClick={() => { onCloseOtherSessions(); onClose() }}
-          className="w-full rounded px-2 py-1.5 text-left text-xs text-red-300 transition-colors hover:bg-red-500/15 hover:text-red-200"
+          className="w-full rounded-sm px-2 py-1.5 text-left text-xs text-red-300 transition-colors hover:bg-red-500/15 hover:text-red-200"
         >
           Close Other Sessions
         </button>
@@ -149,7 +149,7 @@ export function ClaudeSessionContextMenu({
       <button
         type="button"
         onClick={() => { onCloseAllSessions(); onClose() }}
-        className="w-full rounded px-2 py-1.5 text-left text-xs text-red-300 transition-colors hover:bg-red-500/15 hover:text-red-200"
+        className="w-full rounded-sm px-2 py-1.5 text-left text-xs text-red-300 transition-colors hover:bg-red-500/15 hover:text-red-200"
       >
         Close All Sessions
       </button>

@@ -42,7 +42,7 @@ function MultiSelectDropdown({ label, options, selected, onChange }: {
         onClick={() => setOpen((v) => !v)}
         disabled={options.length === 0}
         className={[
-          'h-7 rounded border px-2 text-xs flex items-center gap-1 transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
+          'h-7 rounded-sm border px-2 text-xs flex items-center gap-1 transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
           selected.length > 0
             ? 'border-[#2563eb]/70 bg-[#2563eb]/15 text-fg'
             : 'border-border bg-bg text-fg-muted hover:border-fg-subtle',
@@ -60,7 +60,7 @@ function MultiSelectDropdown({ label, options, selected, onChange }: {
               onChange={(e) => setQuery(e.target.value)}
               autoFocus
               placeholder={`Filter ${label.toLowerCase()}`}
-              className="w-full h-7 rounded border border-border bg-bg px-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-1 focus:ring-[#2563eb]/70"
+              className="w-full h-7 rounded-sm border border-border bg-bg px-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-hidden focus:ring-1 focus:ring-[#2563eb]/70"
             />
           </div>
           <div className="max-h-56 overflow-y-auto p-1">
@@ -73,13 +73,13 @@ function MultiSelectDropdown({ label, options, selected, onChange }: {
                   type="button"
                   onClick={() => toggle(option)}
                   className={[
-                    'w-full min-w-0 rounded px-2 py-1.5 text-left flex items-center gap-2 transition-colors text-xs',
+                    'w-full min-w-0 rounded-sm px-2 py-1.5 text-left flex items-center gap-2 transition-colors text-xs',
                     selected.includes(option) ? 'bg-[#2563eb]/18 text-fg' : 'hover:bg-white/[0.06] text-fg-muted',
                   ].join(' ')}
                 >
                   <span
                     className={[
-                      'shrink-0 h-3 w-3 rounded-sm border flex items-center justify-center',
+                      'shrink-0 h-3 w-3 rounded-xs border flex items-center justify-center',
                       selected.includes(option) ? 'border-[#2563eb] bg-[#2563eb]' : 'border-border',
                     ].join(' ')}
                   >
@@ -123,7 +123,7 @@ export function CommitFilterBar({ commits, filters, onSearchTextChange, onBranch
         value={filters.searchText}
         onChange={(e) => onSearchTextChange(e.target.value)}
         placeholder="Search subject, hash, author, refs…"
-        className="flex-1 h-7 rounded border border-border bg-bg px-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-1 focus:ring-[#2563eb]/70"
+        className="flex-1 h-7 rounded-sm border border-border bg-bg px-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-hidden focus:ring-1 focus:ring-[#2563eb]/70"
       />
       {/* relative + shared: each dropdown's popover anchors to this group's
           right edge (not its own button's), so Branch/Tag/Author all open

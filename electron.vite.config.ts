@@ -2,6 +2,7 @@ import { resolve } from 'path'
 import { readFileSync } from 'fs'
 import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 const { version } = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8')) as { version: string }
 
@@ -38,7 +39,7 @@ export default defineConfig({
       port: 55055,
       strictPort: true
     },
-    plugins: [react()],
+    plugins: [react(), tailwindcss()],
     // The running version, for the Update page's "You have vX" (VIDE-142).
     define: { __APP_VERSION__: JSON.stringify(version) },
     build: {

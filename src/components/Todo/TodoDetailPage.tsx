@@ -82,7 +82,7 @@ export function TodoDetailPage({ projectId, todoId }: { projectId: string; todoI
             {todo.archived && <span className="text-fg-subtle/50"> (Archived)</span>}
           </span>
           <span
-            className={`text-[0.65rem] px-1.5 py-0.5 rounded border leading-none ${todoAuthorMeta(todo.author).className}`}
+            className={`text-[0.65rem] px-1.5 py-0.5 rounded-sm border leading-none ${todoAuthorMeta(todo.author).className}`}
           >
             {todoAuthorMeta(todo.author).text}
           </span>
@@ -127,9 +127,9 @@ export function TodoDetailPage({ projectId, todoId }: { projectId: string; todoI
             <div className="flex flex-col gap-2">
               <h3 className="text-xs font-semibold text-fg-muted uppercase tracking-wider">Comments</h3>
               {todo.comments.map((comment) => (
-                <div key={comment.id} className="flex flex-col gap-1 rounded border border-border/60 p-2">
+                <div key={comment.id} className="flex flex-col gap-1 rounded-sm border border-border/60 p-2">
                   <span
-                    className={`self-start text-[0.6rem] px-1 py-0.5 rounded border leading-none ${todoAuthorMeta(comment.author).className}`}
+                    className={`self-start text-[0.6rem] px-1 py-0.5 rounded-sm border leading-none ${todoAuthorMeta(comment.author).className}`}
                   >
                     {todoAuthorMeta(comment.author).text}
                   </span>
@@ -157,14 +157,14 @@ export function TodoDetailPage({ projectId, todoId }: { projectId: string; todoI
                 type="button"
                 onClick={handleAddComment}
                 disabled={!commentBody.trim()}
-                className="self-end px-3 py-1.5 rounded text-sm bg-accent text-on-accent hover:bg-accent/90 disabled:opacity-40 disabled:pointer-events-none"
+                className="self-end px-3 py-1.5 rounded-sm text-sm bg-accent text-on-accent hover:bg-accent/90 disabled:opacity-40 disabled:pointer-events-none"
               >
                 Add Comment
               </button>
             </div>
           </div>
 
-          <div className="w-72 flex-shrink-0 flex flex-col gap-4">
+          <div className="w-72 shrink-0 flex flex-col gap-4">
             <label htmlFor="todo-status" className="flex flex-col gap-1 text-xs text-fg-muted">
               Status
               <Select
@@ -212,7 +212,7 @@ export function TodoDetailPage({ projectId, todoId }: { projectId: string; todoI
                 aria-pressed={todo.archived}
                 title={todo.archived ? 'Unarchive' : 'Archive'}
                 className={[
-                  'p-1 rounded transition-colors',
+                  'p-1 rounded-sm transition-colors',
                   todo.archived ? 'text-accent' : 'text-fg-muted hover:text-fg',
                 ].join(' ')}
               >

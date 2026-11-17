@@ -22,7 +22,7 @@ export function Switch({ label, checked, onChange, disabled }: {
     >
       <span
         className={[
-          'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow ring-1 ring-black/10 transition-transform',
+          'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm ring-1 ring-black/10 transition-transform',
           checked ? 'translate-x-4' : 'translate-x-0',
         ].join(' ')}
       />

@@ -12,7 +12,7 @@ const FITS = '#8fbf6a'
 const TOO_BIG = '#e0805c'
 const MANAGED_IDS = Object.keys(MODEL_CATALOG) as ManagedModelId[]
 
-const inputClass = 'w-full rounded-lg border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent/60 focus:outline-none'
+const inputClass = 'w-full rounded-lg border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent/60 focus:outline-hidden'
 const primaryButton = 'shrink-0 whitespace-nowrap rounded-lg bg-accent px-3.5 py-1.5 text-sm font-semibold text-on-accent transition-opacity hover:opacity-90 disabled:opacity-40'
 const secondaryButton = 'shrink-0 whitespace-nowrap rounded-lg border border-border px-3.5 py-1.5 text-sm text-fg transition-colors hover:border-fg-subtle disabled:opacity-40'
 
@@ -47,7 +47,7 @@ function ModelCard({ title, sub, recommended, selected, disabled, bar, onPick }:
       <span className="flex w-full items-center justify-between gap-1.5">
         <span className="text-[0.8125rem] font-semibold text-fg">{title}</span>
         {recommended && (
-          <span className="rounded bg-accent px-1.5 py-px text-[0.625rem] font-semibold text-on-accent">Recommended</span>
+          <span className="rounded-sm bg-accent px-1.5 py-px text-[0.625rem] font-semibold text-on-accent">Recommended</span>
         )}
       </span>
       <span className="mt-0.5 text-xs text-fg-muted">{sub}</span>

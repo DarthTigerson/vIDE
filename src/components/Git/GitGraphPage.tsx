@@ -172,7 +172,7 @@ function GraphRow({ layout, rowIndex, selected, graphRailWidth, graphLaneCount, 
           : undefined,
       }}
       className={[
-        'w-full grid items-center text-left cursor-pointer select-none group transition-colors border-l-2 focus:outline-none focus-visible:bg-white/[0.08] focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[#2563eb]/70',
+        'w-full grid items-center text-left cursor-pointer select-none group transition-colors border-l-2 focus:outline-hidden focus-visible:bg-white/[0.08] focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[#2563eb]/70',
         selected
           ? 'border-l-[#2563eb]'
           : 'border-l-transparent hover:bg-white/[0.04]',
@@ -188,7 +188,7 @@ function GraphRow({ layout, rowIndex, selected, graphRailWidth, graphLaneCount, 
               <span
                 key={ref}
                 className={[
-                  'max-w-36 truncate text-[0.5625rem] font-semibold px-1.5 py-0.5 rounded border leading-none',
+                  'max-w-36 truncate text-[0.5625rem] font-semibold px-1.5 py-0.5 rounded-sm border leading-none',
                   refTone(ref),
                 ].join(' ')}
               >
@@ -196,7 +196,7 @@ function GraphRow({ layout, rowIndex, selected, graphRailWidth, graphLaneCount, 
               </span>
             ))}
             {commit.refs.length > refs.length && (
-              <span className="text-[0.5625rem] px-1.5 py-0.5 rounded border border-border text-fg-muted leading-none">
+              <span className="text-[0.5625rem] px-1.5 py-0.5 rounded-sm border border-border text-fg-muted leading-none">
                 +{commit.refs.length - refs.length}
               </span>
             )}
@@ -270,7 +270,7 @@ function GraphRow({ layout, rowIndex, selected, graphRailWidth, graphLaneCount, 
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-xs text-fg truncate flex-1">{commit.subject}</span>
           {isMerge && (
-            <span className="shrink-0 text-[0.5625rem] leading-none px-1.5 py-1 rounded border border-[#fb923c]/70 bg-[#fb923c]/20 text-[var(--ref-orange-text)]">
+            <span className="shrink-0 text-[0.5625rem] leading-none px-1.5 py-1 rounded-sm border border-[#fb923c]/70 bg-[#fb923c]/20 text-[var(--ref-orange-text)]">
               merge
             </span>
           )}
@@ -309,7 +309,7 @@ function FilteredRow({ commit, refsColumnWidth, selected, onClick, onContextMenu
         minHeight: ROW_H,
       }}
       className={[
-        'w-full grid items-center text-left group transition-colors border-l-2 focus:outline-none focus-visible:bg-white/[0.08] focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[#2563eb]/70',
+        'w-full grid items-center text-left group transition-colors border-l-2 focus:outline-hidden focus-visible:bg-white/[0.08] focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[#2563eb]/70',
         selected ? 'border-l-[#2563eb]' : 'border-l-transparent hover:bg-white/[0.04]',
       ].join(' ')}
       onClick={onClick}
@@ -322,13 +322,13 @@ function FilteredRow({ commit, refsColumnWidth, selected, onClick, onContextMenu
             {refs.map((ref) => (
               <span
                 key={ref}
-                className={`max-w-36 truncate text-[0.5625rem] font-semibold px-1.5 py-0.5 rounded border leading-none ${refTone(ref)}`}
+                className={`max-w-36 truncate text-[0.5625rem] font-semibold px-1.5 py-0.5 rounded-sm border leading-none ${refTone(ref)}`}
               >
                 {normalizeRef(ref)}
               </span>
             ))}
             {commit.refs.length > refs.length && (
-              <span className="text-[0.5625rem] px-1.5 py-0.5 rounded border border-border text-fg-muted leading-none">
+              <span className="text-[0.5625rem] px-1.5 py-0.5 rounded-sm border border-border text-fg-muted leading-none">
                 +{commit.refs.length - refs.length}
               </span>
             )}

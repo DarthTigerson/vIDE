@@ -101,7 +101,7 @@ export function TodoTrashPage() {
                           {count}
                           <span
                             role="tooltip"
-                            className="pointer-events-none absolute left-1/2 top-full z-50 mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-black/90 px-2 py-1 font-sans text-xs text-gray-200 opacity-0 transition-opacity duration-100 delay-150 group-hover:opacity-100"
+                            className="pointer-events-none absolute left-1/2 top-full z-50 mt-1 -translate-x-1/2 whitespace-nowrap rounded-sm bg-black/90 px-2 py-1 font-sans text-xs text-gray-200 opacity-0 transition-opacity duration-100 delay-150 group-hover:opacity-100"
                           >
                             {COUNT_TITLES[i]}
                           </span>

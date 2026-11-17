@@ -13,7 +13,7 @@ function MenuButton({ label, hint, onClick }: { label: string; hint?: string; on
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center justify-between gap-4 rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+      className="flex w-full items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
     >
       <span>{label}</span>
       {hint && <ShortcutKeys shortcut={hint} />}
@@ -73,7 +73,7 @@ export function EditorContextMenu({ x, y, editor, onClose }: Props) {
   return createPortal(
     <div
       ref={menuRef}
-      className="fixed z-[200] w-56 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50"
+      className="fixed z-[200] w-56 rounded-sm border border-border bg-popover p-1 shadow-2xl shadow-black/50"
       style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
     >

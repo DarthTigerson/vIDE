@@ -46,7 +46,7 @@ export function ImageViewer({ path }: { path: string }) {
       ) : dataUrl ? (
         <>
           <div
-            className="flex items-center justify-center rounded border border-border/60 p-2 max-w-full max-h-full"
+            className="flex items-center justify-center rounded-sm border border-border/60 p-2 max-w-full max-h-full"
             style={CHECKERBOARD_BACKGROUND}
           >
             <img src={dataUrl} alt={name} className="max-w-full max-h-[70vh] object-contain" />

@@ -61,7 +61,7 @@ export function TimePicker({ id, hour, minute, onChange, hour12 = uses12HourCloc
       aria-selected={selected}
       onClick={onPick}
       className={[
-        'h-[26px] shrink-0 rounded text-sm tabular-nums transition-colors',
+        'h-[26px] shrink-0 rounded-sm text-sm tabular-nums transition-colors',
         selected ? 'bg-accent text-on-accent font-semibold' : 'text-fg-muted hover:bg-white/5 hover:text-fg',
       ].join(' ')}
     >
@@ -95,7 +95,7 @@ export function TimePicker({ id, hour, minute, onChange, hour12 = uses12HourCloc
         <div
           data-testid="time-picker-panel"
           className={[
-            'absolute right-0 top-full mt-1 z-50 rounded border border-border bg-popover p-1.5 shadow-2xl shadow-black/50',
+            'absolute right-0 top-full mt-1 z-50 rounded-sm border border-border bg-popover p-1.5 shadow-2xl shadow-black/50',
             hour12 ? 'w-[12rem]' : 'w-[8.5rem]',
           ].join(' ')}
         >

@@ -72,14 +72,14 @@ export function SetupWizard() {
             type="button"
             onClick={() => useOnboardingStore.getState().back()}
             disabled={isFirst}
-            className="h-8 px-3 rounded border border-border text-sm text-fg hover:border-fg-subtle transition-colors disabled:opacity-0 disabled:pointer-events-none"
+            className="h-8 px-3 rounded-sm border border-border text-sm text-fg hover:border-fg-subtle transition-colors disabled:opacity-0 disabled:pointer-events-none"
           >
             Back
           </button>
           <button
             type="button"
             onClick={() => useOnboardingStore.getState().next()}
-            className="h-8 px-4 rounded bg-accent text-white text-sm font-medium hover:opacity-90 transition-opacity"
+            className="h-8 px-4 rounded-sm bg-accent text-white text-sm font-medium hover:opacity-90 transition-opacity"
           >
             {isLast ? 'Done' : 'Next'}
           </button>

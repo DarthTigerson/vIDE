@@ -242,7 +242,7 @@ function Side({ side, ids, last, drag }: { side: number; ids: string[]; last: bo
           onDrop={onDrop}
         >
           {target?.kind === 'body' && (
-            <div className={`absolute rounded border-2 border-accent bg-accent/20 transition-all ${BODY_HIGHLIGHT[target.zone]}`} />
+            <div className={`absolute rounded-sm border-2 border-accent bg-accent/20 transition-all ${BODY_HIGHLIGHT[target.zone]}`} />
           )}
         </div>
       </div>

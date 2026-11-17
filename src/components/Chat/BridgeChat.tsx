@@ -70,7 +70,7 @@ function Step({ tone, node, pulse, children }: { tone: Tone; node: ReactNode; pu
 
 function FileChip({ children }: { children: ReactNode }) {
   return (
-    <span className="min-w-0 truncate rounded border border-border bg-panel px-1.5 py-px font-mono text-[0.6875rem] text-fg">
+    <span className="min-w-0 truncate rounded-sm border border-border bg-panel px-1.5 py-px font-mono text-[0.6875rem] text-fg">
       {children}
     </span>
   )
@@ -322,7 +322,7 @@ function CopyButton({ text }: { text: string }) {
     <button
       type="button"
       onClick={copy}
-      className="flex items-center gap-1 rounded px-1 py-0.5 text-xs text-fg-muted opacity-50 hover:opacity-100 hover:text-fg transition-opacity"
+      className="flex items-center gap-1 rounded-sm px-1 py-0.5 text-xs text-fg-muted opacity-50 hover:opacity-100 hover:text-fg transition-opacity"
       title="Copy"
     >
       <CopyIcon copied={copied} />
@@ -486,7 +486,7 @@ function EffortChip({ value, onChange }: { value: ReasoningEffort; onChange: (v:
                 if (o.value !== value) onChange(o.value)
                 setOpen(false)
               }}
-              className={`flex w-full flex-col rounded px-2 py-1.5 text-left transition-colors ${o.value === value ? 'bg-accent/10' : 'hover:bg-white/5'}`}
+              className={`flex w-full flex-col rounded-sm px-2 py-1.5 text-left transition-colors ${o.value === value ? 'bg-accent/10' : 'hover:bg-white/5'}`}
             >
               <span className="text-xs font-medium text-fg">{o.label}</span>
               <span className="text-[0.6875rem] text-fg-muted">{o.hint}</span>
@@ -778,7 +778,7 @@ export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSe
                   type="button"
                   disabled={streaming}
                   onClick={() => regenerate(sessionId, cwd, item.index, connectionOverride)}
-                  className="flex items-center gap-1 rounded px-1 py-0.5 text-xs text-fg-muted opacity-50 hover:opacity-100 hover:text-fg disabled:pointer-events-none transition-opacity"
+                  className="flex items-center gap-1 rounded-sm px-1 py-0.5 text-xs text-fg-muted opacity-50 hover:opacity-100 hover:text-fg disabled:pointer-events-none transition-opacity"
                   title="Regenerate response"
                 >
                   <RegenerateIcon />
@@ -806,7 +806,7 @@ export function BridgeChat({ sessionId, cwd, label, connectionOverride, beforeSe
             placeholder={`Message ${label}…`}
             rows={2}
             disabled={starting}
-            className="block w-full resize-none bg-transparent px-3 pt-2.5 pb-1 text-sm text-fg outline-none disabled:opacity-50"
+            className="block w-full resize-none bg-transparent px-3 pt-2.5 pb-1 text-sm text-fg outline-hidden disabled:opacity-50"
           />
           <div className="flex items-center gap-2 px-2 pb-2 pt-1">
             <div role="group" aria-label="Tool approval" className="flex rounded-md border border-border bg-bg p-0.5">

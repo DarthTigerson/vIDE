@@ -48,7 +48,7 @@ function NumberField({ id, label, hint, value, onChange, step = 1 }: {
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="h-8 px-2 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
+        className="h-8 px-2 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-hidden focus:border-accent/60"
       />
     </div>
   )
@@ -90,7 +90,7 @@ function SelectField<T extends string | number>({ id, label, value, options, onC
           id={id}
           value={value}
           onChange={(e) => onChange(toOption(e.target.value))}
-          className="appearance-none w-full h-8 pl-2 pr-7 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
+          className="appearance-none w-full h-8 pl-2 pr-7 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-hidden focus:border-accent/60"
         >
           {options.map((opt) => (
             <option key={String(opt)} value={String(opt)}>{opt}</option>
@@ -125,13 +125,13 @@ function PathField({ id, label, value, onChange, placeholder, onBrowse, onBlur }
           onBlur={onBlur}
           placeholder={placeholder}
           spellCheck={false}
-          className="flex-1 min-w-0 h-8 px-2 text-sm font-mono text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
+          className="flex-1 min-w-0 h-8 px-2 text-sm font-mono text-fg bg-bg border border-border rounded-lg focus:outline-hidden focus:border-accent/60"
         />
         {onBrowse && (
           <button
             type="button"
             onClick={onBrowse}
-            className="shrink-0 h-8 px-3 rounded border border-border text-sm text-fg hover:border-fg-subtle transition-colors"
+            className="shrink-0 h-8 px-3 rounded-sm border border-border text-sm text-fg hover:border-fg-subtle transition-colors"
           >
             Browse
           </button>
@@ -164,7 +164,7 @@ function ToggleField({ label, description, checked, onChange }: {
       >
         <span
           className={[
-            'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow ring-1 ring-black/10 transition-transform',
+            'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm ring-1 ring-black/10 transition-transform',
             checked ? 'translate-x-4' : 'translate-x-0',
           ].join(' ')}
         />
@@ -280,7 +280,7 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
               onChange={(e) => patch({ displayName: e.target.value })}
               placeholder="Qwen3.8 27B"
               spellCheck={false}
-              className="h-8 px-2 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
+              className="h-8 px-2 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-hidden focus:border-accent/60"
             />
           </div>
           <div className="flex flex-col gap-1.5 w-40">
@@ -292,7 +292,7 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
               onChange={(e) => patch({ alias: e.target.value })}
               placeholder="Qwen3.8 27B"
               spellCheck={false}
-              className="h-8 px-2 text-sm font-mono text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
+              className="h-8 px-2 text-sm font-mono text-fg bg-bg border border-border rounded-lg focus:outline-hidden focus:border-accent/60"
             />
           </div>
           <ToggleField
@@ -360,7 +360,7 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
               value={form.host}
               onChange={(e) => patch({ host: e.target.value })}
               spellCheck={false}
-              className="h-8 px-2 text-sm font-mono text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
+              className="h-8 px-2 text-sm font-mono text-fg bg-bg border border-border rounded-lg focus:outline-hidden focus:border-accent/60"
             />
           </div>
           <NumberField id="llama-port" label="Port" value={form.port} onChange={(v) => patch({ port: v })} />
@@ -372,7 +372,7 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
               value={form.apiKey}
               onChange={(e) => patch({ apiKey: e.target.value })}
               spellCheck={false}
-              className="h-8 px-2 text-sm font-mono text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
+              className="h-8 px-2 text-sm font-mono text-fg bg-bg border border-border rounded-lg focus:outline-hidden focus:border-accent/60"
             />
           </div>
           <ToggleField
@@ -438,7 +438,7 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
           <button
             type="button"
             onClick={() => stopModel(form.id)}
-            className="h-8 px-3 rounded border border-red-500/60 text-sm text-red-400 hover:border-red-400 transition-colors"
+            className="h-8 px-3 rounded-sm border border-red-500/60 text-sm text-red-400 hover:border-red-400 transition-colors"
           >
             Stop Server
           </button>
@@ -448,7 +448,7 @@ export function LlamaCreateModelPage({ modelId }: { modelId: string | null }) {
           onClick={handleLaunch}
           disabled={!canLaunch || running}
           title={canLaunch ? `Launch llama-server on ${form.host}:${form.port}` : 'Set a model path first'}
-          className="h-8 px-4 rounded bg-accent text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40 disabled:pointer-events-none"
+          className="h-8 px-4 rounded-sm bg-accent text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40 disabled:pointer-events-none"
         >
           {running ? 'Running…' : 'Launch'}
         </button>

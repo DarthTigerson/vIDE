@@ -42,11 +42,11 @@ export function TodoTagInput({
       <label htmlFor="todo-tags-input" className="text-xs text-fg-muted">
         Tags
       </label>
-      <div className="flex flex-wrap items-center gap-1.5 bg-panel border border-border rounded px-2 py-1.5 focus-within:border-accent">
+      <div className="flex flex-wrap items-center gap-1.5 bg-panel border border-border rounded-sm px-2 py-1.5 focus-within:border-accent">
         {tags.map((tag) => (
           <span
             key={tag}
-            className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-border text-fg-subtle"
+            className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-sm border border-border text-fg-subtle"
           >
             {tag}
             <button
@@ -65,7 +65,7 @@ export function TodoTagInput({
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={tags.length === 0 ? 'Add a tag…' : ''}
-          className="flex-1 min-w-[80px] bg-transparent text-sm text-fg focus:outline-none"
+          className="flex-1 min-w-[80px] bg-transparent text-sm text-fg focus:outline-hidden"
         />
       </div>
       {matches.length > 0 && (
@@ -75,7 +75,7 @@ export function TodoTagInput({
               key={match}
               type="button"
               onClick={() => addTag(match)}
-              className="text-xs px-1.5 py-0.5 rounded border border-border/60 text-fg-subtle hover:border-accent hover:text-fg"
+              className="text-xs px-1.5 py-0.5 rounded-sm border border-border/60 text-fg-subtle hover:border-accent hover:text-fg"
             >
               {match}
             </button>

@@ -27,12 +27,12 @@ export function AppMonogram({ name, size = 'md', icon }: { name: string; size?: 
 
 // "From file" marker for apps installed from a package that is not a Store release.
 export function FromFileBadge() {
-  return <span className="text-[0.625rem] font-bold px-1.5 rounded bg-border text-fg-muted">From file</span>
+  return <span className="text-[0.625rem] font-bold px-1.5 rounded-sm bg-border text-fg-muted">From file</span>
 }
 
 // "Disabled" marker for an installed app the user switched off.
 export function DisabledBadge() {
-  return <span className="text-[0.625rem] font-bold px-1.5 rounded bg-border text-fg-muted">Disabled</span>
+  return <span className="text-[0.625rem] font-bold px-1.5 rounded-sm bg-border text-fg-muted">Disabled</span>
 }
 
 // 15234 -> "14.9 KB".

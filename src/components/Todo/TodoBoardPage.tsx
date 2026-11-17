@@ -187,14 +187,14 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Press / to search"
               aria-label="Search todos"
-              className="w-48 h-7 rounded border border-border bg-bg pl-2 pr-6 text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-1 focus:ring-accent/70"
+              className="w-48 h-7 rounded-sm border border-border bg-bg pl-2 pr-6 text-xs text-fg placeholder:text-fg-subtle focus:outline-hidden focus:ring-1 focus:ring-accent/70"
             />
             {searchQuery && (
               <button
                 type="button"
                 aria-label="Clear search"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded text-fg-subtle hover:text-fg hover:bg-white/10"
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded-sm text-fg-subtle hover:text-fg hover:bg-white/10"
               >
                 ×
               </button>
@@ -202,7 +202,7 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
           </div>
           <div className="relative flex bg-white/5 rounded-md p-0.5 shrink-0">
             <div
-              className={`absolute inset-y-0.5 w-7 rounded bg-white/10 transition-transform ${view === 'archive' ? 'translate-x-7' : 'translate-x-0'}`}
+              className={`absolute inset-y-0.5 w-7 rounded-sm bg-white/10 transition-transform ${view === 'archive' ? 'translate-x-7' : 'translate-x-0'}`}
             />
             <button
               type="button"
@@ -210,7 +210,7 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
               aria-label="Board"
               title="Board"
               onClick={() => setView(projectId, 'board')}
-              className={`relative w-7 h-6 flex items-center justify-center rounded ${view === 'board' ? 'text-fg' : 'text-fg-muted'}`}
+              className={`relative w-7 h-6 flex items-center justify-center rounded-sm ${view === 'board' ? 'text-fg' : 'text-fg-muted'}`}
             >
               <BoardIcon />
             </button>
@@ -220,7 +220,7 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
               aria-label="Archive"
               title="Archive"
               onClick={() => setView(projectId, 'archive')}
-              className={`relative w-7 h-6 flex items-center justify-center rounded ${view === 'archive' ? 'text-fg' : 'text-fg-muted'}`}
+              className={`relative w-7 h-6 flex items-center justify-center rounded-sm ${view === 'archive' ? 'text-fg' : 'text-fg-muted'}`}
             >
               <ArchiveIcon />
             </button>
@@ -267,7 +267,7 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
                   />
                 ))}
                 {addingStatus === col.status ? (
-                  <div className="rounded border border-accent/60 bg-sidebar p-2">
+                  <div className="rounded-sm border border-accent/60 bg-sidebar p-2">
                     <textarea
                       ref={(el) => {
                         newTitleInputRef.current = el
@@ -293,7 +293,7 @@ export function TodoBoardPage({ projectId }: { projectId: string }) {
                       }}
                       onBlur={handleComposerBlur}
                       placeholder="What needs to be done?"
-                      className="w-full bg-transparent text-sm leading-5 text-fg placeholder:text-fg-subtle resize-none outline-none max-h-10 overflow-y-auto"
+                      className="w-full bg-transparent text-sm leading-5 text-fg placeholder:text-fg-subtle resize-none outline-hidden max-h-10 overflow-y-auto"
                     />
                   </div>
                 ) : (

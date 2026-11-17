@@ -28,7 +28,7 @@ export function ShortcutsOverlay() {
                     {item.keys.map((key, i) => (
                       <kbd
                         key={i}
-                        className="min-w-[22px] px-1.5 py-0.5 text-xs text-center font-medium text-fg bg-panel border border-border rounded"
+                        className="min-w-[22px] px-1.5 py-0.5 text-xs text-center font-medium text-fg bg-panel border border-border rounded-sm"
                       >
                         {key}
                       </kbd>

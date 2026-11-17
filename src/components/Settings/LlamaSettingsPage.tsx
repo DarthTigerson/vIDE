@@ -49,7 +49,7 @@ export function LlamaSettingsPage() {
                 step={1}
                 value={toolCallLimit}
                 onChange={(e) => setToolCallLimit(Math.max(0, Number(e.target.value)))}
-                className="w-20 rounded-lg border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent/60 focus:outline-none"
+                className="w-20 rounded-lg border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent/60 focus:outline-hidden"
               />
             </SettingRow>
             <SettingRow label="Agent mode on launch" description="Start in agent mode when switching to a Llama model.">

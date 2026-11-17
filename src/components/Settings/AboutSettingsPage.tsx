@@ -109,7 +109,7 @@ export function AboutSettingsPage() {
                 type="button"
                 onClick={() => void checkForUpdates()}
                 disabled={checking}
-                className="flex h-8 shrink-0 items-center gap-2 rounded border border-border px-3 text-sm text-fg transition-colors hover:border-fg-subtle disabled:cursor-default disabled:text-fg-muted disabled:hover:border-border"
+                className="flex h-8 shrink-0 items-center gap-2 rounded-sm border border-border px-3 text-sm text-fg transition-colors hover:border-fg-subtle disabled:cursor-default disabled:text-fg-muted disabled:hover:border-border"
               >
                 {checking ? <span className="update-check-spin h-3 w-3 rounded-full border-2 border-fg-subtle border-t-accent" /> : <RefreshIcon />}
                 {checking ? 'Checking…' : 'Check for updates'}
@@ -201,7 +201,7 @@ function InlineMarkdown({ children }: { children: string }) {
     <ReactMarkdown
       components={{
         p: ({ children: inner }) => <>{inner}</>,
-        code: ({ children: inner }) => <code className="rounded border border-border bg-bg px-1 text-[0.85em] text-fg">{inner}</code>,
+        code: ({ children: inner }) => <code className="rounded-sm border border-border bg-bg px-1 text-[0.85em] text-fg">{inner}</code>,
         strong: ({ children: inner }) => <strong className="font-semibold text-fg">{inner}</strong>,
       }}
     >
@@ -218,7 +218,7 @@ function ReleaseNotesView({ body }: { body: string }) {
   const notes = parseReleaseNotes(body)
   if (notes.features.length + notes.changes.length + notes.fixes.length === 0) {
     return (
-      <div className={[COMPACT_PROSE_CLASSES, '!px-0 !py-0'].join(' ')}>
+      <div className={[COMPACT_PROSE_CLASSES, 'px-0! py-0!'].join(' ')}>
         <ReactMarkdown>{body}</ReactMarkdown>
       </div>
     )

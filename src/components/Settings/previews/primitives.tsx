@@ -66,7 +66,7 @@ export function MiniTabs({ tabs }: { tabs: { label: string; active?: boolean; do
           key={t.label}
           data-active={t.active ? 'true' : undefined}
           className={[
-            'rounded-t border border-b-0 px-2 py-0.5 text-[10.5px]',
+            'rounded-t-sm border border-b-0 px-2 py-0.5 text-[10.5px]',
             t.active ? 'border-border bg-panel text-fg' : 'border-transparent text-fg-muted',
           ].join(' ')}
         >
@@ -90,14 +90,14 @@ export function MiniPanes({ panes }: { panes: MiniPane[] }) {
             key={i}
             data-pane={pane.id}
             style={{ flexGrow: pane.grow }}
-            className={['flex min-w-0 basis-0 flex-col overflow-hidden rounded border', hasNew ? 'border-accent' : 'border-border'].join(' ')}
+            className={['flex min-w-0 basis-0 flex-col overflow-hidden rounded-sm border', hasNew ? 'border-accent' : 'border-border'].join(' ')}
           >
             <div className="flex gap-0.5 overflow-hidden border-b border-border bg-sidebar px-1 pt-1">
               {pane.tabs.map((t) => (
                 <span
                   key={t.label}
                   data-new={t.isNew ? 'true' : undefined}
-                  className={['truncate rounded-t px-1.5 text-[10px]', t.isNew ? 'bg-accent/20 text-fg' : 'text-fg-muted'].join(' ')}
+                  className={['truncate rounded-t-sm px-1.5 text-[10px]', t.isNew ? 'bg-accent/20 text-fg' : 'text-fg-muted'].join(' ')}
                 >
                   {t.label}
                 </span>

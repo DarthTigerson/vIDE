@@ -131,7 +131,7 @@ export function GeneralSettingsPage() {
               type="button"
               disabled={!repoUrl.trim() || !token.trim() || status === 'connecting'}
               onClick={connect}
-              className="h-8 rounded border border-border px-3 text-sm text-fg transition-colors hover:border-fg-subtle disabled:opacity-40"
+              className="h-8 rounded-sm border border-border px-3 text-sm text-fg transition-colors hover:border-fg-subtle disabled:opacity-40"
             >
               {status === 'connecting' ? 'Connecting…' : 'Connect'}
             </button>
@@ -139,7 +139,7 @@ export function GeneralSettingsPage() {
               type="button"
               disabled={status !== 'connected' && status !== 'error'}
               onClick={push}
-              className="h-8 rounded border border-border px-3 text-sm text-fg transition-colors hover:border-fg-subtle disabled:opacity-40"
+              className="h-8 rounded-sm border border-border px-3 text-sm text-fg transition-colors hover:border-fg-subtle disabled:opacity-40"
             >
               {status === 'pushing' ? 'Pushing…' : 'Push Now'}
             </button>
@@ -175,7 +175,7 @@ export function GeneralSettingsPage() {
               setReplaying(true)
               useOnboardingStore.getState().replay().finally(() => setReplaying(false))
             }}
-            className="h-8 rounded border border-border px-3 text-sm text-fg transition-colors hover:border-fg-subtle disabled:opacity-50"
+            className="h-8 rounded-sm border border-border px-3 text-sm text-fg transition-colors hover:border-fg-subtle disabled:opacity-50"
           >
             Run Setup Wizard
           </button>

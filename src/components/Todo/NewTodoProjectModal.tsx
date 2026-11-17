@@ -3,7 +3,7 @@ import { Modal } from '@/components/ui/Modal'
 import { useTodoStore } from '@/stores/todoStore'
 
 const inputClass =
-  'bg-panel border border-border rounded px-2 py-1.5 text-sm text-fg focus:outline-none focus:border-accent'
+  'bg-panel border border-border rounded-sm px-2 py-1.5 text-sm text-fg focus:outline-hidden focus:border-accent'
 
 export function NewTodoProjectModal({ onClose }: { onClose: () => void }) {
   const createProject = useTodoStore((s) => s.createProject)
@@ -64,7 +64,7 @@ export function NewTodoProjectModal({ onClose }: { onClose: () => void }) {
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1.5 rounded text-sm text-fg-muted hover:text-fg hover:bg-white/5"
+            className="px-3 py-1.5 rounded-sm text-sm text-fg-muted hover:text-fg hover:bg-white/5"
           >
             Cancel
           </button>
@@ -72,7 +72,7 @@ export function NewTodoProjectModal({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={handleCreate}
             disabled={!name.trim() || !key.trim() || submitting}
-            className="px-3 py-1.5 rounded text-sm bg-accent text-on-accent hover:bg-accent/90 disabled:opacity-40 disabled:pointer-events-none"
+            className="px-3 py-1.5 rounded-sm text-sm bg-accent text-on-accent hover:bg-accent/90 disabled:opacity-40 disabled:pointer-events-none"
           >
             Create
           </button>

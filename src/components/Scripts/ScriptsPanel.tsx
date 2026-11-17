@@ -44,7 +44,7 @@ function RowMenu({ x, y, onClose, children }: { x: number; y: number; onClose: (
   return createPortal(
     <div
       ref={menuRef}
-      className="fixed z-[200] w-40 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50"
+      className="fixed z-[200] w-40 rounded-sm border border-border bg-popover p-1 shadow-2xl shadow-black/50"
       style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
     >
@@ -107,7 +107,7 @@ export function ScriptsPanel() {
             if (e.key === 'Enter') commitRename(script, e.currentTarget.value)
             if (e.key === 'Escape') setRenamingId(null)
           }}
-          className="m-1 ml-2 flex-1 min-w-0 h-6 rounded border border-border bg-bg px-1.5 text-sm text-fg focus:outline-none focus:ring-1 focus:ring-accent/70"
+          className="m-1 ml-2 flex-1 min-w-0 h-6 rounded-sm border border-border bg-bg px-1.5 text-sm text-fg focus:outline-hidden focus:ring-1 focus:ring-accent/70"
         />
       ) : (
         <button
@@ -128,7 +128,7 @@ export function ScriptsPanel() {
         aria-label={`Run ${scriptDisplayTitle(script)}`}
         title="Run in a new terminal"
         onClick={() => runScriptInNewTerminal(script)}
-        className="w-6 h-6 shrink-0 flex items-center justify-center rounded text-fg-subtle group-hover:text-fg-muted hover:!text-fg hover:bg-white/10"
+        className="w-6 h-6 shrink-0 flex items-center justify-center rounded-sm text-fg-subtle group-hover:text-fg-muted hover:text-fg! hover:bg-white/10"
       >
         <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z" /></svg>
       </button>
@@ -144,7 +144,7 @@ export function ScriptsPanel() {
           aria-label="New script"
           title="New script"
           onClick={() => setCreating(true)}
-          className="w-5 h-5 flex items-center justify-center rounded text-fg-subtle hover:text-fg hover:bg-white/10"
+          className="w-5 h-5 flex items-center justify-center rounded-sm text-fg-subtle hover:text-fg hover:bg-white/10"
         >
           +
         </button>
@@ -155,7 +155,7 @@ export function ScriptsPanel() {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search scripts"
           aria-label="Search scripts"
-          className="w-full h-7 rounded border border-border bg-bg px-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-1 focus:ring-accent/70"
+          className="w-full h-7 rounded-sm border border-border bg-bg px-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-hidden focus:ring-1 focus:ring-accent/70"
         />
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto py-1">

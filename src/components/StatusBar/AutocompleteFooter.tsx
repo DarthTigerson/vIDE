@@ -123,7 +123,7 @@ export function AutocompleteFooter() {
           onClick={(e) => e.stopPropagation()}
           className={[
             'absolute bottom-full -right-3 z-50 mb-[3px] flex w-72 flex-col gap-2.5 p-3 text-xs',
-            'rounded-t border border-b-0 border-border bg-popover',
+            'rounded-t-sm border border-b-0 border-border bg-popover',
             footerPopupShadow,
           ].join(' ')}
         >

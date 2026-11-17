@@ -75,8 +75,8 @@ export function UpdatePage() {
       <div className={['m-auto grid w-full max-w-[66rem] gap-14 px-10 py-12', news ? 'grid-cols-[minmax(0,1fr)_24rem]' : ''].join(' ')}>
         <div className="flex flex-col items-center gap-7 pt-2 text-center">
           <div data-testid="update-track" className="relative h-[11rem] w-full max-w-[30rem]">
-            <div className="absolute inset-x-7 top-[5.5rem] h-1 rounded bg-border">
-              <div className="update-track-fill absolute inset-y-0 left-0 rounded bg-accent" style={{ width: `${fill * 100}%` }} />
+            <div className="absolute inset-x-7 top-[5.5rem] h-1 rounded-sm bg-border">
+              <div className="update-track-fill absolute inset-y-0 left-0 rounded-sm bg-accent" style={{ width: `${fill * 100}%` }} />
             </div>
             {lane !== null && (
               <div className="update-track-lane absolute top-[5.375rem] h-2 overflow-hidden" style={{ left: `calc(1.75rem + (100% - 3.5rem) * ${lane * 0.5})`, width: 'calc((100% - 3.5rem) * 0.5)' }}>
@@ -157,7 +157,7 @@ export function UpdatePage() {
           <aside data-testid="update-whats-new" className="self-center border-l border-border pl-8 text-left">
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-fg-muted">What's new in v{next}</h2>
             {showFullNotes ? (
-              <div className={[COMPACT_PROSE_CLASSES, '!px-0 !py-0'].join(' ')}>
+              <div className={[COMPACT_PROSE_CLASSES, 'px-0! py-0!'].join(' ')}>
                 <ReactMarkdown>{changelog}</ReactMarkdown>
               </div>
             ) : (

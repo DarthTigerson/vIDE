@@ -49,7 +49,7 @@ export function MenuButton({ children, disabled, onClick }: { children: ReactNod
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="w-full rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
+      className="w-full rounded-sm px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
     >
       {children}
     </button>
@@ -76,13 +76,13 @@ function SubMenuButton({ label, disabled, items }: {
         type="button"
         aria-label={label}
         disabled={disabled}
-        className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
+        className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
       >
         {label}
         <span className="text-fg-subtle">▸</span>
       </button>
       {open && !disabled && (
-        <SubmenuPanel className="w-36 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50">
+        <SubmenuPanel className="w-36 rounded-sm border border-border bg-popover p-1 shadow-2xl shadow-black/50">
           {items.map((item) => (
             <MenuButton key={item.id} onClick={item.onSelect}>
               {item.label}
@@ -159,7 +159,7 @@ export function TabContextMenu({ x, y, paneId, path, onClose, onRequestClose }: 
   return createPortal(
     <div
       ref={menuRef}
-      className="fixed z-[200] w-48 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50"
+      className="fixed z-[200] w-48 rounded-sm border border-border bg-popover p-1 shadow-2xl shadow-black/50"
       style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
     >

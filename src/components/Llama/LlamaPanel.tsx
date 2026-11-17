@@ -97,7 +97,7 @@ function ContextMenuList({ x, y, actions, onClose }: {
   return createPortal(
     <div
       ref={menuRef}
-      className="fixed z-[200] min-w-[130px] rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50 flex flex-col gap-0.5"
+      className="fixed z-[200] min-w-[130px] rounded-sm border border-border bg-popover p-1 shadow-2xl shadow-black/50 flex flex-col gap-0.5"
       style={{ left: x, top: y }}
     >
       {actions.map((action) =>
@@ -110,7 +110,7 @@ function ContextMenuList({ x, y, actions, onClose }: {
               disabled={action.disabled}
               onClick={() => { onClose(); action.onSelect() }}
               className={[
-                'flex items-center gap-2 px-2 py-1.5 rounded text-xs text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
+                'flex items-center gap-2 px-2 py-1.5 rounded-sm text-xs text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
                 action.danger ? 'text-red-400 hover:bg-red-500/10' : 'text-fg hover:bg-white/5',
               ].join(' ')}
             >

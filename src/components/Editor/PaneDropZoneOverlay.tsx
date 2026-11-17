@@ -118,7 +118,7 @@ export function PaneDropZoneOverlay({ paneId, centerOnly = false }: { paneId: st
       onDrop={handleDrop}
     >
       {zone && (
-        <div className={`absolute rounded border-2 border-accent bg-accent/20 transition-all ${HIGHLIGHT_CLASS_FOR_ZONE[zone]}`} />
+        <div className={`absolute rounded-sm border-2 border-accent bg-accent/20 transition-all ${HIGHLIGHT_CLASS_FOR_ZONE[zone]}`} />
       )}
     </div>
   )

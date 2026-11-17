@@ -189,7 +189,7 @@ export function CommitDetailsPanel({ cwd, commit, onClose }: {
           <button
             type="button"
             onClick={onClose}
-            className="text-fg-subtle hover:text-fg transition-colors text-xs leading-none w-6 h-6 flex items-center justify-center rounded hover:bg-white/10"
+            className="text-fg-subtle hover:text-fg transition-colors text-xs leading-none w-6 h-6 flex items-center justify-center rounded-sm hover:bg-white/10"
             aria-label="Close commit details"
           >
             ✕
@@ -206,14 +206,14 @@ export function CommitDetailsPanel({ cwd, commit, onClose }: {
               <CopyButton value={commit.subject} label="message" />
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2 text-[0.625rem]">
-              <div className="border border-border rounded px-2 py-1.5">
+              <div className="border border-border rounded-sm px-2 py-1.5">
                 <div className="flex items-center justify-between gap-1">
                   <span className="text-fg-subtle uppercase tracking-wider">Hash</span>
                   <CopyButton value={commit.hash} label="hash" />
                 </div>
                 <div className="font-mono text-fg mt-1 truncate">{commit.hash.slice(0, 12)}</div>
               </div>
-              <div className="border border-border rounded px-2 py-1.5">
+              <div className="border border-border rounded-sm px-2 py-1.5">
                 <div className="text-fg-subtle uppercase tracking-wider">Parents</div>
                 <div className="font-mono text-fg mt-1">{commit.parents.length || 'root'}</div>
               </div>
@@ -251,7 +251,7 @@ export function CommitDetailsPanel({ cwd, commit, onClose }: {
                   <span
                     key={ref}
                     onContextMenu={(e) => handleRefContextMenu(e, ref)}
-                    className={`max-w-full truncate text-[0.5625rem] font-semibold px-1.5 py-0.5 rounded border leading-none ${refTone(ref)}`}
+                    className={`max-w-full truncate text-[0.5625rem] font-semibold px-1.5 py-0.5 rounded-sm border leading-none ${refTone(ref)}`}
                   >
                     {normalizeRef(ref)}
                   </span>
@@ -276,7 +276,7 @@ export function CommitDetailsPanel({ cwd, commit, onClose }: {
                     type="button"
                     onClick={() => openFileDiff(f)}
                     onContextMenu={(e) => handleFileContextMenu(e, f)}
-                    className="w-full flex items-center gap-2 py-0.5 text-left rounded hover:bg-white/5 transition-colors"
+                    className="w-full flex items-center gap-2 py-0.5 text-left rounded-sm hover:bg-white/5 transition-colors"
                   >
                     <span className="text-[0.6875rem] font-mono text-fg truncate opacity-80">{f}</span>
                   </button>

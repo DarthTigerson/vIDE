@@ -103,7 +103,7 @@ function InlineNameInput({ prompt, depth, setPromptValue, commitPrompt, cancelPr
         onBlur={cancelPrompt}
         autoFocus
         placeholder={`${prompt.label.toLowerCase()} name`}
-        className="min-w-0 flex-1 rounded border border-accent bg-panel px-1 py-0 text-sm text-fg outline-none placeholder:text-fg-subtle"
+        className="min-w-0 flex-1 rounded-sm border border-accent bg-panel px-1 py-0 text-sm text-fg outline-hidden placeholder:text-fg-subtle"
         style={{ userSelect: 'text' }}
       />
     </div>
@@ -168,7 +168,7 @@ export function NotesTree({
               id={`file-tree-node:${node.path}`}
               type="button"
               draggable
-              className={`relative flex items-center gap-1 w-full text-left py-0.5 text-sm hover:bg-white/5 rounded truncate ${
+              className={`relative flex items-center gap-1 w-full text-left py-0.5 text-sm hover:bg-white/5 rounded-sm truncate ${
                 activeNotePath === node.path ? 'bg-accent/20 text-fg' : 'text-fg'
               } ${dragOverPath === node.path ? treeRowDropTargetClass : ''}`}
               style={{ paddingLeft: `${8 + depth * 12}px`, paddingRight: '8px' }}
@@ -224,7 +224,7 @@ export function NotesTree({
               {reorder?.dropMarker?.path === node.path && (
                 <span
                   data-testid="notes-drop-marker"
-                  className={`pointer-events-none absolute left-2 right-2 h-0.5 bg-accent rounded ${
+                  className={`pointer-events-none absolute left-2 right-2 h-0.5 bg-accent rounded-sm ${
                     reorder.dropMarker.placement === 'before' ? 'top-0' : 'bottom-0'
                   }`}
                 />

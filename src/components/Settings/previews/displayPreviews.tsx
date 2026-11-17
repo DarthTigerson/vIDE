@@ -108,7 +108,7 @@ function MiniWindow({ right, data, children }: {
   children: ReactNode
 }) {
   return (
-    <div {...data} className="mx-2.5 mb-2.5 mt-1.5 overflow-hidden rounded border border-border">
+    <div {...data} className="mx-2.5 mb-2.5 mt-1.5 overflow-hidden rounded-sm border border-border">
       <div className="grid h-6 grid-cols-[auto_1fr_auto] items-center gap-2 border-b border-border bg-tab-bar px-2 text-[10px] font-medium tabular-nums text-fg-muted">
         <span className="flex gap-1">
           {[0, 1, 2].map((i) => <span key={i} className="h-[7px] w-[7px] rounded-full bg-border" />)}

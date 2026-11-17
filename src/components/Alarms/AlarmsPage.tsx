@@ -106,7 +106,7 @@ function AlarmRow({ alarm, ringing, now }: { alarm: Alarm; ringing: boolean; now
       >
         <span
           className={[
-            'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow ring-1 ring-black/10 transition-transform',
+            'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm ring-1 ring-black/10 transition-transform',
             alarm.enabled ? 'translate-x-4' : 'translate-x-0',
           ].join(' ')}
         />
@@ -116,7 +116,7 @@ function AlarmRow({ alarm, ringing, now }: { alarm: Alarm; ringing: boolean; now
         aria-label={`Delete ${alarm.name}`}
         title="Delete"
         onClick={() => removeAlarm(alarm.id)}
-        className="shrink-0 w-6 h-6 flex items-center justify-center rounded text-fg-subtle hover:text-fg hover:bg-white/10"
+        className="shrink-0 w-6 h-6 flex items-center justify-center rounded-sm text-fg-subtle hover:text-fg hover:bg-white/10"
       >
         ×
       </button>
@@ -145,7 +145,7 @@ function AlarmName({ alarm }: { alarm: Alarm }) {
           done.current = false
           setEditing(true)
         }}
-        className={['block max-w-full truncate rounded -mx-1 px-1 text-left text-sm font-medium hover:bg-white/5 cursor-text', color].join(' ')}
+        className={['block max-w-full truncate rounded-sm -mx-1 px-1 text-left text-sm font-medium hover:bg-white/5 cursor-text', color].join(' ')}
       >
         {alarm.name}
       </button>
@@ -171,7 +171,7 @@ function AlarmName({ alarm }: { alarm: Alarm }) {
         if (e.key === 'Enter') finish(true)
         else if (e.key === 'Escape') finish(false)
       }}
-      className={['w-full -mx-1 px-1 rounded bg-bg border border-accent/60 text-sm font-medium focus:outline-none', color].join(' ')}
+      className={['w-full -mx-1 px-1 rounded-sm bg-bg border border-accent/60 text-sm font-medium focus:outline-hidden', color].join(' ')}
     />
   )
 }
@@ -193,7 +193,7 @@ function NewAlarmForm() {
   }
 
   // 30px, the height of the time field beside it.
-  const inputClass = 'h-[1.875rem] px-2 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60'
+  const inputClass = 'h-[1.875rem] px-2 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-hidden focus:border-accent/60'
 
   return (
     <form

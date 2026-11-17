@@ -119,7 +119,7 @@ function RenameRow({ item, dense }: { item: ActivityBarItem; dense: boolean }) {
           else if (e.key === 'Escape') finish(false)
         }}
         onBlur={() => finish(true)}
-        className="min-w-0 flex-1 rounded border border-accent bg-transparent px-1 text-xs text-fg outline-none"
+        className="min-w-0 flex-1 rounded-sm border border-accent bg-transparent px-1 text-xs text-fg outline-hidden"
       />
     </div>
   )
@@ -156,8 +156,8 @@ function ActivityBarButton({ item, showAccent, side, dense, wide, dropMarker, dr
       {showAccent && item.active && !item.disabled && (
         <span
           className={[
-            'absolute top-1 bottom-1 w-0.5 bg-accent rounded',
-            side === 'left' ? 'left-0 rounded-r' : 'right-0 rounded-l',
+            'absolute top-1 bottom-1 w-0.5 bg-accent rounded-sm',
+            side === 'left' ? 'left-0 rounded-r-sm' : 'right-0 rounded-l-sm',
           ].join(' ')}
         />
       )}
@@ -185,22 +185,22 @@ function ActivityBarButton({ item, showAccent, side, dense, wide, dropMarker, dr
         </span>
       )}
       {hasBadge(item.badge) ? (
-        <span className="absolute right-1 bottom-1 min-w-4 h-4 rounded-full bg-accent px-1 text-[0.5625rem] font-bold leading-4 text-on-accent shadow shadow-black/40">
+        <span className="absolute right-1 bottom-1 min-w-4 h-4 rounded-full bg-accent px-1 text-[0.5625rem] font-bold leading-4 text-on-accent shadow-sm shadow-black/40">
           {item.badge}
         </span>
       ) : item.dot && (
-        <span data-testid="activity-dot" className="absolute right-2 bottom-2 w-2 h-2 rounded-full bg-accent shadow shadow-black/40" />
+        <span data-testid="activity-dot" className="absolute right-2 bottom-2 w-2 h-2 rounded-full bg-accent shadow-sm shadow-black/40" />
       )}
       {!showLabel && <span
         className={[
-          'pointer-events-none absolute z-50 top-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-black/90 px-2 py-1 text-xs text-gray-200 opacity-0 transition-opacity duration-100 delay-150 group-hover:opacity-100',
+          'pointer-events-none absolute z-50 top-1/2 -translate-y-1/2 whitespace-nowrap rounded-sm bg-black/90 px-2 py-1 text-xs text-gray-200 opacity-0 transition-opacity duration-100 delay-150 group-hover:opacity-100',
           side === 'left' ? 'left-full ml-2' : 'right-full mr-2',
         ].join(' ')}
       >
         {item.label ?? item.title}
       </span>}
       {dropMarker && (
-        <span className={['pointer-events-none absolute left-2 right-2 h-0.5 bg-accent rounded', dropMarker === 'before' ? 'top-0' : 'bottom-0'].join(' ')} />
+        <span className={['pointer-events-none absolute left-2 right-2 h-0.5 bg-accent rounded-sm', dropMarker === 'before' ? 'top-0' : 'bottom-0'].join(' ')} />
       )}
     </button>
   )

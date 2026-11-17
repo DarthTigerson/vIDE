@@ -95,8 +95,8 @@ export function ForcePushPreview() {
         <div className="text-xs font-semibold text-fg">Force push to origin/develop?</div>
         <p className="mb-2.5 mt-1 text-[11px] text-fg-muted">This overwrites the remote branch.</p>
         <div className="flex justify-end gap-1.5">
-          <span className="rounded border border-border px-2 py-0.5 text-fg-muted">Cancel</span>
-          <span className="rounded border border-red-600 bg-red-600 px-2 py-0.5 text-white">{action}</span>
+          <span className="rounded-sm border border-border px-2 py-0.5 text-fg-muted">Cancel</span>
+          <span className="rounded-sm border border-red-600 bg-red-600 px-2 py-0.5 text-white">{action}</span>
         </div>
       </div>
     </PreviewFrame>

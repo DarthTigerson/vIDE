@@ -43,7 +43,7 @@ export function BridgeSettingsPage() {
               type="button"
               onClick={runTest}
               disabled={testState === 'testing'}
-              className="h-8 rounded border border-border px-3 text-sm text-fg transition-colors hover:border-fg-subtle disabled:opacity-50"
+              className="h-8 rounded-sm border border-border px-3 text-sm text-fg transition-colors hover:border-fg-subtle disabled:opacity-50"
             >
               Test Connection
             </button>
@@ -62,7 +62,7 @@ export function BridgeSettingsPage() {
                 step={1}
                 value={toolCallLimit}
                 onChange={(e) => setToolCallLimit(Math.max(0, Number(e.target.value)))}
-                className="w-20 rounded-lg border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent/60 focus:outline-none"
+                className="w-20 rounded-lg border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent/60 focus:outline-hidden"
               />
             </SettingRow>
             <SettingRow label="Agent mode on launch" description="Start in agent mode each time Bridge opens.">

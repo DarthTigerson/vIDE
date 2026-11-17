@@ -51,13 +51,13 @@ function CustomThemeCard({ theme, isActive, variant, onActivate, onEdit, onShare
         isActive ? 'border-accent' : 'border-border hover:border-fg-muted',
       ].join(' ')}
     >
-      <div className="flex gap-1 mb-3 rounded overflow-hidden h-10">
+      <div className="flex gap-1 mb-3 rounded-sm overflow-hidden h-10">
         {swatches.map((color, i) => <div key={i} className="flex-1" style={{ background: color }} />)}
       </div>
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm font-medium text-fg truncate">{theme.name}</span>
         {isActive && (
-          <span className="shrink-0 text-xs font-medium text-accent px-1.5 py-0.5 rounded bg-accent/10">Active</span>
+          <span className="shrink-0 text-xs font-medium text-accent px-1.5 py-0.5 rounded-sm bg-accent/10">Active</span>
         )}
       </div>
       {menu && (
@@ -122,7 +122,7 @@ function ImportThemeCard({ onImport }: { onImport: (json: string) => string | nu
         placeholder="Paste exported theme JSON here"
         spellCheck={false}
         rows={4}
-        className="w-full px-2 py-1.5 text-xs font-mono text-fg bg-bg border border-border rounded focus:outline-none focus:border-accent/60"
+        className="w-full px-2 py-1.5 text-xs font-mono text-fg bg-bg border border-border rounded-sm focus:outline-hidden focus:border-accent/60"
       />
       {error && <p className="text-xs text-red-400">{error}</p>}
       <div className="flex gap-2">
@@ -230,13 +230,13 @@ export function ThemeSection() {
                   isActive ? 'border-accent' : 'border-border hover:border-fg-muted',
                 ].join(' ')}
               >
-                <div className="flex gap-1 mb-3 rounded overflow-hidden h-10">
+                <div className="flex gap-1 mb-3 rounded-sm overflow-hidden h-10">
                   {option.swatches.map((color, i) => <div key={i} className="flex-1" style={{ background: color }} />)}
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-medium text-fg truncate">{label}</span>
                   {isActive && (
-                    <span className="shrink-0 text-xs font-medium text-accent px-1.5 py-0.5 rounded bg-accent/10">Active</span>
+                    <span className="shrink-0 text-xs font-medium text-accent px-1.5 py-0.5 rounded-sm bg-accent/10">Active</span>
                   )}
                 </div>
               </button>

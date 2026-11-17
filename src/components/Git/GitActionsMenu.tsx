@@ -81,10 +81,10 @@ export function GitActionsMenu({ onClose, onRequestForce, onRequestResetToHead, 
   }
 
   const itemClass =
-    'w-full rounded text-left px-2 py-1.5 text-sm transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed'
+    'w-full rounded-sm text-left px-2 py-1.5 text-sm transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed'
 
   return (
-    <div className="absolute bottom-full left-0 mb-1 w-56 max-h-[70vh] overflow-y-auto rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50 z-50">
+    <div className="absolute bottom-full left-0 mb-1 w-56 max-h-[70vh] overflow-y-auto rounded-sm border border-border bg-popover p-1 shadow-2xl shadow-black/50 z-50">
       {repos.length > 1 && openRepos.length > 0 && (
         <>
           <div className="px-2 pt-1 pb-0.5 text-[0.625rem] font-semibold text-fg-subtle uppercase tracking-wider">

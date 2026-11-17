@@ -127,7 +127,7 @@ export function Segmented<T extends string>({
   onChange: (v: T) => void
 }) {
   return (
-    <div role="group" aria-label={label} className="inline-flex items-center gap-0.5 rounded border border-border p-0.5">
+    <div role="group" aria-label={label} className="inline-flex items-center gap-0.5 rounded-sm border border-border p-0.5">
       {options.map((o) => (
         <button
           key={o.value}
@@ -135,7 +135,7 @@ export function Segmented<T extends string>({
           onClick={() => onChange(o.value)}
           aria-pressed={o.value === value}
           className={[
-            'px-2 py-0.5 text-xs rounded-sm transition-colors',
+            'px-2 py-0.5 text-xs rounded-xs transition-colors',
             o.value === value ? 'bg-white/10 text-fg' : 'text-fg-muted hover:text-fg hover:bg-white/5',
           ].join(' ')}
         >
@@ -363,7 +363,7 @@ export function UsageChart({
               {hover && (
                 <div
                   data-testid="chart-tooltip"
-                  className="absolute -translate-y-full bg-popover border border-border rounded px-2 py-1 text-xs shadow-lg pointer-events-none whitespace-nowrap"
+                  className="absolute -translate-y-full bg-popover border border-border rounded-sm px-2 py-1 text-xs shadow-lg pointer-events-none whitespace-nowrap"
                   style={{
                     left: `${hover.x}%`,
                     top: `${hover.y}%`,

@@ -126,7 +126,7 @@ export function ClaudeSettingsPage() {
               onChange={(e) => setCommitMessagePrompt(e.target.value)}
               placeholder="Leave empty for the default prompt"
               rows={3}
-              className="w-full resize-none rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-fg placeholder:text-fg-subtle focus:border-accent/60 focus:outline-none"
+              className="w-full resize-none rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-fg placeholder:text-fg-subtle focus:border-accent/60 focus:outline-hidden"
             />
           </SettingRow>
         </FeatureBlock>
@@ -140,7 +140,7 @@ export function ClaudeSettingsPage() {
           <button
             type="button"
             onClick={() => useEditorStore.getState().openTab({ path: USAGE_GRAPH_TAB_PATH, content: '', dirty: false })}
-            className="h-8 rounded border border-border px-3 text-sm text-fg transition-colors hover:border-fg-subtle"
+            className="h-8 rounded-sm border border-border px-3 text-sm text-fg transition-colors hover:border-fg-subtle"
           >
             Open Usage Graph
           </button>

@@ -114,13 +114,13 @@ export function ColorPickerPopover({ anchorRef, value, onChange, onClose }: {
           const y = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height))
           onChange(hsvToHex(h, x, 1 - y))
         }}
-        className="relative w-full h-32 rounded cursor-crosshair"
+        className="relative w-full h-32 rounded-sm cursor-crosshair"
         style={{
           background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent), ${hsvToHex(h, 1, 1)}`,
         }}
       >
         <div
-          className="absolute w-3 h-3 -ml-1.5 -mt-1.5 rounded-full border-2 border-white shadow"
+          className="absolute w-3 h-3 -ml-1.5 -mt-1.5 rounded-full border-2 border-white shadow-sm"
           style={{ left: `${s * 100}%`, top: `${(1 - v) * 100}%` }}
         />
       </div>
@@ -134,11 +134,11 @@ export function ColorPickerPopover({ anchorRef, value, onChange, onClose }: {
           const x = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
           onChange(hsvToHex(x * 360, s, v))
         }}
-        className="relative w-full h-4 rounded cursor-pointer"
+        className="relative w-full h-4 rounded-sm cursor-pointer"
         style={{ background: hueBackground }}
       >
         <div
-          className="absolute top-0 bottom-0 w-1 -ml-0.5 rounded bg-white shadow border border-black/30"
+          className="absolute top-0 bottom-0 w-1 -ml-0.5 rounded-sm bg-white shadow-sm border border-black/30"
           style={{ left: `${(h / 360) * 100}%` }}
         />
       </div>
@@ -151,7 +151,7 @@ export function ColorPickerPopover({ anchorRef, value, onChange, onClose }: {
               type="button"
               title={hex}
               onClick={() => onChange(hex)}
-              className="w-5 h-5 rounded border border-border shrink-0 hover:opacity-80 transition-opacity"
+              className="w-5 h-5 rounded-sm border border-border shrink-0 hover:opacity-80 transition-opacity"
               style={{ background: hex }}
             />
           ))}
@@ -168,7 +168,7 @@ export function ColorPickerPopover({ anchorRef, value, onChange, onClose }: {
           if (e.key === 'Escape') setDraft(null)
         }}
         spellCheck={false}
-        className="w-full h-7 px-2 text-xs font-mono text-fg bg-bg border border-border rounded focus:outline-none focus:border-accent/60"
+        className="w-full h-7 px-2 text-xs font-mono text-fg bg-bg border border-border rounded-sm focus:outline-hidden focus:border-accent/60"
       />
     </div>,
     document.body,

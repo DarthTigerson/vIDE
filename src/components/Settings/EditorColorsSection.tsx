@@ -65,7 +65,7 @@ export function EditorColorsSection() {
                       {opt.label}
                     </span>
                     {isActive && (
-                      <span className="shrink-0 text-xs font-medium text-accent px-1.5 py-0.5 rounded bg-accent/10">Active</span>
+                      <span className="shrink-0 text-xs font-medium text-accent px-1.5 py-0.5 rounded-sm bg-accent/10">Active</span>
                     )}
                   </div>
                   <div className="text-xs text-fg-subtle mt-0.5 truncate">{opt.description}</div>

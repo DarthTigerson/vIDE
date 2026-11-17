@@ -127,7 +127,7 @@ export function ActionPalette({ onClose }: Props) {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
             placeholder={step ? step.placeholder : 'Run a command…'}
-            className="flex-1 bg-transparent text-sm text-fg placeholder:text-fg-subtle outline-none"
+            className="flex-1 bg-transparent text-sm text-fg placeholder:text-fg-subtle outline-hidden"
           />
           {query && (
             <button type="button" onClick={() => setQuery('')} className="text-fg-subtle hover:text-fg transition-colors">

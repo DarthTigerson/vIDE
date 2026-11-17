@@ -27,7 +27,7 @@ export function ColorPickerRow({ label, value, onChange }: {
       <button
         ref={swatchRef}
         type="button"
-        className="w-6 h-6 rounded border border-border shrink-0 hover:opacity-80 transition-opacity cursor-pointer"
+        className="w-6 h-6 rounded-sm border border-border shrink-0 hover:opacity-80 transition-opacity cursor-pointer"
         style={{ background: value }}
         onClick={() => setOpen((o) => !o)}
         title={`Pick ${label} colour`}
@@ -43,7 +43,7 @@ export function ColorPickerRow({ label, value, onChange }: {
           if (e.key === 'Escape') setDraft(null)
         }}
         spellCheck={false}
-        className="text-xs font-mono text-fg-subtle bg-transparent border-none p-0 focus:outline-none w-24"
+        className="text-xs font-mono text-fg-subtle bg-transparent border-none p-0 focus:outline-hidden w-24"
       />
       {open && (
         <ColorPickerPopover

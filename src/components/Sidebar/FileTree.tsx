@@ -89,7 +89,7 @@ function InlineNameInput({ prompt, depth, setPromptValue, commitPrompt, cancelPr
         onBlur={cancelPrompt}
         autoFocus
         placeholder={prompt.kind === 'directory' ? 'folder-name' : 'filename.ext'}
-        className="min-w-0 flex-1 rounded border border-accent bg-panel px-1 py-0 text-sm text-fg outline-none placeholder:text-fg-subtle"
+        className="min-w-0 flex-1 rounded-sm border border-accent bg-panel px-1 py-0 text-sm text-fg outline-hidden placeholder:text-fg-subtle"
         style={{ userSelect: 'text' }}
       />
     </div>
@@ -211,7 +211,7 @@ export function FileTree({
               <button
                 id={`file-tree-node:${node.path}`}
                 draggable
-                className={`flex items-center gap-1 w-full text-left py-0.5 text-sm hover:bg-white/5 rounded truncate ${
+                className={`flex items-center gap-1 w-full text-left py-0.5 text-sm hover:bg-white/5 rounded-sm truncate ${
                   activeFilePath === node.path ? 'bg-accent/20 text-fg' : menuPath === node.path ? 'bg-white/5 text-fg' : 'text-fg'
                 } ${ignored || ruleHidden ? 'opacity-45' : ''} ${ruleHidden ? 'italic' : ''} ${
                   revealedPath === node.path ? 'ring-1 ring-inset ring-accent/70' : ''

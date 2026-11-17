@@ -116,7 +116,7 @@ export function UsagePanel() {
         <div
           ref={menuRef}
           role="menu"
-          className="fixed z-[200] w-36 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50"
+          className="fixed z-[200] w-36 rounded-sm border border-border bg-popover p-1 shadow-2xl shadow-black/50"
           style={{ left: menu.x, top: menu.y }}
           onClick={(e) => e.stopPropagation()}
         >

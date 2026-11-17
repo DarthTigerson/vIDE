@@ -50,7 +50,7 @@ function HitText({ hit }: { hit: SearchHit }) {
   return (
     <span className="min-w-0 truncate font-mono text-xs text-fg-subtle">
       {hit.text.slice(0, start)}
-      <mark className="rounded-sm bg-accent/40 text-fg not-italic">{hit.text.slice(start, end)}</mark>
+      <mark className="rounded-xs bg-accent/40 text-fg not-italic">{hit.text.slice(start, end)}</mark>
       {hit.text.slice(end)}
     </span>
   )
@@ -94,7 +94,7 @@ function OptionToggle({ flag, label, children, tip, setTip }: {
       onClick={() => toggle(flag)}
       {...tipHandlers(tip, setTip)}
       className={[
-        'flex h-5 min-w-5 items-center justify-center rounded px-0.5 font-mono text-[0.6875rem] leading-none transition-colors',
+        'flex h-5 min-w-5 items-center justify-center rounded-sm px-0.5 font-mono text-[0.6875rem] leading-none transition-colors',
         pressed ? 'bg-accent/30 text-fg' : 'text-fg-muted hover:bg-white/5 hover:text-fg',
       ].join(' ')}
     >
@@ -134,7 +134,7 @@ function IconButton({ label, onClick, active = false, tip, setTip, children }: {
       onClick={onClick}
       {...(tip && setTip ? tipHandlers(tip, setTip) : {})}
       className={[
-        'flex h-6 w-6 items-center justify-center rounded transition-colors',
+        'flex h-6 w-6 items-center justify-center rounded-sm transition-colors',
         active ? 'text-accent hover:bg-white/5' : 'text-fg-muted hover:bg-white/5 hover:text-fg',
       ].join(' ')}
     >
@@ -159,7 +159,7 @@ function RowReplaceButton({ label, title, onClick }: { label: string; title: str
       aria-label={label}
       title={title}
       onClick={onClick}
-      className="mr-1 flex h-5 w-5 shrink-0 items-center justify-center rounded text-fg-muted opacity-0 transition-opacity hover:bg-white/10 hover:text-fg focus-visible:opacity-100 group-hover:opacity-100"
+      className="mr-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-fg-muted opacity-0 transition-opacity hover:bg-white/10 hover:text-fg focus-visible:opacity-100 group-hover:opacity-100"
     >
       <SwapIcon size="0.75rem" />
     </button>
@@ -197,7 +197,7 @@ function GroupRow({ group, root, collapsed, visibleCount, activeKey, canReplace,
         {group.stale && (
           <span
             title="This file was edited after the search, so these results may be out of date"
-            className="shrink-0 rounded bg-accent/20 px-1 text-[0.6rem] text-accent"
+            className="shrink-0 rounded-sm bg-accent/20 px-1 text-[0.6rem] text-accent"
           >
             changed
           </span>
@@ -420,7 +420,7 @@ export function SearchPanel() {
                   placeholder="Search"
                   aria-label="Search"
                   spellCheck={false}
-                  className="h-7 w-full rounded border border-border bg-bg pl-2 pr-[6.5rem] text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-1 focus:ring-accent/70"
+                  className="h-7 w-full rounded-sm border border-border bg-bg pl-2 pr-[6.5rem] text-xs text-fg placeholder:text-fg-subtle focus:outline-hidden focus:ring-1 focus:ring-accent/70"
                 />
                 <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
                   <OptionToggle flag="caseSensitive" label="Match Case" tip={TIPS.caseSensitive} setTip={setTip}>Aa</OptionToggle>
@@ -436,7 +436,7 @@ export function SearchPanel() {
                           setQuery('')
                           inputRef.current?.focus()
                         }}
-                        className="flex h-5 w-5 items-center justify-center rounded text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+                        className="flex h-5 w-5 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
                       >
                         <svg width="0.625rem" height="0.625rem" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                           <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
@@ -469,7 +469,7 @@ export function SearchPanel() {
               {tip && (
                 <div
                   role="tooltip"
-                  className="pointer-events-none absolute right-0 top-full z-50 mt-1 whitespace-nowrap rounded bg-black/90 px-2 py-1 text-xs text-gray-200"
+                  className="pointer-events-none absolute right-0 top-full z-50 mt-1 whitespace-nowrap rounded-sm bg-black/90 px-2 py-1 text-xs text-gray-200"
                 >
                   {tip}
                 </div>
@@ -487,13 +487,13 @@ export function SearchPanel() {
                   placeholder={regex ? 'Replace ($1, $2 for groups)' : 'Replace'}
                   aria-label="Replace with"
                   spellCheck={false}
-                  className="h-7 min-w-0 flex-1 rounded border border-border bg-bg px-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-1 focus:ring-accent/70"
+                  className="h-7 min-w-0 flex-1 rounded-sm border border-border bg-bg px-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-hidden focus:ring-1 focus:ring-accent/70"
                 />
                 <button
                   type="button"
                   disabled={!canReplace}
                   onClick={requestReplaceAll}
-                  className="h-7 shrink-0 rounded border border-border px-2 text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
+                  className="h-7 shrink-0 rounded-sm border border-border px-2 text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
                 >
                   Replace all
                 </button>
@@ -508,7 +508,7 @@ export function SearchPanel() {
                   placeholder="Files to include (e.g. src/**, *.ts)"
                   aria-label="Files to include"
                   spellCheck={false}
-                  className="h-7 w-full rounded border border-border bg-bg px-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-1 focus:ring-accent/70"
+                  className="h-7 w-full rounded-sm border border-border bg-bg px-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-hidden focus:ring-1 focus:ring-accent/70"
                 />
                 <input
                   value={exclude}
@@ -516,7 +516,7 @@ export function SearchPanel() {
                   placeholder="Files to exclude"
                   aria-label="Files to exclude"
                   spellCheck={false}
-                  className="h-7 w-full rounded border border-border bg-bg px-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-1 focus:ring-accent/70"
+                  className="h-7 w-full rounded-sm border border-border bg-bg px-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-hidden focus:ring-1 focus:ring-accent/70"
                 />
               </div>
             )}
@@ -539,7 +539,7 @@ export function SearchPanel() {
                   <button
                     type="button"
                     onClick={showMore}
-                    className="mx-3 my-2 rounded border border-border px-2 py-1 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+                    className="mx-3 my-2 rounded-sm border border-border px-2 py-1 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
                   >
                     {`Show ${Math.min(RENDER_STEP, plan.hidden).toLocaleString()} more`}
                     <span className="ml-1 text-fg-subtle">{`(${plan.hidden.toLocaleString()} not shown)`}</span>

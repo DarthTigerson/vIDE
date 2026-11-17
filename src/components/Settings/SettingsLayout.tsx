@@ -53,7 +53,7 @@ export function TextField({ id, label, value, onChange, placeholder, className, 
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         spellCheck={false}
-        className="h-8 px-2 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
+        className="h-8 px-2 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-hidden focus:border-accent/60"
       />
     </div>
   )

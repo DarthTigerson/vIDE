@@ -34,7 +34,7 @@ export function CustomThemeEditor({ themeId, onClose }: { themeId: string; onClo
           value={theme.name}
           onChange={(e) => rename(themeId, e.target.value)}
           spellCheck={false}
-          className="text-sm font-medium text-fg bg-transparent border-b border-transparent hover:border-border focus:border-accent/60 focus:outline-none"
+          className="text-sm font-medium text-fg bg-transparent border-b border-transparent hover:border-border focus:border-accent/60 focus:outline-hidden"
         />
         <button type="button" onClick={onClose} className="text-xs text-fg-subtle hover:text-fg">
           Close

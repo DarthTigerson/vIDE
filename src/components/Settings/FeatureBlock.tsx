@@ -98,7 +98,7 @@ export function NumberInput({ id, label, value, min, max, unit, onChange }: {
         max={max}
         value={value}
         onChange={(e) => onChange(Math.max(min, Math.min(max, parseInt(e.target.value, 10) || min)))}
-        className="w-16 rounded-lg border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent/60 focus:outline-none"
+        className="w-16 rounded-lg border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent/60 focus:outline-hidden"
       />
       <span className="text-sm text-fg-muted">{unit}</span>
     </span>

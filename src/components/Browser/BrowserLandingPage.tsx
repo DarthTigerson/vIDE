@@ -72,19 +72,19 @@ export function BrowserLandingPage({ onNavigate }: Props) {
       <div className="overflow-auto border-r border-border bg-sidebar px-4 py-5">
         <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">Favorites</p>
         {favoriteList.length === 0 ? (
-          <div className="rounded border border-dashed border-border px-3 py-2.5 text-xs leading-relaxed text-fg-subtle">
+          <div className="rounded-sm border border-dashed border-border px-3 py-2.5 text-xs leading-relaxed text-fg-subtle">
             Star the address bar on any page to pin it here.
           </div>
         ) : (
           <div className="flex flex-col gap-0.5">
             {favoriteList.map((fav) => (
-              <div key={fav.url} className="group flex items-center gap-2 rounded px-2 py-1.5 hover:bg-white/5">
+              <div key={fav.url} className="group flex items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-white/5">
                 <button
                   type="button"
                   onClick={() => onNavigate(fav.url)}
                   className="flex min-w-0 flex-1 items-center gap-2 text-left"
                 >
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-accent text-[9px] font-semibold text-on-accent">
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-xs bg-accent text-[9px] font-semibold text-on-accent">
                     {monogram(fav.title, fav.url, canonicalTitles)}
                   </span>
                   <span className="min-w-0 flex-1">
@@ -116,13 +116,13 @@ export function BrowserLandingPage({ onNavigate }: Props) {
               {recent.map((entry) => {
                 const isFav = !!favorites[entry.url]
                 return (
-                  <div key={entry.url} className="group flex items-center gap-2 rounded px-2 py-1.5 hover:bg-white/5">
+                  <div key={entry.url} className="group flex items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-white/5">
                     <button
                       type="button"
                       onClick={() => onNavigate(entry.url)}
                       className="flex min-w-0 flex-1 items-center gap-2 text-left"
                     >
-                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-border bg-tab-bar text-[9px] font-semibold text-fg-muted">
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-xs border border-border bg-tab-bar text-[9px] font-semibold text-fg-muted">
                         {monogram(entry.title, entry.url, canonicalTitles)}
                       </span>
                       <span className="flex min-w-0 flex-1 items-baseline gap-2">
@@ -159,13 +159,13 @@ export function BrowserLandingPage({ onNavigate }: Props) {
           ) : (
             <div className="flex flex-col gap-0.5">
               {closed.map((entry) => (
-                <div key={entry.url} className="group flex items-center gap-2 rounded px-2 py-1.5 hover:bg-white/5">
+                <div key={entry.url} className="group flex items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-white/5">
                   <button
                     type="button"
                     onClick={() => reopenClosed(entry.url)}
                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   >
-                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-border bg-tab-bar text-[9px] font-semibold text-fg-muted">
+                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-xs border border-border bg-tab-bar text-[9px] font-semibold text-fg-muted">
                       {monogram(entry.title, entry.url, canonicalTitles)}
                     </span>
                     <span className="flex min-w-0 flex-1 items-baseline gap-2">

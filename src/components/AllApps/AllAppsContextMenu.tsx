@@ -46,7 +46,7 @@ export function AllAppsContextMenu({ x, y, favorite, onToggleFavorite, onSetting
     <div
       ref={menuRef}
       role="menu"
-      className="fixed z-[200] w-40 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50"
+      className="fixed z-[200] w-40 rounded-sm border border-border bg-popover p-1 shadow-2xl shadow-black/50"
       style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
     >

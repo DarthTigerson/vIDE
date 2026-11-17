@@ -67,7 +67,7 @@ export function VIDESyncStep() {
               type="button"
               disabled={status === 'connecting'}
               onClick={connect}
-              className="self-start h-8 px-3 rounded border border-border text-sm text-fg hover:border-fg-subtle transition-colors disabled:opacity-40"
+              className="self-start h-8 px-3 rounded-sm border border-border text-sm text-fg hover:border-fg-subtle transition-colors disabled:opacity-40"
             >
               {status === 'connecting' ? 'Connecting…' : status === 'connected' ? 'Connected ✓' : 'Connect'}
             </button>
