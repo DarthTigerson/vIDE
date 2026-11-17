@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useThemeStore, THEME_OPTIONS, familyOf } from '@/stores/themeStore'
 import { useCustomThemeStore, type CustomTheme, type CustomColorVar } from '@/stores/customThemeStore'
 import { RadioGroup } from '@/components/ui/RadioGroup'
+import { Switch } from '@/components/ui/Toggle'
+import { useThemeShuffleStore } from '@/stores/themeShuffleStore'
 import { FeatureBlock } from './FeatureBlock'
 import { CustomThemeEditor } from './CustomThemeEditor'
 import { CustomThemeContextMenu } from './CustomThemeContextMenu'
@@ -14,6 +16,12 @@ const PREVIEW_VAR_ORDER: CustomColorVar[] = [
 // card per light/dark variant — now that variant is its own Light/System/
 // Dark control below, that split is a duplicate, not a choice).
 const FAMILIES = Array.from(new Set(THEME_OPTIONS.map((t) => familyOf(t.id))))
+
+// A family's display name ("vIDE", "Claude"), from its theme option's name.
+function familyLabel(family: string): string {
+  const option = THEME_OPTIONS.find((t) => familyOf(t.id) === family)
+  return option ? option.name.replace(/\s+(Light|Dark)$/, '') : family
+}
 
 const VARIANT_OPTIONS: { value: 'light' | 'dark' | 'system'; label: string }[] = [
   { value: 'light', label: 'Light' },
@@ -143,6 +151,8 @@ export function ThemeSection() {
   const exportTheme = useCustomThemeStore((s) => s.exportTheme)
   const importTheme = useCustomThemeStore((s) => s.importTheme)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const shuffleDaily = useThemeShuffleStore((s) => s.enabled)
+  const setShuffleDaily = useThemeShuffleStore((s) => s.setEnabled)
 
   const variant: 'light' | 'dark' = theme.endsWith('-dark') ? 'dark' : 'light'
   const appearance: 'light' | 'dark' | 'system' = matchSystem ? 'system' : variant
@@ -190,6 +200,20 @@ export function ThemeSection() {
             onChange={setAppearance}
             options={VARIANT_OPTIONS}
           />
+        </div>
+        <div className="mb-5 max-w-[460px]">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-sm text-fg">Shuffle daily</div>
+              <div className="mt-0.5 text-xs text-fg-muted">A different built-in theme each day.</div>
+            </div>
+            <Switch label="Shuffle daily" checked={shuffleDaily} onChange={setShuffleDaily} />
+          </div>
+          {shuffleDaily && (
+            <p data-testid="theme-shuffle-status" className="mt-2 text-xs text-fg-muted">
+              Today: <span className="text-fg">{activeCustomId ? 'a custom theme' : familyLabel(familyOf(theme))}</span> · changes at midnight
+            </p>
+          )}
         </div>
         <div className="mt-5 grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-3">
           {FAMILIES.map((family) => {

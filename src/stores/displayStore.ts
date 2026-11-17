@@ -8,6 +8,7 @@ import { isValidHex } from '../lib/color'
 const FONT_KEY = 'vide:font'
 const PANEL_STYLE_KEY = 'vide:panelStyle'
 const MEMORY_USAGE_VISIBLE_KEY = 'vide:memoryUsageVisible'
+const BATTERY_VISIBLE_KEY = 'vide:batteryVisible'
 const BACKGROUND_IMAGE_KEY = 'vide:backgroundImage'
 const BACKGROUND_IMAGE_VISIBLE_KEY = 'vide:backgroundImageVisible'
 const NAVBAR_POSITION_KEY = 'vide:navbarPosition'
@@ -41,7 +42,7 @@ export const PANEL_STYLE_OPTIONS: { value: PanelStyle; label: string; descriptio
   { value: 'glass',         label: 'Glass',       description: 'See-through' },
 ]
 
-export type BackgroundImage = 'none' | 'vide' | 'clawd' | 'atreus' | 'link' | 'techLines' | 'borahae' | 'wave' | 'gabriele' | 'rockhoppers' | 'malta' | 'goodGirl'
+export type BackgroundImage = 'none' | 'vide' | 'clawd' | 'atreus' | 'link' | 'techLines' | 'borahae' | 'wave' | 'gabriele' | 'rockhoppers' | 'malta' | 'cockpit' | 'goodGirl'
 
 // Shared between DisplayPage and the setup wizard's theme step, same as
 // PANEL_STYLE_OPTIONS below.
@@ -58,6 +59,7 @@ export const BACKGROUND_IMAGE_OPTIONS: { value: BackgroundImage; label: string }
   { value: 'techLines', label: 'Tech Lines' },
   { value: 'wave',      label: 'Wave' },
   { value: 'malta',       label: 'Malta' },
+  { value: 'cockpit',     label: 'Cockpit' },
 ]
 
 // Each built-in theme family's matching background — swapping the active
@@ -116,6 +118,7 @@ interface DisplayStore {
   font: string
   panelStyle: PanelStyle
   memoryUsageVisible: boolean
+  batteryVisible: boolean
   backgroundImage: BackgroundImage
   navbarPosition: NavbarPosition
   editorColorScheme: EditorColorScheme
@@ -123,6 +126,7 @@ interface DisplayStore {
   setFont: (font: string) => void
   setPanelStyle: (style: PanelStyle) => void
   setMemoryUsageVisible: (visible: boolean) => void
+  setBatteryVisible: (visible: boolean) => void
   setBackgroundImage: (image: BackgroundImage) => void
   setNavbarPosition: (position: NavbarPosition) => void
   setEditorColorScheme: (scheme: EditorColorScheme) => void
@@ -178,6 +182,7 @@ function readStoredDisplay() {
     : 'solid'
   const storedMemoryUsageVisible = localStorage.getItem(MEMORY_USAGE_VISIBLE_KEY)
   const memoryUsageVisible = storedMemoryUsageVisible === null ? true : storedMemoryUsageVisible === 'true'
+  const batteryVisible = localStorage.getItem(BATTERY_VISIBLE_KEY) !== 'false'
   // Migrates the old on/off toggle (pre-dating the None/vIDE/Clawd picker):
   // if a background image was already selected, this key exists and wins; if
   // only the old boolean is present, "on" carries forward as the vIDE badge
@@ -192,13 +197,14 @@ function readStoredDisplay() {
   const editorColorScheme: EditorColorScheme = EDITOR_COLOR_SCHEME_OPTIONS.some((o) => o.value === storedEditorColorScheme)
     ? (storedEditorColorScheme as EditorColorScheme)
     : 'default'
-  return { font, panelStyle, memoryUsageVisible, backgroundImage, navbarPosition, editorColorScheme }
+  return { font, panelStyle, memoryUsageVisible, batteryVisible, backgroundImage, navbarPosition, editorColorScheme }
 }
 
 const {
   font: initialFont,
   panelStyle: initialPanelStyle,
   memoryUsageVisible: initialMemoryUsageVisible,
+  batteryVisible: initialBatteryVisible,
   backgroundImage: initialBackgroundImage,
   navbarPosition: initialNavbarPosition,
   editorColorScheme: initialEditorColorScheme,
@@ -268,6 +274,7 @@ export const useDisplayStore = create<DisplayStore>((set) => ({
   font: initialFont,
   panelStyle: initialPanelStyle,
   memoryUsageVisible: initialMemoryUsageVisible,
+  batteryVisible: initialBatteryVisible,
   backgroundImage: initialBackgroundImage,
   navbarPosition: initialNavbarPosition,
   editorColorScheme: initialEditorColorScheme,
@@ -285,6 +292,11 @@ export const useDisplayStore = create<DisplayStore>((set) => ({
   setMemoryUsageVisible: (visible) => {
     localStorage.setItem(MEMORY_USAGE_VISIBLE_KEY, String(visible))
     set({ memoryUsageVisible: visible })
+    notifySettingChanged()
+  },
+  setBatteryVisible: (visible) => {
+    localStorage.setItem(BATTERY_VISIBLE_KEY, String(visible))
+    set({ batteryVisible: visible })
     notifySettingChanged()
   },
   setBackgroundImage: (image) => {
@@ -339,7 +351,7 @@ useThemeStore.subscribe((state, prevState) => {
 // Display settings changed in another vIDE window. Re-applied without
 // writing back to localStorage.
 onOtherWindowChange([
-  FONT_KEY, PANEL_STYLE_KEY, MEMORY_USAGE_VISIBLE_KEY, BACKGROUND_IMAGE_KEY,
+  FONT_KEY, PANEL_STYLE_KEY, MEMORY_USAGE_VISIBLE_KEY, BATTERY_VISIBLE_KEY, BACKGROUND_IMAGE_KEY,
   BACKGROUND_IMAGE_VISIBLE_KEY, NAVBAR_POSITION_KEY, EDITOR_COLOR_SCHEME_KEY, EDITOR_TOKEN_COLORS_KEY,
 ], () => {
   const next = readStoredDisplay()

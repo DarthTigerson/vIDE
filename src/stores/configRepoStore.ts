@@ -12,7 +12,7 @@ export const CATEGORY_PREFIXES: Record<string, string[]> = {
   general: [
     'vide:general:', 'vide:theme', 'vide:themeMatchSystem',
     'vide:font', 'vide:panelStyle',
-    'vide:memoryUsageVisible', 'vide:backgroundImage',
+    'vide:memoryUsageVisible', 'vide:batteryVisible', 'vide:backgroundImage',
     'vide:backgroundImageVisible', 'vide:navbarPosition',
     'vide:editorColorScheme', 'vide:editorTokenColors',
     'vide:editor:', 'vide:commitMessage:',

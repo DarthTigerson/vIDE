@@ -477,13 +477,20 @@ describe('effectiveXtermTheme', () => {
     expect(effectiveXtermTheme('claude-dark', true)).toEqual(glassXtermTheme('claude-dark'))
   })
 
-  it('overrides only the background with the active custom theme\'s current-variant colour', () => {
+  it('takes background, text, cursor and selection from the active custom theme, ANSI colours from the family', () => {
     const id = useCustomThemeStore.getState().createFromActive('Sunset')
-    useCustomThemeStore.getState().setSwatch(id, 'dark', '--color-bg', '#123456')
+    const set = (v: string, hex: string) => useCustomThemeStore.getState().setSwatch(id, 'dark', v as any, hex)
+    set('--color-bg', '#123456')
+    set('--color-fg', '#aaff00')
+    set('--color-accent', '#ff8800')
     useThemeStore.setState({ theme: 'claude-dark' })
     const result = effectiveXtermTheme('claude-dark', false)
     expect(result.background).toBe('#123456')
-    expect(result.foreground).toBe(XTERM_THEMES['claude-dark'].foreground)
+    expect(result.foreground).toBe('#aaff00')
+    expect(result.cursor).toBe('#ff8800')
+    expect(result.selectionBackground).toBe('#ff880040')
+    expect(result.red).toBe(XTERM_THEMES['claude-dark'].red)
+    expect(result.brightWhite).toBe(XTERM_THEMES['claude-dark'].brightWhite)
   })
 
   it('applies the glass alpha to the custom background when glass is true', () => {

@@ -52,13 +52,13 @@ function PaceTip({ part, value, x, y }: { part: PacePart; value: number; x: numb
   )
 }
 
-const PACE_CHIP: Record<PaceStatus, string> = {
+export const PACE_CHIP: Record<PaceStatus, string> = {
   under: 'text-emerald-400 bg-emerald-400/15',
   ahead: 'text-accent bg-accent/15',
   'runs-out': 'text-amber-400 bg-amber-400/15',
 }
 
-function paceChipText(status: PaceStatus, projectedPct: number | null, cutoffAt: number | null, now: number): string {
+export function paceChipText(status: PaceStatus, projectedPct: number | null, cutoffAt: number | null, now: number): string {
   if (status === 'runs-out') return `Runs out in ${formatCountdown(cutoffAt, now)}`
   const head = status === 'under' ? 'Under pace' : 'Ahead of pace'
   return projectedPct == null ? head : `${head} · ${Math.round(projectedPct)}% at reset`

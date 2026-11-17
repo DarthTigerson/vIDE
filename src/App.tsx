@@ -134,6 +134,7 @@ import { runScriptInNewTerminal, runScriptInAgentTerminal } from './lib/runScrip
 import { LlamaPanel } from './components/Llama/LlamaPanel'
 import { useNotificationSoundSettingsStore, playNotificationSound } from './stores/notificationSoundSettingsStore'
 import { useConfigRepoStore } from './stores/configRepoStore'
+import { startThemeShuffle } from './stores/themeShuffleStore'
 import type { AssistantKind, MemoryBreakdown } from './types/api'
 
 // Rendered once at the app root rather than per-TabBar: Cmd+W is handled here,
@@ -275,6 +276,7 @@ export default function App() {
   const theme = useThemeStore((s) => s.theme)
   const font = useDisplayStore((s) => s.font)
   const memoryUsageVisible = useDisplayStore((s) => s.memoryUsageVisible)
+  const batteryVisible = useDisplayStore((s) => s.batteryVisible)
   const notificationSoundEnabled = useNotificationSoundSettingsStore((s) => s.enabled)
   const notificationSoundMuted = useNotificationSoundSettingsStore((s) => s.muted)
   const setNotificationSoundMuted = useNotificationSoundSettingsStore((s) => s.setMuted)
@@ -298,6 +300,7 @@ export default function App() {
   useEffect(() => {
     useConfigRepoStore.getState().syncOnLaunch()
   }, [])
+  useEffect(() => startThemeShuffle(), [])
 
   // Scripts live in the main process (and are written by the vide-scripts
   // MCP server and vIDE Sync too), so reload on every change it reports.
@@ -990,7 +993,7 @@ export default function App() {
           onClick={(e) => e.stopPropagation()}
         >
           {memoryUsageVisible && memoryUsage && <MemoryPill usage={memoryUsage} />}
-          <BatteryPill withDivider={!!(memoryUsageVisible && memoryUsage)} />
+          {batteryVisible && <BatteryPill withDivider={!!(memoryUsageVisible && memoryUsage)} />}
         </div>
       </div>
       <div className="flex flex-1 min-h-0">

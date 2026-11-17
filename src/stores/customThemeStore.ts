@@ -357,18 +357,27 @@ useDisplayStore.subscribe((state, prevState) => {
 })
 
 // Monaco/xterm keep rendering the built-in `themeId`'s own palette (see the
-// spec's "Base family" section) — a custom theme only ever overrides the 9
-// CUSTOM_COLOR_VARS chrome variables, never Monaco tokens or the xterm ANSI
-// palette. Its background is the one exception: leaving the terminal on a
-// stock dark/light background while every other panel follows the custom
-// theme reads as a bug, not a design choice, so this substitutes just that.
+// spec's "Base family" section) — a custom theme never overrides the xterm
+// ANSI palette. Its chrome is the exception: background, default text,
+// cursor and selection come from the custom theme's Background, Text and
+// Accent, since leaving them on the family's while every panel follows the
+// custom theme read as those colours being ignored (same for the editor —
+// see defineCustomDefaultTheme in monacoThemes.ts).
 export function effectiveXtermTheme(themeId: ThemeId, glass: boolean): ITheme {
   const base = glass ? glassXtermTheme(themeId) : XTERM_THEMES[themeId]
   const { activeId, themes } = useCustomThemeStore.getState()
   const active = activeId ? themes.find((t) => t.id === activeId) : undefined
   if (!active) return base
-  const bg = active[currentVariant()]['--color-bg']
-  return { ...base, background: glass ? hexWithAlpha(bg, XTERM_GLASS_ALPHA) : bg }
+  const palette = active[currentVariant()]
+  const bg = palette['--color-bg']
+  const accent = palette['--color-accent']
+  return {
+    ...base,
+    background: glass ? hexWithAlpha(bg, XTERM_GLASS_ALPHA) : bg,
+    foreground: palette['--color-fg'],
+    cursor: accent,
+    selectionBackground: accent + '40',
+  }
 }
 
 // The editor's own background under the active theme: a custom theme's

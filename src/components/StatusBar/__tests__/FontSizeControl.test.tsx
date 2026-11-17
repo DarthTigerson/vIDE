@@ -6,6 +6,7 @@ import { useEditorStore } from '@/stores/editorStore'
 import { useBottomTerminalStore } from '@/stores/bottomTerminalStore'
 import { useLspSettingsStore } from '@/stores/lspSettingsStore'
 import { useFooterPopoverStore } from '@/stores/footerPopoverStore'
+import { useThemeStore } from '@/stores/themeStore'
 import { DISPLAY_TAB_PATH } from '@/components/Settings/paths'
 
 beforeEach(() => {
@@ -45,11 +46,11 @@ describe('FontSizeControl', () => {
     expect(screen.getByTestId('display-font-size').textContent).toBe('12')
   })
 
-  it('switches the bottom terminal from the panel', () => {
+  it('locks the terminal to the bottom from the panel', () => {
     const setEnabled = vi.spyOn(useBottomTerminalStore.getState(), 'setEnabled').mockImplementation(() => {})
     render(<FontSizeControl />)
     fireEvent.click(screen.getByTestId('font-size-chip'))
-    const toggle = screen.getByRole('switch', { name: 'Bottom terminal' })
+    const toggle = screen.getByRole('switch', { name: 'Lock terminal to bottom' })
     expect(toggle.getAttribute('aria-checked')).toBe('false')
     fireEvent.click(toggle)
     expect(setEnabled).toHaveBeenCalledWith(true)
@@ -81,5 +82,44 @@ describe('FontSizeControl', () => {
       vi.advanceTimersByTime(1500)
     })
     expect(screen.getByTestId('font-size-chip').className).not.toMatch(/text-accent/)
+  })
+
+  it('switches Light / System / Dark from the panel', () => {
+    act(() => useThemeStore.getState().setTheme('thomas-light'))
+    render(<FontSizeControl />)
+    fireEvent.click(screen.getByTestId('font-size-chip'))
+    expect(screen.getByRole('radio', { name: 'Light' }).getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(screen.getByRole('radio', { name: 'Dark' }))
+    expect(useThemeStore.getState().theme).toBe('thomas-dark')
+    expect(useThemeStore.getState().matchSystem).toBe(false)
+    fireEvent.click(screen.getByRole('radio', { name: 'System' }))
+    expect(useThemeStore.getState().matchSystem).toBe(true)
+    expect(screen.getByRole('radio', { name: 'System' }).getAttribute('aria-checked')).toBe('true')
+  })
+
+  it('shows a row description only after the mouse rests on it', () => {
+    vi.useFakeTimers()
+    render(<FontSizeControl />)
+    fireEvent.click(screen.getByTestId('font-size-chip'))
+    const row = screen.getByText('Lock terminal to bottom').parentElement!
+    fireEvent.mouseMove(row, { clientX: 10, clientY: 10 })
+    act(() => { vi.advanceTimersByTime(600) })
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    fireEvent.mouseMove(row, { clientX: 12, clientY: 10 })
+    act(() => { vi.advanceTimersByTime(600) })
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    act(() => { vi.advanceTimersByTime(100) })
+    expect(screen.getByRole('tooltip').textContent).toMatch(/docked under the editor/)
+    fireEvent.mouseLeave(row)
+    expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+
+  it('reminds about the global font shortcuts in the font size hint', () => {
+    vi.useFakeTimers()
+    render(<FontSizeControl />)
+    fireEvent.click(screen.getByTestId('font-size-chip'))
+    fireEvent.mouseMove(screen.getByText('Font size').parentElement!, { clientX: 5, clientY: 5 })
+    act(() => { vi.advanceTimersByTime(700) })
+    expect(screen.getByRole('tooltip').textContent).toMatch(/⌘⇧\+.*⌘⇧−.*⌘⇧0/)
   })
 })
