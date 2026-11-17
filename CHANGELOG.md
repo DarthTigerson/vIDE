@@ -1,4 +1,14 @@
 # vIDE
+## v0.3.5 (2026-11-17)
+- **Usage gauges**: the usage panel now opens on a new Gauges view, with the session as a speedometer and the week as a fuel gauge. Each dial shows usage so far, where it's heading by the reset, and how much of the window has passed, and a warning light between them turns red and pulses once either one hits its limit. Right-click the panel to switch back to the Bars view; your choice is remembered
+- **Shuffle daily**: a new switch in Settings > Display > Theme picks a different built-in theme each day, changing at midnight. Every built-in theme comes round before any repeats, the same theme never shows two days in a row, and synced machines all land on the same theme each day
+- **Cockpit background**: a new full-scene Cockpit background in the background picker
+- **Display panel**: the font size chip's panel now has a Light/System/Dark switch at the top. Row descriptions moved into hints that appear when the mouse rests on a row, and Bottom terminal is now called Lock terminal to bottom
+- **Battery toggle**: the title bar battery can now be hidden from Settings > Display, like the memory pill
+- **Install notifications**: clicking an Installed notification in the bell now opens that app's Store page, and when the update needs a restart the notification has a Restart vIDE button
+- Custom themes now colour the editor and terminal's text, cursor, line numbers and indent guides too, not just the background
+
+
 ## v0.3.4 (2026-11-16)
 - **Language servers in the Store**: go-to-definition servers (TypeScript/JavaScript, Python, Go, Rust, YAML and JSON) are no longer built into vIDE. Install the ones you need from the Store's new Language servers category. Each one shows who makes it, its latest version and its language's logo, and has its own page with the exact install command and how much memory it typically uses. vIDE installs from the official source (npm, the Go toolchain or the project's GitHub releases) and never runs anything else. Servers you already had installed are picked up automatically. Settings > Editor now lists only your installed servers, with a button to get more in the Store
 - **Store button in the activity bar**: a new Store button under All Apps opens the Store tab
