@@ -1,13 +1,14 @@
 import { resolve } from 'path'
 import { readFileSync } from 'fs'
-import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
+import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 
 const { version } = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8')) as { version: string }
 
 export default defineConfig({
+  // main/preload: electron-vite 6 externalizes `dependencies` by default
+  // (build.externalizeDeps, default true), replacing externalizeDepsPlugin().
   main: {
-    plugins: [externalizeDepsPlugin()],
     build: {
       lib: {
         entry: {
@@ -24,7 +25,6 @@ export default defineConfig({
     }
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
     build: {
       lib: { entry: { index: 'electron/preload.ts' } }
     }
@@ -42,7 +42,7 @@ export default defineConfig({
     // The running version, for the Update page's "You have vX" (VIDE-142).
     define: { __APP_VERSION__: JSON.stringify(version) },
     build: {
-      rollupOptions: {
+      rolldownOptions: {
         input: resolve(__dirname, 'index.html')
       }
     }
