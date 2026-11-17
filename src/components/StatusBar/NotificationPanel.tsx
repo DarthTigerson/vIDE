@@ -138,6 +138,20 @@ export function NotificationPanel() {
                 <span className="shrink-0 [&_svg]:h-3.5 [&_svg]:w-3.5">{item.icon}</span>
                 <span className="truncate">{item.text}</span>
               </button>
+              {item.action && (
+                <button
+                  type="button"
+                  onMouseUp={(e) => {
+                    if (e.button !== 0) return
+                    e.stopPropagation()
+                    item.action!.onClick()
+                    close()
+                  }}
+                  className="shrink-0 h-5 px-2 mr-0.5 rounded-full text-[0.625rem] font-bold whitespace-nowrap bg-accent/85 text-on-accent hover:bg-accent transition-colors"
+                >
+                  {item.action.label}
+                </button>
+              )}
               <button
                 type="button"
                 aria-label="Dismiss notification"

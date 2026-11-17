@@ -12,6 +12,7 @@ import { usePanelRequestStore } from '@/stores/panelRequestStore'
 import { useGraphifySettingsStore } from '@/stores/graphifySettingsStore'
 import { useGraphifyStore } from '@/stores/graphifyStore'
 import { useStoreStore } from '@/stores/storeStore'
+import { useEditorStore } from '@/stores/editorStore'
 import { useAppContribStore } from '@/apps/appContribStore'
 import type { RegistryState } from '@/types/api'
 
@@ -293,6 +294,7 @@ describe('store update notices', () => {
       recommended: false, category: 'applications', targets: ['vide'],
       latest: { version: '1.1.0', commit: 'a'.repeat(40), url: 'u', sha256: 'b'.repeat(64), minVide: '0.4.0' },
     }],
+    languageServers: [],
   }
   const installedDocker = { id: 'docker', name: 'Docker', version: '1.0.0', source: 'store' as const, rendererUrl: '', hasMain: false, contributes: {}, status: 'loaded' as const }
 
@@ -325,6 +327,34 @@ describe('store update notices', () => {
     expect(result.current.some((i) => i.id.startsWith('store-update-'))).toBe(false)
   })
 
+  describe('install result items', () => {
+    beforeEach(() => {
+      useStoreStore.setState({ registry, events: [{ id: 'store-event-1', text: 'Installed Docker 1.1.0', appId: 'docker' }] })
+    })
+    afterEach(() => { useStoreStore.setState({ events: [] }); useAppContribStore.setState({ apps: [] }) })
+
+    it("click opens the app's Store page", () => {
+      const openTab = vi.fn()
+      useEditorStore.setState({ openTab } as never)
+      const { result } = renderHook(() => useNotificationItems())
+      result.current.find((i) => i.id === 'store-event-1')!.onClick?.()
+      expect(openTab).toHaveBeenCalledWith({ path: 'store://app/docker', content: '', dirty: false })
+    })
+
+    it('offers Restart vIDE only while the update is waiting on a restart', () => {
+      ;(window as any).api = { ...(window as any).api, appsRestart: vi.fn().mockResolvedValue(undefined) }
+      useAppContribStore.setState({ apps: [{ ...installedDocker, version: '1.1.0', status: 'loaded' }] })
+      const { result, rerender } = renderHook(() => useNotificationItems())
+      expect(result.current.find((i) => i.id === 'store-event-1')!.action).toBeUndefined()
+      act(() => { useAppContribStore.setState({ apps: [{ ...installedDocker, version: '1.1.0', hasMain: true, status: 'restart-required' }] }) })
+      rerender()
+      const action = result.current.find((i) => i.id === 'store-event-1')!.action!
+      expect(action.label).toBe('Restart vIDE')
+      action.onClick()
+      expect((window as any).api.appsRestart).toHaveBeenCalled()
+    })
+  })
+
   describe('moved-to-Store notice', () => {
     beforeEach(() => {
       localStorage.clear()
@@ -334,6 +364,7 @@ describe('store update notices', () => {
     const moved: RegistryState = {
       status: 'ok', checkedAt: 1, fromCache: false,
       apps: [{ ...(registry as Extract<RegistryState, { status: 'ok' }>).apps[0], replacesBuiltIn: 'docker' }],
+      languageServers: [],
     }
 
     it('shows one row when the built-in was enabled and the app is not installed; click opens the modal', () => {

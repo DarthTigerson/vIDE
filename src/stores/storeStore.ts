@@ -22,7 +22,9 @@ interface StoreStoreState {
   setEnabled: (id: string, enabled: boolean) => Promise<void>
   // One bell item per finished install ("Installed X 1.0.0" / "Couldn't
   // install X: reason"); in memory, dismissed with the bell's x.
-  events: { id: string; text: string }[]
+  // appId: the app a successful install was for, so the item can open its
+  // Store page and offer a restart when the update needs one.
+  events: { id: string; text: string; appId?: string }[]
   dismissEvent: (id: string) => void
   // Install from file: the inspected package waiting for the user's confirm.
   pendingFile: FileSummary | null
@@ -101,7 +103,7 @@ export const useStoreStore = create<StoreStoreState>((set, get) => ({
     let outcome: InstallOutcome | null = null
     await run(id, 'installing', async () => (outcome = await window.api.appsInstall(id)), set, get)
     const result = outcome as InstallOutcome | null
-    if (result?.ok) pushEvent(set, get, `Installed ${result.name} ${result.version}`)
+    if (result?.ok) pushEvent(set, get, `Installed ${result.name} ${result.version}`, id)
     else if (result && !isUpdate) pushEvent(set, get, `Couldn't install ${listing?.name ?? id}: ${result.error}`)
   },
   pickFile: async () => {
@@ -123,7 +125,7 @@ export const useStoreStore = create<StoreStoreState>((set, get) => ({
     let outcome: InstallOutcome | null = null
     await run(pending.id, 'installing', async () => (outcome = await window.api.appsInstallPackage(pending.token)), set, get)
     const result = outcome as InstallOutcome | null
-    if (result?.ok) pushEvent(set, get, `Installed ${result.name} ${result.version}`)
+    if (result?.ok) pushEvent(set, get, `Installed ${result.name} ${result.version}`, pending.id)
     else if (result) pushEvent(set, get, `Couldn't install ${pending.name}: ${result.error}`)
   },
   cancelFile: () => {
@@ -149,8 +151,8 @@ export const useStoreStore = create<StoreStoreState>((set, get) => ({
   },
 }))
 
-function pushEvent(set: (partial: Partial<StoreStoreState>) => void, get: () => StoreStoreState, text: string): void {
-  set({ events: [...get().events, { id: `store-event-${++eventSeq}`, text }] })
+function pushEvent(set: (partial: Partial<StoreStoreState>) => void, get: () => StoreStoreState, text: string, appId?: string): void {
+  set({ events: [...get().events, { id: `store-event-${++eventSeq}`, text, ...(appId ? { appId } : {}) }] })
 }
 
 export function findLanguageServer(registry: RegistryState | null, id: string): LanguageServerEntry | null {

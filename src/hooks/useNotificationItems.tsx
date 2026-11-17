@@ -12,10 +12,10 @@ import { useGraphifyStore } from '@/stores/graphifyStore'
 import { usePanelRequestStore } from '@/stores/panelRequestStore'
 import { formatCountdownClock } from '@/components/UsagePanel/format'
 import { useEditorStore } from '@/stores/editorStore'
-import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
+import { USAGE_GRAPH_TAB_PATH, STORE_TAB_PATH, buildStoreAppPath } from '@/components/Settings/paths'
 import { useAppContribStore } from '@/apps/appContribStore'
 import { StoreBagIcon } from '@/components/Store/storeUi'
-import { useStoreStore, startStoreUpdates } from '@/stores/storeStore'
+import { useStoreStore, startStoreUpdates, findStoreApp } from '@/stores/storeStore'
 import { MOVED_NOTICE_ID, movedApps, pendingUpdates, readLocalKey, updateNoticeId } from '@/lib/storeUpdates'
 import { ClaudeIcon, GitIcon, GraphIcon, LlamaIcon, UpdateAvailableIcon } from '@/components/ActivityBar/ActivityBar'
 
@@ -25,6 +25,8 @@ export interface NotificationItem {
   disabled: boolean
   icon: ReactNode
   onClick?: () => void
+  // A small button at the row's right, before the x (e.g. Restart vIDE).
+  action?: { label: string; onClick: () => void }
   // Extra work when the panel's x / Dismiss all clears this row (e.g. persisting it).
   onDismiss?: () => void
 }
@@ -224,12 +226,24 @@ export function useNotificationItems(): NotificationItem[] {
   }
 
   // Install results: one item per event, so each peeks once; x removes it.
+  // A successful install opens that app's Store page (the Store itself when
+  // the app isn't listed, e.g. installed from a file), and offers a restart
+  // while the update is waiting on one (an app whose main process was running).
   for (const ev of storeEvents) {
+    const appId = ev.appId
+    const needsRestart = !!appId && installedApps.some((a) => a.id === appId && a.status === 'restart-required')
     items.push({
       id: ev.id,
       text: ev.text,
       disabled: false,
       icon: <StoreBagIcon size={16} />,
+      onClick: appId
+        ? () => {
+            const path = findStoreApp(useStoreStore.getState().registry, appId) ? buildStoreAppPath(appId) : STORE_TAB_PATH
+            useEditorStore.getState().openTab({ path, content: '', dirty: false })
+          }
+        : undefined,
+      action: needsRestart ? { label: 'Restart vIDE', onClick: () => void window.api.appsRestart() } : undefined,
       onDismiss: () => useStoreStore.getState().dismissEvent(ev.id),
     })
   }
