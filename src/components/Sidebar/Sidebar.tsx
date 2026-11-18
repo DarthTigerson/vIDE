@@ -406,7 +406,7 @@ export function Sidebar() {
                 aria-pressed={hideRules.showHidden}
                 onClick={() => useTreeHidingStore.getState().setToggle(projectRoot, 'showHidden', !hideRules.showHidden)}
                 className={[
-                  'flex items-center rounded px-1.5 h-5 transition-colors',
+                  'flex items-center rounded-sm px-1.5 h-5 transition-colors',
                   hideRules.showHidden ? 'bg-accent/15 text-accent' : 'text-fg-subtle hover:text-fg hover:bg-white/5',
                 ].join(' ')}
               >
@@ -458,7 +458,7 @@ export function Sidebar() {
           {menu && createPortal(
             <div
               ref={menuRef}
-              className="fixed z-[200] w-44 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50"
+              className="fixed z-[200] w-44 rounded-sm border border-border bg-popover p-1 shadow-2xl shadow-black/50"
               style={{ left: menu.x, top: menu.y }}
               onClick={(event) => event.stopPropagation()}
             >
@@ -559,7 +559,7 @@ export function Sidebar() {
             <p className="text-xs text-fg-muted text-center">Select a project</p>
             <button
               onClick={openFolder}
-              className="w-40 px-3 py-1.5 text-sm bg-accent hover:bg-accent/80 text-panel rounded transition-colors"
+              className="w-40 px-3 py-1.5 text-sm bg-accent hover:bg-accent/80 text-panel rounded-sm transition-colors"
             >
               Open Folder
             </button>
@@ -604,7 +604,7 @@ function RecentProjectsList() {
               <button
                 type="button"
                 onClick={() => open(recent.path)}
-                className="w-full text-left px-2.5 py-1.5 rounded hover:bg-white/5 transition-colors"
+                className="w-full text-left px-2.5 py-1.5 rounded-sm hover:bg-white/5 transition-colors"
               >
                 <div className="text-sm text-fg truncate">{recentProjectName(recent.path)}</div>
                 <div className="text-xs text-fg-subtle truncate">{recent.path}</div>
@@ -629,7 +629,7 @@ function ContextMenuButton({ children, danger = false, disabled = false, onClick
       disabled={disabled}
       onClick={onClick}
       className={[
-        'w-full rounded px-2 py-1.5 text-left text-xs transition-colors',
+        'w-full rounded-sm px-2 py-1.5 text-left text-xs transition-colors',
         disabled
           ? 'text-fg-subtle cursor-default'
           : danger

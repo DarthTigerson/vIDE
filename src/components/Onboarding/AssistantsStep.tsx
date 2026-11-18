@@ -85,7 +85,7 @@ export function AssistantsStep() {
       <button
         type="button"
         onClick={runCliCheck}
-        className="self-start h-7 px-2.5 rounded border border-border text-xs text-fg-muted hover:text-fg hover:border-fg-subtle transition-colors"
+        className="self-start h-7 px-2.5 rounded-sm border border-border text-xs text-fg-muted hover:text-fg hover:border-fg-subtle transition-colors"
       >
         Re-check CLIs
       </button>

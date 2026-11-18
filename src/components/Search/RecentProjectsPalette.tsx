@@ -104,7 +104,7 @@ export function RecentProjectsPalette({ onClose }: Props) {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
             placeholder="Switch project…"
-            className="flex-1 bg-transparent text-sm text-fg placeholder:text-fg-subtle outline-none"
+            className="flex-1 bg-transparent text-sm text-fg placeholder:text-fg-subtle outline-hidden"
           />
         </div>
 

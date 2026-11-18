@@ -41,14 +41,14 @@ export function RefContextMenu({ x, y, name, kind, onCheckout, onClose }: Props)
   return createPortal(
     <div
       ref={menuRef}
-      className="fixed z-[200] w-52 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50"
+      className="fixed z-[200] w-52 rounded-sm border border-border bg-popover p-1 shadow-2xl shadow-black/50"
       style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
     >
       <button
         type="button"
         onClick={() => { onCheckout(); onClose() }}
-        className="w-full rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg truncate"
+        className="w-full rounded-sm px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg truncate"
       >
         Checkout {kind === 'tag' ? 'tag' : 'branch'} {name}
       </button>

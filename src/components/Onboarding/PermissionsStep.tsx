@@ -27,7 +27,7 @@ export function PermissionsStep() {
           type="button"
           onClick={grant}
           disabled={state === 'priming'}
-          className="self-start h-8 px-3 rounded bg-accent text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+          className="self-start h-8 px-3 rounded-sm bg-accent text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
         >
           {state === 'priming' ? 'Waiting for system dialog…' : 'Grant Access'}
         </button>

@@ -1,7 +1,8 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
-import { createServer, IncomingMessage, ServerResponse, Server } from 'http'
+import { createServer, IncomingMessage, ServerResponse } from 'http'
+import { createServer as createHttpsServer, Server as HttpsServer } from 'https'
 import { networkInterfaces } from 'os'
-import { randomUUID } from 'crypto'
+import { randomUUID, randomInt, timingSafeEqual } from 'crypto'
 import { readFileSync } from 'fs'
 import { join, extname, sep } from 'path'
 import QRCode from 'qrcode'
@@ -9,6 +10,7 @@ import { UsageManager } from './usageManager'
 import { createRelayServer, RelayConnection, RelayServer } from './mobileRelay/relayServer'
 import { dispatch } from './mobileRelay/dispatch'
 import { registerAllRelayChannels } from './mobileRelay/registerAll'
+import { loadOrCreateMobileTls, type MobileTls } from './mobileTls'
 import { createBroadcaster, Broadcaster } from './mobileRelay/broadcast'
 import type { PtyManager } from './pty'
 import type { ClaudeManager } from './claude'
@@ -38,6 +40,9 @@ export interface MobileState {
   allowingNewDevice: boolean
   interfaces: MobileNetworkInterface[]
   devices: MobileDevice[]
+  // SHA-256 of the server's TLS certificate, for comparing with what the
+  // phone's browser shows before accepting its warning. '' while stopped.
+  tlsFingerprint: string
 }
 
 function getNetworkInterfaceCandidates(): MobileNetworkInterface[] {
@@ -74,8 +79,27 @@ function labelForUserAgent(userAgent: string | undefined): string {
   return 'Device'
 }
 
+export const PIN_LENGTH = 6
+
+// Cryptographically random, so a PIN can't be predicted from earlier ones.
 export function generatePin(): string {
-  return String(Math.floor(Math.random() * 100000)).padStart(5, '0')
+  return String(randomInt(0, 10 ** PIN_LENGTH)).padStart(PIN_LENGTH, '0')
+}
+
+// Brute-force guard for /auth: after MAX_FAILED_ATTEMPTS wrong PINs (from any
+// client) pairing locks for LOCKOUT_BASE_MS and the PIN rotates. Each further
+// lockout in the same pairing window doubles, capped at LOCKOUT_MAX_MS.
+export const MAX_FAILED_ATTEMPTS = 5
+export const LOCKOUT_BASE_MS = 30_000
+export const LOCKOUT_MAX_MS = 10 * 60_000
+// A paired device has to pair again after this long.
+export const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60_000
+// The PIN form is one short field; anything bigger is not a real request.
+const MAX_AUTH_BODY_BYTES = 1024
+
+function pinsEqual(a: string, b: string): boolean {
+  if (!a || a.length !== b.length) return false
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b))
 }
 
 function parseCookies(header: string | undefined): Record<string, string> {
@@ -92,14 +116,17 @@ function getMobileWebDir(): string {
   return join(app.getAppPath(), 'electron', 'mobileWeb')
 }
 
-// Where `npm run build:mobile` (electron-vite build --mode mobile) writes
-// the real vIDE renderer bundle — the same React app that runs in the
+// Where `npm run build` (its second step, electron-vite build --mode mobile)
+// writes the phone's vIDE renderer bundle. It is its own directory, apart
+// from out/renderer, because the desktop build would otherwise overwrite it
+// with a bundle that needs Electron's preload and shows a black screen in a
+// phone browser. It is the real vIDE renderer bundle — the same React app that runs in the
 // Electron window, built with VITE_MOBILE_CLIENT=true so it boots the
 // WebSocket window.api shim (src/lib/mobileApiShim) instead of talking to
 // a preload bridge. Computed lazily like getMobileWebDir() above, for the
 // same reason (importing this module shouldn't require Electron's `app`).
 function getMobileRendererDir(): string {
-  return join(app.getAppPath(), 'out', 'renderer')
+  return join(app.getAppPath(), 'out', 'mobile')
 }
 
 const ASSET_TYPES: Record<string, string> = {
@@ -153,6 +180,13 @@ const SWITCH_MODE_LINK =
   + 'background:#0d0d0dcc;color:#fff;font:16px -apple-system,sans-serif;line-height:1;'
   + 'border-radius:999px;text-decoration:none;backdrop-filter:blur(4px)">&larr;</a>'
 
+const MISSING_MOBILE_BUNDLE_PAGE =
+  '<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1">'
+  + '<title>vIDE</title></head><body style="background:#0d0d0d;color:#ddd;font:15px -apple-system,sans-serif;padding:24px">'
+  + `${SWITCH_MODE_LINK}<h2 style="margin-top:40px">vIDE mode isn't built</h2>`
+  + '<p>This copy of vIDE has no phone bundle. Run <code>npm run build</code> (or '
+  + '<code>npm run build:mobile</code>), then reload.</p></body></html>'
+
 // Serves a file from MOBILE_RENDERER_DIR as a static asset, keyed by
 // extension. `injectSwitchModeLink` is only ever set for the bundle's own
 // index.html (see the /vide/ route) so phone users can get back to the
@@ -170,6 +204,12 @@ function serveRendererFile(res: ServerResponse, relPath: string, injectSwitchMod
   try {
     data = readFileSync(filePath)
   } catch {
+    if (injectSwitchModeLink) {
+      // No mobile bundle at all: a plain `npm run dev` doesn't build one.
+      res.writeHead(503, { 'Content-Type': 'text/html; charset=utf-8' })
+      res.end(MISSING_MOBILE_BUNDLE_PAGE)
+      return
+    }
     res.writeHead(404, { 'Content-Type': 'text/plain' })
     res.end('Not found')
     return
@@ -226,12 +266,19 @@ export function getMobileBroadcaster(): Broadcaster {
 
 export class MobileServer {
   private win: BrowserWindow
-  private server: Server | null = null
+  private server: HttpsServer | null = null
+  private tls: MobileTls | null = null
   private relay: RelayServer | null = null
   private port = BASE_PORT
   private pin = ''
   private prevPin = ''
   private sessions = new Map<string, { connectedAt: number; label: string }>()
+  // Live relay sockets per session, so revoking a device also drops its
+  // already-open WebSocket instead of only refusing new requests.
+  private connsBySession = new Map<string, Set<RelayConnection>>()
+  private failedAttempts = 0
+  private lockouts = 0
+  private lockedUntil = 0
   private interfaces: MobileNetworkInterface[] = []
   private rotateInterval: ReturnType<typeof setInterval> | null = null
   private currentTheme = 'claude-dark'
@@ -252,6 +299,7 @@ export class MobileServer {
     allowingNewDevice: true,
     interfaces: [],
     devices: [],
+    tlsFingerprint: '',
   }
 
   constructor(
@@ -288,13 +336,61 @@ export class MobileServer {
     this.pushState()
   }
 
+  // Only while the pairing window is open: once a device pairs, the PIN is
+  // cleared and nothing is accepted until the user asks to add a device.
   private isValidPin(candidate: string): boolean {
-    return candidate === this.pin || candidate === this.prevPin
+    if (!this.state.allowingNewDevice) return false
+    return pinsEqual(this.pin, candidate) || pinsEqual(this.prevPin, candidate)
+  }
+
+  private resetAttempts(): void {
+    this.failedAttempts = 0
+    this.lockouts = 0
+    this.lockedUntil = 0
+  }
+
+  private recordFailedAttempt(): void {
+    this.failedAttempts++
+    if (this.failedAttempts < MAX_FAILED_ATTEMPTS) return
+    this.failedAttempts = 0
+    this.lockedUntil = Date.now() + Math.min(LOCKOUT_BASE_MS * 2 ** this.lockouts, LOCKOUT_MAX_MS)
+    this.lockouts++
+    // Guesses so far were against this PIN (and the previous one): drop both.
+    this.pin = generatePin()
+    this.prevPin = ''
+    this.state.pin = this.pin
+    this.pushState()
+  }
+
+  // The session token in this cookie header, if it names a live session.
+  // Expired sessions are removed on the way.
+  private sessionToken(cookieHeader: string | undefined): string | null {
+    const token = parseCookies(cookieHeader)['session'] ?? ''
+    const session = this.sessions.get(token)
+    if (!session) return null
+    if (Date.now() - session.connectedAt > SESSION_MAX_AGE_MS) {
+      this.revokeSession(token)
+      this.syncDevicesFromSessions()
+      if (this.sessions.size === 0) this.openPairingWindow()
+      this.pushState()
+      return null
+    }
+    return token
   }
 
   private isAuthenticated(req: IncomingMessage): boolean {
-    const cookies = parseCookies(req.headers.cookie)
-    return this.sessions.has(cookies['session'] ?? '')
+    return this.sessionToken(req.headers.cookie) !== null
+  }
+
+  private revokeSession(token: string): boolean {
+    const existed = this.sessions.delete(token)
+    for (const conn of this.connsBySession.get(token) ?? []) conn.close()
+    this.connsBySession.delete(token)
+    return existed
+  }
+
+  private revokeAllSessions(): void {
+    for (const token of [...this.sessions.keys()]) this.revokeSession(token)
   }
 
   private syncDevicesFromSessions(): void {
@@ -307,6 +403,7 @@ export class MobileServer {
   }
 
   private openPairingWindow(): void {
+    this.resetAttempts()
     this.prevPin = ''
     this.pin = generatePin()
     this.state.pin = this.pin
@@ -325,10 +422,22 @@ export class MobileServer {
   }
 
   private handleRequest(req: IncomingMessage, res: ServerResponse): void {
-    const url = new URL(req.url ?? '/', `http://localhost:${this.port}`)
+    const url = new URL(req.url ?? '/', `https://localhost:${this.port}`)
     const path = url.pathname
 
     // Served unauthenticated — the pin-entry page itself needs these before a session exists.
+    // The CA certificate, unauthenticated: installing it on the phone (and
+    // trusting it) removes the certificate warning and makes the phone
+    // reject any other certificate for this server.
+    if (req.method === 'GET' && path === '/vide-ca.crt' && this.tls) {
+      res.writeHead(200, {
+        'Content-Type': 'application/x-x509-ca-cert',
+        'Content-Disposition': 'attachment; filename="vide-ca.crt"',
+      })
+      res.end(this.tls.caCert)
+      return
+    }
+
     if (req.method === 'GET' && path.startsWith('/mobile-assets/')) {
       const name = path.slice('/mobile-assets/'.length)
       const binaryContentType = BINARY_ASSET_TYPES[name]
@@ -356,10 +465,38 @@ export class MobileServer {
 
     if (req.method === 'POST' && path === '/auth') {
       let body = ''
-      req.on('data', (chunk) => { body += chunk })
+      let tooLarge = false
+      req.on('data', (chunk) => {
+        if (tooLarge) return
+        body += chunk
+        if (body.length > MAX_AUTH_BODY_BYTES) {
+          tooLarge = true
+          res.writeHead(413, { 'Content-Type': 'text/plain', Connection: 'close' })
+          res.end('Request too large')
+          req.destroy()
+        }
+      })
       req.on('end', () => {
+        if (tooLarge) return
         const params = new URLSearchParams(body)
         const candidate = params.get('pin') ?? ''
+        const lockedFor = this.lockedUntil - Date.now()
+        if (lockedFor > 0) {
+          res.writeHead(429, { 'Content-Type': 'text/html; charset=utf-8', 'Retry-After': String(Math.ceil(lockedFor / 1000)) })
+          res.end(renderPage('pin.html', {
+            theme: this.currentTheme,
+            pinError: `Too many attempts — try again in ${Math.ceil(lockedFor / 1000)} seconds`,
+          }))
+          return
+        }
+        if (!this.state.allowingNewDevice) {
+          res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8' })
+          res.end(renderPage('pin.html', {
+            theme: this.currentTheme,
+            pinError: 'Pairing is closed — choose Add device in vIDE first',
+          }))
+          return
+        }
         if (this.isValidPin(candidate)) {
           const token = randomUUID()
           this.sessions.set(token, { connectedAt: Date.now(), label: labelForUserAgent(req.headers['user-agent']) })
@@ -368,13 +505,17 @@ export class MobileServer {
           this.syncDevicesFromSessions()
           this.state.allowingNewDevice = false
           this.state.pin = ''
+          this.pin = ''
+          this.prevPin = ''
+          this.resetAttempts()
           setImmediate(() => this.pushState())
           res.writeHead(302, {
-            'Set-Cookie': `session=${token}; HttpOnly; SameSite=Strict; Path=/`,
+            'Set-Cookie': `session=${token}; HttpOnly; Secure; SameSite=Strict; Path=/`,
             Location: '/app',
           })
           res.end()
         } else {
+          this.recordFailedAttempt()
           res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
           res.end(renderPage('pin.html', { theme: this.currentTheme, pinError: 'Incorrect PIN — try again' }))
         }
@@ -497,17 +638,18 @@ export class MobileServer {
 
     this.pin = generatePin()
     this.prevPin = ''
+    this.resetAttempts()
     this.interfaces = getNetworkInterfaceCandidates()
     const localIp = getLocalIp(this.interfaces)
     const qrSvg = await this.buildQrForAddress(localIp)
 
-    this.server = createServer((req, res) => this.handleRequest(req, res))
+    // Every address the QR code can point at, so the certificate matches
+    // whichever interface is picked.
+    this.tls = loadOrCreateMobileTls(join(app.getPath('userData'), 'mobile-tls'), this.interfaces.map((i) => i.address))
+    this.server = createHttpsServer({ key: this.tls.key, cert: this.tls.cert }, (req, res) => this.handleRequest(req, res))
     this.relay = createRelayServer(this.server, {
-      isAuthenticated: (cookieHeader) => {
-        const cookies = parseCookies(cookieHeader)
-        return this.sessions.has(cookies['session'] ?? '')
-      },
-      onConnection: (conn) => this.handleRelayConnection(conn),
+      sessionFor: (cookieHeader) => this.sessionToken(cookieHeader),
+      onConnection: (conn, token) => this.handleRelayConnection(conn, token),
     })
     await new Promise<void>((resolve) => {
       this.server!.listen(this.port, '0.0.0.0', resolve)
@@ -526,12 +668,13 @@ export class MobileServer {
       allowingNewDevice: true,
       interfaces: this.interfaces,
       devices: [],
+      tlsFingerprint: this.tls.fingerprint,
     }
     this.pushState()
   }
 
   private async buildQrForAddress(address: string): Promise<string> {
-    const url = `http://${address}:${this.port}`
+    const url = `https://${address}:${this.port}`
     return QRCode.toString(url, { type: 'svg', margin: 1 })
   }
 
@@ -543,9 +686,19 @@ export class MobileServer {
     this.pushState()
   }
 
-  private handleRelayConnection(conn: RelayConnection): void {
+  private handleRelayConnection(conn: RelayConnection, token: string): void {
+    let conns = this.connsBySession.get(token)
+    if (!conns) this.connsBySession.set(token, (conns = new Set()))
+    conns.add(conn)
+    conn.onClose(() => conns.delete(conn))
     this.broadcaster.addConnection(conn)
     conn.onMessage(async (msg) => {
+      // Re-checked per message: a revoked or expired session's socket gets
+      // nothing dispatched even if it's still open.
+      if (this.sessionToken(conn.cookieHeader) !== token) {
+        conn.close()
+        return
+      }
       const response = await dispatch(msg)
       if (response) conn.send(response)
     })
@@ -558,7 +711,9 @@ export class MobileServer {
     this.relay = null
     this.server?.close()
     this.server = null
-    this.sessions.clear()
+    this.revokeAllSessions()
+    this.pin = ''
+    this.prevPin = ''
     // Mobile Display turned off entirely — tear down every terminal/Claude
     // session any paired device spawned, same as a real window's 'closed'
     // handler disposing its own PtyManager/ClaudeManager state. A single
@@ -582,6 +737,7 @@ export class MobileServer {
       allowingNewDevice: true,
       interfaces: this.state.interfaces,
       devices: [],
+      tlsFingerprint: '',
     }
     this.pushState()
   }
@@ -593,7 +749,7 @@ export class MobileServer {
   }
 
   disconnectDevice(id: string): void {
-    if (!this.sessions.delete(id)) return
+    if (!this.revokeSession(id)) return
     this.syncDevicesFromSessions()
     if (this.sessions.size === 0) this.openPairingWindow()
     this.pushState()
@@ -601,7 +757,7 @@ export class MobileServer {
 
   disconnectAll(): void {
     if (this.sessions.size === 0) return
-    this.sessions.clear()
+    this.revokeAllSessions()
     this.syncDevicesFromSessions()
     this.openPairingWindow()
     this.pushState()

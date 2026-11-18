@@ -67,7 +67,7 @@ export function Select({ id, value, onChange, options, disabled, compact, ariaLa
           setOpen((v) => !v)
         }}
         className={[
-          'w-full flex items-center justify-between gap-2 rounded-lg border border-border bg-bg text-left text-fg transition-colors focus:outline-none focus:border-accent/60',
+          'w-full flex items-center justify-between gap-2 rounded-lg border border-border bg-bg text-left text-fg transition-colors focus:outline-hidden focus:border-accent/60',
           padding, textSize,
           disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
         ].join(' ')}
@@ -83,7 +83,7 @@ export function Select({ id, value, onChange, options, disabled, compact, ariaLa
           ref={menuRef}
           role="listbox"
           aria-label={ariaLabel}
-          className="fixed z-[200] max-h-64 overflow-y-auto rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50"
+          className="fixed z-[200] max-h-64 overflow-y-auto rounded-sm border border-border bg-popover p-1 shadow-2xl shadow-black/50"
           style={{ left: menuStyle.left, top: menuStyle.top, width: menuStyle.width }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -100,7 +100,7 @@ export function Select({ id, value, onChange, options, disabled, compact, ariaLa
                   setOpen(false)
                 }}
                 className={[
-                  'flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors',
+                  'flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors',
                   isSelected ? 'bg-accent/10 text-fg' : 'text-fg-muted hover:bg-white/5 hover:text-fg',
                 ].join(' ')}
                 style={opt.style}

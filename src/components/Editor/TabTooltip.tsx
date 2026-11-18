@@ -32,7 +32,7 @@ export function TabTooltip({ label, anchor }: { label: string; anchor: DOMRect }
       style={{ left, top: anchor.bottom }}
       className={[
         'pointer-events-none fixed z-50 max-w-[480px] break-words',
-        'rounded-b border border-t-0 border-border bg-popover px-3 py-1.5 text-xs text-fg',
+        'rounded-b-sm border border-t-0 border-border bg-popover px-3 py-1.5 text-xs text-fg',
         'shadow-[0_6px_16px_-6px_rgba(0,0,0,0.4)]',
         'transition-[opacity,transform] duration-200 ease-out',
         shown ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1',

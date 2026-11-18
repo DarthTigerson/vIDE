@@ -32,7 +32,7 @@ export function ShortcutKeys({ shortcut }: { shortcut: string }) {
       {shortcut.split(' ').map((chord, i) => (
         <kbd
           key={i}
-          className="flex items-center gap-0.5 min-w-[22px] px-1.5 py-0.5 text-xs text-center font-medium text-fg-subtle bg-panel border border-border rounded"
+          className="flex items-center gap-0.5 min-w-[22px] px-1.5 py-0.5 text-xs text-center font-medium text-fg-subtle bg-panel border border-border rounded-sm"
         >
           {splitIntoSegments(chord).map((segment, j) => (
             <span key={j}>{segment}</span>

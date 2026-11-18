@@ -18,7 +18,7 @@ export function MenuButton({
       type="button"
       onClick={onClick}
       className={[
-        'w-full rounded px-2 py-1.5 text-left text-xs transition-colors',
+        'w-full rounded-sm px-2 py-1.5 text-left text-xs transition-colors',
         danger
           ? 'text-red-300 hover:bg-red-500/15 hover:text-red-200'
           : 'text-fg-muted hover:bg-white/5 hover:text-fg',
@@ -65,7 +65,7 @@ export function SwitchMenuButton({
       role="menuitemcheckbox"
       aria-checked={checked}
       onClick={onClick}
-      className="flex w-full items-center justify-between gap-3 rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+      className="flex w-full items-center justify-between gap-3 rounded-sm px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
     >
       {children}
       <span
@@ -77,7 +77,7 @@ export function SwitchMenuButton({
       >
         <span
           className={[
-            'absolute top-px left-px w-2.5 h-2.5 rounded-full bg-white shadow transition-transform',
+            'absolute top-px left-px w-2.5 h-2.5 rounded-full bg-white shadow-sm transition-transform',
             checked ? 'translate-x-3' : 'translate-x-0',
           ].join(' ')}
         />
@@ -106,13 +106,13 @@ export function SubMenuButton({ label, width = 'w-40', children }: {
       <button
         type="button"
         aria-label={label}
-        className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+        className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
       >
         {label}
         <span className="text-fg-subtle">▸</span>
       </button>
       {open && (
-        <SubmenuPanel className={`${width} rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50`}>
+        <SubmenuPanel className={`${width} rounded-sm border border-border bg-popover p-1 shadow-2xl shadow-black/50`}>
           {children}
         </SubmenuPanel>
       )}

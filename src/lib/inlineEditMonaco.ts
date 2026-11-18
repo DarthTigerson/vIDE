@@ -126,7 +126,7 @@ export function registerInlineEditCommands(
     const input = document.createElement('input')
     input.type = 'text'
     input.placeholder = 'Describe the change…'
-    input.className = 'bg-bg border border-border rounded px-2 py-1 text-sm text-fg focus:outline-none focus:border-accent/60'
+    input.className = 'bg-bg border border-border rounded-sm px-2 py-1 text-sm text-fg focus:outline-hidden focus:border-accent/60'
     input.style.boxSizing = 'border-box'
     // An explicit pixel width, not flex-grow: flex-basis/grow on the root
     // node Monaco takes as a content widget's domNode was observed not
@@ -192,21 +192,21 @@ export function registerInlineEditCommands(
     const acceptBtn = document.createElement('button')
     acceptBtn.type = 'button'
     acceptBtn.textContent = 'Accept ⏎'
-    acceptBtn.className = 'px-2 py-1 text-xs rounded bg-accent/20 text-accent border border-accent/40 hover:bg-accent/30'
+    acceptBtn.className = 'px-2 py-1 text-xs rounded-sm bg-accent/20 text-accent border border-accent/40 hover:bg-accent/30'
     acceptBtn.addEventListener('click', () => acceptEdit())
     actions.appendChild(acceptBtn)
 
     const rejectBtn = document.createElement('button')
     rejectBtn.type = 'button'
     rejectBtn.textContent = 'Reject Esc'
-    rejectBtn.className = 'px-2 py-1 text-xs rounded bg-bg text-fg-muted border border-border hover:text-fg'
+    rejectBtn.className = 'px-2 py-1 text-xs rounded-sm bg-bg text-fg-muted border border-border hover:text-fg'
     rejectBtn.addEventListener('click', () => rejectEdit())
     actions.appendChild(rejectBtn)
 
     const refineInput = document.createElement('input')
     refineInput.type = 'text'
     refineInput.placeholder = 'Ask for another change…'
-    refineInput.className = 'bg-bg border border-border rounded px-2 py-1 text-xs text-fg focus:outline-none focus:border-accent/60'
+    refineInput.className = 'bg-bg border border-border rounded-sm px-2 py-1 text-xs text-fg focus:outline-hidden focus:border-accent/60'
     refineInput.style.flex = '1 1 0%'
     refineInput.style.minWidth = '0'
     refineInput.addEventListener('keydown', (e) => {
@@ -238,7 +238,7 @@ export function registerInlineEditCommands(
     const dismissBtn = document.createElement('button')
     dismissBtn.type = 'button'
     dismissBtn.textContent = 'Dismiss Esc'
-    dismissBtn.className = 'mt-2 px-2 py-1 text-xs rounded bg-bg text-fg-muted border border-border hover:text-fg'
+    dismissBtn.className = 'mt-2 px-2 py-1 text-xs rounded-sm bg-bg text-fg-muted border border-border hover:text-fg'
     dismissBtn.addEventListener('click', () => useInlineEditStore.getState().reset())
     container.appendChild(dismissBtn)
 

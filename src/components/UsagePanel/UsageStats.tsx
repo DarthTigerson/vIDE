@@ -16,10 +16,10 @@ const PART_LABEL: Record<PacePart, string> = {
 }
 
 const PART_SWATCH: Record<PacePart, ReactNode> = {
-  used: <span className="w-3 h-2 rounded-sm bg-accent" />,
-  projected: <span className="w-3 h-2 rounded-sm border border-dashed border-accent/50" style={{ background: HATCH }} />,
+  used: <span className="w-3 h-2 rounded-xs bg-accent" />,
+  projected: <span className="w-3 h-2 rounded-xs border border-dashed border-accent/50" style={{ background: HATCH }} />,
   elapsed: <span className="w-0.5 h-3 mx-[5px] bg-fg" />,
-  remaining: <span className="w-3 h-2 rounded-sm bg-border" />,
+  remaining: <span className="w-3 h-2 rounded-xs bg-border" />,
 }
 
 // Small pill naming the hovered part of a pace bar and its value. Portaled to
@@ -122,7 +122,7 @@ export function PaceBar({
       </div>
       <div
         ref={barRef}
-        className="relative h-3 rounded-sm bg-border"
+        className="relative h-3 rounded-xs bg-border"
         role="img"
         aria-label={`${label} ${pct ?? 0}% used`}
         onMouseLeave={() => setHover(null)}
@@ -147,7 +147,7 @@ export function PaceBar({
         {used > 0 && (
           <div
             data-testid="pace-used"
-            className="absolute inset-y-0 left-0 rounded-l-sm bg-accent"
+            className="absolute inset-y-0 left-0 rounded-l-xs bg-accent"
             style={{ width: `${used}%`, transition: 'width 0.6s ease' }}
             {...hoverProps('used')}
           />

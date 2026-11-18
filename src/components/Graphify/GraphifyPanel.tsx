@@ -111,12 +111,12 @@ export function GraphifyPanel() {
         {(running || (error && !running)) && (
           <div className="shrink-0 px-3 py-2 flex flex-col gap-2">
             {running && (
-              <div className="text-xs text-fg-muted font-mono whitespace-pre-wrap border border-border rounded p-2 max-h-64 overflow-y-auto">
+              <div className="text-xs text-fg-muted font-mono whitespace-pre-wrap border border-border rounded-sm p-2 max-h-64 overflow-y-auto">
                 {progress || `Running graphify on ${activeRepoName ?? 'this project'}…`}
               </div>
             )}
             {error && !running && (
-              <div className="text-xs text-red-400 whitespace-pre-wrap border border-red-400/30 rounded p-2 max-h-64 overflow-y-auto">
+              <div className="text-xs text-red-400 whitespace-pre-wrap border border-red-400/30 rounded-sm p-2 max-h-64 overflow-y-auto">
                 {error}
               </div>
             )}

@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { useLlamaAvailability } from '../useLlamaAvailability'
 import { useLlamaStore } from '@/stores/llamaStore'
 
-let checkAvailable: ReturnType<typeof vi.fn>
+let checkAvailable: Mock<(...args: any[]) => any>
 
 beforeEach(() => {
   checkAvailable = vi.fn().mockResolvedValue(undefined)

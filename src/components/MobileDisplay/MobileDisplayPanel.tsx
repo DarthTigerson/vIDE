@@ -155,13 +155,13 @@ export function MobileDisplayPanel() {
             disabled={toggling}
             aria-label={state.running ? 'Stop mobile server' : 'Start mobile server'}
             className={[
-              'relative w-10 h-5 rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50',
+              'relative w-10 h-5 rounded-full transition-colors duration-200 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50',
               state.running ? 'bg-accent' : 'bg-fg-muted/30',
             ].join(' ')}
           >
             <span
               className={[
-                'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200',
+                'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200',
                 state.running ? 'translate-x-5' : 'translate-x-0',
               ].join(' ')}
             />
@@ -195,10 +195,21 @@ export function MobileDisplayPanel() {
             {/* URL */}
             <div className="flex items-center justify-center gap-2">
               <p className="text-[0.6875rem] text-fg-muted font-mono">
-                http://{state.localIp}:{state.port}
+                https://{state.localIp}:{state.port}
               </p>
-              <CopyButton text={`http://${state.localIp}:${state.port}`} label="Copy pairing URL" />
+              <CopyButton text={`https://${state.localIp}:${state.port}`} label="Copy pairing URL" />
             </div>
+
+            {/* Certificate: the phone warns once because vIDE signs its own. */}
+            {state.tlsFingerprint && (
+              <p className="text-[0.6875rem] text-fg-muted text-center leading-relaxed">
+                Your phone will warn that the connection isn't private the first time.
+                Before continuing, check its certificate's SHA-256 starts with
+                <span className="block font-mono text-fg mt-1" title={state.tlsFingerprint}>
+                  {state.tlsFingerprint.split(':').slice(0, 8).join(':')}
+                </span>
+              </p>
+            )}
 
             {/* Divider */}
             <div className="h-px bg-border" />

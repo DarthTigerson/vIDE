@@ -24,7 +24,7 @@ function MenuButton({ children, hint, disabled, onClick }: {
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="flex w-full items-center justify-between gap-4 rounded px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
+      className="flex w-full items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
     >
       <span>{children}</span>
       {hint && <ShortcutKeys shortcut={hint} />}
@@ -75,7 +75,7 @@ export function TerminalContextMenu({ x, y, selection, terminalId, onPaste, copy
   return createPortal(
     <div
       ref={menuRef}
-      className="fixed z-[200] w-52 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50"
+      className="fixed z-[200] w-52 rounded-sm border border-border bg-popover p-1 shadow-2xl shadow-black/50"
       style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
     >

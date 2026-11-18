@@ -133,7 +133,7 @@ export const MONACO_THEMES: Record<ThemeId, string> = {
 // themed — ls, git status, and most shell prompts color their output with
 // the ANSI 16-color palette, so that needs tuning per-theme too or the
 // terminal looks unchanged no matter what theme is active.
-export const XTERM_THEMES: Record<ThemeId, ITheme> = {
+const XTERM_PALETTES: Record<ThemeId, ITheme> = {
   'claude-dark': {
     background:          '#111111',
     foreground:          '#d9d9d9',
@@ -501,6 +501,25 @@ export const XTERM_THEMES: Record<ThemeId, ITheme> = {
     brightWhite:         '#2b2b2b',
   },
 }
+
+// xterm.js 6 draws its own overlay scrollbar (no longer a native one the
+// ::-webkit-scrollbar rules in index.css could style) and colours its slider
+// from these ITheme keys, via a <style> it injects after index.css. Same
+// strengths the old CSS thumb used (35%, 55% on hover/drag), but taken from
+// the theme's text colour rather than fixed white so the slider stays
+// visible on light themes too. The slider's shape lives in index.css.
+export function xtermScrollbarSlider(foreground: string): Pick<ITheme, 'scrollbarSliderBackground' | 'scrollbarSliderHoverBackground' | 'scrollbarSliderActiveBackground'> {
+  if (!/^#[0-9a-f]{6}$/i.test(foreground)) return {}
+  return {
+    scrollbarSliderBackground: hexWithAlpha(foreground, 0.35),
+    scrollbarSliderHoverBackground: hexWithAlpha(foreground, 0.55),
+    scrollbarSliderActiveBackground: hexWithAlpha(foreground, 0.55),
+  }
+}
+
+export const XTERM_THEMES = Object.fromEntries(
+  Object.entries(XTERM_PALETTES).map(([id, t]) => [id, { ...t, ...xtermScrollbarSlider(t.foreground!) }]),
+) as Record<ThemeId, ITheme>
 
 // "glass" panel style needs the terminal surface itself to be see-through,
 // not just its wrapper div — xterm paints its own opaque background from

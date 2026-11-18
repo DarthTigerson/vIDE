@@ -58,7 +58,7 @@ export function AgentToolingSettingsPage() {
             return (
               <Row
                 key={key}
-                icon={<span aria-hidden="true" className="h-2 w-2 rounded-sm bg-fg-muted" />}
+                icon={<span aria-hidden="true" className="h-2 w-2 rounded-xs bg-fg-muted" />}
                 title={<code className="font-mono text-[0.78rem]">{server.name}</code>}
                 description={server.description}
                 count={catalog ? countLabel(tools.length) : ''}

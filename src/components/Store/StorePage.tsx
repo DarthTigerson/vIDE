@@ -123,7 +123,7 @@ export function StorePage() {
           aria-label="Clear filters"
           disabled={isDefaultStoreFilters(filters)}
           onClick={() => setFilters(DEFAULT_STORE_FILTERS)}
-          className="w-6 h-6 rounded flex items-center justify-center text-fg-subtle hover:text-accent hover:bg-white/5 disabled:opacity-40 disabled:hover:text-fg-subtle disabled:hover:bg-transparent"
+          className="w-6 h-6 rounded-sm flex items-center justify-center text-fg-subtle hover:text-accent hover:bg-white/5 disabled:opacity-40 disabled:hover:text-fg-subtle disabled:hover:bg-transparent"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M3 5h18l-7 8v5l-4 2v-7z" /><path d="M16 16l5 5M21 16l-5 5" />
@@ -166,7 +166,7 @@ export function StorePage() {
           aria-label="Check for new apps"
           disabled={loading}
           onClick={() => void load(true)}
-          className="w-6 h-6 shrink-0 rounded flex items-center justify-center hover:text-fg hover:bg-white/5 disabled:opacity-40"
+          className="w-6 h-6 shrink-0 rounded-sm flex items-center justify-center hover:text-fg hover:bg-white/5 disabled:opacity-40"
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -195,7 +195,7 @@ export function StorePage() {
               placeholder="Search the store"
               value={filters.query}
               onChange={(e) => set({ query: e.target.value })}
-              className="flex-1 min-w-0 bg-transparent text-fg text-xs outline-none"
+              className="flex-1 min-w-0 bg-transparent text-fg text-xs outline-hidden"
             />
           </label>
           {narrow && (
@@ -283,7 +283,7 @@ export function StorePage() {
                     <AppMonogram name={a.name} />
                     <div className="flex-1 min-w-0 flex items-baseline gap-2.5">
                       <h2 className="text-sm font-semibold text-fg truncate">{a.name}</h2>
-                      <span className="text-[0.625rem] font-bold px-1.5 rounded bg-border text-fg-muted">Dev</span>
+                      <span className="text-[0.625rem] font-bold px-1.5 rounded-sm bg-border text-fg-muted">Dev</span>
                     </div>
                     <span className="text-[0.6875rem] text-fg-subtle">{a.status === 'failed' ? 'Failed to load' : a.version}</span>
                   </article>

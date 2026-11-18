@@ -47,7 +47,7 @@ export function BottomTerminalTabMenu({ x, y, id, onClose }: { x: number; y: num
   return createPortal(
     <div
       ref={menuRef}
-      className="fixed z-[200] w-48 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50"
+      className="fixed z-[200] w-48 rounded-sm border border-border bg-popover p-1 shadow-2xl shadow-black/50"
       style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
     >

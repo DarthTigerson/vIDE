@@ -94,7 +94,7 @@ function BranchCombobox({ label, value, options, onChange }: {
         type="button"
         onClick={() => setOpen((next) => !next)}
         className={[
-          'w-full h-9 rounded border px-2.5 text-left flex items-center justify-between gap-2 transition-colors',
+          'w-full h-9 rounded-sm border px-2.5 text-left flex items-center justify-between gap-2 transition-colors',
           open
             ? 'border-[#2563eb]/70 bg-[#2563eb]/10'
             : 'border-border bg-bg hover:border-fg-subtle',
@@ -117,7 +117,7 @@ function BranchCombobox({ label, value, options, onChange }: {
               onChange={(e) => setQuery(e.target.value)}
               autoFocus
               placeholder="Search branches"
-              className="w-full h-8 rounded border border-border bg-bg px-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-1 focus:ring-[#2563eb]/70"
+              className="w-full h-8 rounded-sm border border-border bg-bg px-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-hidden focus:ring-1 focus:ring-[#2563eb]/70"
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
                   e.preventDefault()
@@ -138,7 +138,7 @@ function BranchCombobox({ label, value, options, onChange }: {
                   aria-selected={branch === value}
                   onClick={() => selectBranch(branch)}
                   className={[
-                    'w-full min-w-0 rounded px-2 py-2 text-left flex items-center gap-2 transition-colors',
+                    'w-full min-w-0 rounded-sm px-2 py-2 text-left flex items-center gap-2 transition-colors',
                     branch === value ? 'bg-[#2563eb]/18 text-fg' : 'hover:bg-white/[0.06] text-fg-muted',
                   ].join(' ')}
                 >
@@ -181,7 +181,7 @@ function CommitRow({ commit, index, total, selected, refsColumnWidth, onClick, o
         minHeight: ROW_H,
       }}
       className={[
-        'w-full grid items-center text-left group transition-colors border-l-2 focus:outline-none focus-visible:bg-white/[0.08] focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[#2563eb]/70',
+        'w-full grid items-center text-left group transition-colors border-l-2 focus:outline-hidden focus-visible:bg-white/[0.08] focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[#2563eb]/70',
         selected ? 'border-l-[#2563eb]' : 'border-l-transparent hover:bg-white/[0.04]',
       ].join(' ')}
       onClick={onClick}
@@ -194,13 +194,13 @@ function CommitRow({ commit, index, total, selected, refsColumnWidth, onClick, o
             {refs.map((ref) => (
               <span
                 key={ref}
-                className={`max-w-36 truncate text-[0.5625rem] font-semibold px-1.5 py-0.5 rounded border leading-none ${refTone(ref)}`}
+                className={`max-w-36 truncate text-[0.5625rem] font-semibold px-1.5 py-0.5 rounded-sm border leading-none ${refTone(ref)}`}
               >
                 {normalizeRef(ref)}
               </span>
             ))}
             {commit.refs.length > refs.length && (
-              <span className="text-[0.5625rem] px-1.5 py-0.5 rounded border border-border text-fg-muted leading-none">
+              <span className="text-[0.5625rem] px-1.5 py-0.5 rounded-sm border border-border text-fg-muted leading-none">
                 +{commit.refs.length - refs.length}
               </span>
             )}
@@ -210,10 +210,10 @@ function CommitRow({ commit, index, total, selected, refsColumnWidth, onClick, o
 
       <div className="relative h-full flex items-center justify-center">
         {!isFirst && (
-          <span className="absolute top-0 h-1/2 w-1 rounded-b bg-[#2563eb]" />
+          <span className="absolute top-0 h-1/2 w-1 rounded-b-sm bg-[#2563eb]" />
         )}
         {!isLast && (
-          <span className="absolute bottom-0 h-1/2 w-1 rounded-t bg-[#2563eb]" />
+          <span className="absolute bottom-0 h-1/2 w-1 rounded-t-sm bg-[#2563eb]" />
         )}
         <span className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-[#1e293b] ring-2 ring-[#60a5fa] shadow-[0_0_0_8px_rgba(37,99,235,0.18)]">
           <span className="h-3.5 w-3.5 rounded-full bg-[#2563eb] ring-2 ring-white/80" />

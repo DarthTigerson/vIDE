@@ -2,7 +2,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 
-vi.mock('@monaco-editor/react', () => ({ default: () => <div data-testid="monaco" /> }))
+vi.mock('@monaco-editor/react', () => ({ default: () => <div data-testid="monaco" />, loader: { config: () => {} } }))
 
 import { ScriptEditorPage } from '../ScriptEditorPage'
 import { useScriptsStore } from '@/stores/scriptsStore'

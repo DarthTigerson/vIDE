@@ -1,7 +1,8 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import MonacoEditor, { DiffEditor, loader } from '@monaco-editor/react'
+import '@/lib/monacoLoader'
 import type * as Monaco from 'monaco-editor'
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
+import { Group, Panel, Separator } from 'react-resizable-panels'
 import { collectPaneIds, useEditorStore, type EditorLayoutNode } from '@/stores/editorStore'
 import { useSearchStore } from '@/stores/searchStore'
 import { useGlobalSearchStore } from '@/stores/globalSearchStore'
@@ -335,23 +336,24 @@ function EditorLayout({ node }: { node: EditorLayoutNode }) {
   const horizontal = node.direction === 'horizontal'
 
   return (
-    <PanelGroup
-      direction={horizontal ? 'horizontal' : 'vertical'}
+    <Group
+      orientation={horizontal ? 'horizontal' : 'vertical'}
       className="h-full min-h-0"
     >
-      <Panel minSize={15}>
+      <Panel minSize="15%">
         <EditorLayout node={node.children[0]} />
       </Panel>
-      <PanelResizeHandle
+      <Separator
+        disableDoubleClick
         className={[
           'bg-border hover:bg-accent/60 transition-colors',
           horizontal ? 'w-px cursor-col-resize' : 'h-px cursor-row-resize',
         ].join(' ')}
       />
-      <Panel minSize={15}>
+      <Panel minSize="15%">
         <EditorLayout node={node.children[1]} />
       </Panel>
-    </PanelGroup>
+    </Group>
   )
 }
 

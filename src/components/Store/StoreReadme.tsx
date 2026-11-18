@@ -24,7 +24,7 @@ export function StoreReadme({ appId, hasReadme, version }: { appId: string; hasR
   return (
     <section className="flex flex-col gap-2.5">
       <h2 className="text-[0.625rem] font-bold tracking-wider uppercase text-fg-subtle">About</h2>
-      <div className={['bg-panel border border-border rounded-[10px] p-4', COMPACT_PROSE_CLASSES, '!max-w-none !px-4 !py-4'].join(' ')}>
+      <div className={['bg-panel border border-border rounded-[10px] p-4', COMPACT_PROSE_CLASSES, 'max-w-none! px-4! py-4!'].join(' ')}>
         <ReactMarkdown
           components={{
             a: ({ href, children }) => {
@@ -45,7 +45,7 @@ export function StoreReadme({ appId, hasReadme, version }: { appId: string; hasR
             // Only https images; a relative or other-scheme image is dropped.
             img: ({ src, alt }) =>
               typeof src === 'string' && src.startsWith('https://')
-                ? <img src={src} alt={alt ?? ''} className="max-w-full rounded" />
+                ? <img src={src} alt={alt ?? ''} className="max-w-full rounded-sm" />
                 : null,
           }}
         >

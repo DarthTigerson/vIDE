@@ -490,7 +490,7 @@ export function BrowserTab({ browserId }: Props) {
           aria-label="Home"
           disabled={!url}
           onClick={goHome}
-          className="flex h-6 w-6 items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
+          className="flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted hover:text-fg hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
         >
           <HomeIcon />
         </button>
@@ -499,7 +499,7 @@ export function BrowserTab({ browserId }: Props) {
           aria-label="Back"
           disabled={!canGoBack}
           onClick={() => window.api.browserViewGoBack(browserId)}
-          className="flex h-6 w-6 items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
+          className="flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted hover:text-fg hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
         >
           <NavArrowIcon direction="back" />
         </button>
@@ -508,7 +508,7 @@ export function BrowserTab({ browserId }: Props) {
           aria-label="Forward"
           disabled={!canGoForward}
           onClick={() => window.api.browserViewGoForward(browserId)}
-          className="flex h-6 w-6 items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
+          className="flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted hover:text-fg hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
         >
           <NavArrowIcon direction="forward" />
         </button>
@@ -516,7 +516,7 @@ export function BrowserTab({ browserId }: Props) {
           type="button"
           aria-label="Reload"
           onClick={() => window.api.browserViewReload(browserId)}
-          className="flex h-6 w-6 items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-white/5"
+          className="flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted hover:text-fg hover:bg-white/5"
         >
           <ReloadIcon spinning={isLoading} />
         </button>
@@ -528,7 +528,7 @@ export function BrowserTab({ browserId }: Props) {
             onBlur={() => { editingRef.current = false; setUrlDraft(url) }}
             spellCheck={false}
             placeholder="Search or enter address"
-            className="w-full h-6 rounded bg-bg border border-border px-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent/60"
+            className="w-full h-6 rounded-sm bg-bg border border-border px-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-hidden focus:border-accent/60"
           />
         </form>
         {url && (
@@ -539,8 +539,8 @@ export function BrowserTab({ browserId }: Props) {
             onClick={() => useBrowserFavoritesStore.getState().toggleFavorite(url, tabState?.title || url)}
             className={
               isFavorite
-                ? 'flex h-6 w-6 items-center justify-center rounded text-accent hover:bg-white/5'
-                : 'flex h-6 w-6 items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-white/5'
+                ? 'flex h-6 w-6 items-center justify-center rounded-sm text-accent hover:bg-white/5'
+                : 'flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted hover:text-fg hover:bg-white/5'
             }
           >
             <StarIcon filled={isFavorite} />
@@ -552,7 +552,7 @@ export function BrowserTab({ browserId }: Props) {
           aria-label="Zoom controls"
           aria-expanded={menuOpen}
           onClick={toggleMenu}
-          className="flex h-6 w-6 items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-white/5"
+          className="flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted hover:text-fg hover:bg-white/5"
         >
           <MoreVerticalIcon />
         </button>
@@ -590,7 +590,7 @@ export function BrowserTab({ browserId }: Props) {
               {openDropdown === 'device' && (
                 <div
                   role="menu"
-                  className="absolute left-0 top-7 z-10 min-w-max overflow-hidden rounded border border-border bg-bg p-1 shadow-lg"
+                  className="absolute left-0 top-7 z-10 min-w-max overflow-hidden rounded-sm border border-border bg-bg p-1 shadow-lg"
                 >
                   <DropdownItem checked={!mobileMode} onClick={() => selectDevice(null)}>
                     Desktop
@@ -700,7 +700,7 @@ export function BrowserTab({ browserId }: Props) {
                         closeFind()
                       }
                     }}
-                    className="h-6 min-w-[3rem] flex-1 bg-transparent px-0.5 text-xs text-fg placeholder:text-fg-subtle outline-none"
+                    className="h-6 min-w-[3rem] flex-1 bg-transparent px-0.5 text-xs text-fg placeholder:text-fg-subtle outline-hidden"
                   />
                   <span className="shrink-0 whitespace-nowrap pr-1 text-[11px] tabular-nums text-fg-muted">
                     {findText && findResult ? (findResult.total === 0 ? 'No results' : `${findResult.active} of ${findResult.total}`) : ''}
@@ -756,7 +756,7 @@ export function BrowserTab({ browserId }: Props) {
               {openDropdown === 'clear' && (
                 <div
                   role="menu"
-                  className="absolute right-0 top-7 z-10 min-w-max overflow-hidden rounded border border-border bg-bg p-1 shadow-lg"
+                  className="absolute right-0 top-7 z-10 min-w-max overflow-hidden rounded-sm border border-border bg-bg p-1 shadow-lg"
                 >
                   <DropdownItem onClick={() => clearOne('cache')}>Clear cache</DropdownItem>
                   <DropdownItem onClick={() => clearOne('cookies')}>Clear cookies</DropdownItem>
@@ -797,7 +797,7 @@ export function BrowserTab({ browserId }: Props) {
             <button
               type="button"
               onClick={() => window.api.browserViewReload(browserId)}
-              className="mt-1 rounded border border-border px-2 py-1 text-xs text-fg-muted hover:text-fg hover:bg-white/5"
+              className="mt-1 rounded-sm border border-border px-2 py-1 text-xs text-fg-muted hover:text-fg hover:bg-white/5"
             >
               Retry
             </button>
@@ -878,7 +878,7 @@ function DropdownItem({
       role={checked === undefined ? 'menuitem' : 'menuitemradio'}
       aria-checked={checked}
       onClick={onClick}
-      className="flex w-full items-center gap-2 whitespace-nowrap rounded px-2 py-1.5 text-left text-xs text-fg-muted hover:bg-white/5 hover:text-fg"
+      className="flex w-full items-center gap-2 whitespace-nowrap rounded-sm px-2 py-1.5 text-left text-xs text-fg-muted hover:bg-white/5 hover:text-fg"
     >
       {checked !== undefined && <span className="w-3 shrink-0 text-center text-accent">{checked ? '✓' : ''}</span>}
       <span>{children}</span>

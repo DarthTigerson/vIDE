@@ -16,7 +16,7 @@ interface Props {
 // (graph) column, letting the user resize how much space each gets. Renders
 // once per page (not per row) — every row shares the same column boundary,
 // so one divider governs them all. Styled to match the app's existing
-// react-resizable-panels dividers (see PanelResizeHandle in App.tsx).
+// react-resizable-panels dividers (see Separator in App.tsx).
 export function ColumnResizeDivider({ width, min, max, onResize, onCommit }: Props) {
   const dragStart = useRef<{ x: number; width: number } | null>(null)
   const [dragging, setDragging] = useState(false)

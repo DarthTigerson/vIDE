@@ -10,7 +10,7 @@ function keydown(key: string, mods: Partial<{ metaKey: boolean; ctrlKey: boolean
 }
 
 function fakeXterm(selection: string) {
-  return { hasSelection: () => selection.length > 0, getSelection: () => selection }
+  return { hasSelection: () => selection.length > 0, getSelection: () => selection, input: vi.fn() }
 }
 
 beforeEach(() => {
@@ -76,5 +76,26 @@ describe('createTerminalKeyHandler — per-terminal zoom (unchanged behavior)', 
     expect(handler(keydown('=', { metaKey: true, shiftKey: true }))).toBe(true)
     expect(handler(keydown('a'))).toBe(true)
     expect(useInstanceFontSizeStore.getState().overrides['t1']).toBeUndefined()
+  })
+})
+
+describe('createTerminalKeyHandler — Alt+Arrow', () => {
+  it('sends the xterm.js 5.x word-movement sequence through xterm.input and stops xterm handling the key', () => {
+    const xterm = fakeXterm('')
+    const handler = createTerminalKeyHandler('t1', xterm)
+    const event = keydown('ArrowLeft', { altKey: true })
+
+    expect(handler(event)).toBe(false)
+    expect(event.preventDefault).toHaveBeenCalled()
+    expect(xterm.input).toHaveBeenCalledTimes(1)
+    expect(['\x1bb', '\x1b[1;5D']).toContain(xterm.input.mock.calls[0][0])
+  })
+
+  it('leaves plain and Shift+Alt arrows to xterm', () => {
+    const xterm = fakeXterm('')
+    const handler = createTerminalKeyHandler('t1', xterm)
+    expect(handler(keydown('ArrowLeft'))).toBe(true)
+    expect(handler(keydown('ArrowLeft', { altKey: true, shiftKey: true }))).toBe(true)
+    expect(xterm.input).not.toHaveBeenCalled()
   })
 })

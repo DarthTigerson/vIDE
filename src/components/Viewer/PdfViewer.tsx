@@ -136,7 +136,7 @@ export function PdfViewer({ path }: { path: string }) {
                 onChange={(e) => setPageInput(e.target.value.replace(/\D/g, ''))}
                 onKeyDown={(e) => { if (e.key === 'Enter') goToPage(Number(pageInput) || 1) }}
                 onBlur={() => setPageInput(String(currentPage))}
-                className="w-10 rounded border border-border bg-transparent px-1 text-center text-fg"
+                className="w-10 rounded-sm border border-border bg-transparent px-1 text-center text-fg"
               />
               / {sizes.length}
             </span>
@@ -188,7 +188,7 @@ function ToolbarButton({ label, onClick, disabled, active, children }: {
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className={`min-w-6 h-6 px-1.5 rounded hover:bg-white/10 disabled:opacity-40 disabled:hover:bg-transparent ${active ? 'text-fg bg-white/10' : ''}`}
+      className={`min-w-6 h-6 px-1.5 rounded-sm hover:bg-white/10 disabled:opacity-40 disabled:hover:bg-transparent ${active ? 'text-fg bg-white/10' : ''}`}
     >
       {children}
     </button>

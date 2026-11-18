@@ -60,7 +60,7 @@ function ContextMenuButton({ children, danger = false, onClick }: {
       type="button"
       onClick={onClick}
       className={[
-        'w-full rounded px-2 py-1.5 text-left text-xs transition-colors',
+        'w-full rounded-sm px-2 py-1.5 text-left text-xs transition-colors',
         danger
           ? 'text-red-300 hover:bg-red-500/15 hover:text-red-200'
           : 'text-fg-muted hover:bg-white/5 hover:text-fg',
@@ -118,7 +118,7 @@ function NotesSearchResults({
           <button
             type="button"
             onClick={() => onOpen(result)}
-            className={`flex w-full flex-col items-start gap-0.5 rounded px-3 py-1 text-left hover:bg-white/5 ${
+            className={`flex w-full flex-col items-start gap-0.5 rounded-sm px-3 py-1 text-left hover:bg-white/5 ${
               activeNotePath === result.path ? 'bg-accent/20' : ''
             }`}
           >
@@ -478,7 +478,7 @@ export function NotesPanel() {
             aria-pressed={searchOpen}
             aria-label="Search Notes"
             onClick={toggleSearch}
-            className={`w-5 h-5 rounded flex items-center justify-center hover:bg-white/10 ${
+            className={`w-5 h-5 rounded-sm flex items-center justify-center hover:bg-white/10 ${
               searchOpen ? 'text-fg bg-white/10' : 'text-fg-muted hover:text-fg'
             }`}
           >
@@ -488,7 +488,7 @@ export function NotesPanel() {
             type="button"
             aria-label="New Note"
             onClick={() => startCreate('note', null)}
-            className="w-5 h-5 rounded flex items-center justify-center text-fg-muted hover:text-fg hover:bg-white/10"
+            className="w-5 h-5 rounded-sm flex items-center justify-center text-fg-muted hover:text-fg hover:bg-white/10"
           >
             +
           </button>
@@ -504,14 +504,14 @@ export function NotesPanel() {
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Press / to search"
               aria-label="Search notes"
-              className="w-full h-7 rounded border border-border bg-bg pl-2 pr-6 text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-1 focus:ring-accent/70"
+              className="w-full h-7 rounded-sm border border-border bg-bg pl-2 pr-6 text-xs text-fg placeholder:text-fg-subtle focus:outline-hidden focus:ring-1 focus:ring-accent/70"
             />
             {searchQuery && (
               <button
                 type="button"
                 aria-label="Clear search"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded text-fg-subtle hover:text-fg hover:bg-white/10"
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded-sm text-fg-subtle hover:text-fg hover:bg-white/10"
               >
                 ×
               </button>
@@ -575,7 +575,7 @@ export function NotesPanel() {
       {menu && createPortal(
         <div
           ref={menuRef}
-          className="fixed z-[200] w-44 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50"
+          className="fixed z-[200] w-44 rounded-sm border border-border bg-popover p-1 shadow-2xl shadow-black/50"
           style={{ left: menu.x, top: menu.y }}
           onClick={(event) => event.stopPropagation()}
         >

@@ -35,7 +35,7 @@ export function Clock() {
         onClick={() => useEditorStore.getState().openTab({ path: ALARMS_TAB_PATH, content: '', dirty: false })}
         aria-label="Open alarms"
         className={[
-          'flex h-5 items-center gap-1.5 rounded px-0.5 transition-colors hover:bg-white/5',
+          'flex h-5 items-center gap-1.5 rounded-sm px-0.5 transition-colors hover:bg-white/5',
           ringing ? 'text-accent' : 'text-fg',
         ].join(' ')}
       >
@@ -55,7 +55,7 @@ export function Clock() {
           role="tooltip"
           className={[
             'pointer-events-none absolute bottom-full -right-3 z-40 mb-[3px] flex flex-col gap-1 whitespace-nowrap',
-            'rounded-t border border-b-0 border-border bg-popover px-3 py-1.5 text-xs text-fg',
+            'rounded-t-sm border border-b-0 border-border bg-popover px-3 py-1.5 text-xs text-fg',
             footerPopupShadow,
             'opacity-0 translate-y-1 transition-[opacity,transform] duration-200 ease-out delay-150',
             'group-hover:opacity-100 group-hover:translate-y-0',

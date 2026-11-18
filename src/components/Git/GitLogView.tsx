@@ -146,7 +146,7 @@ export function GitLogView() {
 
   return (
     <div
-      className="h-full w-full overflow-hidden bg-bg p-1 focus:outline-none"
+      className="h-full w-full overflow-hidden bg-bg p-1 focus:outline-hidden"
       tabIndex={0}
       onKeyDown={handleKeyDown}
     >

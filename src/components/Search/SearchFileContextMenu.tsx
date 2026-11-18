@@ -55,7 +55,7 @@ export function SearchFileContextMenu({ x, y, onClose, ...actions }: SearchFileM
     <div
       ref={menuRef}
       role="menu"
-      className="fixed z-[200] w-44 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50"
+      className="fixed z-[200] w-44 rounded-sm border border-border bg-popover p-1 shadow-2xl shadow-black/50"
       style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
     >

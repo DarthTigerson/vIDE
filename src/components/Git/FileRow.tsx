@@ -26,7 +26,7 @@ export function FileRow({ file, staged, onToggle, onOpenDiff, onContextMenu }: F
 
   return (
     <div
-      className="group flex items-center gap-1.5 px-3 py-0.5 rounded hover:bg-white/5"
+      className="group flex items-center gap-1.5 px-3 py-0.5 rounded-sm hover:bg-white/5"
       onContextMenu={onContextMenu}
     >
       <button

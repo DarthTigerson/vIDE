@@ -43,7 +43,7 @@ export function GraphifySettingsPage() {
             <Switch label="Auto-build graph when a repo is opened" checked={autoBuildOnOpen} onChange={setAutoBuildOnOpen} />
           </SettingRow>
           {autoBuildOnOpen && (
-            <p className="mt-1 max-w-[460px] rounded border border-amber-400/30 p-2 text-xs text-amber-400">
+            <p className="mt-1 max-w-[460px] rounded-sm border border-amber-400/30 p-2 text-xs text-amber-400">
               Building a graph spawns a real CLI process and uses CPU — on a large repo or a slower
               machine this can be noticeable. Turn this off if you'd rather trigger builds manually
               from the Graphify panel.

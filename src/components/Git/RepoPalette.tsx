@@ -63,7 +63,7 @@ function RepoRow({ repo, active, onSelect, onHover, onContextMenu }: {
         onMouseDown={(e) => { e.stopPropagation(); toggleFavorite(repo) }}
         onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); toggleFavorite(repo) } }}
         className={[
-          'shrink-0 p-0.5 rounded transition-colors',
+          'shrink-0 p-0.5 rounded-sm transition-colors',
           isFavorite ? 'text-accent' : 'text-fg-subtle hover:text-fg-muted',
         ].join(' ')}
       >
@@ -206,7 +206,7 @@ export function RepoPalette({ onClose }: Props) {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
           placeholder="Find a repo…"
-          className="w-full bg-transparent px-4 py-3 border-b border-border text-sm text-fg placeholder:text-fg-subtle outline-none"
+          className="w-full bg-transparent px-4 py-3 border-b border-border text-sm text-fg placeholder:text-fg-subtle outline-hidden"
         />
         <div ref={listRef} className="overflow-y-auto flex-1 py-1">
           {visibleRepos.length === 0 ? (
@@ -231,7 +231,7 @@ export function RepoPalette({ onClose }: Props) {
       {menu && createPortal(
         <div
           ref={menuRef}
-          className="fixed z-[200] w-44 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50"
+          className="fixed z-[200] w-44 rounded-sm border border-border bg-popover p-1 shadow-2xl shadow-black/50"
           style={{ left: menu.x, top: menu.y }}
           onClick={(e) => e.stopPropagation()}
         >

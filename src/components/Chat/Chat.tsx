@@ -24,6 +24,8 @@ import { PTY_XTERM_OPTIONS } from '@/lib/ptyXtermOptions'
 import { UsagePanel } from '@/components/UsagePanel/UsagePanel'
 import { CostPanel } from '@/components/UsagePanel/CostPanel'
 import { isShiftEnterKeydown, SHIFT_ENTER_SEQUENCE } from './shiftEnterSequence'
+import { legacyAltArrowSequence } from '@/components/Terminal/altArrowSequence'
+import { isMac } from '@/lib/platform'
 import { wrapBracketedPaste } from '@/lib/sendSelectionToAssistant'
 import { createFilePathLinkProvider, createFilePathActivateHandler, createUrlLinkProvider, createUrlActivateHandler, joinedSelectionText, openUrlInBrowserTab } from './terminalLinks'
 
@@ -188,6 +190,15 @@ export function Chat() {
           // our escape sequence, submitting the message anyway.
           event.preventDefault()
           window.api.claudeWrite(id, SHIFT_ENTER_SEQUENCE)
+          return false
+        }
+
+        // Option/Alt+Left/Right word movement as xterm.js 5.x sent it — see
+        // legacyAltArrowSequence.
+        const altArrow = legacyAltArrowSequence(event, isMac)
+        if (altArrow !== undefined) {
+          event.preventDefault()
+          xterm.input(altArrow)
           return false
         }
 

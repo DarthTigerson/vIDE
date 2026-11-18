@@ -92,7 +92,7 @@ const MOBILE_AUTOCOMPLETE_STATE: AutocompleteRuntimeState = {
   phase: 'idle', source: null, modelOnDisk: false, progress: null, ramBytes: null, error: null,
 }
 
-export function createMobileApi(wsUrl: string) {
+export function createMobileApi(wsUrl: string): Window['api'] {
   const ws = new WebSocket(wsUrl)
   const pending: PendingMap = new Map()
   const listeners: Listeners = new Map()
@@ -130,7 +130,7 @@ export function createMobileApi(wsUrl: string) {
   const doSend = (method: string) => sendFactory(send, method)
   const on = (event: string) => onFactory(listeners, event)
 
-  return {
+  const api = {
     // fs — mirrors electron/mobileRelay/channels/fsChannels.ts
     readDir: invoke('fs:readDir'),
     readFile: invoke('fs:readFile'),
@@ -449,5 +449,79 @@ export function createMobileApi(wsUrl: string) {
     graphifyAddToGitignore: stubInvoke({ ok: false, output: 'Not available on mobile.' }),
     onGraphifyData: stubOn(),
     onGraphifyExit: stubOn(),
-  }
+    // File operations the relay does carry.
+    copyInto: invoke('fs:copyInto'),
+    moveInto: invoke('fs:moveInto'),
+    gitBlame: invoke('git:blame'),
+
+    // Desktop-only file plumbing: raw bytes don't fit the JSON relay, and
+    // Finder, the OS file clipboard, save dialogs and the window-close guard
+    // all belong to the Mac's own screen (relay-side exclusions).
+    readFileBytes: (..._args: unknown[]) => Promise.reject(new Error('Not available on mobile.')),
+    saveFileDialog: stubInvoke(null),
+    setUnsavedState: stubSend(),
+    writeClipboardFiles: stubInvoke(undefined as void),
+    readClipboardFiles: stubInvoke(null),
+    pathForFile: (..._args: unknown[]) => '',
+    revealInFinder: stubInvoke(undefined as void),
+
+    // vIDE Sync runs on the desktop only. Reporting it as off makes the
+    // pre-boot sync (src/lib/preBootSync.ts) skip straight to rendering.
+    configRepoGetSettings: stubInvoke({ enabled: false, repoUrl: '', token: '', categories: {} } as Awaited<ReturnType<Window['api']['configRepoGetSettings']>>),
+    configRepoSetSettings: stubInvoke(undefined as void),
+    configRepoConnect: (..._args: unknown[]) => Promise.reject(new Error('Not available on mobile.')),
+    configRepoPull: stubInvoke({} as Awaited<ReturnType<Window['api']['configRepoPull']>>),
+    configRepoPush: stubInvoke(undefined as void),
+    configRepoCheckRemote: stubInvoke(undefined as void),
+    configRepoGetSchemaVersion: stubInvoke(0),
+    configRepoGetRemoteSchemaVersion: stubInvoke(0),
+    configRepoSetGated: stubInvoke(undefined as void),
+    onRemoteSettingsApplied: stubOn(),
+
+    // Store and Store apps — installs run on the desktop (relay-side exclusion).
+    storeGetRegistry: stubInvoke({ status: 'error', message: 'Not available on mobile.' } as Awaited<ReturnType<Window['api']['storeGetRegistry']>>),
+    onStoreChanged: stubOn(),
+    storeGetReadme: stubInvoke({ ok: false } as Awaited<ReturnType<Window['api']['storeGetReadme']>>),
+    storeTakePendingOpen: stubInvoke(null),
+    onStoreOpen: stubOn(),
+    appsPickPackage: (..._args: unknown[]) => Promise.reject(new Error('Not available on mobile.')),
+    appsInstallPackage: (..._args: unknown[]) => Promise.reject(new Error('Not available on mobile.')),
+    appsDiscardPackage: stubInvoke(undefined as void),
+    appsList: stubInvoke([] as Awaited<ReturnType<Window['api']['appsList']>>),
+    appsInstall: (..._args: unknown[]) => Promise.reject(new Error('Not available on mobile.')),
+    appsUninstall: stubInvoke({ ok: false, error: 'Not available on mobile.' } as Awaited<ReturnType<Window['api']['appsUninstall']>>),
+    appsSetEnabled: stubInvoke({ ok: false, error: 'Not available on mobile.' } as Awaited<ReturnType<Window['api']['appsSetEnabled']>>),
+    appsCall: (..._args: unknown[]) => Promise.reject(new Error('Not available on mobile.')),
+    appsIsDev: stubInvoke(false),
+    appsLoadDevFolder: stubInvoke({ ok: false, error: 'Not available on mobile.' } as Awaited<ReturnType<Window['api']['appsLoadDevFolder']>>),
+    appsUnloadDev: stubInvoke(undefined as void),
+    appsRestart: stubInvoke(undefined as void),
+    onAppsEvent: stubOn(),
+    onAppsChanged: stubOn(),
+
+    // MCP tool catalog — desktop panel only (relay-side exclusion).
+    mcpCatalog: stubInvoke({} as Awaited<ReturnType<Window['api']['mcpCatalog']>>),
+
+    // Installers and the local llama server run on the desktop only.
+    graphifyGetInstall: stubInvoke({ path: null, source: null, downloadBytes: null } as Awaited<ReturnType<Window['api']['graphifyGetInstall']>>),
+    graphifyInstall: stubInvoke({ ok: false, error: 'Not available on mobile.' } as Awaited<ReturnType<Window['api']['graphifyInstall']>>),
+    onGraphifyInstallProgress: stubOn(),
+    llamaIsAvailable: stubInvoke(false),
+    llamaStart: (..._args: unknown[]) => Promise.reject(new Error('Not available on mobile.')),
+    llamaStop: stubInvoke(undefined as void),
+    llamaGetMemoryUsage: stubInvoke(null),
+    llamaGetLog: stubInvoke(null),
+    llamaGetInstall: stubInvoke({ path: null, source: null, downloadBytes: null } as Awaited<ReturnType<Window['api']['llamaGetInstall']>>),
+    llamaInstall: stubInvoke({ ok: false, error: 'Not available on mobile.' } as Awaited<ReturnType<Window['api']['llamaInstall']>>),
+    onLlamaInstallProgress: stubOn(),
+    onLlamaData: stubOn(),
+    onLlamaExit: stubOn(),
+
+    // Language-server queries (relay-side exclusion, like lspGetDefinition).
+    lspGetCompletion: stubInvoke(null as unknown as Awaited<ReturnType<Window['api']['lspGetCompletion']>>),
+    lspGetHover: stubInvoke(null as unknown as Awaited<ReturnType<Window['api']['lspGetHover']>>),
+  } satisfies Record<keyof Window['api'], unknown>
+  // The factories above are loosely typed; `satisfies` is what makes a
+  // preload method with no entry here a compile error.
+  return api as unknown as Window['api']
 }

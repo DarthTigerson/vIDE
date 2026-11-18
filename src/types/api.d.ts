@@ -106,6 +106,7 @@ export interface MobileState {
   allowingNewDevice: boolean
   interfaces: MobileNetworkInterface[]
   devices: MobileDevice[]
+  tlsFingerprint: string
 }
 
 export type BridgeRole = 'system' | 'user' | 'assistant' | 'tool'

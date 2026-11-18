@@ -256,7 +256,7 @@ export function TabBar({ paneId }: { paneId: string }) {
             {tab.missing && !iconOnly && (
               <span
                 title="File no longer exists on disk. Press Cmd+S to save it again."
-                className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border border-amber-400/70 text-[0.625rem] font-bold leading-none text-amber-300"
+                className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-xs border border-amber-400/70 text-[0.625rem] font-bold leading-none text-amber-300"
               >
                 !
               </span>

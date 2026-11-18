@@ -63,7 +63,7 @@ function IconButton({ label, onClick, setTip, active = false, children }: {
       onClick={onClick}
       {...tipHandlers(label, setTip)}
       className={[
-        'flex h-7 w-7 shrink-0 items-center justify-center rounded transition-colors',
+        'flex h-7 w-7 shrink-0 items-center justify-center rounded-sm transition-colors',
         active ? 'text-accent hover:bg-white/5' : 'text-fg-muted hover:bg-white/5 hover:text-fg',
       ].join(' ')}
     >
@@ -97,7 +97,7 @@ function OptionToggle({ flag, label, setTip, children }: { flag: FindToggle; lab
       onClick={() => toggle(flag)}
       {...tipHandlers(label, setTip)}
       className={[
-        'flex h-5 min-w-5 items-center justify-center rounded px-0.5 font-mono text-[0.6875rem] leading-none transition-colors',
+        'flex h-5 min-w-5 items-center justify-center rounded-sm px-0.5 font-mono text-[0.6875rem] leading-none transition-colors',
         pressed ? 'bg-accent/30 text-fg' : 'text-fg-muted hover:bg-white/5 hover:text-fg',
       ].join(' ')}
     >
@@ -106,7 +106,7 @@ function OptionToggle({ flag, label, setTip, children }: { flag: FindToggle; lab
   )
 }
 
-const FIELD = 'h-7 w-full rounded border border-border bg-bg px-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-1 focus:ring-accent/70'
+const FIELD = 'h-7 w-full rounded-sm border border-border bg-bg px-2 text-xs text-fg placeholder:text-fg-subtle focus:outline-hidden focus:ring-1 focus:ring-accent/70'
 
 export function EditorFindBox({ paneId, editor }: { paneId: string; editor: FindEditor | null }) {
   const pane = useEditorFindStore((s) => s.panes[paneId])
@@ -287,7 +287,7 @@ export function EditorFindBox({ paneId, editor }: { paneId: string; editor: Find
               type="button"
               disabled={!canReplace}
               onClick={replaceOne}
-              className="h-7 shrink-0 rounded border border-accent/70 px-2.5 text-xs text-accent transition-colors hover:bg-white/5 disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent"
+              className="h-7 shrink-0 rounded-sm border border-accent/70 px-2.5 text-xs text-accent transition-colors hover:bg-white/5 disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent"
             >
               Replace
             </button>
@@ -295,7 +295,7 @@ export function EditorFindBox({ paneId, editor }: { paneId: string; editor: Find
               type="button"
               disabled={!canReplace}
               onClick={replaceEverything}
-              className="h-7 shrink-0 rounded border border-border px-2.5 text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
+              className="h-7 shrink-0 rounded-sm border border-border px-2.5 text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
             >
               Replace all
             </button>
@@ -313,7 +313,7 @@ export function EditorFindBox({ paneId, editor }: { paneId: string; editor: Find
       {tip && (
         <div
           role="tooltip"
-          className="pointer-events-none absolute right-0 top-full z-30 mt-1 whitespace-nowrap rounded bg-black/90 px-2 py-1 text-xs text-gray-200"
+          className="pointer-events-none absolute right-0 top-full z-30 mt-1 whitespace-nowrap rounded-sm bg-black/90 px-2 py-1 text-xs text-gray-200"
         >
           {tip}
         </div>

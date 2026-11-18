@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import MonacoEditor, { type BeforeMount } from '@monaco-editor/react'
+import '@/lib/monacoLoader'
 import type { ScriptPatch } from '@/types/api'
 import { useScriptsStore } from '@/stores/scriptsStore'
 import { runScriptInNewTerminal } from '@/lib/runScript'
@@ -105,7 +106,7 @@ export function ScriptEditorPage({ scriptId, monacoTheme, beforeMount, fontSize,
               onChange={(e) => change({ title: e.target.value })}
               placeholder="Untitled script"
               aria-label="Script title"
-              className="flex-1 min-w-0 bg-transparent py-0.5 text-[1.375rem] font-semibold tracking-tight text-fg placeholder:text-fg-subtle focus:outline-none"
+              className="flex-1 min-w-0 bg-transparent py-0.5 text-[1.375rem] font-semibold tracking-tight text-fg placeholder:text-fg-subtle focus:outline-hidden"
             />
             <PencilIcon />
           </label>
@@ -123,7 +124,7 @@ export function ScriptEditorPage({ scriptId, monacoTheme, beforeMount, fontSize,
               placeholder="What this does and when to use it"
               aria-label="Script description"
               rows={2}
-              className="w-full resize-none bg-transparent text-sm leading-relaxed text-fg-muted placeholder:text-fg-subtle focus:outline-none"
+              className="w-full resize-none bg-transparent text-sm leading-relaxed text-fg-muted placeholder:text-fg-subtle focus:outline-hidden"
             />
           </label>
         </div>

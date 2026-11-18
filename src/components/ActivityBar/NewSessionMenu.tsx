@@ -29,9 +29,9 @@ function readRocky(): boolean {
 // labels line up whatever icon a row shows.
 const ICON_CLASS = 'flex w-[1.375rem] shrink-0 justify-center text-fg-subtle'
 
-const TAB_CLASS = 'flex h-6 flex-1 items-center justify-center rounded-sm text-[0.6875rem] transition-colors'
+const TAB_CLASS = 'flex h-6 flex-1 items-center justify-center rounded-xs text-[0.6875rem] transition-colors'
 
-const ROW_CLASS = 'flex h-8 w-full items-center gap-2 rounded px-2 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg'
+const ROW_CLASS = 'flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-xs text-fg-muted transition-colors hover:bg-white/5 hover:text-fg'
 
 // The "+" launcher: Normal / Rocky tabs (Rocky starts Claude as Rocky Code
 // and Bridge or llama with Rocky's voice, every agent row then showing
@@ -96,7 +96,7 @@ export function NewSessionMenu({ anchor, side, options, onPick, onPickScript, on
       ref={menuRef}
       role="menu"
       aria-label="New session"
-      className="fixed z-[200] w-52 rounded border border-border bg-sidebar p-1 shadow-2xl shadow-black/50"
+      className="fixed z-[200] w-52 rounded-sm border border-border bg-sidebar p-1 shadow-2xl shadow-black/50"
       style={{ left: anchor.left, top: anchor.top }}
       onClick={(e) => e.stopPropagation()}
     >
@@ -104,7 +104,7 @@ export function NewSessionMenu({ anchor, side, options, onPick, onPickScript, on
         <p className="px-2 py-1.5 text-xs text-fg-muted">No agents enabled — turn one on in Settings</p>
       ) : (
         <>
-        <div role="group" aria-label="Session mode" className="mb-1 flex gap-0.5 rounded bg-black/20 p-0.5">
+        <div role="group" aria-label="Session mode" className="mb-1 flex gap-0.5 rounded-sm bg-black/20 p-0.5">
           {tab('Normal', false)}
           {tab('Rocky', true)}
         </div>

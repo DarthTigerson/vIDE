@@ -9,7 +9,7 @@ function MenuButton({ label, danger = false, onClick }: { label: string; danger?
       type="button"
       onClick={onClick}
       className={[
-        'w-full rounded px-2 py-1.5 text-left text-xs transition-colors',
+        'w-full rounded-sm px-2 py-1.5 text-left text-xs transition-colors',
         danger
           ? 'text-red-300 hover:bg-red-500/15 hover:text-red-200'
           : 'text-fg-muted hover:bg-white/5 hover:text-fg',
@@ -68,7 +68,7 @@ export function CustomThemeContextMenu({ x, y, onEdit, onShare, onDelete, onClos
   return createPortal(
     <div
       ref={menuRef}
-      className="fixed z-[200] w-40 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50"
+      className="fixed z-[200] w-40 rounded-sm border border-border bg-popover p-1 shadow-2xl shadow-black/50"
       style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
     >

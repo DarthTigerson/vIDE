@@ -1,12 +1,14 @@
 import { watch as chokidarWatch, type FSWatcher } from 'chokidar'
 
 // Every chokidar watcher the main process opens, so quitting can close them
-// all before Node tears its environment down. On macOS chokidar runs on
-// fsevents, and an fsevents stream still open at exit either deadlocks in
+// all before Node tears its environment down. Under chokidar 3 (fsevents
+// addon on macOS) an fsevents stream still open at exit either deadlocked in
 // fsevents.node during Node's cleanup (fse_instance_destroy waiting on a
 // mutex: the windows are gone but the process never exits, so the Dock icon
-// is dead until a force quit) or trips an assertion there
-// (fse_dispatch_event → abort, and macOS shows the crash dialog). Some watchers
+// is dead until a force quit) or tripped an assertion there
+// (fse_dispatch_event → abort, and macOS shows the crash dialog). chokidar 4+
+// uses Node's own fs.watch (still FSEvents-backed by libuv on macOS); closing
+// everything before teardown stays the safe order. Some watchers
 // (notes, scripts, todos) live for the whole app; the per-window ones close
 // on window close, but without awaiting, so a quit right after can still
 // race them.

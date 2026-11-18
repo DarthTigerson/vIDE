@@ -19,7 +19,7 @@ export function BlameDetailsPanel({ author, summary, date, relDate, placement }:
       data-placement={placement}
       style={{ left: 'var(--blame-panel-x, 0px)' }}
       className={[
-        'pointer-events-none absolute z-50 w-max max-w-md rounded bg-black/90 px-3 py-2',
+        'pointer-events-none absolute z-50 w-max max-w-md rounded-sm bg-black/90 px-3 py-2',
         'font-sans text-xs text-gray-200 whitespace-normal opacity-0 transition-opacity duration-100 delay-150 group-hover:opacity-100',
         placement === 'above' ? 'bottom-full mb-1.5' : 'top-full mt-1.5',
       ].join(' ')}

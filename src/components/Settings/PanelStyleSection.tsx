@@ -90,13 +90,13 @@ export function PanelStyleGrid() {
                   <div className="absolute left-7 top-5 right-0 bottom-0 backdrop-blur-md" style={{ background: `color-mix(in srgb, ${base.panel} 60%, transparent)` }} />
                   {/* Diagonal sheen — the one thing that actually reads as
                       "glossy" rather than merely translucent. */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/25 via-transparent to-transparent" />
+                  <div className="absolute inset-0 bg-linear-to-br from-white/25 via-transparent to-transparent" />
                 </>
               ) : opt.value === 'glass' ? (
                 <>
-                  <div className="absolute left-0 top-0 bottom-0 w-7 backdrop-blur-sm" style={{ background: `color-mix(in srgb, ${base.sidebar} 15%, transparent)` }} />
-                  <div className="absolute left-7 top-0 right-0 h-5 backdrop-blur-sm border-b" style={{ background: `color-mix(in srgb, ${base.tabBar} 20%, transparent)`, borderColor: `color-mix(in srgb, ${base.border} 30%, transparent)` }} />
-                  <div className="absolute left-7 top-5 right-0 bottom-0 backdrop-blur-sm" style={{ background: `color-mix(in srgb, ${base.panel} 15%, transparent)` }} />
+                  <div className="absolute left-0 top-0 bottom-0 w-7 backdrop-blur-xs" style={{ background: `color-mix(in srgb, ${base.sidebar} 15%, transparent)` }} />
+                  <div className="absolute left-7 top-0 right-0 h-5 backdrop-blur-xs border-b" style={{ background: `color-mix(in srgb, ${base.tabBar} 20%, transparent)`, borderColor: `color-mix(in srgb, ${base.border} 30%, transparent)` }} />
+                  <div className="absolute left-7 top-5 right-0 bottom-0 backdrop-blur-xs" style={{ background: `color-mix(in srgb, ${base.panel} 15%, transparent)` }} />
                 </>
               ) : opt.value === 'leather' ? (
                 <>

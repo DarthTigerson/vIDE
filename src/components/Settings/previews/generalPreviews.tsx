@@ -25,7 +25,7 @@ const PREVIEW_SESSIONS = [
 ]
 
 function SessionGlyph({ hue }: { hue: string }) {
-  return <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: hue }} />
+  return <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-xs" style={{ background: hue }} />
 }
 
 // One state of the agent panel: a few terminal lines with the session bar on
@@ -59,8 +59,8 @@ function MiniAgentPanel({ label, wide, overlay, toggle, pointer }: { label: stri
       <div className="relative flex h-[76px] border-t border-border">
         <div className="min-w-0 flex-1 space-y-1 p-1.5 font-mono text-[9.5px] text-fg-muted">
           <div className="truncate">&gt; fix the redis timeout</div>
-          <div className="h-1.5 w-4/5 rounded bg-white/10" />
-          <div className="h-1.5 w-3/5 rounded bg-white/10" />
+          <div className="h-1.5 w-4/5 rounded-sm bg-white/10" />
+          <div className="h-1.5 w-3/5 rounded-sm bg-white/10" />
         </div>
         {overlay ? (
           <>

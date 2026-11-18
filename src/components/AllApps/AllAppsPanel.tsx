@@ -334,14 +334,14 @@ export function AllAppsPanel({ apps, disabledApps = [], open, onPlace, onUnfavor
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search apps"
             aria-label="Search apps"
-            className="w-full h-7 rounded border border-border bg-bg pl-2 pr-6 text-xs text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-1 focus:ring-accent/70"
+            className="w-full h-7 rounded-sm border border-border bg-bg pl-2 pr-6 text-xs text-fg placeholder:text-fg-subtle focus:outline-hidden focus:ring-1 focus:ring-accent/70"
           />
           {query && (
             <button
               type="button"
               aria-label="Clear search"
               onClick={() => setQuery('')}
-              className="absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded text-fg-subtle hover:text-fg hover:bg-white/10"
+              className="absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded-sm text-fg-subtle hover:text-fg hover:bg-white/10"
             >
               ×
             </button>
@@ -463,7 +463,7 @@ function AppIcon({ app, className }: { app: AllAppsEntry; className: string }) {
     <span className={`relative shrink-0 flex items-center justify-center ${className}`}>
       {app.icon}
       {hasBadge(app.badge) && (
-        <span className="absolute -right-1.5 -bottom-1 min-w-3.5 h-3.5 rounded-full bg-accent px-0.5 text-center text-[0.5rem] font-bold leading-[0.875rem] text-on-accent shadow shadow-black/40">
+        <span className="absolute -right-1.5 -bottom-1 min-w-3.5 h-3.5 rounded-full bg-accent px-0.5 text-center text-[0.5rem] font-bold leading-[0.875rem] text-on-accent shadow-sm shadow-black/40">
           {app.badge}
         </span>
       )}
@@ -485,7 +485,7 @@ function ViewModeButton({ label, active, onClick, children }: {
       aria-pressed={active}
       onClick={onClick}
       className={[
-        'w-6 h-6 rounded flex items-center justify-center',
+        'w-6 h-6 rounded-sm flex items-center justify-center',
         active ? 'bg-white/10 text-fg' : 'text-fg-subtle hover:text-fg hover:bg-white/5',
       ].join(' ')}
     >

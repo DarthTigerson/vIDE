@@ -102,12 +102,12 @@ export function FontSizeControl() {
           onClick={(e) => e.stopPropagation()}
           className={[
             'absolute bottom-full -right-3 z-50 mb-[3px] flex w-72 flex-col gap-2.5 p-3 text-xs',
-            'rounded-t border border-b-0 border-border bg-popover',
+            'rounded-t-sm border border-b-0 border-border bg-popover',
             footerPopupShadow,
           ].join(' ')}
         >
           <span className="text-[0.6875rem] font-semibold tracking-[0.04em] text-fg-muted">DISPLAY</span>
-          <div role="radiogroup" aria-label="Appearance" className="grid grid-cols-3 overflow-hidden rounded border border-border">
+          <div role="radiogroup" aria-label="Appearance" className="grid grid-cols-3 overflow-hidden rounded-sm border border-border">
             {APPEARANCE_OPTIONS.map((opt) => {
               const active = opt.value === appearance
               return (
@@ -129,7 +129,7 @@ export function FontSizeControl() {
           </div>
           <HintRow hint={<>Change the size of all vIDE text.<br /><Kbd>⌘⇧+</Kbd> larger · <Kbd>⌘⇧−</Kbd> smaller · <Kbd>⌘⇧0</Kbd> reset</>}>
             <span className="text-fg">Font size</span>
-            <span className="flex items-center overflow-hidden rounded border border-border">
+            <span className="flex items-center overflow-hidden rounded-sm border border-border">
               <button type="button" aria-label="Smaller" className={stepButton} onClick={fonts.decrease}>−</button>
               <span data-testid="display-font-size" className="w-[30px] border-x border-border text-center leading-[22px] text-fg tabular-nums">{fontSize}</span>
               <button type="button" aria-label="Larger" className={stepButton} onClick={fonts.increase}>+</button>
@@ -207,7 +207,7 @@ function HintRow({ hint, className = '', children }: { hint: ReactNode; classNam
       {pos && (
         <span
           role="tooltip"
-          className="pointer-events-none absolute z-10 w-max max-w-[210px] -translate-x-full -translate-y-full rounded border border-border bg-popover px-2.5 py-1.5 text-[0.6875rem] leading-snug text-fg shadow-[0_4px_14px_rgba(0,0,0,0.18)]"
+          className="pointer-events-none absolute z-10 w-max max-w-[210px] -translate-x-full -translate-y-full rounded-sm border border-border bg-popover px-2.5 py-1.5 text-[0.6875rem] leading-snug text-fg shadow-[0_4px_14px_rgba(0,0,0,0.18)]"
           style={{ left: pos.x + 4, top: pos.y - 10 }}
         >
           {hint}

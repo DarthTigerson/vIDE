@@ -91,7 +91,9 @@ describe('AppInstaller', () => {
     const big = zipSync({ 'manifest.json': strToU8(manifest()), 'renderer.js': strToU8('x'), 'pad.bin': new Uint8Array(300 * 1024 * 1024) })
     const res = await installer(big).install(listing(big))
     expect(res).toEqual({ ok: false, error: 'The downloaded package is not a valid app.' })
-  })
+    // Zipping/inflating 300 MB takes ~4s alone but 20-35s under full-suite
+    // load on an 8 GB machine, past the 5s default.
+  }, 120_000)
 
   it('same-version reinstall leaves a working install and no .old leftovers', async () => {
     const zip = makeZip()

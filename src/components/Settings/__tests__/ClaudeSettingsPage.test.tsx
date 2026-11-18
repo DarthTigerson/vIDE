@@ -135,7 +135,9 @@ describe('ClaudeSettingsPage usage monitoring section', () => {
 })
 
 describe('ClaudeSettingsPage notifications section', () => {
-  const { audioInstances, AudioMock } = vi.hoisted(() => {
+  // Plain IIFE, not vi.hoisted: nothing here is needed before imports, and
+  // vitest 4+ rejects vi.hoisted() outside the module's top level.
+  const { audioInstances, AudioMock } = (() => {
     const audioInstances: Array<{ src: string; play: ReturnType<typeof vi.fn> }> = []
     class AudioMock {
       src: string
@@ -146,7 +148,7 @@ describe('ClaudeSettingsPage notifications section', () => {
       }
     }
     return { audioInstances, AudioMock }
-  })
+  })()
 
   beforeEach(() => {
     audioInstances.length = 0

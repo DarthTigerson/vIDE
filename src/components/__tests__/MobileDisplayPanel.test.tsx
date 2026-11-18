@@ -15,6 +15,7 @@ const defaultState: MobileState = {
   allowingNewDevice: true,
   interfaces: [],
   devices: [],
+  tlsFingerprint: '',
 }
 
 function mockApi(state: MobileState) {
@@ -119,7 +120,7 @@ describe('MobileDisplayPanel', () => {
     render(<MobileDisplayPanel />)
     const copyButton = await screen.findByLabelText('Copy pairing URL')
     await user.click(copyButton)
-    expect(writeText).toHaveBeenCalledWith('http://192.168.1.50:7842')
+    expect(writeText).toHaveBeenCalledWith('https://192.168.1.50:7842')
   })
 
   it('copies the PIN to the clipboard', async () => {

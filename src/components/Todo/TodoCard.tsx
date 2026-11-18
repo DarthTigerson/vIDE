@@ -35,7 +35,7 @@ export function TodoCard({
       onDragStart={(e) => e.dataTransfer.setData('text/plain', todo.id)}
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDrop}
-      className="relative shrink-0 overflow-hidden rounded border border-border bg-sidebar p-2 pl-3 flex flex-col gap-1.5 cursor-pointer hover:border-accent/60"
+      className="relative shrink-0 overflow-hidden rounded-sm border border-border bg-sidebar p-2 pl-3 flex flex-col gap-1.5 cursor-pointer hover:border-accent/60"
     >
       {todo.label && (
         <span
@@ -46,7 +46,7 @@ export function TodoCard({
       <div className="flex items-center gap-1.5">
         <span className="text-[0.65rem] font-mono text-fg-subtle">{todo.id}</span>
         <span
-          className={`text-[0.6rem] px-1 py-0.5 rounded border leading-none ${todoAuthorMeta(todo.author).className}`}
+          className={`text-[0.6rem] px-1 py-0.5 rounded-sm border leading-none ${todoAuthorMeta(todo.author).className}`}
         >
           {todoAuthorMeta(todo.author).text}
         </span>
@@ -57,7 +57,7 @@ export function TodoCard({
           {todo.tags.map((tag) => (
             <span
               key={tag}
-              className="text-[0.6rem] px-1.5 py-0.5 rounded border border-border text-fg-subtle"
+              className="text-[0.6rem] px-1.5 py-0.5 rounded-sm border border-border text-fg-subtle"
             >
               {tag}
             </span>

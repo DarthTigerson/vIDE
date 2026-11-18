@@ -19,7 +19,7 @@ export function AlarmPopup() {
       role="alertdialog"
       aria-label={`Alarm: ${alarm.name}`}
       data-testid="alarm-popup"
-      className={`alarm-popup absolute bottom-full -right-3 mb-[3px] w-[26rem] max-w-[92vw] z-40 overflow-hidden rounded-t border border-b-0 border-border bg-popover ${footerPopupShadow}`}
+      className={`alarm-popup absolute bottom-full -right-3 mb-[3px] w-[26rem] max-w-[92vw] z-40 overflow-hidden rounded-t-sm border border-b-0 border-border bg-popover ${footerPopupShadow}`}
     >
       <div className="flex items-center gap-2.5 pl-3 pr-2 py-2 text-xs">
         <span className="alarm-popup-icon shrink-0 flex text-accent [&_svg]:h-3.5 [&_svg]:w-3.5">

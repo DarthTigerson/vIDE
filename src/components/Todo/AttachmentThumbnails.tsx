@@ -31,10 +31,10 @@ export function AttachmentThumbnails({
             <img
               src={urls[id]}
               alt="Pasted screenshot"
-              className="w-20 h-20 object-cover rounded border border-border"
+              className="w-20 h-20 object-cover rounded-sm border border-border"
             />
           ) : (
-            <div className="w-20 h-20 rounded border border-border/60 bg-panel animate-pulse" />
+            <div className="w-20 h-20 rounded-sm border border-border/60 bg-panel animate-pulse" />
           )}
           {onRemove && (
             <button

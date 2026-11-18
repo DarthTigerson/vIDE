@@ -3,7 +3,7 @@ import { Modal } from '@/components/ui/Modal'
 import { useScriptsStore } from '@/stores/scriptsStore'
 
 const inputClass =
-  'bg-panel border border-border rounded px-2 py-1.5 text-sm text-fg focus:outline-none focus:border-accent'
+  'bg-panel border border-border rounded-sm px-2 py-1.5 text-sm text-fg focus:outline-hidden focus:border-accent'
 
 // Name and describe a script up front (same shape as New Todo Project); its
 // commands are written in the tab that opens once it's created.
@@ -59,7 +59,7 @@ export function NewScriptModal({ onClose, onCreated }: { onClose: () => void; on
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1.5 rounded text-sm text-fg-muted hover:text-fg hover:bg-white/5"
+            className="px-3 py-1.5 rounded-sm text-sm text-fg-muted hover:text-fg hover:bg-white/5"
           >
             Cancel
           </button>
@@ -67,7 +67,7 @@ export function NewScriptModal({ onClose, onCreated }: { onClose: () => void; on
             type="button"
             onClick={() => void handleCreate()}
             disabled={!name.trim() || submitting}
-            className="px-3 py-1.5 rounded text-sm bg-accent text-on-accent hover:bg-accent/90 disabled:opacity-40 disabled:pointer-events-none"
+            className="px-3 py-1.5 rounded-sm text-sm bg-accent text-on-accent hover:bg-accent/90 disabled:opacity-40 disabled:pointer-events-none"
           >
             Create
           </button>

@@ -89,7 +89,7 @@ function AutoSaveDemo({ auto }: { auto: boolean }) {
   return (
     <div key={auto ? 'auto' : 'manual'} data-testid="autosave-demo" aria-hidden="true" className="rounded-lg border border-border bg-panel overflow-hidden">
       <div className="flex items-end px-2 pt-1.5 bg-tab-bar border-b border-border">
-        <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-t bg-panel border-t-2 border-accent text-xs text-fg">
+        <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-t-sm bg-panel border-t-2 border-accent text-xs text-fg">
           App.tsx
           <span className={`w-[7px] h-[7px] rounded-full bg-accent ${auto ? 'autosave-demo-dirty-auto' : 'autosave-demo-dirty-manual'}`} />
         </span>

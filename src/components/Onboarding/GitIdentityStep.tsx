@@ -45,7 +45,7 @@ export function GitIdentityStep() {
               type="text"
               value={name}
               onChange={(e) => { setName(e.target.value); setSaved(false) }}
-              className="h-8 px-2 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
+              className="h-8 px-2 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-hidden focus:border-accent/60"
             />
           </div>
 
@@ -56,7 +56,7 @@ export function GitIdentityStep() {
               type="email"
               value={email}
               onChange={(e) => { setEmail(e.target.value); setSaved(false) }}
-              className="h-8 px-2 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-none focus:border-accent/60"
+              className="h-8 px-2 text-sm text-fg bg-bg border border-border rounded-lg focus:outline-hidden focus:border-accent/60"
             />
           </div>
 
@@ -64,7 +64,7 @@ export function GitIdentityStep() {
             type="button"
             onClick={save}
             disabled={!name.trim() || !email.trim()}
-            className="self-start h-8 px-3 rounded border border-border text-sm text-fg hover:border-fg-subtle transition-colors disabled:opacity-50 disabled:pointer-events-none"
+            className="self-start h-8 px-3 rounded-sm border border-border text-sm text-fg hover:border-fg-subtle transition-colors disabled:opacity-50 disabled:pointer-events-none"
           >
             Save
           </button>

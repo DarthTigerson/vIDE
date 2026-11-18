@@ -17,6 +17,7 @@ const DEFAULT_STATE: MobileState = {
   allowingNewDevice: true,
   interfaces: [],
   devices: [],
+  tlsFingerprint: '',
 }
 
 export const useMobileStore = create<MobileStore>((set, get) => ({

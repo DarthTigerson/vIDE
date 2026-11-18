@@ -96,7 +96,7 @@ export function TodoPanel() {
           type="button"
           aria-label="New Project"
           onClick={() => setModalOpen(true)}
-          className="w-5 h-5 rounded flex items-center justify-center text-fg-muted hover:text-fg hover:bg-white/10"
+          className="w-5 h-5 rounded-sm flex items-center justify-center text-fg-muted hover:text-fg hover:bg-white/10"
         >
           +
         </button>

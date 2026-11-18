@@ -1,14 +1,20 @@
 import { resolve } from 'path'
 import { readFileSync } from 'fs'
-import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
+import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 const { version } = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8')) as { version: string }
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  // main/preload: electron-vite 6 externalizes `dependencies` by default
+  // (build.externalizeDeps, default true), replacing externalizeDepsPlugin().
   main: {
-    plugins: [externalizeDepsPlugin()],
     build: {
+      // chokidar 5+ is ESM-only. The main bundle is CJS, so leaving it external
+      // would mean require(esm) at runtime — from inside app.asar once packaged.
+      // Bundling it (and its one dep, readdirp) sidesteps that entirely.
+      externalizeDeps: { exclude: ['chokidar'] },
       lib: {
         entry: {
           index: 'electron/main.ts',
@@ -24,7 +30,6 @@ export default defineConfig({
     }
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
     build: {
       lib: { entry: { index: 'electron/preload.ts' } }
     }
@@ -38,13 +43,16 @@ export default defineConfig({
       port: 55055,
       strictPort: true
     },
-    plugins: [react()],
+    plugins: [react(), tailwindcss()],
     // The running version, for the Update page's "You have vX" (VIDE-142).
     define: { __APP_VERSION__: JSON.stringify(version) },
     build: {
-      rollupOptions: {
+      // The phone's bundle (--mode mobile, .env.mobile) gets its own directory
+      // so the desktop build never overwrites it; electron/mobile.ts serves it.
+      outDir: mode === 'mobile' ? 'out/mobile' : 'out/renderer',
+      rolldownOptions: {
         input: resolve(__dirname, 'index.html')
       }
     }
   }
-})
+}))

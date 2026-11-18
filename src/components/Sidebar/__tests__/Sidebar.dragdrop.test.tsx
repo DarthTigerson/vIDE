@@ -1,6 +1,6 @@
 /// <reference types="@testing-library/jest-dom" />
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, cleanup, fireEvent, waitFor, screen } from '@testing-library/react'
+import { act, render, cleanup, fireEvent, waitFor, screen } from '@testing-library/react'
 import { Sidebar } from '../Sidebar'
 import { useFileStore } from '@/stores/fileStore'
 import { useEditorStore } from '@/stores/editorStore'
@@ -149,7 +149,7 @@ describe('Sidebar — undo a move', () => {
       await vi.waitFor(() => expect(renamePath).toHaveBeenCalledTimes(1))
 
       expect(screen.getByText('Undo')).toBeInTheDocument()
-      await vi.advanceTimersByTimeAsync(10000)
+      await act(() => vi.advanceTimersByTimeAsync(10000))
       expect(screen.queryByText('Undo')).not.toBeInTheDocument()
     } finally {
       vi.useRealTimers()

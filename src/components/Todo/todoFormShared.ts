@@ -1,7 +1,7 @@
 import { extractPastedImageFiles, readFileAsDataUrl } from '@/lib/attachmentPaste'
 
 export const inputClass =
-  'bg-panel border border-border rounded px-2 py-1.5 text-sm text-fg focus:outline-none focus:border-accent'
+  'bg-panel border border-border rounded-sm px-2 py-1.5 text-sm text-fg focus:outline-hidden focus:border-accent'
 
 export async function uploadPastedImages(
   clipboardData: DataTransfer | null,

@@ -17,8 +17,8 @@ export const PROSE_CLASSES = [
   '[&_a]:text-accent [&_a]:underline',
   '[&_del]:text-fg-muted',
   '[&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-fg-muted [&_blockquote]:mb-3',
-  '[&_code]:bg-white/10 [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs',
-  '[&_pre]:bg-white/5 [&_pre]:rounded [&_pre]:p-3 [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre_code]:bg-transparent [&_pre_code]:p-0',
+  '[&_code]:bg-white/10 [&_code]:rounded-sm [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs',
+  '[&_pre]:bg-white/5 [&_pre]:rounded-sm [&_pre]:p-3 [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre_code]:bg-transparent [&_pre_code]:p-0',
   // Tables follow VS Code / GitHub's markdown.css: sized to their content,
   // scrolling sideways rather than squashing columns when wider than the
   // page, a shaded header row and zebra-striped body rows. Column alignment
@@ -46,6 +46,6 @@ export const COMPACT_PROSE_CLASSES = [
   '[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-2',
   '[&_li]:mb-1',
   '[&_a]:text-accent [&_a]:underline',
-  '[&_code]:bg-white/10 [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs',
+  '[&_code]:bg-white/10 [&_code]:rounded-sm [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs',
   '[&_hr]:border-border [&_hr]:my-3',
 ].join(' ')

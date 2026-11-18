@@ -1,5 +1,17 @@
 import { describe, it, expect, vi, afterEach, beforeAll, afterAll } from 'vitest'
-import { get, request } from 'http'
+import { get as httpsGet, request as httpsRequest, type RequestOptions } from 'https'
+import { get as plainHttpGet } from 'http'
+import type { IncomingMessage } from 'http'
+
+// The Mobile Display server speaks HTTPS with a certificate from vIDE's own
+// CA, which the test client doesn't trust — skip verification here (the TLS
+// module's own tests check the chain verifies against the CA).
+function get(opts: RequestOptions, cb: (res: IncomingMessage) => void) {
+  return httpsGet({ ...opts, rejectUnauthorized: false }, cb)
+}
+function request(opts: RequestOptions, cb: (res: IncomingMessage) => void) {
+  return httpsRequest({ ...opts, rejectUnauthorized: false }, cb)
+}
 import { mkdirSync, writeFileSync, rmSync, mkdtempSync, cpSync, readFileSync } from 'fs'
 import { tmpdir } from 'os'
 
@@ -12,9 +24,9 @@ const { ipcOnHandlers, userDataDir, appPathRef } = vi.hoisted(() => {
     userDataDir: mkdtempSync(join(tmpdir(), 'vide-mobile-test-')) as string,
     // Mutable so a describe block can point app.getAppPath() at an isolated
     // temp directory for the duration of its own tests (see the 'MobileServer
-    // vIDE mode' block below, which needs a fake out/renderer it can freely
+    // vIDE mode' block below, which needs a fake out/mobile it can freely
     // write to and delete — never the real project's build output at
-    // <repo>/out/renderer, which process.cwd() would otherwise resolve to).
+    // <repo>/out/mobile, which process.cwd() would otherwise resolve to).
     appPathRef: { current: process.cwd() },
   }
 })
@@ -40,7 +52,7 @@ vi.mock('os', async (importOriginal) => {
   }
 })
 
-import { MobileServer, MOBILE_RELAY_WINDOW_ID } from '../mobile'
+import { MobileServer, MOBILE_RELAY_WINDOW_ID, generatePin, MAX_FAILED_ATTEMPTS, LOCKOUT_BASE_MS, SESSION_MAX_AGE_MS } from '../mobile'
 import { UsageManager } from '../usageManager'
 import { join } from 'path'
 
@@ -461,8 +473,8 @@ describe('MobileServer relay session teardown', () => {
   })
 })
 
-// MOBILE_RENDERER_DIR resolves to `<app.getAppPath()>/out/renderer`. Under
-// this file's *default* electron mock that's `<cwd>/out/renderer` — the
+// MOBILE_RENDERER_DIR resolves to `<app.getAppPath()>/out/mobile`. Under
+// this file's *default* electron mock that's `<cwd>/out/mobile` — the
 // real `npm run build:mobile` output directory, which must never be
 // written to or deleted by a test (it's a real developer/CI build
 // artifact, not something this suite owns). So this block instead points
@@ -470,7 +482,7 @@ describe('MobileServer relay session teardown', () => {
 // temp directory for the duration of its tests, with a copy of the real
 // electron/mobileWeb templates (needed by readPage()/renderPage() for the
 // /app chooser) plus a minimal fixture renderer bundle underneath a fake
-// out/renderer — fully disjoint from the project's real out/renderer, so a
+// out/mobile — fully disjoint from the project's real out/mobile, so a
 // real prior build survives this suite untouched regardless of what's on
 // disk when it runs.
 describe('MobileServer vIDE mode', () => {
@@ -481,7 +493,7 @@ describe('MobileServer vIDE mode', () => {
   beforeAll(() => {
     fakeAppRoot = mkdtempSync(join(tmpdir(), 'vide-mobile-vide-test-app-'))
     cpSync(join(process.cwd(), 'electron', 'mobileWeb'), join(fakeAppRoot, 'electron', 'mobileWeb'), { recursive: true })
-    rendererDir = join(fakeAppRoot, 'out', 'renderer')
+    rendererDir = join(fakeAppRoot, 'out', 'mobile')
     mkdirSync(join(rendererDir, 'assets'), { recursive: true })
     writeFileSync(
       join(rendererDir, 'index.html'),
@@ -552,6 +564,23 @@ describe('MobileServer vIDE mode', () => {
     expect(css.headers['content-type']).toContain('text/css')
   })
 
+  it('explains a missing phone bundle instead of serving a blank page', async () => {
+    server = newServer()
+    await server.start()
+    const cookie = await authenticate(server['port'], server['pin'])
+    rmSync(rendererDir, { recursive: true, force: true })
+    try {
+      const res = await fetchFull(server['port'], '/vide/', cookie)
+      expect(res.status).toBe(503)
+      expect(res.body).toContain('npm run build')
+    } finally {
+      mkdirSync(join(rendererDir, 'assets'), { recursive: true })
+      writeFileSync(join(rendererDir, 'index.html'), '<!DOCTYPE html><html><head></head><body><div id="root"></div></body></html>')
+      writeFileSync(join(rendererDir, 'assets', 'index-test.js'), 'console.log("fixture")')
+      writeFileSync(join(rendererDir, 'assets', 'index-test.css'), 'body{margin:0}')
+    }
+  })
+
   it('404s a renderer asset that does not exist', async () => {
     server = newServer()
     await server.start()
@@ -584,5 +613,175 @@ describe('MobileServer vIDE mode', () => {
     expect(chooser.status).toBe(200)
     expect(chooser.body).toContain('Graph Display')
     expect(chooser.body).toContain('vIDE')
+  })
+})
+
+function postPin(port: number, pin: string): Promise<{ status: number; cookie?: string; body: string }> {
+  return new Promise((resolve, reject) => {
+    const body = `pin=${pin}`
+    const req = request(
+      { host: '127.0.0.1', port, path: '/auth', method: 'POST', agent: false, headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) } },
+      (res) => {
+        let text = ''
+        res.on('data', (c) => { text += c })
+        res.on('end', () => resolve({ status: res.statusCode ?? 0, cookie: res.headers['set-cookie']?.[0]?.split(';')[0], body: text }))
+      }
+    )
+    req.on('error', reject)
+    req.end(body)
+  })
+}
+
+function wrongPin(pin: string): string {
+  return pin === '000000' ? '000001' : '000000'
+}
+
+describe('MobileServer pairing security', () => {
+  let server: MobileServer
+
+  afterEach(() => {
+    vi.useRealTimers()
+    server?.stop()
+  })
+
+  it('generates 6-digit PINs', () => {
+    for (let i = 0; i < 50; i++) expect(generatePin()).toMatch(/^\d{6}$/)
+  })
+
+  it('stops accepting the pairing PIN once a device has paired', async () => {
+    server = newServer()
+    await server.start()
+    const pin = server['pin']
+    expect((await postPin(server['port'], pin)).cookie).toBeTruthy()
+    const second = await postPin(server['port'], pin)
+    expect(second.cookie).toBeUndefined()
+    expect(second.status).toBe(403)
+    expect(server['pin']).toBe('')
+    expect(server['state'].devices).toHaveLength(1)
+  })
+
+  it('accepts a fresh PIN again after Add device', async () => {
+    server = newServer()
+    await server.start()
+    await postPin(server['port'], server['pin'])
+    await server.addDevice()
+    expect((await postPin(server['port'], server['pin'])).cookie).toBeTruthy()
+    expect(server['state'].devices).toHaveLength(2)
+  })
+
+  it('locks pairing and rotates the PIN after too many wrong attempts', async () => {
+    server = newServer()
+    await server.start()
+    const pin = server['pin']
+    for (let i = 0; i < MAX_FAILED_ATTEMPTS; i++) {
+      expect((await postPin(server['port'], wrongPin(pin))).status).toBe(200)
+    }
+    // Locked: even the new correct PIN is refused until the lockout ends.
+    expect(server['pin']).not.toBe(pin)
+    const locked = await postPin(server['port'], server['pin'])
+    expect(locked.status).toBe(429)
+    expect(locked.cookie).toBeUndefined()
+    // The old PIN never works again.
+    server['lockedUntil'] = 0
+    expect((await postPin(server['port'], pin)).cookie).toBeUndefined()
+    expect((await postPin(server['port'], server['pin'])).cookie).toBeTruthy()
+  })
+
+  it('doubles each lockout', async () => {
+    server = newServer()
+    await server.start()
+    const before = Date.now()
+    for (let i = 0; i < MAX_FAILED_ATTEMPTS; i++) await postPin(server['port'], wrongPin(server['pin']))
+    expect(server['lockedUntil'] - before).toBeGreaterThanOrEqual(LOCKOUT_BASE_MS)
+    server['lockedUntil'] = 0
+    const second = Date.now()
+    for (let i = 0; i < MAX_FAILED_ATTEMPTS; i++) await postPin(server['port'], wrongPin(server['pin']))
+    expect(server['lockedUntil'] - second).toBeGreaterThanOrEqual(LOCKOUT_BASE_MS * 2)
+  })
+
+  it('rejects an oversized /auth body', async () => {
+    server = newServer()
+    await server.start()
+    const res = await postPin(server['port'], '1'.repeat(5000)).catch(() => ({ status: 413, cookie: undefined }))
+    expect(res.status).toBe(413)
+    expect(res.cookie).toBeUndefined()
+  })
+
+  it('expires sessions after SESSION_MAX_AGE_MS', async () => {
+    server = newServer()
+    await server.start()
+    const { cookie } = await postPin(server['port'], server['pin'])
+    expect((await fetchFull(server['port'], '/api/state', cookie)).status).toBe(200)
+    for (const s of server['sessions'].values()) s.connectedAt -= SESSION_MAX_AGE_MS + 1
+    const res = await fetchFull(server['port'], '/api/state', cookie)
+    expect(res.status).toBe(302)
+    expect(server['state'].devices).toHaveLength(0)
+    expect(server['state'].allowingNewDevice).toBe(true)
+  })
+
+  it('disconnecting a device closes its open relay socket', async () => {
+    server = newServer()
+    await server.start()
+    const port = server['port']
+    const { cookie } = await postPin(port, server['pin'])
+    const { default: WebSocket } = await import('ws')
+    const ws = new WebSocket(`wss://127.0.0.1:${port}`, { headers: { cookie: cookie! }, origin: `https://127.0.0.1:${port}`, rejectUnauthorized: false })
+    await new Promise<void>((resolve, reject) => { ws.on('open', () => resolve()); ws.on('error', reject) })
+    const closed = new Promise<void>((resolve) => ws.on('close', () => resolve()))
+    server.disconnectDevice(server['state'].devices[0].id)
+    await closed
+  })
+})
+
+describe('MobileServer TLS', () => {
+  let server: MobileServer
+
+  afterEach(() => {
+    server?.stop()
+  })
+
+  it('serves HTTPS and exposes the certificate fingerprint', async () => {
+    server = newServer()
+    await server.start()
+    expect(server['state'].tlsFingerprint).toMatch(/^([0-9A-F]{2}:){31}[0-9A-F]{2}$/)
+    const res = await fetchFull(server['port'], '/')
+    expect(res.status).toBe(200)
+  })
+
+  it('sets the session cookie Secure', async () => {
+    server = newServer()
+    await server.start()
+    const raw = await new Promise<string>((resolve, reject) => {
+      const body = `pin=${server['pin']}`
+      const req = request(
+        { host: '127.0.0.1', port: server['port'], path: '/auth', method: 'POST', agent: false, headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) } },
+        (r) => { r.resume(); resolve(r.headers['set-cookie']?.[0] ?? '') }
+      )
+      req.on('error', reject)
+      req.end(body)
+    })
+    expect(raw).toMatch(/;\s*Secure/)
+  })
+
+  it('does not answer plain HTTP', async () => {
+    server = newServer()
+    await server.start()
+    const port = server['port']
+    const outcome = await new Promise<string>((resolve) => {
+      plainHttpGet({ host: '127.0.0.1', port, path: '/', agent: false }, (r) => {
+        r.resume()
+        resolve(`status ${r.statusCode}`)
+      }).on('error', () => resolve('error'))
+    })
+    expect(outcome).not.toBe('status 200')
+  })
+
+  it('serves the CA certificate without a session', async () => {
+    server = newServer()
+    await server.start()
+    const res = await fetchFull(server['port'], '/vide-ca.crt')
+    expect(res.status).toBe(200)
+    expect(res.headers['content-type']).toBe('application/x-x509-ca-cert')
+    expect(res.body).toContain('BEGIN CERTIFICATE')
   })
 })

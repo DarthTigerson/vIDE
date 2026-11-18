@@ -61,7 +61,7 @@ export function HiddenItemsSettings() {
         aria-pressed={active}
         onClick={() => setSelected(repo)}
         className={[
-          'flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-xs transition-colors',
+          'flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-xs transition-colors',
           active ? 'bg-white/5 text-fg' : 'text-fg-muted hover:bg-white/5 hover:text-fg',
         ].join(' ')}
       >
@@ -107,7 +107,7 @@ export function HiddenItemsSettings() {
                     <button
                       type="button"
                       onClick={() => moveRule(from, GLOBAL_RULES_KEY, kind, value)}
-                      className="shrink-0 rounded border border-border px-2 py-0.5 text-[0.6875rem] text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+                      className="shrink-0 rounded-sm border border-border px-2 py-0.5 text-[0.6875rem] text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
                     >
                       Make global
                     </button>
@@ -116,7 +116,7 @@ export function HiddenItemsSettings() {
                     type="button"
                     aria-label={`Remove ${value}`}
                     onClick={() => removeRule(from, kind, value)}
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-fg-subtle hover:bg-white/10 hover:text-fg"
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-fg-subtle hover:bg-white/10 hover:text-fg"
                   >
                     ×
                   </button>

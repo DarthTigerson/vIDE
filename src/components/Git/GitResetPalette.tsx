@@ -103,7 +103,7 @@ export function GitResetPalette({ projectRoot, onClose, onPick }: Props) {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
           placeholder="Search branches, or type a tag/commit hash…"
-          className="w-full bg-transparent px-4 py-3 border-b border-border text-sm text-fg placeholder:text-fg-subtle outline-none"
+          className="w-full bg-transparent px-4 py-3 border-b border-border text-sm text-fg placeholder:text-fg-subtle outline-hidden"
         />
         <div ref={listRef} className="overflow-y-auto flex-1 py-1">
           {loading && (

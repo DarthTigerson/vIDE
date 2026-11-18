@@ -8,7 +8,7 @@ export function AutoSavePreview() {
   return (
     <PreviewFrame testId="autosave-preview">
       <div className="flex border-b border-border px-2 pt-1.5">
-        <span className="flex items-center gap-1.5 rounded-t border border-b-0 border-border bg-panel px-2 py-0.5 text-[10.5px] text-fg">
+        <span className="flex items-center gap-1.5 rounded-t-sm border border-b-0 border-border bg-panel px-2 py-0.5 text-[10.5px] text-fg">
           App.tsx
           {!autoSave && <span data-testid="autosave-dirty-dot" className="h-1.5 w-1.5 rounded-full bg-fg-muted" />}
         </span>

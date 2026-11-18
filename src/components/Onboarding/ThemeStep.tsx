@@ -38,7 +38,7 @@ function SwatchPreview({ themeId, swatches, active, onClick }: {
         active ? 'border-accent' : 'border-border hover:border-fg-muted',
       ].join(' ')}
     >
-      <div className="flex gap-1 mb-2 rounded overflow-hidden h-9">
+      <div className="flex gap-1 mb-2 rounded-sm overflow-hidden h-9">
         {swatches.map((color, i) => (
           <div key={i} className="flex-1" style={{ background: color }} />
         ))}

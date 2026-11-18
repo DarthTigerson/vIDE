@@ -85,7 +85,7 @@ export function NotificationPanel() {
         // leaves this fully visible either way, so the closed state also
         // fades to opacity-0 to actually hide it.
         'absolute bottom-full right-0 mb-[3px] w-[28rem] max-w-[92vw] z-40',
-        'rounded-t border border-b-0 border-border bg-popover',
+        'rounded-t-sm border border-b-0 border-border bg-popover',
         footerPopupShadow,
         'origin-bottom transition-[opacity,transform] duration-200 ease-out',
         open ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1 pointer-events-none',
@@ -161,7 +161,7 @@ export function NotificationPanel() {
                   item.onDismiss?.()
                   dismiss([item.id])
                 }}
-                className="shrink-0 w-6 h-6 mr-1 flex items-center justify-center rounded text-fg-subtle hover:text-fg hover:bg-white/10"
+                className="shrink-0 w-6 h-6 mr-1 flex items-center justify-center rounded-sm text-fg-subtle hover:text-fg hover:bg-white/10"
               >
                 ×
               </button>

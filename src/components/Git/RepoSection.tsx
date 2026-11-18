@@ -378,7 +378,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
             placeholder="Message"
             rows={3}
             className={[
-              'w-full resize-none rounded border border-border bg-bg px-2 py-1.5 text-sm text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-1 focus:ring-accent/50',
+              'w-full resize-none rounded-sm border border-border bg-bg px-2 py-1.5 text-sm text-fg placeholder:text-fg-subtle focus:outline-hidden focus:ring-1 focus:ring-accent/50',
               commitMessageEnabled ? 'pb-8' : '',
             ].join(' ')}
           />
@@ -424,7 +424,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
                 runOnThisRepo(() => commit(repo, true))
                 setCommitOptionsOpen(false)
               }}
-              className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-fg transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full flex flex-col items-start gap-0.5 rounded-sm px-2 py-1.5 text-left text-xs text-fg transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <span className="font-mono">Commit --no-verify</span>
               <span className="text-fg-subtle">Skip the pre-commit and commit-msg hooks for this commit.</span>
@@ -525,7 +525,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
                   type="button"
                   disabled={remoteActionDisabled}
                   onClick={() => { runOnThisRepo(() => gitFetch(repo)); setPullOptionsOpen(false) }}
-                  className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-fg transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full flex flex-col items-start gap-0.5 rounded-sm px-2 py-1.5 text-left text-xs text-fg transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <span className="font-semibold">Fetch</span>
                   <span className="text-fg-subtle">Fetch from the remote without merging into your branch.</span>
@@ -554,7 +554,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
                     if (branch) runOnThisRepo(() => publishBranch(repo, branch))
                     setPushOptionsOpen(false)
                   }}
-                  className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-fg transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full flex flex-col items-start gap-0.5 rounded-sm px-2 py-1.5 text-left text-xs text-fg transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <span className="font-semibold">Publish Branch</span>
                   <span className="text-fg-subtle font-mono">git push -u origin {branch ?? '…'}</span>
@@ -564,7 +564,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
                   type="button"
                   disabled={remoteActionDisabled}
                   onClick={() => { runOnThisRepo(() => requestForce('forcePush')); setPushOptionsOpen(false) }}
-                  className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full flex flex-col items-start gap-0.5 rounded-sm px-2 py-1.5 text-left text-xs text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <span className="font-semibold">Force Push</span>
                   <span className="text-red-400/70">Overwrites the remote branch with your local history.</span>
@@ -573,7 +573,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
                   type="button"
                   disabled={remoteActionDisabled}
                   onClick={() => { runOnThisRepo(() => requestForce('forcePushLease')); setPushOptionsOpen(false) }}
-                  className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full flex flex-col items-start gap-0.5 rounded-sm px-2 py-1.5 text-left text-xs text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <span className="font-semibold">Force Push with Lease</span>
                   <span className="text-red-400/70">Safer force push — fails if the remote has commits you haven't fetched.</span>
@@ -622,7 +622,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
                 type="button"
                 disabled={remoteActionDisabled}
                 onClick={() => { runOnThisRepo(() => requestResetToHead()); setGitFunctionsOpen(false) }}
-                className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-fg transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full flex flex-col items-start gap-0.5 rounded-sm px-2 py-1.5 text-left text-xs text-fg transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <span className="font-semibold">Reset</span>
                 <span className="text-fg-subtle">Reset to HEAD — discards uncommitted changes.</span>
@@ -631,7 +631,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
                 type="button"
                 disabled={remoteActionDisabled}
                 onClick={() => { runOnThisRepo(() => requestHardReset()); setGitFunctionsOpen(false) }}
-                className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full flex flex-col items-start gap-0.5 rounded-sm px-2 py-1.5 text-left text-xs text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <span className="font-semibold">Hard Reset…</span>
                 <span className="text-red-400/70">Reset to a branch, tag, or commit — discards history.</span>
@@ -640,7 +640,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
                 type="button"
                 disabled={remoteActionDisabled}
                 onClick={() => { runOnThisRepo(() => requestUndoCommit()); setGitFunctionsOpen(false) }}
-                className="w-full flex flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-xs text-fg transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full flex flex-col items-start gap-0.5 rounded-sm px-2 py-1.5 text-left text-xs text-fg transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <span className="font-semibold">Undo Last Commit</span>
                 <span className="text-fg-subtle">Soft reset — keeps your changes staged.</span>
@@ -675,7 +675,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
       {menu && createPortal(
         <div
           ref={menuRef}
-          className="fixed z-[200] w-44 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50"
+          className="fixed z-[200] w-44 rounded-sm border border-border bg-popover p-1 shadow-2xl shadow-black/50"
           style={{ left: menu.x, top: menu.y }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -853,7 +853,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
       {headerMenu && createPortal(
         <div
           ref={headerMenuRef}
-          className="fixed z-[200] w-44 rounded border border-border bg-popover p-1 shadow-2xl shadow-black/50"
+          className="fixed z-[200] w-44 rounded-sm border border-border bg-popover p-1 shadow-2xl shadow-black/50"
           style={{ left: headerMenu.x, top: headerMenu.y }}
           onClick={(e) => e.stopPropagation()}
         >
