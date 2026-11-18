@@ -40,7 +40,7 @@ vi.mock('os', async (importOriginal) => {
   }
 })
 
-import { MobileServer, MOBILE_RELAY_WINDOW_ID } from '../mobile'
+import { MobileServer, MOBILE_RELAY_WINDOW_ID, generatePin, MAX_FAILED_ATTEMPTS, LOCKOUT_BASE_MS, SESSION_MAX_AGE_MS } from '../mobile'
 import { UsageManager } from '../usageManager'
 import { join } from 'path'
 
@@ -584,5 +584,122 @@ describe('MobileServer vIDE mode', () => {
     expect(chooser.status).toBe(200)
     expect(chooser.body).toContain('Graph Display')
     expect(chooser.body).toContain('vIDE')
+  })
+})
+
+function postPin(port: number, pin: string): Promise<{ status: number; cookie?: string; body: string }> {
+  return new Promise((resolve, reject) => {
+    const body = `pin=${pin}`
+    const req = request(
+      { host: '127.0.0.1', port, path: '/auth', method: 'POST', agent: false, headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) } },
+      (res) => {
+        let text = ''
+        res.on('data', (c) => { text += c })
+        res.on('end', () => resolve({ status: res.statusCode ?? 0, cookie: res.headers['set-cookie']?.[0]?.split(';')[0], body: text }))
+      }
+    )
+    req.on('error', reject)
+    req.end(body)
+  })
+}
+
+function wrongPin(pin: string): string {
+  return pin === '000000' ? '000001' : '000000'
+}
+
+describe('MobileServer pairing security', () => {
+  let server: MobileServer
+
+  afterEach(() => {
+    vi.useRealTimers()
+    server?.stop()
+  })
+
+  it('generates 6-digit PINs', () => {
+    for (let i = 0; i < 50; i++) expect(generatePin()).toMatch(/^\d{6}$/)
+  })
+
+  it('stops accepting the pairing PIN once a device has paired', async () => {
+    server = newServer()
+    await server.start()
+    const pin = server['pin']
+    expect((await postPin(server['port'], pin)).cookie).toBeTruthy()
+    const second = await postPin(server['port'], pin)
+    expect(second.cookie).toBeUndefined()
+    expect(second.status).toBe(403)
+    expect(server['pin']).toBe('')
+    expect(server['state'].devices).toHaveLength(1)
+  })
+
+  it('accepts a fresh PIN again after Add device', async () => {
+    server = newServer()
+    await server.start()
+    await postPin(server['port'], server['pin'])
+    await server.addDevice()
+    expect((await postPin(server['port'], server['pin'])).cookie).toBeTruthy()
+    expect(server['state'].devices).toHaveLength(2)
+  })
+
+  it('locks pairing and rotates the PIN after too many wrong attempts', async () => {
+    server = newServer()
+    await server.start()
+    const pin = server['pin']
+    for (let i = 0; i < MAX_FAILED_ATTEMPTS; i++) {
+      expect((await postPin(server['port'], wrongPin(pin))).status).toBe(200)
+    }
+    // Locked: even the new correct PIN is refused until the lockout ends.
+    expect(server['pin']).not.toBe(pin)
+    const locked = await postPin(server['port'], server['pin'])
+    expect(locked.status).toBe(429)
+    expect(locked.cookie).toBeUndefined()
+    // The old PIN never works again.
+    server['lockedUntil'] = 0
+    expect((await postPin(server['port'], pin)).cookie).toBeUndefined()
+    expect((await postPin(server['port'], server['pin'])).cookie).toBeTruthy()
+  })
+
+  it('doubles each lockout', async () => {
+    server = newServer()
+    await server.start()
+    const before = Date.now()
+    for (let i = 0; i < MAX_FAILED_ATTEMPTS; i++) await postPin(server['port'], wrongPin(server['pin']))
+    expect(server['lockedUntil'] - before).toBeGreaterThanOrEqual(LOCKOUT_BASE_MS)
+    server['lockedUntil'] = 0
+    const second = Date.now()
+    for (let i = 0; i < MAX_FAILED_ATTEMPTS; i++) await postPin(server['port'], wrongPin(server['pin']))
+    expect(server['lockedUntil'] - second).toBeGreaterThanOrEqual(LOCKOUT_BASE_MS * 2)
+  })
+
+  it('rejects an oversized /auth body', async () => {
+    server = newServer()
+    await server.start()
+    const res = await postPin(server['port'], '1'.repeat(5000)).catch(() => ({ status: 413, cookie: undefined }))
+    expect(res.status).toBe(413)
+    expect(res.cookie).toBeUndefined()
+  })
+
+  it('expires sessions after SESSION_MAX_AGE_MS', async () => {
+    server = newServer()
+    await server.start()
+    const { cookie } = await postPin(server['port'], server['pin'])
+    expect((await fetchFull(server['port'], '/api/state', cookie)).status).toBe(200)
+    for (const s of server['sessions'].values()) s.connectedAt -= SESSION_MAX_AGE_MS + 1
+    const res = await fetchFull(server['port'], '/api/state', cookie)
+    expect(res.status).toBe(302)
+    expect(server['state'].devices).toHaveLength(0)
+    expect(server['state'].allowingNewDevice).toBe(true)
+  })
+
+  it('disconnecting a device closes its open relay socket', async () => {
+    server = newServer()
+    await server.start()
+    const port = server['port']
+    const { cookie } = await postPin(port, server['pin'])
+    const { default: WebSocket } = await import('ws')
+    const ws = new WebSocket(`ws://127.0.0.1:${port}`, { headers: { cookie: cookie! }, origin: `http://127.0.0.1:${port}` })
+    await new Promise<void>((resolve, reject) => { ws.on('open', () => resolve()); ws.on('error', reject) })
+    const closed = new Promise<void>((resolve) => ws.on('close', () => resolve()))
+    server.disconnectDevice(server['state'].devices[0].id)
+    await closed
   })
 })

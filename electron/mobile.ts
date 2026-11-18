@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { createServer, IncomingMessage, ServerResponse, Server } from 'http'
 import { networkInterfaces } from 'os'
-import { randomUUID } from 'crypto'
+import { randomUUID, randomInt, timingSafeEqual } from 'crypto'
 import { readFileSync } from 'fs'
 import { join, extname, sep } from 'path'
 import QRCode from 'qrcode'
@@ -74,8 +74,27 @@ function labelForUserAgent(userAgent: string | undefined): string {
   return 'Device'
 }
 
+export const PIN_LENGTH = 6
+
+// Cryptographically random, so a PIN can't be predicted from earlier ones.
 export function generatePin(): string {
-  return String(Math.floor(Math.random() * 100000)).padStart(5, '0')
+  return String(randomInt(0, 10 ** PIN_LENGTH)).padStart(PIN_LENGTH, '0')
+}
+
+// Brute-force guard for /auth: after MAX_FAILED_ATTEMPTS wrong PINs (from any
+// client) pairing locks for LOCKOUT_BASE_MS and the PIN rotates. Each further
+// lockout in the same pairing window doubles, capped at LOCKOUT_MAX_MS.
+export const MAX_FAILED_ATTEMPTS = 5
+export const LOCKOUT_BASE_MS = 30_000
+export const LOCKOUT_MAX_MS = 10 * 60_000
+// A paired device has to pair again after this long.
+export const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60_000
+// The PIN form is one short field; anything bigger is not a real request.
+const MAX_AUTH_BODY_BYTES = 1024
+
+function pinsEqual(a: string, b: string): boolean {
+  if (!a || a.length !== b.length) return false
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b))
 }
 
 function parseCookies(header: string | undefined): Record<string, string> {
@@ -232,6 +251,12 @@ export class MobileServer {
   private pin = ''
   private prevPin = ''
   private sessions = new Map<string, { connectedAt: number; label: string }>()
+  // Live relay sockets per session, so revoking a device also drops its
+  // already-open WebSocket instead of only refusing new requests.
+  private connsBySession = new Map<string, Set<RelayConnection>>()
+  private failedAttempts = 0
+  private lockouts = 0
+  private lockedUntil = 0
   private interfaces: MobileNetworkInterface[] = []
   private rotateInterval: ReturnType<typeof setInterval> | null = null
   private currentTheme = 'claude-dark'
@@ -288,13 +313,61 @@ export class MobileServer {
     this.pushState()
   }
 
+  // Only while the pairing window is open: once a device pairs, the PIN is
+  // cleared and nothing is accepted until the user asks to add a device.
   private isValidPin(candidate: string): boolean {
-    return candidate === this.pin || candidate === this.prevPin
+    if (!this.state.allowingNewDevice) return false
+    return pinsEqual(this.pin, candidate) || pinsEqual(this.prevPin, candidate)
+  }
+
+  private resetAttempts(): void {
+    this.failedAttempts = 0
+    this.lockouts = 0
+    this.lockedUntil = 0
+  }
+
+  private recordFailedAttempt(): void {
+    this.failedAttempts++
+    if (this.failedAttempts < MAX_FAILED_ATTEMPTS) return
+    this.failedAttempts = 0
+    this.lockedUntil = Date.now() + Math.min(LOCKOUT_BASE_MS * 2 ** this.lockouts, LOCKOUT_MAX_MS)
+    this.lockouts++
+    // Guesses so far were against this PIN (and the previous one): drop both.
+    this.pin = generatePin()
+    this.prevPin = ''
+    this.state.pin = this.pin
+    this.pushState()
+  }
+
+  // The session token in this cookie header, if it names a live session.
+  // Expired sessions are removed on the way.
+  private sessionToken(cookieHeader: string | undefined): string | null {
+    const token = parseCookies(cookieHeader)['session'] ?? ''
+    const session = this.sessions.get(token)
+    if (!session) return null
+    if (Date.now() - session.connectedAt > SESSION_MAX_AGE_MS) {
+      this.revokeSession(token)
+      this.syncDevicesFromSessions()
+      if (this.sessions.size === 0) this.openPairingWindow()
+      this.pushState()
+      return null
+    }
+    return token
   }
 
   private isAuthenticated(req: IncomingMessage): boolean {
-    const cookies = parseCookies(req.headers.cookie)
-    return this.sessions.has(cookies['session'] ?? '')
+    return this.sessionToken(req.headers.cookie) !== null
+  }
+
+  private revokeSession(token: string): boolean {
+    const existed = this.sessions.delete(token)
+    for (const conn of this.connsBySession.get(token) ?? []) conn.close()
+    this.connsBySession.delete(token)
+    return existed
+  }
+
+  private revokeAllSessions(): void {
+    for (const token of [...this.sessions.keys()]) this.revokeSession(token)
   }
 
   private syncDevicesFromSessions(): void {
@@ -307,6 +380,7 @@ export class MobileServer {
   }
 
   private openPairingWindow(): void {
+    this.resetAttempts()
     this.prevPin = ''
     this.pin = generatePin()
     this.state.pin = this.pin
@@ -356,10 +430,38 @@ export class MobileServer {
 
     if (req.method === 'POST' && path === '/auth') {
       let body = ''
-      req.on('data', (chunk) => { body += chunk })
+      let tooLarge = false
+      req.on('data', (chunk) => {
+        if (tooLarge) return
+        body += chunk
+        if (body.length > MAX_AUTH_BODY_BYTES) {
+          tooLarge = true
+          res.writeHead(413, { 'Content-Type': 'text/plain', Connection: 'close' })
+          res.end('Request too large')
+          req.destroy()
+        }
+      })
       req.on('end', () => {
+        if (tooLarge) return
         const params = new URLSearchParams(body)
         const candidate = params.get('pin') ?? ''
+        const lockedFor = this.lockedUntil - Date.now()
+        if (lockedFor > 0) {
+          res.writeHead(429, { 'Content-Type': 'text/html; charset=utf-8', 'Retry-After': String(Math.ceil(lockedFor / 1000)) })
+          res.end(renderPage('pin.html', {
+            theme: this.currentTheme,
+            pinError: `Too many attempts — try again in ${Math.ceil(lockedFor / 1000)} seconds`,
+          }))
+          return
+        }
+        if (!this.state.allowingNewDevice) {
+          res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8' })
+          res.end(renderPage('pin.html', {
+            theme: this.currentTheme,
+            pinError: 'Pairing is closed — choose Add device in vIDE first',
+          }))
+          return
+        }
         if (this.isValidPin(candidate)) {
           const token = randomUUID()
           this.sessions.set(token, { connectedAt: Date.now(), label: labelForUserAgent(req.headers['user-agent']) })
@@ -368,6 +470,9 @@ export class MobileServer {
           this.syncDevicesFromSessions()
           this.state.allowingNewDevice = false
           this.state.pin = ''
+          this.pin = ''
+          this.prevPin = ''
+          this.resetAttempts()
           setImmediate(() => this.pushState())
           res.writeHead(302, {
             'Set-Cookie': `session=${token}; HttpOnly; SameSite=Strict; Path=/`,
@@ -375,6 +480,7 @@ export class MobileServer {
           })
           res.end()
         } else {
+          this.recordFailedAttempt()
           res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
           res.end(renderPage('pin.html', { theme: this.currentTheme, pinError: 'Incorrect PIN — try again' }))
         }
@@ -497,17 +603,15 @@ export class MobileServer {
 
     this.pin = generatePin()
     this.prevPin = ''
+    this.resetAttempts()
     this.interfaces = getNetworkInterfaceCandidates()
     const localIp = getLocalIp(this.interfaces)
     const qrSvg = await this.buildQrForAddress(localIp)
 
     this.server = createServer((req, res) => this.handleRequest(req, res))
     this.relay = createRelayServer(this.server, {
-      isAuthenticated: (cookieHeader) => {
-        const cookies = parseCookies(cookieHeader)
-        return this.sessions.has(cookies['session'] ?? '')
-      },
-      onConnection: (conn) => this.handleRelayConnection(conn),
+      sessionFor: (cookieHeader) => this.sessionToken(cookieHeader),
+      onConnection: (conn, token) => this.handleRelayConnection(conn, token),
     })
     await new Promise<void>((resolve) => {
       this.server!.listen(this.port, '0.0.0.0', resolve)
@@ -543,9 +647,19 @@ export class MobileServer {
     this.pushState()
   }
 
-  private handleRelayConnection(conn: RelayConnection): void {
+  private handleRelayConnection(conn: RelayConnection, token: string): void {
+    let conns = this.connsBySession.get(token)
+    if (!conns) this.connsBySession.set(token, (conns = new Set()))
+    conns.add(conn)
+    conn.onClose(() => conns.delete(conn))
     this.broadcaster.addConnection(conn)
     conn.onMessage(async (msg) => {
+      // Re-checked per message: a revoked or expired session's socket gets
+      // nothing dispatched even if it's still open.
+      if (this.sessionToken(conn.cookieHeader) !== token) {
+        conn.close()
+        return
+      }
       const response = await dispatch(msg)
       if (response) conn.send(response)
     })
@@ -558,7 +672,9 @@ export class MobileServer {
     this.relay = null
     this.server?.close()
     this.server = null
-    this.sessions.clear()
+    this.revokeAllSessions()
+    this.pin = ''
+    this.prevPin = ''
     // Mobile Display turned off entirely — tear down every terminal/Claude
     // session any paired device spawned, same as a real window's 'closed'
     // handler disposing its own PtyManager/ClaudeManager state. A single
@@ -593,7 +709,7 @@ export class MobileServer {
   }
 
   disconnectDevice(id: string): void {
-    if (!this.sessions.delete(id)) return
+    if (!this.revokeSession(id)) return
     this.syncDevicesFromSessions()
     if (this.sessions.size === 0) this.openPairingWindow()
     this.pushState()
@@ -601,7 +717,7 @@ export class MobileServer {
 
   disconnectAll(): void {
     if (this.sessions.size === 0) return
-    this.sessions.clear()
+    this.revokeAllSessions()
     this.syncDevicesFromSessions()
     this.openPairingWindow()
     this.pushState()
