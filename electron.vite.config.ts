@@ -11,6 +11,10 @@ export default defineConfig({
   // (build.externalizeDeps, default true), replacing externalizeDepsPlugin().
   main: {
     build: {
+      // chokidar 5+ is ESM-only. The main bundle is CJS, so leaving it external
+      // would mean require(esm) at runtime — from inside app.asar once packaged.
+      // Bundling it (and its one dep, readdirp) sidesteps that entirely.
+      externalizeDeps: { exclude: ['chokidar'] },
       lib: {
         entry: {
           index: 'electron/main.ts',
