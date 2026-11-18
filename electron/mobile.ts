@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
-import { createServer, IncomingMessage, ServerResponse, Server } from 'http'
+import { createServer, IncomingMessage, ServerResponse } from 'http'
+import { createServer as createHttpsServer, Server as HttpsServer } from 'https'
 import { networkInterfaces } from 'os'
 import { randomUUID, randomInt, timingSafeEqual } from 'crypto'
 import { readFileSync } from 'fs'
@@ -9,6 +10,7 @@ import { UsageManager } from './usageManager'
 import { createRelayServer, RelayConnection, RelayServer } from './mobileRelay/relayServer'
 import { dispatch } from './mobileRelay/dispatch'
 import { registerAllRelayChannels } from './mobileRelay/registerAll'
+import { loadOrCreateMobileTls, type MobileTls } from './mobileTls'
 import { createBroadcaster, Broadcaster } from './mobileRelay/broadcast'
 import type { PtyManager } from './pty'
 import type { ClaudeManager } from './claude'
@@ -38,6 +40,9 @@ export interface MobileState {
   allowingNewDevice: boolean
   interfaces: MobileNetworkInterface[]
   devices: MobileDevice[]
+  // SHA-256 of the server's TLS certificate, for comparing with what the
+  // phone's browser shows before accepting its warning. '' while stopped.
+  tlsFingerprint: string
 }
 
 function getNetworkInterfaceCandidates(): MobileNetworkInterface[] {
@@ -245,7 +250,8 @@ export function getMobileBroadcaster(): Broadcaster {
 
 export class MobileServer {
   private win: BrowserWindow
-  private server: Server | null = null
+  private server: HttpsServer | null = null
+  private tls: MobileTls | null = null
   private relay: RelayServer | null = null
   private port = BASE_PORT
   private pin = ''
@@ -277,6 +283,7 @@ export class MobileServer {
     allowingNewDevice: true,
     interfaces: [],
     devices: [],
+    tlsFingerprint: '',
   }
 
   constructor(
@@ -399,10 +406,22 @@ export class MobileServer {
   }
 
   private handleRequest(req: IncomingMessage, res: ServerResponse): void {
-    const url = new URL(req.url ?? '/', `http://localhost:${this.port}`)
+    const url = new URL(req.url ?? '/', `https://localhost:${this.port}`)
     const path = url.pathname
 
     // Served unauthenticated — the pin-entry page itself needs these before a session exists.
+    // The CA certificate, unauthenticated: installing it on the phone (and
+    // trusting it) removes the certificate warning and makes the phone
+    // reject any other certificate for this server.
+    if (req.method === 'GET' && path === '/vide-ca.crt' && this.tls) {
+      res.writeHead(200, {
+        'Content-Type': 'application/x-x509-ca-cert',
+        'Content-Disposition': 'attachment; filename="vide-ca.crt"',
+      })
+      res.end(this.tls.caCert)
+      return
+    }
+
     if (req.method === 'GET' && path.startsWith('/mobile-assets/')) {
       const name = path.slice('/mobile-assets/'.length)
       const binaryContentType = BINARY_ASSET_TYPES[name]
@@ -475,7 +494,7 @@ export class MobileServer {
           this.resetAttempts()
           setImmediate(() => this.pushState())
           res.writeHead(302, {
-            'Set-Cookie': `session=${token}; HttpOnly; SameSite=Strict; Path=/`,
+            'Set-Cookie': `session=${token}; HttpOnly; Secure; SameSite=Strict; Path=/`,
             Location: '/app',
           })
           res.end()
@@ -608,7 +627,10 @@ export class MobileServer {
     const localIp = getLocalIp(this.interfaces)
     const qrSvg = await this.buildQrForAddress(localIp)
 
-    this.server = createServer((req, res) => this.handleRequest(req, res))
+    // Every address the QR code can point at, so the certificate matches
+    // whichever interface is picked.
+    this.tls = loadOrCreateMobileTls(join(app.getPath('userData'), 'mobile-tls'), this.interfaces.map((i) => i.address))
+    this.server = createHttpsServer({ key: this.tls.key, cert: this.tls.cert }, (req, res) => this.handleRequest(req, res))
     this.relay = createRelayServer(this.server, {
       sessionFor: (cookieHeader) => this.sessionToken(cookieHeader),
       onConnection: (conn, token) => this.handleRelayConnection(conn, token),
@@ -630,12 +652,13 @@ export class MobileServer {
       allowingNewDevice: true,
       interfaces: this.interfaces,
       devices: [],
+      tlsFingerprint: this.tls.fingerprint,
     }
     this.pushState()
   }
 
   private async buildQrForAddress(address: string): Promise<string> {
-    const url = `http://${address}:${this.port}`
+    const url = `https://${address}:${this.port}`
     return QRCode.toString(url, { type: 'svg', margin: 1 })
   }
 
@@ -698,6 +721,7 @@ export class MobileServer {
       allowingNewDevice: true,
       interfaces: this.state.interfaces,
       devices: [],
+      tlsFingerprint: '',
     }
     this.pushState()
   }

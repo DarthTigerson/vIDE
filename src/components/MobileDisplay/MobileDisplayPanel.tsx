@@ -195,10 +195,21 @@ export function MobileDisplayPanel() {
             {/* URL */}
             <div className="flex items-center justify-center gap-2">
               <p className="text-[0.6875rem] text-fg-muted font-mono">
-                http://{state.localIp}:{state.port}
+                https://{state.localIp}:{state.port}
               </p>
-              <CopyButton text={`http://${state.localIp}:${state.port}`} label="Copy pairing URL" />
+              <CopyButton text={`https://${state.localIp}:${state.port}`} label="Copy pairing URL" />
             </div>
+
+            {/* Certificate: the phone warns once because vIDE signs its own. */}
+            {state.tlsFingerprint && (
+              <p className="text-[0.6875rem] text-fg-muted text-center leading-relaxed">
+                Your phone will warn that the connection isn't private the first time.
+                Before continuing, check its certificate's SHA-256 starts with
+                <span className="block font-mono text-fg mt-1" title={state.tlsFingerprint}>
+                  {state.tlsFingerprint.split(':').slice(0, 8).join(':')}
+                </span>
+              </p>
+            )}
 
             {/* Divider */}
             <div className="h-px bg-border" />

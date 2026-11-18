@@ -1,5 +1,17 @@
 import { describe, it, expect, vi, afterEach, beforeAll, afterAll } from 'vitest'
-import { get, request } from 'http'
+import { get as httpsGet, request as httpsRequest, type RequestOptions } from 'https'
+import { get as plainHttpGet } from 'http'
+import type { IncomingMessage } from 'http'
+
+// The Mobile Display server speaks HTTPS with a certificate from vIDE's own
+// CA, which the test client doesn't trust — skip verification here (the TLS
+// module's own tests check the chain verifies against the CA).
+function get(opts: RequestOptions, cb: (res: IncomingMessage) => void) {
+  return httpsGet({ ...opts, rejectUnauthorized: false }, cb)
+}
+function request(opts: RequestOptions, cb: (res: IncomingMessage) => void) {
+  return httpsRequest({ ...opts, rejectUnauthorized: false }, cb)
+}
 import { mkdirSync, writeFileSync, rmSync, mkdtempSync, cpSync, readFileSync } from 'fs'
 import { tmpdir } from 'os'
 
@@ -696,10 +708,63 @@ describe('MobileServer pairing security', () => {
     const port = server['port']
     const { cookie } = await postPin(port, server['pin'])
     const { default: WebSocket } = await import('ws')
-    const ws = new WebSocket(`ws://127.0.0.1:${port}`, { headers: { cookie: cookie! }, origin: `http://127.0.0.1:${port}` })
+    const ws = new WebSocket(`wss://127.0.0.1:${port}`, { headers: { cookie: cookie! }, origin: `https://127.0.0.1:${port}`, rejectUnauthorized: false })
     await new Promise<void>((resolve, reject) => { ws.on('open', () => resolve()); ws.on('error', reject) })
     const closed = new Promise<void>((resolve) => ws.on('close', () => resolve()))
     server.disconnectDevice(server['state'].devices[0].id)
     await closed
+  })
+})
+
+describe('MobileServer TLS', () => {
+  let server: MobileServer
+
+  afterEach(() => {
+    server?.stop()
+  })
+
+  it('serves HTTPS and exposes the certificate fingerprint', async () => {
+    server = newServer()
+    await server.start()
+    expect(server['state'].tlsFingerprint).toMatch(/^([0-9A-F]{2}:){31}[0-9A-F]{2}$/)
+    const res = await fetchFull(server['port'], '/')
+    expect(res.status).toBe(200)
+  })
+
+  it('sets the session cookie Secure', async () => {
+    server = newServer()
+    await server.start()
+    const raw = await new Promise<string>((resolve, reject) => {
+      const body = `pin=${server['pin']}`
+      const req = request(
+        { host: '127.0.0.1', port: server['port'], path: '/auth', method: 'POST', agent: false, headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) } },
+        (r) => { r.resume(); resolve(r.headers['set-cookie']?.[0] ?? '') }
+      )
+      req.on('error', reject)
+      req.end(body)
+    })
+    expect(raw).toMatch(/;\s*Secure/)
+  })
+
+  it('does not answer plain HTTP', async () => {
+    server = newServer()
+    await server.start()
+    const port = server['port']
+    const outcome = await new Promise<string>((resolve) => {
+      plainHttpGet({ host: '127.0.0.1', port, path: '/', agent: false }, (r) => {
+        r.resume()
+        resolve(`status ${r.statusCode}`)
+      }).on('error', () => resolve('error'))
+    })
+    expect(outcome).not.toBe('status 200')
+  })
+
+  it('serves the CA certificate without a session', async () => {
+    server = newServer()
+    await server.start()
+    const res = await fetchFull(server['port'], '/vide-ca.crt')
+    expect(res.status).toBe(200)
+    expect(res.headers['content-type']).toBe('application/x-x509-ca-cert')
+    expect(res.body).toContain('BEGIN CERTIFICATE')
   })
 })

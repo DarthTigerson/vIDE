@@ -14,13 +14,16 @@
 <div class="page" style="text-align:center;gap:24px">
   <div>
     <h1 style="font-size:22px;font-weight:700;letter-spacing:-0.5px">Connect to vIDE</h1>
-    <p class="muted" style="margin-top:8px;font-size:14px">Enter the 5-digit PIN shown in the vIDE app</p>
+    <p class="muted" style="margin-top:8px;font-size:14px">Enter the 6-digit PIN shown in the vIDE app</p>
   </div>
   %%PIN_ERROR%%
   <form method="POST" action="/auth" style="width:100%;display:flex;flex-direction:column;gap:12px">
     <input class="pin-input" name="pin" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000"/>
     <button type="submit" class="btn">Connect</button>
   </form>
+  <p class="muted" style="margin-top:16px;font-size:12px;text-align:center">
+    Seeing a certificate warning each time? <a href="/vide-ca.crt" style="color:inherit">Install the vIDE certificate</a> on this device and trust it.
+  </p>
 </div>
 <script type="module" src="/mobile-assets/app.js"></script>
 </body>

@@ -12,6 +12,7 @@ const runningState: MobileState = {
   allowingNewDevice: false,
   interfaces: [{ name: 'en0', address: '192.168.1.5' }],
   devices: [{ id: 'tok-1', label: 'iPhone', connectedAt: 0 }],
+  tlsFingerprint: 'AB:CD',
 }
 
 let stateListener: ((state: MobileState) => void) | undefined
@@ -43,6 +44,7 @@ describe('mobileStore', () => {
         allowingNewDevice: true,
         interfaces: [],
         devices: [],
+        tlsFingerprint: '',
       },
       initialized: false,
     })

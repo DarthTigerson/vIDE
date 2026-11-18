@@ -1,4 +1,5 @@
-import { Server as HttpServer, IncomingMessage } from 'http'
+import type { Server as HttpServer, IncomingMessage } from 'http'
+import type { Server as HttpsServer } from 'https'
 import { WebSocketServer, WebSocket } from 'ws'
 import { randomUUID } from 'crypto'
 import type { InboundMessage, OutboundMessage } from './protocol'
@@ -36,7 +37,7 @@ export interface RelayServer {
   close(): void
 }
 
-export function createRelayServer(httpServer: HttpServer, opts: RelayServerOptions): RelayServer {
+export function createRelayServer(httpServer: HttpServer | HttpsServer, opts: RelayServerOptions): RelayServer {
   const wss = new WebSocketServer({ noServer: true })
 
   httpServer.on('upgrade', (req, socket, head) => {
