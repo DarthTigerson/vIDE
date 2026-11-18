@@ -24,9 +24,9 @@ const { ipcOnHandlers, userDataDir, appPathRef } = vi.hoisted(() => {
     userDataDir: mkdtempSync(join(tmpdir(), 'vide-mobile-test-')) as string,
     // Mutable so a describe block can point app.getAppPath() at an isolated
     // temp directory for the duration of its own tests (see the 'MobileServer
-    // vIDE mode' block below, which needs a fake out/renderer it can freely
+    // vIDE mode' block below, which needs a fake out/mobile it can freely
     // write to and delete — never the real project's build output at
-    // <repo>/out/renderer, which process.cwd() would otherwise resolve to).
+    // <repo>/out/mobile, which process.cwd() would otherwise resolve to).
     appPathRef: { current: process.cwd() },
   }
 })
@@ -473,8 +473,8 @@ describe('MobileServer relay session teardown', () => {
   })
 })
 
-// MOBILE_RENDERER_DIR resolves to `<app.getAppPath()>/out/renderer`. Under
-// this file's *default* electron mock that's `<cwd>/out/renderer` — the
+// MOBILE_RENDERER_DIR resolves to `<app.getAppPath()>/out/mobile`. Under
+// this file's *default* electron mock that's `<cwd>/out/mobile` — the
 // real `npm run build:mobile` output directory, which must never be
 // written to or deleted by a test (it's a real developer/CI build
 // artifact, not something this suite owns). So this block instead points
@@ -482,7 +482,7 @@ describe('MobileServer relay session teardown', () => {
 // temp directory for the duration of its tests, with a copy of the real
 // electron/mobileWeb templates (needed by readPage()/renderPage() for the
 // /app chooser) plus a minimal fixture renderer bundle underneath a fake
-// out/renderer — fully disjoint from the project's real out/renderer, so a
+// out/mobile — fully disjoint from the project's real out/mobile, so a
 // real prior build survives this suite untouched regardless of what's on
 // disk when it runs.
 describe('MobileServer vIDE mode', () => {
@@ -493,7 +493,7 @@ describe('MobileServer vIDE mode', () => {
   beforeAll(() => {
     fakeAppRoot = mkdtempSync(join(tmpdir(), 'vide-mobile-vide-test-app-'))
     cpSync(join(process.cwd(), 'electron', 'mobileWeb'), join(fakeAppRoot, 'electron', 'mobileWeb'), { recursive: true })
-    rendererDir = join(fakeAppRoot, 'out', 'renderer')
+    rendererDir = join(fakeAppRoot, 'out', 'mobile')
     mkdirSync(join(rendererDir, 'assets'), { recursive: true })
     writeFileSync(
       join(rendererDir, 'index.html'),
@@ -562,6 +562,23 @@ describe('MobileServer vIDE mode', () => {
     const css = await fetchFull(server['port'], '/vide/assets/index-test.css', cookie)
     expect(css.status).toBe(200)
     expect(css.headers['content-type']).toContain('text/css')
+  })
+
+  it('explains a missing phone bundle instead of serving a blank page', async () => {
+    server = newServer()
+    await server.start()
+    const cookie = await authenticate(server['port'], server['pin'])
+    rmSync(rendererDir, { recursive: true, force: true })
+    try {
+      const res = await fetchFull(server['port'], '/vide/', cookie)
+      expect(res.status).toBe(503)
+      expect(res.body).toContain('npm run build')
+    } finally {
+      mkdirSync(join(rendererDir, 'assets'), { recursive: true })
+      writeFileSync(join(rendererDir, 'index.html'), '<!DOCTYPE html><html><head></head><body><div id="root"></div></body></html>')
+      writeFileSync(join(rendererDir, 'assets', 'index-test.js'), 'console.log("fixture")')
+      writeFileSync(join(rendererDir, 'assets', 'index-test.css'), 'body{margin:0}')
+    }
   })
 
   it('404s a renderer asset that does not exist', async () => {

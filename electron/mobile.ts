@@ -116,14 +116,17 @@ function getMobileWebDir(): string {
   return join(app.getAppPath(), 'electron', 'mobileWeb')
 }
 
-// Where `npm run build:mobile` (electron-vite build --mode mobile) writes
-// the real vIDE renderer bundle — the same React app that runs in the
+// Where `npm run build` (its second step, electron-vite build --mode mobile)
+// writes the phone's vIDE renderer bundle. It is its own directory, apart
+// from out/renderer, because the desktop build would otherwise overwrite it
+// with a bundle that needs Electron's preload and shows a black screen in a
+// phone browser. It is the real vIDE renderer bundle — the same React app that runs in the
 // Electron window, built with VITE_MOBILE_CLIENT=true so it boots the
 // WebSocket window.api shim (src/lib/mobileApiShim) instead of talking to
 // a preload bridge. Computed lazily like getMobileWebDir() above, for the
 // same reason (importing this module shouldn't require Electron's `app`).
 function getMobileRendererDir(): string {
-  return join(app.getAppPath(), 'out', 'renderer')
+  return join(app.getAppPath(), 'out', 'mobile')
 }
 
 const ASSET_TYPES: Record<string, string> = {
@@ -177,6 +180,13 @@ const SWITCH_MODE_LINK =
   + 'background:#0d0d0dcc;color:#fff;font:16px -apple-system,sans-serif;line-height:1;'
   + 'border-radius:999px;text-decoration:none;backdrop-filter:blur(4px)">&larr;</a>'
 
+const MISSING_MOBILE_BUNDLE_PAGE =
+  '<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1">'
+  + '<title>vIDE</title></head><body style="background:#0d0d0d;color:#ddd;font:15px -apple-system,sans-serif;padding:24px">'
+  + `${SWITCH_MODE_LINK}<h2 style="margin-top:40px">vIDE mode isn't built</h2>`
+  + '<p>This copy of vIDE has no phone bundle. Run <code>npm run build</code> (or '
+  + '<code>npm run build:mobile</code>), then reload.</p></body></html>'
+
 // Serves a file from MOBILE_RENDERER_DIR as a static asset, keyed by
 // extension. `injectSwitchModeLink` is only ever set for the bundle's own
 // index.html (see the /vide/ route) so phone users can get back to the
@@ -194,6 +204,12 @@ function serveRendererFile(res: ServerResponse, relPath: string, injectSwitchMod
   try {
     data = readFileSync(filePath)
   } catch {
+    if (injectSwitchModeLink) {
+      // No mobile bundle at all: a plain `npm run dev` doesn't build one.
+      res.writeHead(503, { 'Content-Type': 'text/html; charset=utf-8' })
+      res.end(MISSING_MOBILE_BUNDLE_PAGE)
+      return
+    }
     res.writeHead(404, { 'Content-Type': 'text/plain' })
     res.end('Not found')
     return

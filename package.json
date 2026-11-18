@@ -9,14 +9,14 @@
     "predev": "node scripts/ensure-deps.mjs",
     "dev": "electron-vite dev",
     "prebuild": "node scripts/ensure-deps.mjs",
-    "build": "electron-vite build",
+    "build": "electron-vite build && electron-vite build --mode mobile",
     "build:mobile": "electron-vite build --mode mobile",
     "preview": "electron-vite preview",
     "test": "vitest run",
     "rebuild": "electron-rebuild -f -w node-pty",
     "postinstall": "node scripts/rebrand-electron.mjs",
-    "dist:mac": "electron-vite build && electron-builder --mac",
-    "dist:linux": "electron-vite build && electron-builder --linux"
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:linux": "npm run build && electron-builder --linux"
   },
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",

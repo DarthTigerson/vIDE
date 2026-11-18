@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 
 const { version } = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8')) as { version: string }
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   // main/preload: electron-vite 6 externalizes `dependencies` by default
   // (build.externalizeDeps, default true), replacing externalizeDepsPlugin().
   main: {
@@ -47,9 +47,12 @@ export default defineConfig({
     // The running version, for the Update page's "You have vX" (VIDE-142).
     define: { __APP_VERSION__: JSON.stringify(version) },
     build: {
+      // The phone's bundle (--mode mobile, .env.mobile) gets its own directory
+      // so the desktop build never overwrites it; electron/mobile.ts serves it.
+      outDir: mode === 'mobile' ? 'out/mobile' : 'out/renderer',
       rolldownOptions: {
         input: resolve(__dirname, 'index.html')
       }
     }
   }
-})
+}))
