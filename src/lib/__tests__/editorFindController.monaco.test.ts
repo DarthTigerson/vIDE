@@ -31,10 +31,9 @@ beforeAll(async () => {
       set: (t: any, k: string, v: unknown) => { t[k] = v; return true },
     })
   }
-  // The deep ESM entry (editor.api, no bundled find/language contributions) has no
-  // type declarations under this module resolution, so type it as the package root.
-  // @ts-ignore
-  monaco = (await import('monaco-editor/esm/vs/editor/editor.api')) as unknown as typeof Monaco
+  // The core entry (editor API only, no bundled find/language contributions),
+  // typed as the package root for the namespaces the tests reach into.
+  monaco = (await import('monaco-editor/editor')) as unknown as typeof Monaco
 }, 60_000)
 
 const disposers: Array<() => void> = []

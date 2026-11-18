@@ -30,7 +30,7 @@
     "diff": "^9.0.0",
     "fflate": "^0.8.3",
     "minimatch": "^11.0.9",
-    "monaco-editor": "^0.55.1",
+    "monaco-editor": "^0.57.0",
     "node-pty": "^1.1.0",
     "pdfjs-dist": "^6.5.438",
     "qrcode": "^1.5.4",

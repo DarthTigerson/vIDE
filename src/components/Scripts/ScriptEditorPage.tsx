@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import MonacoEditor, { type BeforeMount } from '@monaco-editor/react'
+import '@/lib/monacoLoader'
 import type { ScriptPatch } from '@/types/api'
 import { useScriptsStore } from '@/stores/scriptsStore'
 import { runScriptInNewTerminal } from '@/lib/runScript'

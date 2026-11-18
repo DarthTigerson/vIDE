@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import MonacoEditor, { DiffEditor, loader } from '@monaco-editor/react'
+import '@/lib/monacoLoader'
 import type * as Monaco from 'monaco-editor'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import { collectPaneIds, useEditorStore, type EditorLayoutNode } from '@/stores/editorStore'
