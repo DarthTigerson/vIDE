@@ -17,6 +17,18 @@ const CHANGELOG = `# vIDE
 ## v0.1.0 (2026-08-09)
 - Switch distribution to curl-install script (zip/tar.gz instead of dmg/deb)`
 
+describe('severity marker', () => {
+  const withMarker = '# vIDE\n## v0.3.6 (2026-11-19)\n<!-- vide-update: severity=urgent -->\n- Fixed a vulnerable dependency\n'
+
+  it('is left out of an extracted section', () => {
+    expect(extractVersionSection(withMarker, '0.3.6')).toBe('## v0.3.6 (2026-11-19)\n- Fixed a vulnerable dependency')
+  })
+
+  it('is left out of parsed release bodies', () => {
+    expect(parseChangelog(withMarker)[0].body).toBe('- Fixed a vulnerable dependency')
+  })
+})
+
 describe('extractVersionSection', () => {
   it('extracts the section for the given version, heading through its bullets', () => {
     const section = extractVersionSection(CHANGELOG, '0.1.1')

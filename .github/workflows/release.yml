@@ -44,10 +44,22 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
+      # The release notes are this version's CHANGELOG section. Besides showing
+      # on GitHub, that carries a severity marker to the app's update checker
+      # (electron/updateChecker.ts), e.g. a line under the version heading:
+      #   <!-- vide-update: severity=urgent -->
+      - name: Release notes from CHANGELOG
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v h="v$version" '/^## /{p = ($2 == h)} p' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then echo "::error::No '## v$version' section in CHANGELOG.md"; exit 1; fi
+          cat release-notes.md
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
+          body_path: release-notes.md
           files: |
             mac-zip/*.zip
             linux-targz/*.tar.gz

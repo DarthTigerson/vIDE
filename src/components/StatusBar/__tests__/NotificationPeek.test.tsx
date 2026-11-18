@@ -14,7 +14,7 @@ import { usePeekEventStore } from '@/stores/peekEventStore'
 
 function resetStores() {
   useUsageAlertStore.setState({ alerts: [] })
-  useUpdateStore.setState({ available: null, status: 'idle' })
+  useUpdateStore.setState({ available: null, status: 'idle', snoozedVersion: null })
   useLlamaSettingsStore.setState({ enabled: false })
   useLlamaStore.setState({ available: null })
   useEditorStore.setState({ activeTabPath: null })
@@ -40,6 +40,38 @@ const llamaOff = () => {
   useLlamaSettingsStore.setState({ enabled: true })
   useLlamaStore.setState({ available: false })
 }
+
+const update = (severity: 'normal' | 'urgent') =>
+  useUpdateStore.setState({ available: { version: '0.4.0', url: 'x', severity }, status: 'idle' })
+
+describe('NotificationPeek pinned update', () => {
+  it('keeps a pinned update past the countdown, with no drain line', () => {
+    update('normal')
+    render(<NotificationPeek />)
+    act(() => { vi.advanceTimersByTime(PEEK_MS + 1000) })
+    const peek = screen.getByTestId('notification-peek')
+    expect(peek.textContent).toMatch(/vIDE v0.4.0 is available/)
+    expect(peek.querySelector('.notification-peek-drain')).toBeNull()
+  })
+
+  it('× takes a normal update out of the peek by marking it seen, not dismissing it', () => {
+    update('normal')
+    render(<NotificationPeek />)
+    fireEvent.mouseUp(screen.getByRole('button', { name: 'Close notification' }), { button: 0 })
+    expect(screen.queryByTestId('notification-peek')).toBeNull()
+    expect(useNotificationAcknowledgedStore.getState()).toMatchObject({ acknowledgedIds: ['update'], dismissedIds: [] })
+  })
+
+  it('an urgent update has no ×, survives being acknowledged, and Snooze removes it', () => {
+    update('urgent')
+    render(<NotificationPeek />)
+    expect(screen.queryByRole('button', { name: 'Close notification' })).toBeNull()
+    act(() => { useNotificationAcknowledgedStore.getState().acknowledge(['update']) })
+    expect(screen.getByTestId('notification-peek').textContent).toMatch(/Security update: vIDE v0.4.0/)
+    fireEvent.mouseUp(screen.getByRole('button', { name: 'Snooze' }), { button: 0 })
+    expect(screen.queryByTestId('notification-peek')).toBeNull()
+  })
+})
 
 describe('NotificationPeek', () => {
   it('shows nothing when no notification has arrived', () => {

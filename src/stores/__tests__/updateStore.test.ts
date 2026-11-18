@@ -46,7 +46,7 @@ describe('updateStore', () => {
     Object.keys(localStorageStore).forEach((k) => delete localStorageStore[k])
     outputHandler = null
     exitHandler = null
-    useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com' }, status: 'idle', stage: null, failure: null, log: [], changelog: undefined })
+    useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com', severity: 'normal' }, snoozedVersion: null, status: 'idle', stage: null, failure: null, log: [], changelog: undefined })
   })
 
   it('starts with no update available and idle status', () => {

@@ -6,6 +6,14 @@ import { join } from 'path'
 // the root both in dev and in a packaged app.asar.
 const CHANGELOG_PATH = join(__dirname, '../../CHANGELOG.md')
 
+// The release severity marker (see electron/updateChecker.ts) is for the
+// update checker only: the in-app changelog renders raw HTML as text.
+const MARKER_LINE = /^\s*<!--\s*vide-update:[^>]*-->\s*$/
+
+function isMarkerLine(line: string): boolean {
+  return MARKER_LINE.test(line)
+}
+
 export function extractVersionSection(changelog: string, version: string): string | null {
   const lines = changelog.split('\n')
   const startIdx = lines.findIndex((line) => {
@@ -22,7 +30,7 @@ export function extractVersionSection(changelog: string, version: string): strin
     }
   }
 
-  return lines.slice(startIdx, endIdx).join('\n').trim()
+  return lines.slice(startIdx, endIdx).filter((line) => !isMarkerLine(line)).join('\n').trim()
 }
 
 export interface ChangelogRelease {
@@ -44,7 +52,7 @@ export function parseChangelog(changelog: string): ChangelogRelease[] {
     if (heading) {
       push()
       current = { version: heading[1], date: heading[2] ?? null, lines: [] }
-    } else if (current) {
+    } else if (current && !isMarkerLine(line)) {
       current.lines.push(line)
     }
   }

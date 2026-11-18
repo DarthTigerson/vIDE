@@ -1,11 +1,26 @@
 import { ipcMain } from 'electron'
 
 const REPO = 'DarthTigerson/vIDE'
-const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
+// Hourly, so an urgent release shows up within the hour and lines up with
+// the urgent notification's one-hour Snooze. Well under GitHub's 60/hour
+// unauthenticated limit.
+const CHECK_INTERVAL_MS = 60 * 60 * 1000
+// Enough releases to cover anyone a few months behind.
+const RELEASES_PER_PAGE = 20
+
+// How hard vIDE pushes an update, from a marker in the release notes:
+//   <!-- vide-update: severity=urgent -->    pinned red notification, Snooze only
+//   <!-- vide-update: severity=critical -->  as urgent, then the Update required
+//                                             wall on the next launch
+// No marker means normal.
+export type UpdateSeverity = 'normal' | 'urgent' | 'critical'
 
 export interface UpdateInfo {
   version: string
   url: string
+  // The highest severity of every release newer than the installed version,
+  // so an urgent release isn't hidden by a normal one published after it.
+  severity: UpdateSeverity
 }
 
 // What Settings > About shows next to Check for updates (VIDE-143).
@@ -17,11 +32,36 @@ export interface UpdateCheckStatus {
   failed: boolean
 }
 
-interface GithubRelease {
+export interface GithubRelease {
   tag_name: string
   html_url: string
   draft: boolean
   prerelease: boolean
+  body?: string | null
+}
+
+const SEVERITY_RANK: Record<UpdateSeverity, number> = { normal: 0, urgent: 1, critical: 2 }
+const SEVERITY_MARKER = /<!--\s*vide-update:\s*severity=(urgent|critical)\s*-->/i
+
+export function parseSeverity(body: string | null | undefined): UpdateSeverity {
+  const match = body?.match(SEVERITY_MARKER)
+  return match ? (match[1].toLowerCase() as UpdateSeverity) : 'normal'
+}
+
+// Picks the newest release above currentVersion and the highest severity
+// among all of them, or null when nothing newer is published.
+export function pendingUpdate(releases: GithubRelease[], currentVersion: string): UpdateInfo | null {
+  let latest: UpdateInfo | null = null
+  let severity: UpdateSeverity = 'normal'
+  for (const release of releases) {
+    if (release.draft || release.prerelease) continue
+    const version = release.tag_name.replace(/^v/, '')
+    if (compareVersions(version, currentVersion) <= 0) continue
+    const s = parseSeverity(release.body)
+    if (SEVERITY_RANK[s] > SEVERITY_RANK[severity]) severity = s
+    if (!latest || compareVersions(version, latest.version) > 0) latest = { version, url: release.html_url, severity: 'normal' }
+  }
+  return latest ? { ...latest, severity } : null
 }
 
 // Compares two dotted-numeric versions (e.g. "0.2.0" vs "0.1.0").
@@ -50,24 +90,23 @@ export class UpdateChecker {
 
   async check(): Promise<UpdateInfo | null> {
     try {
-      const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
+      const res = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=${RELEASES_PER_PAGE}`, {
         headers: { Accept: 'application/vnd.github+json' },
       })
       if (!res.ok) {
         this.lastCheckFailed = true
         return this.latest
       }
-      const release: GithubRelease = await res.json()
+      const releases: unknown = await res.json()
+      if (!Array.isArray(releases)) {
+        this.lastCheckFailed = true
+        return this.latest
+      }
       this.lastCheckedAt = Date.now()
       this.lastCheckFailed = false
-      if (release.draft || release.prerelease) return this.latest
 
-      const version = release.tag_name.replace(/^v/, '')
-      const next = compareVersions(version, this.currentVersion) > 0
-        ? { version, url: release.html_url }
-        : null
-
-      if (next?.version !== this.latest?.version) {
+      const next = pendingUpdate(releases as GithubRelease[], this.currentVersion)
+      if (next?.version !== this.latest?.version || next?.severity !== this.latest?.severity) {
         this.latest = next
         this.onUpdate?.(this.latest)
       }

@@ -18,13 +18,15 @@ const RING_MS = 900
 export function NotificationBell() {
   const dismissedIds = useNotificationAcknowledgedStore((s) => s.dismissedIds)
   // Dismissed rows are gone from the panel, so they don't count either.
-  const items = useNotificationItems().filter((item) => !dismissedIds.includes(item.id))
+  const items = useNotificationItems().filter((item) => item.urgent || !dismissedIds.includes(item.id))
   const visibleItems = useVisibleNotificationItems()
   const toggle = useNotificationPanelStore((s) => s.toggle)
   const panelOpen = useNotificationPanelStore((s) => s.open)
   const ringing = useNotificationArrival(RING_MS)
   const count = items.length
   const unread = visibleItems.length > 0
+  // Red instead of accent while an urgent row (e.g. a security update) is up.
+  const urgent = visibleItems.some((item) => item.urgent)
 
   return (
     <FooterTooltip label="Notifications" hidden={panelOpen}>
@@ -46,9 +48,11 @@ export function NotificationBell() {
           'flex h-5 shrink-0 items-center justify-center gap-1 rounded-full border text-xs tabular-nums transition-colors [&_svg]:h-3.5 [&_svg]:w-3.5',
           count === 0
             ? 'w-5 border-border bg-bg text-fg-subtle cursor-default'
-            : unread
-              ? 'pl-1.5 pr-2 border-accent bg-accent text-on-accent cursor-pointer'
-              : 'pl-1.5 pr-2 border-border bg-bg text-fg-muted hover:text-fg hover:border-fg-subtle cursor-pointer',
+            : urgent
+              ? 'pl-1.5 pr-2 border-red-500 bg-red-500 text-white cursor-pointer'
+              : unread
+                ? 'pl-1.5 pr-2 border-accent bg-accent text-on-accent cursor-pointer'
+                : 'pl-1.5 pr-2 border-border bg-bg text-fg-muted hover:text-fg hover:border-fg-subtle cursor-pointer',
         ].join(' ')}
       >
         <span key={ringing?.seq} className={ringing ? 'notification-bell-ring flex' : 'flex'}>

@@ -18,7 +18,7 @@ import type { RegistryState } from '@/types/api'
 
 beforeEach(() => {
   useUsageAlertStore.setState({ alerts: [] })
-  useUpdateStore.setState({ available: null, status: 'idle' })
+  useUpdateStore.setState({ available: null, status: 'idle', snoozedVersion: null })
   useGitStore.setState({ repos: {} })
   useGitReposStore.setState({ selectedRepo: null, hasExplicitSelection: false })
   useGitPanelOpenAlertStore.setState({ openRequest: 0 })
@@ -92,24 +92,53 @@ describe('useNotificationItems', () => {
     expect(result.current[0].text).toBe('Session usage ran out')
   })
 
-  it('includes an update-available item that starts the update on click', () => {
+  it('pins an update-available item whose Update button starts the update and whose row opens the Update page', () => {
     const startUpdate = vi.fn()
-    useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com' }, status: 'idle', startUpdate })
+    const openUpdatePage = vi.fn()
+    useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com', severity: 'normal' as const }, status: 'idle', startUpdate, openUpdatePage })
     const { result } = renderHook(() => useNotificationItems())
-    const update = result.current.find((i) => i.id === 'update')
-    expect(update?.text).toBe('vIDE v0.2.0 is available — click to update')
-    expect(update?.icon).toBeTruthy()
-    act(() => update!.onClick!())
+    const update = result.current.find((i) => i.id === 'update')!
+    expect(update.text).toBe('vIDE v0.2.0 is available')
+    expect(update.icon).toBeTruthy()
+    expect(update).toMatchObject({ pinned: true, urgent: false, secondaryAction: undefined })
+    act(() => update.action!.onClick())
     expect(startUpdate).toHaveBeenCalled()
+    act(() => update.onClick!())
+    expect(openUpdatePage).toHaveBeenCalled()
+  })
+
+  it('an urgent update is red, offers Snooze, and disappears while snoozed', () => {
+    useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com', severity: 'urgent' as const }, status: 'idle' })
+    const { result, rerender } = renderHook(() => useNotificationItems())
+    const update = result.current.find((i) => i.id === 'update')!
+    expect(update.text).toBe('Security update: vIDE v0.2.0')
+    expect(update).toMatchObject({ pinned: true, urgent: true })
+    expect(update.secondaryAction?.label).toBe('Snooze')
+    act(() => update.secondaryAction!.onClick())
+    rerender()
+    expect(result.current.find((i) => i.id === 'update')).toBeUndefined()
+  })
+
+  it('a critical update reads as critical in the row', () => {
+    useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com', severity: 'critical' as const }, status: 'idle' })
+    const { result } = renderHook(() => useNotificationItems())
+    expect(result.current.find((i) => i.id === 'update')!.text).toBe('Critical security update: vIDE v0.2.0')
+  })
+
+  it('a snooze for an older version does not hide a newer release', () => {
+    useUpdateStore.setState({ available: { version: '0.3.0', url: 'https://example.com', severity: 'urgent' as const }, status: 'idle', snoozedVersion: '0.2.0' })
+    const { result } = renderHook(() => useNotificationItems())
+    expect(result.current.find((i) => i.id === 'update')).toBeDefined()
   })
 
   it('while an update is in progress, the item reopens the Update page to watch it', () => {
     const openUpdatePage = vi.fn()
-    useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com' }, status: 'updating', openUpdatePage })
+    useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com', severity: 'normal' as const }, status: 'updating', openUpdatePage })
     const { result } = renderHook(() => useNotificationItems())
     const update = result.current.find((i) => i.id === 'update')
     expect(update?.text).toBe('Updating vIDE…')
     expect(update?.disabled).toBe(false)
+    expect(update).toMatchObject({ pinned: false, action: undefined })
     act(() => update!.onClick!())
     expect(openUpdatePage).toHaveBeenCalled()
   })
@@ -220,14 +249,14 @@ describe('useNotificationItems', () => {
   it('orders the llama item before the update item', () => {
     useLlamaSettingsStore.setState({ enabled: true })
     useLlamaStore.setState({ available: false })
-    useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com' }, status: 'idle' })
+    useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com', severity: 'normal' as const }, status: 'idle' })
     const { result } = renderHook(() => useNotificationItems())
     expect(result.current.map((i) => i.id)).toEqual(['llama-unavailable', 'update'])
   })
 
   it('orders usage before update', () => {
     useUsageAlertStore.setState({ alerts: [{ scope: 'session', cutoffAt: Date.now() + 1000, resetAt: null }] })
-    useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com' }, status: 'idle' })
+    useUpdateStore.setState({ available: { version: '0.2.0', url: 'https://example.com', severity: 'normal' as const }, status: 'idle' })
     const { result } = renderHook(() => useNotificationItems())
     expect(result.current.map((i) => i.id)).toEqual(['usage-session', 'update'])
   })

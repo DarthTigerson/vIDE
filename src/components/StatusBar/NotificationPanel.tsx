@@ -4,6 +4,7 @@ import { useNotificationItems } from '@/hooks/useNotificationItems'
 import { useNotificationAcknowledgedStore } from '@/stores/notificationAcknowledgedStore'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
 import { footerPopupShadow } from '@/components/ui/footerPopup'
+import { NotificationRowActions } from './NotificationRowActions'
 
 // Matches the duration-200 slide/fade below. The row buttons are only kept
 // in the DOM while open or mid-close-transition — closed-and-settled means
@@ -25,7 +26,9 @@ export function NotificationPanel() {
   // shared store keeps the bell's count in agreement (see dismissedIds).
   const dismissedIds = useNotificationAcknowledgedStore((s) => s.dismissedIds)
   const dismiss = useNotificationAcknowledgedStore((s) => s.dismiss)
-  const items = rawItems.filter((item) => !dismissedIds.includes(item.id))
+  // Urgent rows can't be dismissed, so a stale id never hides one.
+  const items = rawItems.filter((item) => item.urgent || !dismissedIds.includes(item.id))
+  const dismissable = items.filter((item) => !item.urgent)
 
   // Closing (any path — row pick, outside click, Escape, auto-close) marks
   // whatever was showing as acknowledged, quieting the footer's loud text
@@ -96,13 +99,13 @@ export function NotificationPanel() {
           <span>
             <span className="font-semibold text-fg">Notifications</span> · {items.length}
           </span>
-          {items.length > 0 && (
+          {dismissable.length > 0 && (
             <button
               type="button"
               onMouseUp={(e) => {
                 if (e.button !== 0) return
-                items.forEach((item) => item.onDismiss?.())
-                dismiss(items.map((item) => item.id))
+                dismissable.forEach((item) => item.onDismiss?.())
+                dismiss(dismissable.map((item) => item.id))
               }}
               className="text-fg-muted hover:text-fg transition-colors"
             >
@@ -114,7 +117,7 @@ export function NotificationPanel() {
       {mounted && (
         <ul className="max-h-40 overflow-y-auto overscroll-contain">
           {items.map((item) => (
-            <li key={item.id} className="flex items-center">
+            <li key={item.id} className={['flex items-center', item.urgent ? 'bg-red-500/10' : ''].join(' ')}>
               <button
                 type="button"
                 disabled={item.disabled}
@@ -132,39 +135,30 @@ export function NotificationPanel() {
                   data-testid="notification-unread-dot"
                   className={[
                     'shrink-0 h-1.5 w-1.5 rounded-full',
-                    acknowledgedIds.includes(item.id) ? 'bg-transparent' : 'bg-accent',
+                    item.urgent ? 'bg-red-500' : acknowledgedIds.includes(item.id) ? 'bg-transparent' : 'bg-accent',
                   ].join(' ')}
                 />
-                <span className="shrink-0 [&_svg]:h-3.5 [&_svg]:w-3.5">{item.icon}</span>
+                <span className={['shrink-0 [&_svg]:h-3.5 [&_svg]:w-3.5', item.urgent ? 'text-red-400' : ''].join(' ')}>{item.icon}</span>
                 <span className="truncate">{item.text}</span>
               </button>
-              {item.action && (
+              <NotificationRowActions item={item} after={close} />
+              {item.urgent ? (
+                <span className="shrink-0 w-6 mr-1" />
+              ) : (
                 <button
                   type="button"
+                  aria-label="Dismiss notification"
                   onMouseUp={(e) => {
                     if (e.button !== 0) return
                     e.stopPropagation()
-                    item.action!.onClick()
-                    close()
+                    item.onDismiss?.()
+                    dismiss([item.id])
                   }}
-                  className="shrink-0 h-5 px-2 mr-0.5 rounded-full text-[0.625rem] font-bold whitespace-nowrap bg-accent/85 text-on-accent hover:bg-accent transition-colors"
+                  className="shrink-0 w-6 h-6 mr-1 flex items-center justify-center rounded-sm text-fg-subtle hover:text-fg hover:bg-white/10"
                 >
-                  {item.action.label}
+                  ×
                 </button>
               )}
-              <button
-                type="button"
-                aria-label="Dismiss notification"
-                onMouseUp={(e) => {
-                  if (e.button !== 0) return
-                  e.stopPropagation()
-                  item.onDismiss?.()
-                  dismiss([item.id])
-                }}
-                className="shrink-0 w-6 h-6 mr-1 flex items-center justify-center rounded-sm text-fg-subtle hover:text-fg hover:bg-white/10"
-              >
-                ×
-              </button>
             </li>
           ))}
         </ul>

@@ -27,6 +27,14 @@ export interface NotificationItem {
   onClick?: () => void
   // A small button at the row's right, before the x (e.g. Restart vIDE).
   action?: { label: string; onClick: () => void }
+  // A quieter button before `action` (e.g. Snooze).
+  secondaryAction?: { label: string; onClick: () => void }
+  // Stays in the peek, without the drain countdown, until it's seen (its ×
+  // or closing the panel on it) or its condition clears.
+  pinned?: boolean
+  // Shown in red, and can't be acknowledged or dismissed: it stays until its
+  // condition clears (e.g. an urgent update gets installed or snoozed).
+  urgent?: boolean
   // Extra work when the panel's x / Dismiss all clears this row (e.g. persisting it).
   onDismiss?: () => void
 }
@@ -47,6 +55,8 @@ export function useNotificationItems(): NotificationItem[] {
   const startUpdate = useUpdateStore((s) => s.startUpdate)
   const openUpdatePage = useUpdateStore((s) => s.openUpdatePage)
   const restart = useUpdateStore((s) => s.restart)
+  const snoozedVersion = useUpdateStore((s) => s.snoozedVersion)
+  const snooze = useUpdateStore((s) => s.snooze)
 
   const appNotifications = useAppContribStore((s) => s.notifications)
   const installedApps = useAppContribStore((s) => s.apps)
@@ -174,18 +184,48 @@ export function useNotificationItems(): NotificationItem[] {
     }
   }
 
-  if (available) {
+  // Pinned in the peek until handled. Urgent and critical releases (see
+  // electron/updateChecker.ts) are red, can't be closed, and only offer
+  // Snooze; snoozing drops the row for an hour, and its return counts as a
+  // new arrival, so the bell rings and the peek pins it again.
+  const snoozed = !!available && snoozedVersion === available.version
+  if (available && !snoozed) {
+    const urgent = available.severity !== 'normal' && status !== 'updating'
+    const idleText =
+      available.severity === 'critical'
+        ? `Critical security update: vIDE v${available.version}`
+        : available.severity === 'urgent'
+          ? `Security update: vIDE v${available.version}`
+          : `vIDE v${available.version} is available`
     const text =
       status === 'ready'
-        ? 'Update installed — click to restart'
+        ? 'Update installed — restart to finish'
         : status === 'updating'
           ? 'Updating vIDE…'
           : status === 'failed'
-            ? `Update failed — click to retry (v${available.version} available)`
-            : `vIDE v${available.version} is available — click to update`
-    // Updating: reopen the Update page (VIDE-142) to watch its progress.
-    const onClick = status === 'ready' ? restart : status === 'updating' ? openUpdatePage : startUpdate
-    items.push({ id: 'update', text, disabled: false, icon: <UpdateAvailableIcon />, onClick })
+            ? `Update failed — v${available.version} available`
+            : idleText
+    const action =
+      status === 'ready'
+        ? { label: 'Restart', onClick: restart }
+        : status === 'failed'
+          ? { label: 'Retry', onClick: startUpdate }
+          : status === 'idle'
+            ? { label: 'Update', onClick: startUpdate }
+            : undefined
+    // The row itself opens the Update page (VIDE-142): what's new, or the
+    // progress of an update already running.
+    items.push({
+      id: 'update',
+      text,
+      disabled: false,
+      icon: <UpdateAvailableIcon />,
+      onClick: status === 'ready' ? restart : openUpdatePage,
+      action,
+      secondaryAction: urgent ? { label: 'Snooze', onClick: snooze } : undefined,
+      pinned: status !== 'updating',
+      urgent,
+    })
   }
 
   // Notifications registered by store apps (vide.notifications.add).
