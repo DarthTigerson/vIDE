@@ -18,5 +18,6 @@ export function useVisibleNotificationItems(): NotificationItem[] {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIdsKey, reconcile])
 
-  return items.filter((item) => !acknowledgedIds.includes(item.id))
+  // Urgent rows ignore acknowledgment: they stay loud until they clear.
+  return items.filter((item) => item.urgent || !acknowledgedIds.includes(item.id))
 }

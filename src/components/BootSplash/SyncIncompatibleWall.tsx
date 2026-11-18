@@ -6,7 +6,11 @@ import { useUpdateStore } from '@/stores/updateStore'
 // dismiss — the only way forward is to update. preBootSync has already forced
 // the vIDE theme with no background image and paused sync push, so this older
 // build can't overwrite the newer machine's settings while it sits here.
-export function SyncIncompatibleWall() {
+//
+// reason 'critical': the same wall, shown at launch after a release marked
+// critical was seen (src/lib/updateSeverity.ts). Never mid-session, so running
+// agent terminals aren't cut off.
+export function SyncIncompatibleWall({ reason = 'sync', requiredVersion }: { reason?: 'sync' | 'critical'; requiredVersion?: string } = {}) {
   const status = useUpdateStore((s) => s.status)
   const stage = useUpdateStore((s) => s.stage)
   const available = useUpdateStore((s) => s.available)
@@ -37,15 +41,29 @@ export function SyncIncompatibleWall() {
 
         <div>
           <h1 className="text-2xl font-semibold">Update required</h1>
-          <p className="mt-3 text-base text-fg-muted">
-            vIDE Sync received settings from a newer version of vIDE
-            {current ? ` than the one installed here (v${current})` : ''}.
-          </p>
-          <p className="mt-2 text-base text-fg-muted">
-            This copy can't read them safely, so it's paused to avoid overwriting
-            your other machine's settings. Update vIDE to continue — your synced
-            settings will be applied once you're up to date.
-          </p>
+          {reason === 'critical' ? (
+            <>
+              <p className="mt-3 text-base text-fg-muted">
+                {current ? `vIDE v${current}` : 'This version of vIDE'} has a security problem that{' '}
+                {requiredVersion ? `v${requiredVersion}` : 'a newer version'} fixes.
+              </p>
+              <p className="mt-2 text-base text-fg-muted">
+                Update vIDE to continue. Your projects and settings are untouched.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="mt-3 text-base text-fg-muted">
+                vIDE Sync received settings from a newer version of vIDE
+                {current ? ` than the one installed here (v${current})` : ''}.
+              </p>
+              <p className="mt-2 text-base text-fg-muted">
+                This copy can't read them safely, so it's paused to avoid overwriting
+                your other machine's settings. Update vIDE to continue — your synced
+                settings will be applied once you're up to date.
+              </p>
+            </>
+          )}
         </div>
 
         <div className="flex min-h-11 items-center justify-center">

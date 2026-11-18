@@ -7,6 +7,7 @@ import { useCoverNativeViews } from '@/lib/nativeViewCover'
 import { footerPopupShadow } from '@/components/ui/footerPopup'
 import { usePeekEventStore, type PeekEvent, type PeekEventKind } from '@/stores/peekEventStore'
 import type { NotificationItem } from '@/hooks/useNotificationItems'
+import { NotificationRowActions } from './NotificationRowActions'
 import { BellIcon, BrowserIcon, ClaudeIcon, GitIcon, UpdateAvailableIcon } from '@/components/ActivityBar/ActivityBar'
 
 const EVENT_ICONS: Record<PeekEventKind, () => ReactNode> = {
@@ -108,19 +109,35 @@ export function NotificationPeek() {
     return () => clearTimeout(timer)
   }, [entries, hovered, removeEvent])
 
+  // Pinned rows (e.g. an available update) stay for as long as they're
+  // visible, with no countdown: they leave once seen (their ×, or closing
+  // the panel on them) or when their condition clears. Urgent ones are
+  // never "seen", so they come back after the panel closes too.
+  const pinnedItems = visibleItems.filter((item) => item.pinned)
+  const pinnedIds = new Set(pinnedItems.map((item) => item.id))
+
   // Condition rows are looked up among visible (unacknowledged) items, so a
   // row goes away as soon as it's seen in the panel or its condition clears.
   // Event rows come from the event store.
-  const rows = entries
+  const timedRows = entries
+    .filter((entry) => !pinnedIds.has(entry.id))
     .map((entry) => {
       const event = events.find((e) => e.id === entry.id)
       const item = event ? eventItem(event) : visibleItems.find((i) => i.id === entry.id)
       return { entry, item, isEvent: !!event }
     })
     .filter((row): row is { entry: PeekEntry; item: NotificationItem; isEvent: boolean } => !!row.item)
-  useCoverNativeViews(rows.length > 0 && !panelOpen)
+  const rows: { entry: PeekEntry | null; item: NotificationItem; isEvent: boolean }[] = [
+    ...pinnedItems.map((item) => ({ entry: null, item, isEvent: false })),
+    ...timedRows,
+  ]
+  // Only fresh arrivals cover browser tabs (for their PEEK_MS), pinned ones
+  // included: a pinned row sitting there for hours would otherwise keep
+  // every browser tab frozen as a snapshot.
+  const fresh = entries.some((entry) => !entry.leaving && (pinnedIds.has(entry.id) || timedRows.some((row) => row.entry === entry)))
+  useCoverNativeViews(fresh && !panelOpen)
   if (rows.length === 0 || panelOpen) return null
-  const closing = rows.every((row) => row.entry.leaving)
+  const closing = rows.every((row) => row.entry?.leaving)
   const others = visibleItems.length - rows.filter((row) => !row.isEvent).length
 
   return (
@@ -161,10 +178,12 @@ export function NotificationPeek() {
         {rows.map(({ entry, item, isEvent }) => (
           <li
             key={item.id}
-            data-leaving={entry.leaving || undefined}
+            data-leaving={entry?.leaving || undefined}
+            data-pinned={entry ? undefined : ''}
             className={[
-              'notification-peek-row-in relative transition-opacity duration-200',
-              entry.leaving ? 'opacity-0' : 'opacity-100',
+              'notification-peek-row-in relative flex items-center transition-opacity duration-200',
+              entry?.leaving ? 'opacity-0' : 'opacity-100',
+              item.urgent ? 'bg-red-500/10' : '',
             ].join(' ')}
           >
             <button
@@ -181,16 +200,39 @@ export function NotificationPeek() {
                 setEntries((prev) => prev.filter((p) => p.id !== item.id))
               }}
               className={[
-                'flex w-full min-w-0 items-center gap-2 text-left px-3 py-1.5 text-xs transition-colors',
+                'flex flex-1 min-w-0 items-center gap-2 text-left px-3 py-1.5 text-xs transition-colors',
                 item.disabled ? 'text-fg-subtle cursor-default' : 'text-fg hover:bg-white/5 cursor-pointer',
               ].join(' ')}
             >
-              <span className="shrink-0 h-1.5 w-1.5 rounded-full bg-accent" />
-              <span className="shrink-0 text-accent [&_svg]:h-3.5 [&_svg]:w-3.5">{item.icon}</span>
+              <span className={['shrink-0 h-1.5 w-1.5 rounded-full', item.urgent ? 'bg-red-500' : 'bg-accent'].join(' ')} />
+              <span className={['shrink-0 [&_svg]:h-3.5 [&_svg]:w-3.5', item.urgent ? 'text-red-400' : 'text-accent'].join(' ')}>{item.icon}</span>
               <span className="truncate">{item.text}</span>
             </button>
-            {/* This row's own countdown. */}
-            <span className="notification-peek-drain absolute left-0 bottom-0 h-px w-full bg-accent/50" />
+            {entry === null && (
+              <>
+                <NotificationRowActions item={item} after={() => acknowledge([item.id])} />
+                {item.urgent ? (
+                  <span className="shrink-0 w-6 mr-1" />
+                ) : (
+                  <button
+                    type="button"
+                    aria-label="Close notification"
+                    onMouseUp={(e) => {
+                      if (e.button !== 0) return
+                      e.stopPropagation()
+                      // Seen, not dismissed: it leaves the peek but stays in the panel.
+                      acknowledge([item.id])
+                      setEntries((prev) => prev.filter((p) => p.id !== item.id))
+                    }}
+                    className="shrink-0 w-6 h-6 mr-1 flex items-center justify-center rounded-sm text-fg-subtle hover:text-fg hover:bg-white/10"
+                  >
+                    ×
+                  </button>
+                )}
+              </>
+            )}
+            {/* This row's own countdown; pinned rows have none. */}
+            {entry && <span className="notification-peek-drain absolute left-0 bottom-0 h-px w-full bg-accent/50" />}
           </li>
         ))}
       </ul>

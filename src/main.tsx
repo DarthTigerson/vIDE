@@ -27,7 +27,22 @@ flushSync(() => root.render(<SyncSplash palette={DEFAULT_SPLASH_PALETTE} />))
 const { runPreMountSync, preMountSyncResult } = await import('./lib/preBootSync')
 await runPreMountSync()
 
-if (preMountSyncResult.incompatible) {
+// A release marked critical was seen during an earlier session: block the app
+// until it's installed (src/lib/updateSeverity.ts). Mobile has no install.
+const { requiredUpdateVersion } = await import('./lib/updateSeverity')
+const requiredVersion =
+  import.meta.env.VITE_MOBILE_CLIENT !== 'true' && typeof __APP_VERSION__ === 'string'
+    ? requiredUpdateVersion(__APP_VERSION__)
+    : null
+
+if (requiredVersion) {
+  const { SyncIncompatibleWall } = await import('./components/BootSplash/SyncIncompatibleWall')
+  root.render(
+    <React.StrictMode>
+      <SyncIncompatibleWall reason="critical" requiredVersion={requiredVersion} />
+    </React.StrictMode>
+  )
+} else if (preMountSyncResult.incompatible) {
   // Config came from a newer vIDE. Show only the update wall — App never mounts,
   // so every panel stays closed and there's nothing to dismiss (VIDE-162).
   const { SyncIncompatibleWall } = await import('./components/BootSplash/SyncIncompatibleWall')

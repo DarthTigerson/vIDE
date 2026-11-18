@@ -5,6 +5,7 @@ import { PENDING_CHANGELOG_KEY, UPDATED_FROM_KEY } from './changelogStore'
 import { stageFromLine, failureFromLog, changelogBody, type UpdateStage, type UpdateFailure } from '@/lib/updateStage'
 import type { UpdateInfo } from '@/types/api'
 import { usePeekEventStore } from './peekEventStore'
+import { SNOOZE_MS, rememberRequiredVersion } from '@/lib/updateSeverity'
 
 export type UpdateStatus = 'idle' | 'updating' | 'ready' | 'failed'
 
@@ -27,6 +28,11 @@ interface UpdateState {
   checking: boolean
   lastCheckedAt: number | null
   checkFailed: boolean
+  // Snooze on an urgent update hides its notification for SNOOZE_MS. Kept in
+  // memory only, so a relaunch brings it straight back, and tied to the
+  // version so a newer release isn't hidden by an older snooze.
+  snoozedVersion: string | null
+  snooze: () => void
   loadCheckStatus: () => void
   checkForUpdates: () => Promise<void>
   setAvailable: (info: UpdateInfo | null) => void
@@ -37,6 +43,7 @@ interface UpdateState {
 }
 
 let unsubscribe: (() => void) | null = null
+let snoozeTimer: ReturnType<typeof setTimeout> | null = null
 
 export const useUpdateStore = create<UpdateState>((set, get) => ({
   available: null,
@@ -48,6 +55,20 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
   checking: false,
   lastCheckedAt: null,
   checkFailed: false,
+  snoozedVersion: null,
+
+  snooze: () => {
+    const version = get().available?.version
+    if (!version) return
+    if (snoozeTimer) clearTimeout(snoozeTimer)
+    set({ snoozedVersion: version })
+    // Clearing it puts the notification back, which the arrival logic
+    // treats as new: the bell rings and the peek pins it again.
+    snoozeTimer = setTimeout(() => {
+      snoozeTimer = null
+      set({ snoozedVersion: null })
+    }, SNOOZE_MS)
+  },
 
   loadCheckStatus: () => {
     window.api.updateGetStatus().then((status) => {
@@ -61,13 +82,19 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
     set({ checking: true })
     try {
       const status = await window.api.updateCheck()
+      if (status.latest?.severity === 'critical') rememberRequiredVersion(status.latest.version)
       set({ checking: false, available: status.latest, lastCheckedAt: status.lastCheckedAt, checkFailed: status.failed })
     } catch {
       set({ checking: false, checkFailed: true })
     }
   },
 
-  setAvailable: (info) => set({ available: info }),
+  setAvailable: (info) => {
+    // A critical release blocks the app on the next launch (main.tsx), never
+    // mid-session: until then it's an urgent notification.
+    if (info?.severity === 'critical') rememberRequiredVersion(info.version)
+    set({ available: info })
+  },
 
   showUpToDate: (version) => {
     usePeekEventStore.getState().show(`You're on the latest version — v${version}`, 'update')
