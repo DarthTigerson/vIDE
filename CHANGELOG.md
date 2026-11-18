@@ -1,4 +1,11 @@
 # vIDE
+## v0.3.6 (2026-11-18)
+<!-- vide-update: severity=urgent -->
+- **Security**: Mobile Display could be listened in on or taken over by someone on the same network while it was switched on. Pairing PINs, session cookies and terminal traffic went over plain HTTP, and the 5-digit PIN could be guessed with no limit on attempts. Mobile Display now runs over HTTPS, PINs are 6 random digits, repeated wrong guesses are blocked, sessions expire, and connections from other sites are refused
+- **Mobile Display certificate**: vIDE signs its own certificate, so your phone shows a warning the first time it connects. The Mobile Display panel shows the certificate's fingerprint to compare before accepting it. To stop the warning, install the vIDE certificate on your phone from the link on the pairing page and trust it. Re-pair any phone you paired before this update, using the new https:// address
+- **Update notifications**: a new version now stays pinned above the notification bell until you click Update or close it, instead of disappearing after a few seconds. Security updates show in red, can't be closed, and come back an hour after you snooze them. vIDE now checks for updates every hour
+- **Updated libraries**: vIDE now runs on React 19, Tailwind CSS 4, Monaco 0.57, xterm.js 6 and the latest Electron build tools, with known vulnerabilities in dependencies fixed
+
 ## v0.3.5 (2026-11-17)
 - **Usage gauges**: the usage panel now opens on a new Gauges view, with the session as a speedometer and the week as a fuel gauge. Each dial shows usage so far, where it's heading by the reset, and how much of the window has passed, and a warning light between them turns red and pulses once either one hits its limit. Right-click the panel to switch back to the Bars view; your choice is remembered
 - **Shuffle daily**: a new switch in Settings > Display > Theme picks a different built-in theme each day, changing at midnight. Every built-in theme comes round before any repeats, the same theme never shows two days in a row, and synced machines all land on the same theme each day
