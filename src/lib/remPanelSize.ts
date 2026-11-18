@@ -4,9 +4,11 @@ import { clampSize } from './panelSize'
 // window: a percentage made the file tree ~900px wide on a big screen and
 // ignored the text size entirely. In rem the panels keep their width when the
 // window grows (the editor takes the room) and scale with View > text size,
-// like VS Code. react-resizable-panels v2 only speaks percentages of its
-// group, so App converts with the helpers below whenever the group width or
-// the root font size changes.
+// like VS Code. The limits mix units (a rem max capped at a share of the
+// group), which react-resizable-panels can't express in one size, so App
+// sizes the panels in percentages of the group (passed as "N%" strings — a
+// bare number means px since v4) and converts with the helpers below whenever
+// the group width or the root font size changes.
 
 export interface RemPanelSpec {
   defaultRem: number

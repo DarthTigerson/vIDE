@@ -1,5 +1,5 @@
 import { Fragment, useRef, useState } from 'react'
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
+import { Group, Panel, Separator } from 'react-resizable-panels'
 import { useBottomTerminalStore, MAX_BOTTOM_TERMINAL_SIDES } from '@/stores/bottomTerminalStore'
 import { useScriptsStore } from '@/stores/scriptsStore'
 import { TerminalTab } from './TerminalTab'
@@ -72,18 +72,18 @@ export function BottomTerminal() {
 
   return (
     <div className="h-full w-full bg-bg" data-testid="bottom-terminal">
-      <PanelGroup id="bottom-terminal-sides" direction="horizontal">
+      <Group id="bottom-terminal-sides" orientation="horizontal">
         {sides.map((ids, side) => (
           <Fragment key={side}>
             {side > 0 && (
-              <PanelResizeHandle className="w-px bg-border hover:bg-accent/60 transition-colors cursor-col-resize" />
+              <Separator disableDoubleClick className="w-px bg-border hover:bg-accent/60 transition-colors cursor-col-resize" />
             )}
-            <Panel id={`bottom-terminal-side-${side}`} order={side} defaultSize={100 / sides.length} minSize={15}>
+            <Panel id={`bottom-terminal-side-${side}`} defaultSize={`${100 / sides.length}%`} minSize="15%">
               <Side side={side} ids={ids} last={side === sides.length - 1} drag={drag} />
             </Panel>
           </Fragment>
         ))}
-      </PanelGroup>
+      </Group>
     </div>
   )
 }

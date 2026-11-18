@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MouseEvent, ReactNode } from 'react'
 import * as monaco from 'monaco-editor'
-import { ImperativePanelHandle, Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
+import { Group, Panel, Separator, type Layout, type LayoutChangedMeta, type PanelImperativeHandle } from 'react-resizable-panels'
 import { SIDEBAR_PANEL, CHAT_PANEL, clampRem, remToPercent, percentToRem, percentLimits, loadRem } from '@/lib/remPanelSize'
 import { openNewBrowserTab } from '@/lib/openBrowserTab'
 import { syncOpenTabsFromDisk } from '@/lib/syncOpenTabsFromDisk'
@@ -233,13 +233,16 @@ export default function App() {
   const [sidebarRem, setSidebarRem] = useState(() => loadRem(SIDEBAR_WIDTH_KEY, SIDEBAR_PANEL))
   const [chatRem, setChatRem] = useState(() => loadRem(CHAT_WIDTH_KEY, CHAT_PANEL))
   // The panel group's width and the root font size: the two numbers needed to
-  // turn the rem widths into the percentages react-resizable-panels wants.
+  // turn the rem widths into the percentages the panels are sized in.
   const [groupPx, setGroupPx] = useState(() => window.innerWidth)
   const [rootPx, setRootPx] = useState(readRootPx)
-  // Only a drag on a resize handle saves a new width. Window resizes, text
-  // size changes and expand/collapse just re-apply the saved rem width, so a
-  // temporarily small window can't permanently shrink the panels.
-  const draggingRef = useRef(false)
+  // Only a drag on a resize handle saves a new width (see onMainLayoutChanged).
+  // Window resizes, text size changes and expand/collapse just re-apply the
+  // saved rem width, so a temporarily small window can't permanently shrink
+  // the panels.
+  // Whether the sidebar was collapsed in the main group's last layout, so a
+  // drag that collapses it closes the side panel.
+  const sidebarCollapsedRef = useRef(false)
   const [sessionMenu, setSessionMenu] = useState<{ x: number; y: number; instanceId: string; kind: AssistantKind } | null>(null)
   const [renamingInstanceId, setRenamingInstanceId] = useState<string | null>(null)
   const titleByInstance = useClaudeStore((s) => s.titleByInstance)
@@ -255,8 +258,8 @@ export default function App() {
   const shortcutsOverlayOpen = useSearchStore((s) => s.shortcutsOverlayOpen)
   const recentProjectsPaletteOpen = useSearchStore((s) => s.recentProjectsPaletteOpen)
   const branchPaletteOpen = useSearchStore((s) => s.branchPaletteOpen)
-  const chatPanelRef = useRef<ImperativePanelHandle>(null)
-  const sidebarPanelRef = useRef<ImperativePanelHandle>(null)
+  const chatPanelRef = useRef<PanelImperativeHandle>(null)
+  const sidebarPanelRef = useRef<PanelImperativeHandle>(null)
   // useActiveRepo() matches what the Git panel itself actually shows: a
   // single discovered repo has no open/close chrome, so it always counts
   // (VIDE-18/open-close); in a multi-repo project it's the one repo whose
@@ -385,18 +388,30 @@ export default function App() {
   const chatPercent = remToPercent(clampRem(chatRem, CHAT_PANEL, groupPx, rootPx), groupPx, rootPx)
   const chatLimits = percentLimits(CHAT_PANEL, groupPx, rootPx)
 
-  function saveSidebarSize(percent: number) {
-    if (!draggingRef.current || percent <= 0 || groupPx <= 0) return
+  // Sizes are strings: react-resizable-panels v4 reads a bare number as px.
+  const pct = (percent: number) => `${percent}%`
+
+  function saveRem(percent: number | undefined, key: string, set: (rem: number) => void) {
+    if (percent === undefined || !(percent > 0) || groupPx <= 0) return
     const rem = percentToRem(percent, groupPx, rootPx)
-    setSidebarRem(rem)
-    localStorage.setItem(SIDEBAR_WIDTH_KEY, String(rem))
+    set(rem)
+    localStorage.setItem(key, String(rem))
   }
 
-  function saveChatSize(percent: number) {
-    if (!draggingRef.current || percent <= 0 || groupPx <= 0) return
-    const rem = percentToRem(percent, groupPx, rootPx)
-    setChatRem(rem)
-    localStorage.setItem(CHAT_WIDTH_KEY, String(rem))
+  // Called once a layout change completes (for a drag: when the pointer is
+  // released). A drag that leaves the sidebar collapsed closes the side panel
+  // (v2's onCollapse) — read from the layout rather than the panel's pixel
+  // size, which is 0/NaN while hidden. Only a user's own drag or keyboard
+  // resize saves a width, never a window resize or expand/collapse.
+  function onMainLayoutChanged(layout: Layout, meta: LayoutChangedMeta) {
+    if (layout.sidebar !== undefined) {
+      const collapsed = layout.sidebar <= 0
+      if (collapsed && !sidebarCollapsedRef.current) setLeftPanel(null)
+      sidebarCollapsedRef.current = collapsed
+    }
+    if (!meta.isUserInteraction) return
+    saveRem(layout.sidebar, SIDEBAR_WIDTH_KEY, setSidebarRem)
+    saveRem(layout.chat, CHAT_WIDTH_KEY, setChatRem)
   }
 
   const fontSize = useFontSizeStore((s) => s.fontSize)
@@ -407,7 +422,7 @@ export default function App() {
   // Track the panel group's width. It remounts when the navbar swaps sides
   // or a project opens, hence the dependencies.
   useEffect(() => {
-    const el = document.querySelector<HTMLElement>(`[data-panel-group][data-panel-group-id="${MAIN_PANEL_GROUP_ID}"]`)
+    const el = document.getElementById(MAIN_PANEL_GROUP_ID)
     if (!el || typeof ResizeObserver === 'undefined') return
     setGroupPx(el.getBoundingClientRect().width)
     const observer = new ResizeObserver(([entry]) => setGroupPx(entry.contentRect.width))
@@ -417,9 +432,8 @@ export default function App() {
 
   // Keep each open panel at its rem width as the window or text size changes.
   useEffect(() => {
-    if (draggingRef.current) return
-    if (leftPanel !== null) sidebarPanelRef.current?.resize(sidebarPercent)
-    if (chatVisible) chatPanelRef.current?.resize(chatPercent)
+    if (leftPanel !== null) sidebarPanelRef.current?.resize(pct(sidebarPercent))
+    if (chatVisible) chatPanelRef.current?.resize(pct(chatPercent))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupPx, rootPx])
 
@@ -440,7 +454,7 @@ export default function App() {
   useEffect(() => {
     if (chatVisible) {
       chatPanelRef.current?.expand()
-      chatPanelRef.current?.resize(chatPercent)
+      chatPanelRef.current?.resize(pct(chatPercent))
     } else chatPanelRef.current?.collapse()
   }, [chatVisible])
 
@@ -511,7 +525,7 @@ export default function App() {
   useEffect(() => {
     if (leftPanel !== null) {
       sidebarPanelRef.current?.expand()
-      sidebarPanelRef.current?.resize(sidebarPercent)
+      sidebarPanelRef.current?.resize(pct(sidebarPercent))
     } else sidebarPanelRef.current?.collapse()
   }, [leftPanel])
 
@@ -1207,16 +1221,13 @@ export default function App() {
           const sidebarPanel = (
           <Panel
             key="sidebar"
-            ref={sidebarPanelRef}
-            defaultSize={sidebarPercent}
-            minSize={sidebarLimits.min}
-            maxSize={sidebarLimits.max}
+            panelRef={sidebarPanelRef}
+            defaultSize={pct(sidebarPercent)}
+            minSize={pct(sidebarLimits.min)}
+            maxSize={pct(sidebarLimits.max)}
             collapsible
-            collapsedSize={0}
-            onCollapse={() => setLeftPanel(null)}
+            collapsedSize="0%"
             id="sidebar"
-            order={mirrored ? 3 : 1}
-            onResize={saveSidebarSize}
           >
             {(() => {
               const activeLeftPanel = leftPanel ?? lastLeftPanelRef.current
@@ -1233,49 +1244,46 @@ export default function App() {
           </Panel>
           )
           const sidebarHandle = (
-          <PanelResizeHandle key="sidebar-handle" onDragging={(dragging) => { draggingRef.current = dragging }} className={`w-px bg-border hover:bg-accent/60 transition-colors cursor-col-resize ${leftPanel ? '' : 'hidden'}`} />
+          <Separator key="sidebar-handle" disableDoubleClick disabled={!leftPanel} className={`w-px bg-border hover:bg-accent/60 transition-colors cursor-col-resize ${leftPanel ? '' : 'hidden'}`} />
           )
 
           // Always a vertical group, so switching the bottom terminal on or
           // off adds a panel beside the editor instead of remounting it.
           const centerPanel = (
-          <Panel key="center" id="center" order={2}>
-            <PanelGroup id="center-column" direction="vertical">
-              <Panel id="editor" order={1} minSize={15}>
+          <Panel key="center" id="center">
+            <Group id="center-column" orientation="vertical">
+              <Panel id="editor" minSize="15%">
                 <Editor />
               </Panel>
               {bottomTerminalEnabled && (
                 <>
-                  <PanelResizeHandle className="h-px bg-border hover:bg-accent/60 transition-colors cursor-row-resize" />
+                  <Separator disableDoubleClick className="h-px bg-border hover:bg-accent/60 transition-colors cursor-row-resize" />
                   <Panel
                     id="bottom-terminal"
-                    order={2}
-                    defaultSize={bottomTerminalSize}
-                    minSize={10}
-                    onResize={(size) => useBottomTerminalStore.getState().setSize(size)}
+                    defaultSize={pct(bottomTerminalSize)}
+                    minSize="10%"
+                    onResize={(size) => useBottomTerminalStore.getState().setSize(size.asPercentage)}
                   >
                     <BottomTerminal />
                   </Panel>
                 </>
               )}
-            </PanelGroup>
+            </Group>
           </Panel>
           )
 
           const chatHandle = (
-          <PanelResizeHandle key="chat-handle" onDragging={(dragging) => { draggingRef.current = dragging }} className={`w-px bg-border hover:bg-accent/60 transition-colors cursor-col-resize ${chatVisible ? '' : 'hidden'}`} />
+          <Separator key="chat-handle" disableDoubleClick disabled={!chatVisible} className={`w-px bg-border hover:bg-accent/60 transition-colors cursor-col-resize ${chatVisible ? '' : 'hidden'}`} />
           )
           const chatPanel = (
           <Panel
             key="chat"
-            ref={chatPanelRef}
-            defaultSize={chatPercent}
-            minSize={chatLimits.min}
-            maxSize={chatLimits.max}
+            panelRef={chatPanelRef}
+            defaultSize={pct(chatPercent)}
+            minSize={pct(chatLimits.min)}
+            maxSize={pct(chatLimits.max)}
             collapsible
             id="chat"
-            order={mirrored ? 1 : 3}
-            onResize={saveChatSize}
           >
             <Chat />
           </Panel>
@@ -1423,25 +1431,25 @@ export default function App() {
           return mirrored ? (
             <>
               {claudeActivityBar}
-              <PanelGroup id={MAIN_PANEL_GROUP_ID} direction="horizontal" className="flex-1">
+              <Group id={MAIN_PANEL_GROUP_ID} orientation="horizontal" className="flex-1" onLayoutChanged={onMainLayoutChanged}>
                 {chatPanel}
                 {chatHandle}
                 {centerPanel}
                 {sidebarHandle}
                 {sidebarPanel}
-              </PanelGroup>
+              </Group>
               {primaryActivityBar}
             </>
           ) : (
             <>
               {primaryActivityBar}
-              <PanelGroup id={MAIN_PANEL_GROUP_ID} direction="horizontal" className="flex-1">
+              <Group id={MAIN_PANEL_GROUP_ID} orientation="horizontal" className="flex-1" onLayoutChanged={onMainLayoutChanged}>
                 {sidebarPanel}
                 {sidebarHandle}
                 {centerPanel}
                 {chatHandle}
                 {chatPanel}
-              </PanelGroup>
+              </Group>
               {claudeActivityBar}
             </>
           )
