@@ -1,10 +1,13 @@
 import { useClaudeStore } from '@/stores/claudeStore'
 import { useInstanceFontSizeStore } from '@/stores/instanceFontSizeStore'
 import { formatTerminalSelectionForAssistant } from '@/lib/sendSelectionToAssistant'
+import { isMac } from '@/lib/platform'
+import { legacyAltArrowSequence } from './altArrowSequence'
 
 interface SelectableTerminal {
   hasSelection: () => boolean
   getSelection: () => string
+  input: (data: string, wasUserInput?: boolean) => void
 }
 
 // xterm's custom key handler for a terminal tab: return false to stop xterm
@@ -17,9 +20,18 @@ interface SelectableTerminal {
 //   the chat — same as the editor.
 // - CmdOrCtrl+=/-/0 (unshifted) resize just this terminal; shifted variants
 //   are left unhandled so they pass through to the app-level global zoom.
+// - Alt+Arrow sends the word-movement sequence xterm.js 5.x sent (see
+//   legacyAltArrowSequence), through xterm.input so it reaches the PTY via
+//   onData exactly like a typed key.
 export function createTerminalKeyHandler(terminalId: string, xterm: SelectableTerminal) {
   return (event: KeyboardEvent): boolean => {
     if (event.type !== 'keydown') return true
+    const altArrow = legacyAltArrowSequence(event, isMac)
+    if (altArrow !== undefined) {
+      event.preventDefault()
+      xterm.input(altArrow)
+      return false
+    }
     const isMod = event.metaKey || event.ctrlKey
     if (!isMod || event.shiftKey || event.altKey) return true
 

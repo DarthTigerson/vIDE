@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { ITheme } from '@xterm/xterm'
-import { useThemeStore, familyOf, THEME_OPTIONS, XTERM_THEMES, glassXtermTheme, XTERM_GLASS_ALPHA, type ThemeId } from './themeStore'
+import { useThemeStore, familyOf, THEME_OPTIONS, XTERM_THEMES, glassXtermTheme, XTERM_GLASS_ALPHA, xtermScrollbarSlider, type ThemeId } from './themeStore'
 import { useDisplayStore } from './displayStore'
 import { hexWithAlpha } from '@/lib/color'
 import { onOtherWindowChange } from '@/lib/crossWindowSettings'
@@ -375,6 +375,7 @@ export function effectiveXtermTheme(themeId: ThemeId, glass: boolean): ITheme {
     ...base,
     background: glass ? hexWithAlpha(bg, XTERM_GLASS_ALPHA) : bg,
     foreground: palette['--color-fg'],
+    ...xtermScrollbarSlider(palette['--color-fg']),
     cursor: accent,
     selectionBackground: accent + '40',
   }

@@ -619,18 +619,25 @@ body {
   background: transparent;
 }
 
-/* xterm.js hardcodes .xterm-viewport's own background to solid black
-   (unthemed — its stylesheet keeps this "so the scroll bar appears fully
-   opaque" on macOS), so the themed --color-border thumb above — tuned for
-   contrast against --color-bg elsewhere in the app — ends up as a dark-gray-
-   on-near-black sliver here: technically present but easy to miss and hard
-   to grab. Override with a fixed light thumb, since the backdrop it sits on
-   is always black regardless of the active theme. */
-.xterm-viewport::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.35);
+/* xterm.js 6 replaced the terminal's native scrollbar with its own overlay
+   one (.xterm-scrollable-element), so the ::-webkit-scrollbar rules above no
+   longer reach it. Its slider's colours come from ITheme
+   (xtermScrollbarSlider in themeStore.ts); this keeps the old thumb's shape:
+   a 6px rounded bar 2px in from the right edge, inside xterm's 14px-wide
+   scrollbar track (the inline left/width xterm sets need !important). */
+.xterm .xterm-scrollable-element > .scrollbar.vertical > .slider {
+  left: 6px !important;
+  width: 6px !important;
+  border-radius: 3px;
 }
-.xterm-viewport::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(255, 255, 255, 0.55);
+
+/* .xterm-viewport is now an empty layer under .xterm-scrollable-element that
+   xterm.css still paints solid black and xterm 6 no longer re-themes (5.x set
+   it to ITheme.background). The themed background is on the scrollable
+   element above it, so this layer has to be see-through or the glass panel
+   style's translucent terminal shows black instead of the panel behind. */
+.xterm .xterm-viewport {
+  background-color: transparent !important;
 }
 
 /* Solid panel style — fully-opaque colors with a stronger --color-border so

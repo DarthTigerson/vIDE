@@ -489,6 +489,7 @@ describe('effectiveXtermTheme', () => {
     expect(result.foreground).toBe('#aaff00')
     expect(result.cursor).toBe('#ff8800')
     expect(result.selectionBackground).toBe('#ff880040')
+    expect(result.scrollbarSliderBackground).toBe('#aaff0059')
     expect(result.red).toBe(XTERM_THEMES['claude-dark'].red)
     expect(result.brightWhite).toBe(XTERM_THEMES['claude-dark'].brightWhite)
   })

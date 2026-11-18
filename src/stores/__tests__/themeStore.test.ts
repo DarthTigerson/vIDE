@@ -27,7 +27,7 @@ const { localStorageStore, mediaState } = vi.hoisted(() => {
   return { localStorageStore, mediaState }
 })
 
-import { useThemeStore, familyOf } from '../themeStore'
+import { useThemeStore, familyOf, XTERM_THEMES, xtermScrollbarSlider } from '../themeStore'
 
 describe('themeStore', () => {
   beforeEach(() => {
@@ -72,5 +72,19 @@ describe('themeStore', () => {
       useThemeStore.getState().setVariant(false)
       expect(useThemeStore.getState().theme).toBe('luuk-light')
     })
+  })
+})
+
+describe('xterm scrollbar slider colours', () => {
+  it('derives the slider from each theme\'s text colour at 35% / 55% (hover and drag)', () => {
+    for (const theme of Object.values(XTERM_THEMES)) {
+      expect(theme.scrollbarSliderBackground).toBe(theme.foreground + '59')
+      expect(theme.scrollbarSliderHoverBackground).toBe(theme.foreground + '8c')
+      expect(theme.scrollbarSliderActiveBackground).toBe(theme.foreground + '8c')
+    }
+  })
+
+  it('leaves xterm\'s defaults alone for a colour that is not 6-digit hex', () => {
+    expect(xtermScrollbarSlider('rgb(1, 2, 3)')).toEqual({})
   })
 })
