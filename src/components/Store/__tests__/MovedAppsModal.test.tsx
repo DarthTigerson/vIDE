@@ -19,7 +19,7 @@ describe('MovedAppsModal', () => {
     localStorage.clear()
     localStorage.setItem('vide:docker:enabled', 'true')
     useAppContribStore.setState({ apps: [] })
-    useStoreStore.setState({ registry, busy: {}, errors: {}, movedNoticeDismissed: false, movedNoticeOpen: true })
+    useStoreStore.setState({ registry, busy: {}, errors: {}, movedNoticeDismissed: [], movedNoticeOpen: true })
   })
 
   it('renders nothing while closed', () => {
@@ -41,9 +41,9 @@ describe('MovedAppsModal', () => {
   it('Dismiss is remembered and closes the modal', () => {
     render(<MovedAppsModal />)
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
-    expect(useStoreStore.getState().movedNoticeDismissed).toBe(true)
+    expect(useStoreStore.getState().movedNoticeDismissed).toContain('docker')
     expect(useStoreStore.getState().movedNoticeOpen).toBe(false)
-    expect(localStorage.getItem('vide:store:movedNoticeDismissed')).toBe('true')
+    expect(JSON.parse(localStorage.getItem('vide:store:movedNoticeDismissed')!)).toContain('docker')
   })
 
   it('clears itself for good once every listed app is installed', () => {
@@ -53,7 +53,7 @@ describe('MovedAppsModal', () => {
     })
     // re-render happens via store subscription
     return Promise.resolve().then(() => {
-      expect(useStoreStore.getState().movedNoticeDismissed).toBe(true)
+      expect(useStoreStore.getState().movedNoticeDismissed).toContain('docker')
     })
   })
 })

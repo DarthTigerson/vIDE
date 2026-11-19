@@ -7,7 +7,11 @@ vi.mock('@/stores/peekEventStore', () => ({ usePeekEventStore: { getState: () =>
 import { notifySettingChanged } from '@/lib/notifySettingChanged'
 import { useEditorStore } from '@/stores/editorStore'
 import { useFileStore } from '@/stores/fileStore'
-import { buildAppTabPath, buildAppSettingsPath } from '@/components/Settings/paths'
+import { buildAppTabPath, buildAppSettingsPath, buildBrowserPath } from '@/components/Settings/paths'
+import { useBrowserStore } from '@/stores/browserStore'
+import { useGitReposStore } from '@/stores/gitReposStore'
+import { useGitOpenReposStore } from '@/stores/gitOpenReposStore'
+import { useSearchStore } from '@/stores/searchStore'
 import { useAppContribStore } from '../appContribStore'
 import { createVideApi } from '../createVideApi'
 
@@ -24,8 +28,8 @@ beforeEach(() => {
   ;(window as unknown as { api: unknown }).api = mockApi
   useAppContribStore.setState({
     apps: [], runtimeErrors: {}, panels: {}, settingsPages: {}, tabKinds: {},
-    commands: [], notifications: [], panelRequest: null,
-  })
+    commands: [], notifications: [], panelRequest: null, launchers: {}, sidePanelCloseRequest: 0,
+  } as never)
 })
 
 const make = () => createVideApi({ id: 'hello', name: 'Hello' })
@@ -146,5 +150,72 @@ describe('createVideApi', () => {
     v.settings.set('k', 'x')
     spy.mockRestore()
     expect(cb).not.toHaveBeenCalled()
+  })
+})
+
+describe('createVideApi launcher / browser / git', () => {
+  const g = () => createVideApi({ id: 'gitpage', name: 'Git Page' })
+
+  it('registerLauncher stores defaults, update patches, dispose and clearApp remove it', () => {
+    const v = g()
+    const icon = () => null
+    const onClick = vi.fn()
+    const l = v.ui.registerLauncher({ title: 'Open GitHub', icon, onClick })
+    expect(useAppContribStore.getState().launchers.gitpage).toMatchObject({ appId: 'gitpage', title: 'Open GitHub', visible: true, active: false })
+    l.update({ visible: false })
+    expect(useAppContribStore.getState().launchers.gitpage.visible).toBe(false)
+    l.dispose()
+    expect(useAppContribStore.getState().launchers.gitpage).toBeUndefined()
+    v.ui.registerLauncher({ title: 'x', icon, onClick })
+    useAppContribStore.getState().clearApp('gitpage')
+    expect(useAppContribStore.getState().launchers.gitpage).toBeUndefined()
+  })
+
+  it('closeSidePanel bumps the close request', () => {
+    const before = useAppContribStore.getState().sidePanelCloseRequest
+    g().ui.closeSidePanel()
+    expect(useAppContribStore.getState().sidePanelCloseRequest).toBe(before + 1)
+  })
+
+  it('browser.open namespaces the id, seeds the url and opens the tab; bad id throws', () => {
+    const open = vi.fn()
+    useEditorStore.setState({ openTab: open })
+    const v = g()
+    v.browser.open('repo-1', 'https://github.com/a/b')
+    expect(useBrowserStore.getState().tabs['app-gitpage-repo-1']?.url).toBe('https://github.com/a/b')
+    expect(open).toHaveBeenCalledWith({ path: buildBrowserPath('app-gitpage-repo-1'), content: '', dirty: false })
+    expect(() => v.browser.open('A/B', 'https://x')).toThrow('bad browser id')
+  })
+
+  it('browser.activeId reports only this app\'s browser tabs; subscribe fires on active tab change', () => {
+    const v = g()
+    const cb = vi.fn()
+    v.browser.subscribe(cb)
+    useEditorStore.setState({ activeTabPath: buildBrowserPath('app-gitpage-repo-1') })
+    expect(v.browser.activeId()).toBe('repo-1')
+    expect(cb).toHaveBeenCalledTimes(1)
+    useEditorStore.setState({ activeTabPath: buildBrowserPath('app-other-repo-1') })
+    expect(v.browser.activeId()).toBeNull()
+    useEditorStore.setState({ activeTabPath: '/tmp/file.ts' })
+    expect(v.browser.activeId()).toBeNull()
+  })
+
+  it('git.activeRepo follows the useActiveRepo rule; repoCount, subscribe and pickRepo', () => {
+    const v = g()
+    const cb = vi.fn()
+    v.git.subscribe(cb)
+    useGitOpenReposStore.setState({ open: {} })
+    useGitReposStore.setState({ repos: [], selectedRepo: null })
+    expect(v.git.activeRepo()).toBeNull()
+    useGitReposStore.setState({ repos: ['/a'], selectedRepo: '/a' })
+    expect(v.git.activeRepo()).toBe('/a')
+    useGitReposStore.setState({ repos: ['/a', '/b'], selectedRepo: '/b' })
+    expect(v.git.repoCount()).toBe(2)
+    expect(v.git.activeRepo()).toBeNull()
+    useGitOpenReposStore.setState({ open: { '/b': true } as never })
+    expect(v.git.activeRepo()).toBe('/b')
+    expect(cb).toHaveBeenCalled()
+    v.git.pickRepo()
+    expect(useSearchStore.getState().repoPaletteOpen).toBe(true)
   })
 })

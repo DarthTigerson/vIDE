@@ -24,7 +24,8 @@ export const CATEGORY_PREFIXES: Record<string, string[]> = {
     'vide:enabledModels', 'vide:bridge:',
     'vide:llama:', 'vide:llamaModels', 'vide:notificationSound:',
   ],
-  git: ['vide:git:', 'vide:gitRemote:', 'vide:gitFavoriteRepos', 'vide:gitFavorites:'],
+  // 'vide:gitpage:' is the Git Page store app (formerly the built-in remote launcher).
+  git: ['vide:git:', 'vide:gitpage:', 'vide:gitFavoriteRepos', 'vide:gitFavorites:'],
   // The Docker store app keeps its settings under these same keys, so they
   // keep syncing now that Docker is no longer built in.
   docker: ['vide:docker:'],

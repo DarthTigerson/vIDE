@@ -115,6 +115,16 @@ export function useActiveRepo(): string | null {
   const repos = useGitReposStore((s) => s.repos)
   const selectedRepo = useGitReposStore((s) => s.selectedRepo)
   const openRepos = useGitOpenReposStore((s) => s.open)
+  return activeRepoFrom(repos, selectedRepo, openRepos)
+}
+
+// The rule behind useActiveRepo, for non-React callers (store apps' vide.git).
+export function activeRepoFrom(repos: string[], selectedRepo: string | null, openRepos: Record<string, unknown>): string | null {
   if (repos.length <= 1) return repos[0] ?? null
   return Object.keys(openRepos).length > 0 ? selectedRepo : null
+}
+
+export function getActiveRepo(): string | null {
+  const { repos, selectedRepo } = useGitReposStore.getState()
+  return activeRepoFrom(repos, selectedRepo, useGitOpenReposStore.getState().open)
 }

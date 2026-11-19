@@ -2,11 +2,10 @@
 import { describe, it, expect, afterEach, beforeEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import {
-  BlamePreview, InlineDiffPreview, ForcePushPreview, GitLogPreview, FetchPreview, GraphTabsPreview, RemotePreview,
+  BlamePreview, InlineDiffPreview, ForcePushPreview, GitLogPreview, FetchPreview, GraphTabsPreview,
 } from '../gitPreviews'
 import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
 import { useGitSettingsStore } from '@/stores/gitSettingsStore'
-import { useGitRemoteUrlStore } from '@/stores/gitRemoteUrlStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useFileStore } from '@/stores/fileStore'
 import { useGeneralSettingsStore } from '@/stores/generalSettingsStore'
@@ -15,7 +14,6 @@ const BLAME = 'Thomas, 2 days ago · Fixed sync auth'
 
 beforeEach(() => {
   useFileStore.setState({ projectRoot: null })
-  useGitRemoteUrlStore.setState({ urls: {} })
   useGitReposStore.setState({ repos: [], selectedRepo: null })
 })
 afterEach(cleanup)
@@ -107,27 +105,5 @@ describe('GraphTabsPreview', () => {
     useGeneralSettingsStore.setState({ newTabPane: 'active' })
     rerender(<GraphTabsPreview />)
     expect(screen.getByText('Graph').closest('[data-pane]')).toHaveAttribute('data-pane', 'focused')
-  })
-})
-
-describe('RemotePreview', () => {
-  it('names the host from the active repo\'s remote', () => {
-    useGitReposStore.setState({ repos: ['/repo/a'], selectedRepo: '/repo/a' })
-    useGitRemoteUrlStore.setState({ urls: { '/repo/a': 'https://gitlab.com/acme/widgets' } })
-    const { rerender } = render(<RemotePreview />)
-    expect(screen.getByText('Open GitLab')).toBeInTheDocument()
-
-    useGitRemoteUrlStore.setState({ urls: { '/repo/a': 'https://git.corp.internal/acme/widgets' } })
-    rerender(<RemotePreview />)
-    expect(screen.getByText('Open Repository')).toBeInTheDocument()
-
-    useGitRemoteUrlStore.setState({ urls: { '/repo/a': null } })
-    rerender(<RemotePreview />)
-    expect(screen.getByText('This repo has no git remote.')).toBeInTheDocument()
-  })
-
-  it('asks for a repo when none is active', () => {
-    render(<RemotePreview />)
-    expect(screen.getByText('Open a repo to see its launcher.')).toBeInTheDocument()
   })
 })

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { movedApps, pendingUpdates, updateNoticeId } from '../storeUpdates'
+import { movedApps, pendingUpdates, updateNoticeId, parseMovedNoticeDismissed, MOVED_NOTICE_DISMISSED_KEY } from '../storeUpdates'
 import { CATEGORY_PREFIXES } from '@/stores/configRepoStore'
 import type { AppInfo, RegistryState, StoreListing } from '@/types/api'
 
@@ -61,30 +61,52 @@ describe('movedApps', () => {
   const enabled = keys({ 'vide:docker:enabled': 'true' })
 
   it('lists an app whose built-in was enabled and that is not installed', () => {
-    expect(movedApps(reg(dockerListing), [], enabled, false).map((a) => a.id)).toEqual(['docker'])
+    expect(movedApps(reg(dockerListing), [], enabled, []).map((a) => a.id)).toEqual(['docker'])
   })
   it('skips a built-in that was disabled or never set', () => {
-    expect(movedApps(reg(dockerListing), [], keys({ 'vide:docker:enabled': 'false' }), false)).toEqual([])
-    expect(movedApps(reg(dockerListing), [], keys({}), false)).toEqual([])
+    expect(movedApps(reg(dockerListing), [], keys({ 'vide:docker:enabled': 'false' }), [])).toEqual([])
+    expect(movedApps(reg(dockerListing), [], keys({}), [])).toEqual([])
   })
   it('skips an installed app (any source)', () => {
-    expect(movedApps(reg(dockerListing), [installed('docker', '1.0.0')], enabled, false)).toEqual([])
-    expect(movedApps(reg(dockerListing), [installed('docker', '1.0.0', { source: 'dev' })], enabled, false)).toEqual([])
+    expect(movedApps(reg(dockerListing), [installed('docker', '1.0.0')], enabled, [])).toEqual([])
+    expect(movedApps(reg(dockerListing), [installed('docker', '1.0.0', { source: 'dev' })], enabled, [])).toEqual([])
   })
   it('lists the web-search replacement when the core search toggle was on', () => {
     const ddg = listing('duckduckgo', '0.1.0', { replacesBuiltIn: 'web-search' })
-    expect(movedApps(reg(ddg), [], keys({ 'vide:search:mcpEnabled': 'true' }), false).map((a) => a.id)).toEqual(['duckduckgo'])
-    expect(movedApps(reg(ddg), [], keys({ 'vide:search:mcpEnabled': 'false' }), false)).toEqual([])
+    expect(movedApps(reg(ddg), [], keys({ 'vide:search:mcpEnabled': 'true' }), []).map((a) => a.id)).toEqual(['duckduckgo'])
+    expect(movedApps(reg(ddg), [], keys({ 'vide:search:mcpEnabled': 'false' }), [])).toEqual([])
   })
   it('lists nothing once dismissed', () => {
-    expect(movedApps(reg(dockerListing), [], enabled, true)).toEqual([])
+    expect(movedApps(reg(dockerListing), [], enabled, ['docker'])).toEqual([])
+  })
+  it('lists a built-in every user had (git-remote) regardless of keys', () => {
+    const gp = listing('gitpage', '0.1.0', { replacesBuiltIn: 'git-remote' })
+    expect(movedApps(reg(gp), [], keys({}), []).map((a) => a.id)).toEqual(['gitpage'])
+    expect(movedApps(reg(gp), [installed('gitpage', '0.1.0')], keys({}), [])).toEqual([])
+  })
+  it('dismissal is per moved built-in: dismissing docker does not hide git-remote', () => {
+    const gp = listing('gitpage', '0.1.0', { replacesBuiltIn: 'git-remote' })
+    expect(movedApps(reg(dockerListing, gp), [], enabled, ['docker', 'web-search']).map((a) => a.id)).toEqual(['gitpage'])
+    expect(movedApps(reg(dockerListing, gp), [], enabled, ['docker', 'git-remote'])).toEqual([])
   })
   it('lists nothing until the catalog has loaded', () => {
-    expect(movedApps(null, [], enabled, false)).toEqual([])
-    expect(movedApps({ status: 'too-new' }, [], enabled, false)).toEqual([])
+    expect(movedApps(null, [], enabled, [])).toEqual([])
+    expect(movedApps({ status: 'too-new' }, [], enabled, [])).toEqual([])
   })
   it('ignores entries without replacesBuiltIn or with an unknown built-in', () => {
-    expect(movedApps(reg(listing('docker', '1.0.0')), [], enabled, false)).toEqual([])
-    expect(movedApps(reg(listing('x', '1.0.0', { replacesBuiltIn: 'nope' })), [], enabled, false)).toEqual([])
+    expect(movedApps(reg(listing('docker', '1.0.0')), [], enabled, [])).toEqual([])
+    expect(movedApps(reg(listing('x', '1.0.0', { replacesBuiltIn: 'nope' })), [], enabled, [])).toEqual([])
+  })
+})
+
+describe('moved-notice dismissal storage', () => {
+  it('reads the legacy boolean as the built-ins that existed then, a JSON list as-is, junk as none', () => {
+    expect(parseMovedNoticeDismissed('true')).toEqual(['docker', 'web-search'])
+    expect(parseMovedNoticeDismissed('["git-remote"]')).toEqual(['git-remote'])
+    expect(parseMovedNoticeDismissed(null)).toEqual([])
+    expect(parseMovedNoticeDismissed('{')).toEqual([])
+  })
+  it('keeps the key outside every sync category', () => {
+    expect(Object.values(CATEGORY_PREFIXES).flat().some((p) => MOVED_NOTICE_DISMISSED_KEY.startsWith(p))).toBe(false)
   })
 })

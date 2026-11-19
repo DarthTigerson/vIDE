@@ -6,7 +6,11 @@ import { useEditorStore } from '@/stores/editorStore'
 import { useFileStore } from '@/stores/fileStore'
 import { usePeekEventStore } from '@/stores/peekEventStore'
 import { notifySettingChanged } from '@/lib/notifySettingChanged'
-import { buildAppTabPath, buildAppSettingsPath } from '@/components/Settings/paths'
+import { buildAppTabPath, buildAppSettingsPath, buildBrowserPath } from '@/components/Settings/paths'
+import { useBrowserStore } from '@/stores/browserStore'
+import { useGitReposStore, getActiveRepo } from '@/stores/gitReposStore'
+import { useGitOpenReposStore } from '@/stores/gitOpenReposStore'
+import { useSearchStore } from '@/stores/searchStore'
 import { pillButtonClass } from '@/components/ui/pillButton'
 import { Toggle, Switch } from '@/components/ui/Toggle'
 import { FeatureBlock, SettingRow } from '@/components/Settings/FeatureBlock'
@@ -47,6 +51,8 @@ export function createVideApi(app: Pick<AppInfo, 'id' | 'name'>, disposers: Arra
   }
   const store = () => useAppContribStore.getState()
   const settingKey = (key: string) => `vide:${appId}:${key}`
+  // Browser tab ids are namespaced per app: `app-<appId>-<id>`.
+  const browserPrefix = `app-${appId}-`
 
   return {
     apiVersion: 1,
@@ -76,6 +82,16 @@ export function createVideApi(app: Pick<AppInfo, 'id' | 'name'>, disposers: Arra
       openTab: (kind, params) => openAppTab(buildAppTabPath(appId, kind, params)),
       openPanel: () => store().requestPanel(appId),
       openSettings: () => openAppTab(buildAppSettingsPath(appId)),
+      registerLauncher(p) {
+        store().registerLauncher({
+          appId, title: p.title, icon: p.icon, onClick: p.onClick, visible: p.visible ?? true, active: p.active ?? false,
+        })
+        return {
+          dispose: () => store().unregisterLauncher(appId),
+          update: (patch) => store().updateLauncher(appId, patch),
+        }
+      },
+      closeSidePanel: () => store().requestSidePanelClose(),
       scopeClass: appScopeClass(appId),
       components: {
         pillButtonClass, Toggle, Switch, Select, Modal, ConfirmActionModal,
@@ -137,6 +153,39 @@ export function createVideApi(app: Pick<AppInfo, 'id' | 'name'>, disposers: Arra
         track(useFileStore.subscribe((s, prev) => {
           if (s.projectRoot !== prev.projectRoot) cb(s.projectRoot)
         })),
+    },
+    browser: {
+      open(id, url) {
+        if (!/^[a-z0-9-]+$/.test(id)) throw new Error('bad browser id')
+        const fullId = `${browserPrefix}${id}`
+        // Seed the url before the tab (and so BrowserTab) mounts.
+        useBrowserStore.getState().ensureTab(fullId, url)
+        openAppTab(buildBrowserPath(fullId))
+      },
+      activeId: () => {
+        const path = useEditorStore.getState().activeTabPath
+        const prefix = buildBrowserPath(browserPrefix)
+        return path && path.startsWith(prefix) ? path.slice(prefix.length) : null
+      },
+      subscribe: (cb) =>
+        track(useEditorStore.subscribe((s, prev) => {
+          if (s.activeTabPath !== prev.activeTabPath) cb()
+        })),
+    },
+    git: {
+      activeRepo: getActiveRepo,
+      repoCount: () => useGitReposStore.getState().repos.length,
+      subscribe: (cb) => {
+        let last = `${getActiveRepo()}|${useGitReposStore.getState().repos.length}`
+        const check = () => {
+          const next = `${getActiveRepo()}|${useGitReposStore.getState().repos.length}`
+          if (next !== last) { last = next; cb() }
+        }
+        const offRepos = useGitReposStore.subscribe(check)
+        const offOpen = useGitOpenReposStore.subscribe(check)
+        return track(() => { offRepos(); offOpen() })
+      },
+      pickRepo: () => useSearchStore.getState().openRepoPalette(),
     },
     app: {
       call: (method, payload) => window.api.appsCall(appId, method, payload) as Promise<never>,

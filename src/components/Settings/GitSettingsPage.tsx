@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useGitSettingsStore } from '@/stores/gitSettingsStore'
 import type { GitLogAutoShow } from '@/stores/gitSettingsStore'
-import { useGitRemoteSettingsStore } from '@/stores/gitRemoteSettingsStore'
 import { useFileStore } from '@/stores/fileStore'
 import { useEditorSettingsStore, type BlameDisplayMode } from '@/stores/editorSettingsStore'
 import { Switch } from '@/components/ui/Toggle'
@@ -11,7 +10,7 @@ import type { ChangeColorMode, ChangeStrength } from '@/lib/gitChangeColors'
 import { Select } from '@/components/ui/Select'
 import { FeatureBlock, SettingRow, NumberInput } from './FeatureBlock'
 import {
-  BlamePreview, InlineDiffPreview, ForcePushPreview, GitLogPreview, FetchPreview, GraphTabsPreview, RemotePreview,
+  BlamePreview, InlineDiffPreview, ForcePushPreview, GitLogPreview, FetchPreview, GraphTabsPreview,
 } from './previews/gitPreviews'
 
 export function GitSettingsPage() {
@@ -26,8 +25,6 @@ export function GitSettingsPage() {
     gitLogAutoShow, setGitLogAutoShow,
     repoScanDepth, setRepoScanDepth,
   } = useGitSettingsStore()
-  const gitRemoteCloseSidePanelOnOpen = useGitRemoteSettingsStore((s) => s.closeSidePanelOnOpen)
-  const setGitRemoteCloseSidePanelOnOpen = useGitRemoteSettingsStore((s) => s.setCloseSidePanelOnOpen)
   const blameAnnotationsEnabled = useEditorSettingsStore((s) => s.blameAnnotationsEnabled)
   const setBlameAnnotationsEnabled = useEditorSettingsStore((s) => s.setBlameAnnotationsEnabled)
   const blameDisplayMode = useEditorSettingsStore((s) => s.blameDisplayMode)
@@ -216,16 +213,6 @@ export function GitSettingsPage() {
           ) : (
             <p className="py-1.5 text-sm text-fg-muted">Open a repo to set its default target branch.</p>
           )}
-        </FeatureBlock>
-
-        <FeatureBlock
-          title="Remote launcher"
-          description="Opens the active repo's page on GitHub, GitLab or Bitbucket. The address comes from the repo's git remote, so each repo opens its own."
-          preview={<RemotePreview />}
-        >
-          <SettingRow label="Close side panel when opening" description="Give the repo page the full width.">
-            <Switch label="Close side panel when opening" checked={gitRemoteCloseSidePanelOnOpen} onChange={setGitRemoteCloseSidePanelOnOpen} />
-          </SettingRow>
         </FeatureBlock>
       </div>
     </div>

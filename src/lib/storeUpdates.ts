@@ -35,37 +35,56 @@ export function pendingUpdates(
 }
 
 // Built-in apps that moved to the Store, and the localStorage key that held
-// their Enable switch (set to 'true' by the user before the update).
-export const BUILT_IN_ENABLED_KEYS: Record<string, string> = {
+// their Enable switch (set to 'true' by the user before the update). `true`
+// means the built-in had no switch: every user had it.
+export const BUILT_IN_ENABLED_KEYS: Record<string, string | true> = {
   docker: 'vide:docker:enabled',
   // The core web-search toggle (removed with vide-search); the DuckDuckGo app replaces it.
   'web-search': 'vide:search:mcpEnabled',
+  // The Git panel's remote launcher; the Git Page app replaces it.
+  'git-remote': true,
 }
 
-// Per machine, not synced (outside every sync category prefix).
+// Per machine, not synced (outside every sync category prefix). A JSON list
+// of the built-in ids (replacesBuiltIn values) whose notice was dismissed, so
+// a later move still gets its own notice. Older builds stored 'true'.
 export const MOVED_NOTICE_DISMISSED_KEY = 'vide:store:movedNoticeDismissed'
 
 export const MOVED_NOTICE_ID = 'store-moved-apps'
 
 // Catalog apps that replace a built-in the user had enabled on this machine
 // and have not installed yet. Empty until the catalog has loaded, and once
-// the notice was dismissed.
+// the notice was dismissed for that built-in.
 export function movedApps(
   registry: RegistryState | null,
   installed: AppInfo[],
   readKey: (key: string) => string | null,
-  dismissed: boolean,
+  dismissed: readonly string[],
 ): StoreListing[] {
-  if (dismissed || registry?.status !== 'ok') return []
+  if (registry?.status !== 'ok') return []
   return registry.apps.filter((app) => {
-    const key = app.replacesBuiltIn ? BUILT_IN_ENABLED_KEYS[app.replacesBuiltIn] : undefined
-    if (!key || readKey(key) !== 'true') return false
+    if (!app.replacesBuiltIn || dismissed.includes(app.replacesBuiltIn)) return false
+    const key = BUILT_IN_ENABLED_KEYS[app.replacesBuiltIn]
+    if (key === undefined || (key !== true && readKey(key) !== 'true')) return false
     return !installed.some((i) => i.id === app.id)
   })
 }
 
-export function readMovedNoticeDismissed(): boolean {
-  try { return localStorage.getItem(MOVED_NOTICE_DISMISSED_KEY) === 'true' } catch { return false }
+// The legacy 'true' dismissed the notice when only these built-ins had moved.
+const LEGACY_DISMISSED = ['docker', 'web-search']
+
+export function parseMovedNoticeDismissed(raw: string | null): string[] {
+  if (raw === 'true') return [...LEGACY_DISMISSED]
+  try {
+    const v: unknown = JSON.parse(raw ?? '[]')
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+export function readMovedNoticeDismissed(): string[] {
+  try { return parseMovedNoticeDismissed(localStorage.getItem(MOVED_NOTICE_DISMISSED_KEY)) } catch { return [] }
 }
 
 export function readLocalKey(key: string): string | null {

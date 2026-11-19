@@ -44,6 +44,17 @@ export interface VideRendererApi {
     openTab(kind: string, params: Json): void
     openPanel(): void
     openSettings(): void
+    // (vIDE 0.3.7+) An activity-bar button that runs onClick instead of opening
+    // a panel. One per app; listed in All Apps and favoritable as `app:<appId>`.
+    registerLauncher(p: {
+      title: string
+      icon: ComponentType
+      onClick: () => void
+      visible?: boolean
+      active?: boolean
+    }): Disposable & { update(p: Partial<{ title: string; icon: ComponentType; visible: boolean; active: boolean }>): void }
+    // (vIDE 0.3.7+) Closes the left side panel.
+    closeSidePanel(): void
     // `vapp-<appId>`: every panel, settings page and tab the app renders sits
     // under an element with this class. Scope the app's CSS to it, and wrap
     // anything portalled to document.body in an element with it.
@@ -95,6 +106,26 @@ export interface VideRendererApi {
     subscribe(key: string, cb: (value: string | null) => void): () => void
   }
   project: { root(): string | null; subscribe(cb: (root: string | null) => void): () => void }
+  // (vIDE 0.3.7+) In-app browser tabs owned by this app. `id` matches /^[a-z0-9-]+$/.
+  browser: {
+    // Opens (or focuses) the app's browser tab `id` at `url`.
+    open(id: string, url: string): void
+    // The id of the active tab if it is one of this app's browser tabs, else null.
+    activeId(): string | null
+    // Fires when the active tab changes.
+    subscribe(cb: () => void): () => void
+  }
+  // (vIDE 0.3.7+) The Git panel's repos.
+  git: {
+    // The repo the user is working in (the Git panel's rule); null when none
+    // is picked yet in a multi-repo project.
+    activeRepo(): string | null
+    repoCount(): number
+    // Fires when the active repo or the repo list changes.
+    subscribe(cb: () => void): () => void
+    // Opens the repo picker.
+    pickRepo(): void
+  }
   app: {
     call<T = Json>(method: string, payload?: Json): Promise<T>
     on(event: string, cb: (payload: Json) => void): () => void

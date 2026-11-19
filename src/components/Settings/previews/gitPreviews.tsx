@@ -1,10 +1,8 @@
 import { useEditorSettingsStore } from '@/stores/editorSettingsStore'
 import { useGitSettingsStore } from '@/stores/gitSettingsStore'
-import { useGitRemoteUrlStore } from '@/stores/gitRemoteUrlStore'
 import { useActiveRepo } from '@/stores/gitReposStore'
 import { useFileStore } from '@/stores/fileStore'
 import { useGeneralSettingsStore } from '@/stores/generalSettingsStore'
-import { detectGitRemoteProvider, gitRemoteIcon, gitRemoteLabel } from '@/lib/gitRemoteProvider'
 import { InlineDiffIcon } from '@/components/StatusBar/InlineDiffToggle'
 import { PreviewFrame, MiniCode, MiniFooter, MiniTabs, MiniPanes } from './primitives'
 
@@ -146,29 +144,6 @@ export function GraphTabsPreview() {
         { id: 'big', grow: 2, tabs: [{ label: 'Editor.tsx' }, ...(biggest ? [graph] : [])] },
       ]} />
       <MiniFooter left="List Diff" right={`feature → ${target || 'repo default'}`} />
-    </PreviewFrame>
-  )
-}
-
-export function RemotePreview() {
-  const activeRepo = useActiveRepo()
-  const url = useGitRemoteUrlStore((s) => (activeRepo ? s.urls[activeRepo] ?? '' : ''))
-  const provider = detectGitRemoteProvider(url)
-  return (
-    <PreviewFrame testId="remote-preview" caption="Git panel">
-      <div className="flex flex-col gap-0.5 px-2.5 py-1.5 font-mono text-[10.5px] text-fg-muted">
-        <span>M src/App.tsx</span>
-        <span>A src/lib/gitChangeColors.ts</span>
-      </div>
-      {url ? (
-        <div className="mx-2.5 mb-2.5 flex items-center gap-2 rounded-md border border-border px-2 py-1 text-fg [&_svg]:h-3 [&_svg]:w-3">
-          {gitRemoteIcon(provider)}
-          <span className="flex-1">{gitRemoteLabel(provider)}</span>
-          <span>↗</span>
-        </div>
-      ) : (
-        <div className="px-2.5 pb-2.5 text-fg-subtle">{activeRepo ? 'This repo has no git remote.' : 'Open a repo to see its launcher.'}</div>
-      )}
     </PreviewFrame>
   )
 }

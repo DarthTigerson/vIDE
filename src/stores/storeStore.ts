@@ -42,7 +42,8 @@ interface StoreStoreState {
   dismissUpdate: (noticeId: string) => void
   // The "Some apps moved to the Store" notice: remembered (per machine) once
   // dismissed, and its modal's open state.
-  movedNoticeDismissed: boolean
+  // Built-in ids (replacesBuiltIn) whose moved-to-Store notice was dismissed.
+  movedNoticeDismissed: string[]
   dismissMovedNotice: () => void
   movedNoticeOpen: boolean
   setMovedNoticeOpen: (open: boolean) => void
@@ -68,9 +69,14 @@ export const useStoreStore = create<StoreStoreState>((set, get) => ({
   errors: {},
   dismissedUpdates: readDismissed(),
   movedNoticeDismissed: readMovedNoticeDismissed(),
+  // Dismisses the notice for every built-in the catalog currently lists as
+  // moved; a built-in that moves later gets a notice of its own.
   dismissMovedNotice: () => {
-    set({ movedNoticeDismissed: true, movedNoticeOpen: false })
-    try { localStorage.setItem(MOVED_NOTICE_DISMISSED_KEY, 'true') } catch { /* storage unavailable */ }
+    const registry = get().registry
+    const listed = registry?.status === 'ok' ? registry.apps.flatMap((a) => (a.replacesBuiltIn ? [a.replacesBuiltIn] : [])) : []
+    const next = [...new Set([...get().movedNoticeDismissed, ...listed])]
+    set({ movedNoticeDismissed: next, movedNoticeOpen: false })
+    try { localStorage.setItem(MOVED_NOTICE_DISMISSED_KEY, JSON.stringify(next)) } catch { /* storage unavailable */ }
   },
   movedNoticeOpen: false,
   setMovedNoticeOpen: (open) => set({ movedNoticeOpen: open }),

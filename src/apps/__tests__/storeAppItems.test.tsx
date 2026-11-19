@@ -86,3 +86,24 @@ describe('buildStoreAppBarItems', () => {
     expect(buildStoreAppBarItems({ apps: [app({})], runtimeErrors: {}, panels: bound, projectOpen: false, activePanel: null, togglePanel: () => {} })).toEqual({})
   })
 })
+
+describe('launchers', () => {
+  const onClick = vi.fn()
+  const launcher = (over: object = {}) => ({ hello: { appId: 'hello', title: 'Open GitHub', icon: () => null, onClick, visible: true, active: false, ...over } })
+  it('builds a bar item for a launcher app without a panel', () => {
+    const items = buildStoreAppBarItems({ apps: [app({})], runtimeErrors: {}, panels: {}, launchers: launcher({ active: true }), projectOpen: true, activePanel: null, togglePanel: () => {} })
+    expect(items['app:hello']).toMatchObject({ id: 'app:hello', title: 'Open GitHub', active: true })
+    items['app:hello'].onClick({} as never)
+    expect(onClick).toHaveBeenCalled()
+  })
+  it('hides an invisible launcher from the bar', () => {
+    expect(buildStoreAppBarItems({ apps: [app({})], runtimeErrors: {}, panels: {}, launchers: launcher({ visible: false }), projectOpen: true, activePanel: null, togglePanel: () => {} })).toEqual({})
+  })
+  it('lists a launcher app as favoritable in All Apps, opening runs the launcher', () => {
+    onClick.mockClear()
+    const [e] = buildStoreAppEntries({ ...base, apps: [app({})], launchers: launcher() })
+    expect(e.favoritable).toBe(true)
+    e.onOpen!({} as never)
+    expect(onClick).toHaveBeenCalled()
+  })
+})

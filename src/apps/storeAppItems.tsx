@@ -3,13 +3,15 @@ import type { AppInfo } from '../../electron/apps/appTypes'
 import type { AllAppsEntry, DisabledAppEntry } from '@/components/AllApps/AllAppsPanel'
 import { StoreBagIcon } from '@/components/Store/storeUi'
 import type { ActivityBarItem } from '@/components/ActivityBar/ActivityBar'
-import type { PanelContrib, SettingsContrib } from './appContribStore'
+import type { LauncherContrib, PanelContrib, SettingsContrib } from './appContribStore'
 
 export interface StoreAppItemsInput {
   apps: AppInfo[]
   runtimeErrors: Record<string, string>
   panels: Record<string, PanelContrib>
   settingsPages: Record<string, SettingsContrib>
+  // Apps with an activity-bar launcher instead of a panel (a panel wins if both).
+  launchers?: Record<string, LauncherContrib>
   projectOpen: boolean
   // Favorite ids (`app:<appId>` for store apps); a store app listed here shows a filled star.
   favorites?: readonly string[]
@@ -29,13 +31,14 @@ export function buildStoreAppEntries(input: StoreAppItemsInput): AllAppsEntry[] 
     // A switched-off app is listed in the Disabled section instead.
     if (app.status === 'disabled') continue
     const panel = input.panels[app.id]
+    const launcher = panel ? undefined : input.launchers?.[app.id]
     const hasSettings = !!input.settingsPages[app.id]
     const error = input.runtimeErrors[app.id] ?? (app.status === 'failed' ? app.error ?? 'Failed to load' : undefined)
     const base = {
       id: `app:${app.id}`,
       title: app.name,
-      favorite: !!panel && (input.favorites ?? []).includes(`app:${app.id}`),
-      favoritable: !!panel,
+      favorite: (!!panel || !!launcher) && (input.favorites ?? []).includes(`app:${app.id}`),
+      favoritable: !!panel || !!launcher,
       onSettings: () => input.openSettings(app.id),
       onUninstall: () => input.uninstall(app.id),
       onDisable: app.source !== 'dev' && input.setEnabled ? () => { void input.setEnabled!(app.id, false) } : undefined,
@@ -46,14 +49,14 @@ export function buildStoreAppEntries(input: StoreAppItemsInput): AllAppsEntry[] 
       continue
     }
     if (panel?.requiresProject && !input.projectOpen) continue
-    const icon = panel ? createElement(panel.icon) : fallbackIcon
+    const icon = panel ? createElement(panel.icon) : launcher ? createElement(launcher.icon) : fallbackIcon
     const restart = app.status === 'restart-required'
     entries.push({
       ...base,
       icon,
       badge: panel?.badge,
       subtitle: restart ? 'Restart to finish' : undefined,
-      onOpen: panel ? () => input.openPanel(app.id) : hasSettings ? () => input.openSettings(app.id) : undefined,
+      onOpen: panel ? () => input.openPanel(app.id) : launcher ? () => launcher.onClick() : hasSettings ? () => input.openSettings(app.id) : undefined,
     })
   }
   return entries
@@ -76,13 +79,14 @@ export function buildStoreDisabledEntries(input: {
     }))
 }
 
-// Activity-bar items for installed store apps that have a sidebar panel,
-// keyed by their `app:<appId>` favorite id. A failed app or a project-bound
+// Activity-bar items for installed store apps that have a sidebar panel or a
+// visible launcher, keyed by their `app:<appId>` favorite id. A failed app or a project-bound
 // panel without a project has none (so a favorited slot simply isn't shown).
 export function buildStoreAppBarItems(input: {
   apps: AppInfo[]
   runtimeErrors: Record<string, string>
   panels: Record<string, PanelContrib>
+  launchers?: Record<string, LauncherContrib>
   projectOpen: boolean
   activePanel: string | null
   togglePanel: (appId: string) => void
@@ -90,9 +94,16 @@ export function buildStoreAppBarItems(input: {
   const items: Record<string, ActivityBarItem> = {}
   for (const app of input.apps) {
     const panel = input.panels[app.id]
-    if (!panel || input.runtimeErrors[app.id] || app.status === 'failed') continue
-    if (panel.requiresProject && !input.projectOpen) continue
+    if (input.runtimeErrors[app.id] || app.status === 'failed') continue
     const id = `app:${app.id}`
+    if (!panel) {
+      const launcher = input.launchers?.[app.id]
+      if (launcher?.visible) {
+        items[id] = { id, icon: createElement(launcher.icon), title: launcher.title, active: launcher.active, onClick: () => launcher.onClick() }
+      }
+      continue
+    }
+    if (panel.requiresProject && !input.projectOpen) continue
     items[id] = {
       id,
       icon: createElement(panel.icon),

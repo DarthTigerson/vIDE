@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  MOVABLE_APP_IDS,
   APPEND_TARGET,
   DEFAULT_FAVORITES,
   placeFavorite,
@@ -22,6 +23,10 @@ describe('sanitizeFavorites', () => {
     expect(sanitizeFavorites(['docker', 'app:docker'])).toEqual(['app:docker'])
   })
 
+  it('moves the old git-remote launcher slot to the Git Page store app', () => {
+    expect(sanitizeFavorites(['git-remote', 'llama'])).toEqual(['app:gitpage', 'llama'])
+    expect(MOVABLE_APP_IDS).not.toContain('git-remote')
+  })
   it('does not favorite docker for new users', () => {
     expect(DEFAULT_FAVORITES).not.toContain('docker')
     expect(DEFAULT_FAVORITES).not.toContain('app:docker')
