@@ -1,10 +1,18 @@
 # vIDE
+## v0.3.7 (2026-11-19)
+- **Usage panel looks**: the usage panel now opens on the Bars view, and other looks come from the Store's new Usage category. The bike gauges are now the Bike Gauge app, and Simple Gauge brings back the original ring gauges with burn rate and run-out estimate. Right-click the panel and use View to switch between Bars and any look you've installed, Preferences… for a look's own settings when it has them, and Store… to browse more looks. If you had picked the Gauges view, it comes back by itself once you install Bike Gauge
+- **Git Page is now a Store app**: the activity-bar button that opens the active repo on GitHub, GitLab, Bitbucket or any other host moved out to the Git Page app in the Store. Your favourite and the "Close side panel when opening" setting carry over when you install it
+- The "moved to the Store" notice now tracks each app on its own, so closing it once no longer hides notices about apps that move later
+- **Making apps**: new guides in `docs/` for building vIDE apps, giving them agent tools and creating usage panel looks. Apps can now add activity-bar buttons, open their own browser tabs, follow the active git repo and draw the usage panel
+
+
 ## v0.3.6 (2026-11-18)
 <!-- vide-update: severity=urgent -->
 - **Security**: Mobile Display could be listened in on or taken over by someone on the same network while it was switched on. Pairing PINs, session cookies and terminal traffic went over plain HTTP, and the 5-digit PIN could be guessed with no limit on attempts. Mobile Display now runs over HTTPS, PINs are 6 random digits, repeated wrong guesses are blocked, sessions expire, and connections from other sites are refused
 - **Mobile Display certificate**: vIDE signs its own certificate, so your phone shows a warning the first time it connects. The Mobile Display panel shows the certificate's fingerprint to compare before accepting it. To stop the warning, install the vIDE certificate on your phone from the link on the pairing page and trust it. Re-pair any phone you paired before this update, using the new https:// address
 - **Update notifications**: a new version now stays pinned above the notification bell until you click Update or close it, instead of disappearing after a few seconds. Security updates show in red, can't be closed, and come back an hour after you snooze them. vIDE now checks for updates every hour
 - **Updated libraries**: vIDE now runs on React 19, Tailwind CSS 4, Monaco 0.57, xterm.js 6 and the latest Electron build tools, with known vulnerabilities in dependencies fixed
+
 
 ## v0.3.5 (2026-11-17)
 - **Usage gauges**: the usage panel now opens on a new Gauges view, with the session as a speedometer and the week as a fuel gauge. Each dial shows usage so far, where it's heading by the reset, and how much of the window has passed, and a warning light between them turns red and pulses once either one hits its limit. Right-click the panel to switch back to the Bars view; your choice is remembered
@@ -49,7 +57,6 @@
 - Fixed vIDE crashing machines with 8 GB of RAM on launch. Every sync stored a new full copy of the Claude usage history, which grows a line a minute and is never trimmed, so after a few months the config repo held thousands of copies of a 20+ MB file. Fetching or tidying that repo started several git processes using gigabytes of memory each. Sync git commands now have strict memory limits, and a timed-out sync now stops git's helper processes too instead of leaving them running. Syncs also no longer start a second fetch while one is still running. Once the config repo is compacted, each machine also clears out its local copy of the old history (about 200 MB down to under 1 MB)
 
 
-
 ## v0.3.1 (2026-11-11)
 - **PDF viewer**: PDF files now open in a built-in viewer with page navigation and zoom controls, the same way images, SVGs and Markdown do
 - **Safer vIDE Sync across versions**: when an out-of-date copy of vIDE receives settings from a newer version it can't read, it now shows an update screen and waits for you to update instead of failing to start. While it waits it won't push its older settings over your newer machine, and it falls back to the vIDE theme with no background image
@@ -84,6 +91,7 @@
 - Right-clicking anywhere closes any popup menu that's already open
 - Updated Electron to 45.2.3
 
+
 **Bug fixes**
 - Fixed sign-in popups (OAuth, SSO) failing in the built-in browser: pages opened with `window.open` or `target="_blank"` now keep their link to the page that opened them, so the login result reaches the original tab, and a popup that closes itself closes its tab
 - Fixed some pages, including Cloudflare-protected ones, rendering blank in the built-in browser
@@ -117,7 +125,6 @@
 - **Disabled apps in All Apps**: a collapsible Disabled section under More Apps lists the apps you've turned off. Click one to enable it again, or drag an app onto the section to disable it
 - **New file button in the tab bar**: a + at the end of each pane's tabs opens a new scratch file in that pane
 - **Full file paths in multi-repo projects**: when the project folder holds several git repos, Claude, Rocky, Bridge and Llama are told to always write full absolute file paths, so file links in chat open the right file instead of guessing which repo a path belongs to
-
 
 
 ## v0.2.29 (2026-10-23)
