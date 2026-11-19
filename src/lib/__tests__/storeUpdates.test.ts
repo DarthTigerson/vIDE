@@ -84,6 +84,12 @@ describe('movedApps', () => {
     expect(movedApps(reg(gp), [], keys({}), []).map((a) => a.id)).toEqual(['gitpage'])
     expect(movedApps(reg(gp), [installed('gitpage', '0.1.0')], keys({}), [])).toEqual([])
   })
+  it('lists Bike Gauge only for users whose panel was on the gauges view', () => {
+    const bg = listing('bike-gauge', '0.1.0', { category: 'usage', replacesBuiltIn: 'bike-gauge' })
+    expect(movedApps(reg(bg), [], keys({ 'vide:usagePanelView': 'app:bike-gauge' }), []).map((a) => a.id)).toEqual(['bike-gauge'])
+    expect(movedApps(reg(bg), [], keys({ 'vide:usagePanelView': 'bars' }), [])).toEqual([])
+    expect(movedApps(reg(bg), [], keys({}), [])).toEqual([])
+  })
   it('dismissal is per moved built-in: dismissing docker does not hide git-remote', () => {
     const gp = listing('gitpage', '0.1.0', { replacesBuiltIn: 'git-remote' })
     expect(movedApps(reg(dockerListing, gp), [], enabled, ['docker', 'web-search']).map((a) => a.id)).toEqual(['gitpage'])

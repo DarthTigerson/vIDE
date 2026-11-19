@@ -2,23 +2,32 @@ import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'r
 import { createPortal } from 'react-dom'
 import { useLatestUsage } from './useLatestUsage'
 import { PaceBar } from './UsageStats'
-import { UsageGauges, type GaugeWindow } from './UsageGauges'
 import { SESSION_WINDOW_HOURS, WEEKLY_WINDOW_HOURS } from './pace'
-import { CheckableMenuButton, MenuHeading } from '@/components/ui/MenuItems'
+import { CheckableMenuButton, MenuButton, SubMenuButton } from '@/components/ui/MenuItems'
+import { useAppContribStore } from '@/apps/appContribStore'
+import { AppErrorBoundary } from '@/apps/AppErrorBoundary'
+import type { UsageWindow } from '@/apps/videApiTypes'
+import { useEditorStore } from '@/stores/editorStore'
+import { useStoreStore } from '@/stores/storeStore'
+import { buildAppSettingsPath } from '@/components/Settings/paths'
+import { USAGE_VIEW_KEY } from '@/lib/usageViewMigration'
 import { clampToViewport } from '@/components/ui/clampToViewport'
 import { useCoverNativeViews } from '@/lib/nativeViewCover'
 
-export type UsageView = 'gauges' | 'bars'
+// Built-in Bars, or a store app's usage view (`app:<appId>`).
+export type UsageView = 'bars' | `app:${string}`
 
-// Which view the panel shows, picked from its right-click menu. Gauges is the
-// default; the choice is per machine (not synced).
-export const USAGE_VIEW_KEY = 'vide:usagePanelView'
+export { USAGE_VIEW_KEY }
 
+// Which view the panel shows, picked from its right-click menu. Bars is the
+// default; the choice is per machine (not synced). A saved app view that is
+// not installed (yet, or any more) shows Bars without forgetting the choice.
 function readView(): UsageView {
   try {
-    return localStorage.getItem(USAGE_VIEW_KEY) === 'bars' ? 'bars' : 'gauges'
+    const v = localStorage.getItem(USAGE_VIEW_KEY)
+    return v?.startsWith('app:') ? (v as UsageView) : 'bars'
   } catch {
-    return 'gauges'
+    return 'bars'
   }
 }
 
@@ -36,7 +45,12 @@ export function UsagePanel() {
   const [view, setView] = useState<UsageView>(readView)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const usageViews = useAppContribStore((s) => s.usageViews)
+  const settingsPages = useAppContribStore((s) => s.settingsPages)
   useCoverNativeViews(!!menu)
+  const activeAppId = view.startsWith('app:') ? view.slice(4) : null
+  const appView = activeAppId ? usageViews[activeAppId] : undefined
+  const shownView: UsageView = appView ? view : 'bars'
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000)
@@ -75,7 +89,16 @@ export function UsagePanel() {
     setMenu(null)
   }
 
-  const session: GaugeWindow | null = latest && {
+  const openPreferences = () => {
+    setMenu(null)
+    if (activeAppId) useEditorStore.getState().openTab({ path: buildAppSettingsPath(activeAppId), content: '', dirty: false })
+  }
+  const openStore = () => {
+    setMenu(null)
+    useStoreStore.getState().openWithCategory('usage')
+  }
+
+  const session: UsageWindow | null = latest && {
     label: 'Session',
     pct: latest.sessionPct,
     resetAt: latest.sessionResetAt,
@@ -83,7 +106,7 @@ export function UsagePanel() {
     cutoffAt: latest.sessionCutoffAt,
     windowHours: SESSION_WINDOW_HOURS,
   }
-  const week: GaugeWindow | null = latest && {
+  const week: UsageWindow | null = latest && {
     label: 'Week',
     pct: latest.weeklyPct,
     resetAt: latest.weeklyResetAt,
@@ -95,13 +118,15 @@ export function UsagePanel() {
   return (
     <div
       data-testid="usage-panel"
-      data-view={view}
+      data-view={shownView}
       className="shrink-0 border-t border-border bg-sidebar px-4 py-3"
       onContextMenu={openMenu}
     >
       {session && week ? (
-        view === 'gauges' ? (
-          <UsageGauges session={session} week={week} now={now} />
+        appView ? (
+          <AppErrorBoundary appId={appView.appId} title={appView.title}>
+            <appView.component session={session} week={week} now={now} />
+          </AppErrorBoundary>
         ) : (
           <div className="flex flex-col gap-4">
             <PaceBar {...session} now={now} />
@@ -120,9 +145,14 @@ export function UsagePanel() {
           style={{ left: menu.x, top: menu.y }}
           onClick={(e) => e.stopPropagation()}
         >
-          <MenuHeading>View</MenuHeading>
-          <CheckableMenuButton checked={view === 'gauges'} onClick={() => pick('gauges')}>Gauges</CheckableMenuButton>
-          <CheckableMenuButton checked={view === 'bars'} onClick={() => pick('bars')}>Bars</CheckableMenuButton>
+          <SubMenuButton label="View">
+            <CheckableMenuButton checked={shownView === 'bars'} onClick={() => pick('bars')}>Bars</CheckableMenuButton>
+            {Object.values(usageViews).map((v) => (
+              <CheckableMenuButton key={v.appId} checked={shownView === `app:${v.appId}`} onClick={() => pick(`app:${v.appId}`)}>{v.title}</CheckableMenuButton>
+            ))}
+          </SubMenuButton>
+          {appView && settingsPages[appView.appId] && <MenuButton onClick={openPreferences}>Preferences…</MenuButton>}
+          <MenuButton onClick={openStore}>Store…</MenuButton>
         </div>,
         document.body,
       )}

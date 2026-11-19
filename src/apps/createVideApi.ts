@@ -11,6 +11,7 @@ import { useBrowserStore } from '@/stores/browserStore'
 import { useGitReposStore, getActiveRepo } from '@/stores/gitReposStore'
 import { useGitOpenReposStore } from '@/stores/gitOpenReposStore'
 import { useSearchStore } from '@/stores/searchStore'
+import { computePace } from '@/components/UsagePanel/pace'
 import { pillButtonClass } from '@/components/ui/pillButton'
 import { Toggle, Switch } from '@/components/ui/Toggle'
 import { FeatureBlock, SettingRow } from '@/components/Settings/FeatureBlock'
@@ -171,6 +172,13 @@ export function createVideApi(app: Pick<AppInfo, 'id' | 'name'>, disposers: Arra
         track(useEditorStore.subscribe((s, prev) => {
           if (s.activeTabPath !== prev.activeTabPath) cb()
         })),
+    },
+    usage: {
+      registerView(p) {
+        store().registerUsageView({ appId, title: p.title, component: p.component })
+        return { dispose: () => store().unregisterUsageView(appId) }
+      },
+      pace: (w, now) => computePace(w.pct, w.resetAt, w.ratePerHour, w.cutoffAt, w.windowHours, now),
     },
     git: {
       activeRepo: getActiveRepo,

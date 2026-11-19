@@ -2,6 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { UsagePanel } from '@/components/UsagePanel/UsagePanel'
 import type { LatestUsage } from '@/types/api'
+import type { UsageViewProps } from '@/apps/videApiTypes'
+import { useAppContribStore } from '@/apps/appContribStore'
+import { useEditorStore } from '@/stores/editorStore'
+import { useStoreStore } from '@/stores/storeStore'
+import { buildAppSettingsPath } from '@/components/Settings/paths'
 
 const SAMPLE: LatestUsage = {
   ts: Date.now(),
@@ -58,47 +63,84 @@ describe('UsagePanel', () => {
     expect(screen.getByText('No usage data yet')).toBeTruthy()
   })
 
-  describe('Gauges view (default)', () => {
-    it('shows a speedometer for session and a fuel gauge for week, with chips and footers', async () => {
-      mockApi({ usageGetLatest: vi.fn().mockResolvedValue(SAMPLE) })
-      render(<UsagePanel />)
-
-      await waitFor(() => expect(screen.getByTestId('usage-gauges')).toBeTruthy())
-      expect(screen.getByTestId('usage-panel')).toHaveAttribute('data-view', 'gauges')
-      expect(screen.getByText('38%')).toBeTruthy()
-      expect(screen.getByText('56%')).toBeTruthy()
-      expect(screen.getByText('≈30.55%/hr')).toBeTruthy()
-      expect(screen.getByText('≈0.73%/hr')).toBeTruthy()
-      expect(screen.getByText('Under pace · 69% at reset')).toBeTruthy()
-      expect(screen.getAllByTestId('gauge-now')).toHaveLength(2)
-      expect(screen.getByTestId('gauge-week').textContent).toMatch(/E.*F/)
-      expect(screen.getByTestId('fuel-light')).toHaveAttribute('data-out', 'false')
+  describe('views', () => {
+    const BikeGauge = vi.fn(({ session, week }: UsageViewProps) => (
+      <div data-testid="bike-view">{session.label} {session.pct} / {week.label} {week.pct}</div>
+    ))
+    beforeEach(() => {
+      BikeGauge.mockClear()
+      useAppContribStore.setState({ usageViews: {}, settingsPages: {} })
     })
+    const install = () =>
+      useAppContribStore.setState({ usageViews: { 'bike-gauge': { appId: 'bike-gauge', title: 'Bike Gauge', component: BikeGauge } } })
 
-    it('lights the fuel warning red when a limit is reached', async () => {
-      mockApi({ usageGetLatest: vi.fn().mockResolvedValue({ ...SAMPLE, weeklyPct: 100 }) })
-      render(<UsagePanel />)
-
-      await waitFor(() => expect(screen.getByTestId('fuel-light')).toHaveAttribute('data-out', 'true'))
-      expect(screen.getByTestId('fuel-light').textContent).toContain('Out of usage: week limit reached')
-      expect(screen.getByText('Limit reached')).toBeTruthy()
-    })
-
-    it('switches to bars from the right-click menu and remembers it', async () => {
+    it('shows bars by default', async () => {
       mockApi({ usageGetLatest: vi.fn().mockResolvedValue(SAMPLE) })
-      const { unmount } = render(<UsagePanel />)
-      await waitFor(() => expect(screen.getByTestId('usage-gauges')).toBeTruthy())
-
-      fireEvent.contextMenu(screen.getByTestId('usage-panel'))
-      fireEvent.click(screen.getByText('Bars'))
-      expect(screen.getByTestId('usage-panel')).toHaveAttribute('data-view', 'bars')
-      expect(screen.getAllByTestId('pace-now')).toHaveLength(2)
-      expect(screen.queryByRole('menu')).toBeNull()
-      expect(localStorage.getItem('vide:usagePanelView')).toBe('bars')
-
-      unmount()
       render(<UsagePanel />)
       await waitFor(() => expect(screen.getAllByTestId('pace-now')).toHaveLength(2))
+      expect(screen.getByTestId('usage-panel')).toHaveAttribute('data-view', 'bars')
+    })
+
+    it('renders an installed store view with the live windows, scoped to the app', async () => {
+      install()
+      localStorage.setItem('vide:usagePanelView', 'app:bike-gauge')
+      mockApi({ usageGetLatest: vi.fn().mockResolvedValue(SAMPLE) })
+      render(<UsagePanel />)
+      await waitFor(() => expect(screen.getByTestId('bike-view').textContent).toBe('Session 38 / Week 56'))
+      expect(screen.getByTestId('usage-panel')).toHaveAttribute('data-view', 'app:bike-gauge')
+      expect(screen.getByTestId('bike-view').closest('.vapp-bike-gauge')).not.toBeNull()
+      const props = BikeGauge.mock.calls.at(-1)![0]
+      expect(props.session).toMatchObject({ resetAt: SAMPLE.sessionResetAt, ratePerHour: 30.55, cutoffAt: null, windowHours: 5 })
+      expect(props.week.windowHours).toBe(168)
+    })
+
+    it('falls back to bars when the saved view is not installed', async () => {
+      localStorage.setItem('vide:usagePanelView', 'app:bike-gauge')
+      mockApi({ usageGetLatest: vi.fn().mockResolvedValue(SAMPLE) })
+      render(<UsagePanel />)
+      await waitFor(() => expect(screen.getAllByTestId('pace-now')).toHaveLength(2))
+      expect(screen.getByTestId('usage-panel')).toHaveAttribute('data-view', 'bars')
+    })
+
+    it('lists Bars and installed views in the menu and remembers the pick', async () => {
+      install()
+      mockApi({ usageGetLatest: vi.fn().mockResolvedValue(SAMPLE) })
+      render(<UsagePanel />)
+      await waitFor(() => expect(screen.getAllByTestId('pace-now')).toHaveLength(2))
+      fireEvent.contextMenu(screen.getByTestId('usage-panel'))
+      expect(screen.queryByText('Bars')).toBeNull()
+      fireEvent.mouseEnter(screen.getByRole('button', { name: 'View' }))
+      expect(screen.getByText('Bars')).toBeTruthy()
+      fireEvent.click(screen.getByText('Bike Gauge'))
+      expect(screen.getByTestId('bike-view')).toBeTruthy()
+      expect(localStorage.getItem('vide:usagePanelView')).toBe('app:bike-gauge')
+      expect(screen.queryByRole('menu')).toBeNull()
+    })
+
+    it('offers Preferences only when the active view has a settings page', async () => {
+      install()
+      const openTab = vi.fn()
+      useEditorStore.setState({ openTab })
+      mockApi({ usageGetLatest: vi.fn().mockResolvedValue(SAMPLE) })
+      render(<UsagePanel />)
+      await waitFor(() => expect(screen.getAllByTestId('pace-now')).toHaveLength(2))
+      fireEvent.contextMenu(screen.getByTestId('usage-panel'))
+      expect(screen.queryByText('Preferences…')).toBeNull()
+      fireEvent.mouseEnter(screen.getByRole('button', { name: 'View' }))
+      fireEvent.click(screen.getByText('Bike Gauge'))
+      useAppContribStore.setState({ settingsPages: { 'bike-gauge': { appId: 'bike-gauge', title: 'Bike Gauge', component: () => null } } })
+      fireEvent.contextMenu(screen.getByTestId('usage-panel'))
+      fireEvent.click(screen.getByText('Preferences…'))
+      expect(openTab).toHaveBeenCalledWith({ path: buildAppSettingsPath('bike-gauge'), content: '', dirty: false })
+    })
+
+    it('Store… opens the Store on the Usage category', async () => {
+      const openWithCategory = vi.fn()
+      useStoreStore.setState({ openWithCategory })
+      render(<UsagePanel />)
+      fireEvent.contextMenu(screen.getByTestId('usage-panel'))
+      fireEvent.click(screen.getByText('Store…'))
+      expect(openWithCategory).toHaveBeenCalledWith('usage')
     })
   })
 

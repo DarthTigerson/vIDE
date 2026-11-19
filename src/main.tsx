@@ -29,7 +29,8 @@ await runPreMountSync()
 
 // After the pull, so a value synced in from another machine is carried too.
 const { migrateGitRemoteSettings } = await import('./lib/gitpageMigration')
-try { migrateGitRemoteSettings(localStorage) } catch { /* storage unavailable */ }
+const { migrateUsageView } = await import('./lib/usageViewMigration')
+try { migrateGitRemoteSettings(localStorage); migrateUsageView(localStorage) } catch { /* storage unavailable */ }
 
 // A release marked critical was seen during an earlier session: block the app
 // until it's installed (src/lib/updateSeverity.ts). Mobile has no install.

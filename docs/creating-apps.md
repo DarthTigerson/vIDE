@@ -7,8 +7,10 @@ Docker and DuckDuckGo are the reference apps:
 
 | App | Repo | Shows |
 |-----|------|-------|
-| Docker | `DarthTigerson/vIDE---Docker-App` | Full UI: sidebar panel, settings page, editor tab kind, commands, notifications, a `main.js` that runs the `docker` CLI |
+| Docker | `DarthTigerson/vIDE-Docker-App` | Full UI: sidebar panel, settings page, editor tab kind, commands, notifications, a `main.js` that runs the `docker` CLI |
 | DuckDuckGo | `DarthTigerson/vIDE-DuckDuckGo-MCP` | No UI, one agent tool (see [agent-tooling.md](agent-tooling.md)) |
+| Git Page | `DarthTigerson/vIDE-GitPage-App` | Activity-bar launcher, in-app browser tab, `main.js` running `git` |
+| Bike Gauge | `DarthTigerson/vide-bike-guage-usage` | Usage panel view (see [creating-usage-views.md](creating-usage-views.md)) |
 
 When in doubt, copy one of them.
 
@@ -127,6 +129,11 @@ export function deactivate?(): void
 | `vide.settings.get/set/subscribe(key)` | String settings, stored as `vide:<appId>:<key>` and synced by vIDE Sync like other settings. |
 | `vide.project.root()`, `subscribe(cb)` | The open project folder, or `null`. |
 | `vide.app.call(method, payload)`, `on(event, cb)` | Talk to the app's `main.js`. |
+| `vide.ui.registerLauncher({ title, icon, onClick, visible?, active? })` | (0.3.7+) An activity-bar button that runs an action instead of opening a panel. `update(patch)` changes it later. Git Page uses this. |
+| `vide.ui.closeSidePanel()` | (0.3.7+) Closes the left side panel. |
+| `vide.browser.open(id, url)`, `activeId()`, `subscribe(cb)` | (0.3.7+) The app's own in-app browser tabs (`id` matches `[a-z0-9-]+`). |
+| `vide.git.activeRepo()`, `repoCount()`, `subscribe(cb)`, `pickRepo()` | (0.3.7+) The Git panel's active repo and the repo picker. |
+| `vide.usage.registerView({ title, component })`, `pace(window, now)` | (0.3.7+) A look for the usage panel. See [creating-usage-views.md](creating-usage-views.md). |
 
 Every `register*` returns a `Disposable`. Keep them and dispose them in
 `deactivate`, because disabling an app runs the renderer's `deactivate` without
@@ -199,7 +206,7 @@ update by themselves.
      "category": "applications", "replacesBuiltIn": "docker" }
    ```
 
-   - `category`: `applications` or `agent-tools`.
+   - `category`: `applications`, `agent-tools` or `usage`.
    - `recommended`: marks the app as recommended.
    - `replacesBuiltIn`: the id of a built-in feature the app replaces. Users
      who had that built-in feature turned on get a launch notification asking

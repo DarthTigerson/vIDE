@@ -47,13 +47,19 @@ describe('storeFilter', () => {
 
   it('counts and filters the agent-tools category', () => {
     const tool = { ...docker, id: 'ddg', category: 'agent-tools' }
-    expect(storeFilterCounts([docker, tool]).category).toEqual({ all: 2, applications: 1, 'agent-tools': 1, 'language-servers': 0 })
+    expect(storeFilterCounts([docker, tool]).category).toEqual({ all: 2, applications: 1, 'agent-tools': 1, usage: 0, 'language-servers': 0 })
     expect(filterStoreApps([docker, tool], { ...DEFAULT_STORE_FILTERS, category: 'agent-tools' }).map((a) => a.id)).toEqual(['ddg'])
+  })
+
+  it('counts and filters the usage category', () => {
+    const look = { ...docker, id: 'bike-gauge', category: 'usage' }
+    expect(storeFilterCounts([docker, look]).category.usage).toBe(1)
+    expect(filterStoreApps([docker, look], { ...DEFAULT_STORE_FILTERS, category: 'usage' }).map((a) => a.id)).toEqual(['bike-gauge'])
   })
 
   it('counts apps per filter row', () => {
     expect(storeFilterCounts([docker, notes])).toEqual({
-      category: { all: 2, applications: 2, 'agent-tools': 0, 'language-servers': 0 },
+      category: { all: 2, applications: 2, 'agent-tools': 0, usage: 0, 'language-servers': 0 },
       maker: { all: 2, vsuite: 2, community: 0 },
     })
   })
@@ -63,7 +69,7 @@ describe('storeFilter', () => {
       id: 'go', name: 'Go', description: 'gopls.', targets: ['vide'], languages: ['go'], binary: 'gopls',
       args: [], versionArgs: ['version'], install: { method: 'go' as const, package: 'golang.org/x/tools/gopls@latest' },
     }
-    expect(storeFilterCounts([docker], [go]).category).toEqual({ all: 2, applications: 1, 'agent-tools': 0, 'language-servers': 1 })
+    expect(storeFilterCounts([docker], [go]).category).toEqual({ all: 2, applications: 1, 'agent-tools': 0, usage: 0, 'language-servers': 1 })
     expect(filterStoreApps([docker], { ...DEFAULT_STORE_FILTERS, category: 'language-servers' })).toEqual([])
     expect(filterLanguageServers([go], { ...DEFAULT_STORE_FILTERS, category: 'language-servers' })).toEqual([go])
     expect(filterLanguageServers([go], { ...DEFAULT_STORE_FILTERS, category: 'applications' })).toEqual([])

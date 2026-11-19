@@ -36,13 +36,16 @@ export function pendingUpdates(
 
 // Built-in apps that moved to the Store, and the localStorage key that held
 // their Enable switch (set to 'true' by the user before the update). `true`
-// means the built-in had no switch: every user had it.
-export const BUILT_IN_ENABLED_KEYS: Record<string, string | true> = {
+// means the built-in had no switch: every user had it. `{ key, value }` means
+// the user had it when that key held that value.
+export const BUILT_IN_ENABLED_KEYS: Record<string, string | true | { key: string; value: string }> = {
   docker: 'vide:docker:enabled',
   // The core web-search toggle (removed with vide-search); the DuckDuckGo app replaces it.
   'web-search': 'vide:search:mcpEnabled',
   // The Git panel's remote launcher; the Git Page app replaces it.
   'git-remote': true,
+  // The usage panel's gauges view (saved view rewritten by usageViewMigration).
+  'bike-gauge': { key: 'vide:usagePanelView', value: 'app:bike-gauge' },
 }
 
 // Per machine, not synced (outside every sync category prefix). A JSON list
@@ -65,7 +68,9 @@ export function movedApps(
   return registry.apps.filter((app) => {
     if (!app.replacesBuiltIn || dismissed.includes(app.replacesBuiltIn)) return false
     const key = BUILT_IN_ENABLED_KEYS[app.replacesBuiltIn]
-    if (key === undefined || (key !== true && readKey(key) !== 'true')) return false
+    if (key === undefined) return false
+    if (typeof key === 'string' && readKey(key) !== 'true') return false
+    if (typeof key === 'object' && readKey(key.key) !== key.value) return false
     return !installed.some((i) => i.id === app.id)
   })
 }

@@ -23,6 +23,32 @@ export type CommandSpec = {
   danger?: boolean
 } & ({ action: () => void } | { pick: () => PaletteStep | Promise<PaletteStep> })
 
+// (vIDE 0.3.7+) One usage window (the 5-hour session or the week) as the
+// usage panel shows it. Percentages are 0–100; times are epoch ms.
+export interface UsageWindow {
+  label: string
+  pct: number | null
+  resetAt: number | null
+  ratePerHour: number | null
+  cutoffAt: number | null
+  windowHours: number
+}
+
+// Where a window is heading: time elapsed, usage projected at reset, and the
+// verdict the panel's pace chip shows.
+export interface UsagePace {
+  elapsedPct: number | null
+  projectedPct: number | null
+  status: 'under' | 'ahead' | 'runs-out' | null
+}
+
+// What a usage view component receives; `now` ticks every second.
+export interface UsageViewProps {
+  session: UsageWindow
+  week: UsageWindow
+  now: number
+}
+
 export interface VideRendererApi {
   apiVersion: 1
   appId: string
@@ -114,6 +140,14 @@ export interface VideRendererApi {
     activeId(): string | null
     // Fires when the active tab changes.
     subscribe(cb: () => void): () => void
+  }
+  // (vIDE 0.3.7+) Looks for the usage panel. A view only draws: vIDE passes
+  // it the live data. Users pick it from the panel's right-click View menu.
+  usage: {
+    // One per app.
+    registerView(p: { title: string; component: ComponentType<UsageViewProps> }): Disposable
+    // The panel's own pace math, so every view agrees with the Bars chip.
+    pace(w: UsageWindow, now: number): UsagePace
   }
   // (vIDE 0.3.7+) The Git panel's repos.
   git: {

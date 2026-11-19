@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { ComponentType } from 'react'
 import type { AppInfo } from '../../electron/apps/appTypes'
 import type { Command } from '@/components/Search/commands'
-import type { Json } from './videApiTypes'
+import type { Json, UsageViewProps } from './videApiTypes'
 
 export interface PanelContrib { appId: string; title: string; icon: ComponentType; component: ComponentType; requiresProject: boolean; badge?: number | string }
 export interface SettingsContrib { appId: string; title: string; component: ComponentType }
@@ -11,6 +11,8 @@ export interface CommandContrib { appId: string; command: Command }
 export interface NotificationContrib { appId: string; id: string; text: string; onClick?: () => void }
 // An activity-bar button that runs an action instead of opening a panel (one per app).
 export interface LauncherContrib { appId: string; title: string; icon: ComponentType; onClick: () => void; visible: boolean; active: boolean }
+// A look for the usage panel (one per app).
+export interface UsageViewContrib { appId: string; title: string; component: ComponentType<UsageViewProps> }
 export type LauncherPatch = Partial<Pick<LauncherContrib, 'title' | 'icon' | 'visible' | 'active'>>
 
 interface AppContribState {
@@ -23,6 +25,7 @@ interface AppContribState {
   commands: CommandContrib[]
   notifications: NotificationContrib[]
   launchers: Record<string, LauncherContrib>
+  usageViews: Record<string, UsageViewContrib>
   // Bumped by vide.ui.closeSidePanel(); App closes the left side panel.
   sidePanelCloseRequest: number
   // Set by vide.ui.openPanel(); App reads it and opens the app's panel.
@@ -48,6 +51,8 @@ interface AppContribState {
   registerLauncher(l: LauncherContrib): void
   updateLauncher(appId: string, patch: LauncherPatch): void
   unregisterLauncher(appId: string): void
+  registerUsageView(v: UsageViewContrib): void
+  unregisterUsageView(appId: string): void
 }
 
 function omitKey<T>(rec: Record<string, T>, key: string): Record<string, T> {
@@ -69,6 +74,7 @@ export const useAppContribStore = create<AppContribState>((set) => ({
   commands: [],
   notifications: [],
   launchers: {},
+  usageViews: {},
   sidePanelCloseRequest: 0,
   panelRequest: null,
 
@@ -81,6 +87,7 @@ export const useAppContribStore = create<AppContribState>((set) => ({
       commands: s.commands.filter((c) => c.appId !== appId),
       notifications: s.notifications.filter((n) => n.appId !== appId),
       launchers: omitKey(s.launchers, appId),
+      usageViews: omitKey(s.usageViews, appId),
       runtimeErrors: omitKey(s.runtimeErrors, appId),
     })),
   setRuntimeError: (appId, msg) =>
@@ -106,4 +113,6 @@ export const useAppContribStore = create<AppContribState>((set) => ({
   updateLauncher: (appId, patch) =>
     set((s) => (s.launchers[appId] ? { launchers: { ...s.launchers, [appId]: { ...s.launchers[appId], ...patch } } } : s)),
   unregisterLauncher: (appId) => set((s) => ({ launchers: omitKey(s.launchers, appId) })),
+  registerUsageView: (v) => set((s) => ({ usageViews: { ...s.usageViews, [v.appId]: v } })),
+  unregisterUsageView: (appId) => set((s) => ({ usageViews: omitKey(s.usageViews, appId) })),
 }))
