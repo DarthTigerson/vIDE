@@ -131,7 +131,7 @@ export function StorePage() {
         </button>
       }
     >
-      {([['all', 'All'], ['applications', 'Applications'], ['agent-tools', 'Agent tools'], ['language-servers', 'Language servers']] as [Category, string][]).map(([id, label]) => (
+      {([['all', 'All'], ['applications', 'Applications'], ['agent-tools', 'Agent tools'], ['usage', 'Usage'], ['language-servers', 'Language servers']] as [Category, string][]).map(([id, label]) => (
         <FilterRow key={id} label={label} count={counts.category[id]} active={filters.category === id} onClick={() => set({ category: id })} />
       ))}
     </FilterGroup>

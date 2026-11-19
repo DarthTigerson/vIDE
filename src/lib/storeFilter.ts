@@ -4,7 +4,7 @@
 import type { LanguageServerEntry, StoreListing } from '@/types/api'
 
 export type Maker = 'all' | 'vsuite' | 'community'
-export type Category = 'all' | 'applications' | 'agent-tools' | 'language-servers'
+export type Category = 'all' | 'applications' | 'agent-tools' | 'usage' | 'language-servers'
 
 export interface StoreFilters {
   query: string
@@ -72,6 +72,7 @@ export function storeFilterCounts(apps: StoreListing[], languageServers: Languag
       all: apps.length + languageServers.length,
       applications: apps.filter((a) => a.category === 'applications').length,
       'agent-tools': apps.filter((a) => a.category === 'agent-tools').length,
+      usage: apps.filter((a) => a.category === 'usage').length,
       'language-servers': languageServers.length,
     },
     maker: {

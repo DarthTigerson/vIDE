@@ -219,3 +219,23 @@ describe('createVideApi launcher / browser / git', () => {
     expect(useSearchStore.getState().repoPaletteOpen).toBe(true)
   })
 })
+
+describe('createVideApi usage', () => {
+  it('registerView stores one view per app; dispose and clearApp remove it', () => {
+    const v = createVideApi({ id: 'bike-gauge', name: 'Bike Gauge' })
+    const component = () => null
+    const d = v.usage.registerView({ title: 'Bike Gauge', component })
+    expect(useAppContribStore.getState().usageViews['bike-gauge']).toEqual({ appId: 'bike-gauge', title: 'Bike Gauge', component })
+    d.dispose()
+    expect(useAppContribStore.getState().usageViews['bike-gauge']).toBeUndefined()
+    v.usage.registerView({ title: 'x', component })
+    useAppContribStore.getState().clearApp('bike-gauge')
+    expect(useAppContribStore.getState().usageViews['bike-gauge']).toBeUndefined()
+  })
+
+  it('pace matches the panel math', () => {
+    const now = 1_000_000_000_000
+    const w = { label: 'Session', pct: 10, resetAt: now + 2.5 * 3_600_000, ratePerHour: 4, cutoffAt: null, windowHours: 5 }
+    expect(createVideApi({ id: 'a', name: 'A' }).usage.pace(w, now)).toEqual({ elapsedPct: 50, projectedPct: 20, status: 'under' })
+  })
+})
