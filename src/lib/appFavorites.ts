@@ -14,7 +14,6 @@ export const MOVABLE_APP_IDS = [
   'todos',
   'notes',
   'scripts',
-  'git-remote',
 ] as const
 
 export type MovableAppId = (typeof MOVABLE_APP_IDS)[number]
@@ -27,7 +26,7 @@ export const DEFAULT_FAVORITES: FavoriteId[] = ['llama']
 // Built-ins that moved to the Store keep their favorite slot: a stored id is
 // rewritten to the store app's id, so the star and bar position carry over
 // once the app is installed (until then the slot is simply not shown).
-const MOVED_TO_STORE: Record<string, FavoriteId> = { docker: 'app:docker' }
+const MOVED_TO_STORE: Record<string, FavoriteId> = { docker: 'app:docker', 'git-remote': 'app:gitpage' }
 
 // Drop target meaning "append to the end of the favorites" (the All Apps
 // button itself, so there's always somewhere to drop even with no favorites).

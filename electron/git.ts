@@ -3,7 +3,6 @@ import { promisify } from 'util'
 import { readFile, readdir } from 'fs/promises'
 import { existsSync } from 'fs'
 import { join } from 'path'
-import { pickRemoteName, remoteToWebUrl } from './gitRemoteUrl'
 
 const execFileAsync = promisify(execFile)
 
@@ -176,30 +175,6 @@ export async function getBranchList(cwd: string): Promise<GitBranchList> {
     return { current, local, remote }
   } catch {
     return { current: null, local: [], remote: [] }
-  }
-}
-
-// The repo's page on GitHub/GitLab/etc., read from its git remote — the
-// current branch's upstream remote, else origin, else the first remote. null
-// when the repo has no remote or the remote is a local path.
-export async function getRemoteWebUrl(cwd: string): Promise<string | null> {
-  try {
-    const { stdout: remoteList } = await execFileAsync('git', ['remote'], { cwd })
-    const remotes = remoteList.split('\n').map((r) => r.trim()).filter(Boolean)
-    let upstream: string | null = null
-    try {
-      const { stdout: branch } = await execFileAsync('git', ['symbolic-ref', '--short', 'HEAD'], { cwd })
-      const { stdout } = await execFileAsync('git', ['config', '--get', `branch.${branch.trim()}.remote`], { cwd })
-      upstream = stdout.trim() || null
-    } catch {
-      // detached HEAD or no upstream configured
-    }
-    const name = pickRemoteName(remotes, upstream)
-    if (!name) return null
-    const { stdout: url } = await execFileAsync('git', ['remote', 'get-url', name], { cwd })
-    return remoteToWebUrl(url)
-  } catch {
-    return null
   }
 }
 

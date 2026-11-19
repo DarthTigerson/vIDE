@@ -292,7 +292,6 @@ declare global {
       gitGraph: (cwd: string, offset?: number, limit?: number) => Promise<GitCommit[]>
       gitBranches: (cwd: string) => Promise<string[]>
       gitDefaultBranch: (cwd: string) => Promise<string | null>
-      gitRemoteWebUrl: (cwd: string) => Promise<string | null>
       gitBranchList: (cwd: string) => Promise<GitBranchList>
       gitBranchDiff: (cwd: string, source: string, target: string, offset?: number, limit?: number) => Promise<GitBranchDiff>
       gitShowStat: (cwd: string, hash: string) => Promise<string[]>

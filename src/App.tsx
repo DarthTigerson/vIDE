@@ -100,8 +100,6 @@ import { useChangelogStore } from './stores/changelogStore'
 import { useOnboardingStore } from './stores/onboardingStore'
 import { useBrowserStore } from './stores/browserStore'
 import { useBrowserSettingsStore } from './stores/browserSettingsStore'
-import { useGitRemoteSettingsStore } from './stores/gitRemoteSettingsStore'
-import { useGitRemoteUrlStore, gitRemoteBrowserId } from './stores/gitRemoteUrlStore'
 import { useGitPanelOpenAlertStore } from './stores/gitPanelOpenAlertStore'
 import { useTodoSettingsStore } from './stores/todoSettingsStore'
 import { useNotesSettingsStore } from './stores/notesSettingsStore'
@@ -118,7 +116,6 @@ import { useGraphifyAutoBuild } from './hooks/useGraphifyAutoBuild'
 import { useGraphifyHookRepair } from './hooks/useGraphifyHookRepair'
 import { useGraphifyPromptChecks } from './hooks/useGraphifyPromptChecks'
 import { useNotesStore } from './stores/notesStore'
-import { detectGitRemoteProvider, gitRemoteIcon, gitRemoteLabel } from './lib/gitRemoteProvider'
 import { evaluateCmdWForPinnedTab, type PendingClose } from './lib/pinnedTabCloseGuard'
 import { countUnsaved, type UnsavedState } from './lib/unsavedState'
 import type { Tab } from './types/index'
@@ -180,9 +177,8 @@ function readRootPx(): number {
 }
 
 
-// Title and icon for an app listed in All Apps' Disabled section (the
-// GitHub/GitLab app has no Enable switch, so it never shows there).
-const DISABLED_APP_LABELS: Record<Exclude<MovableAppId, 'git-remote'>, { title: string; icon: ReactNode }> = {
+// Title and icon for an app listed in All Apps' Disabled section.
+const DISABLED_APP_LABELS: Record<MovableAppId, { title: string; icon: ReactNode }> = {
   llama: { title: 'Llama', icon: <LlamaIcon /> },
   mobile: { title: 'Mobile Display', icon: <PhoneIcon /> },
   graphify: { title: 'Graphify', icon: <GraphIcon /> },
@@ -202,6 +198,8 @@ export default function App() {
   const appPanels = useAppContribStore((s) => s.panels)
   const appSettingsPages = useAppContribStore((s) => s.settingsPages)
   const appPanelRequest = useAppContribStore((s) => s.panelRequest)
+  const appSidePanelCloseRequest = useAppContribStore((s) => s.sidePanelCloseRequest)
+  const appLaunchers = useAppContribStore((s) => s.launchers)
   const selectedRepo = useGitReposStore((s) => s.selectedRepo)
   const refreshGitStatus = useGitStore((s) => s.refreshStatus)
   const instances = useClaudeStore((s) => s.instances)
@@ -289,17 +287,6 @@ export default function App() {
   const periodicFetchEnabled = useGitSettingsStore((s) => s.periodicFetchEnabled)
   const periodicFetchIntervalMinutes = useGitSettingsStore((s) => s.periodicFetchIntervalMinutes)
   const activeTabPath = useEditorStore((s) => s.activeTabPath)
-  // The remote launcher follows the active repo: its URL comes from that
-  // repo's git remote. In a multi-repo project with no repo open yet it
-  // still shows, and opens the repo picker instead.
-  const gitRepoCount = useGitReposStore((s) => s.repos.length)
-  const gitRemoteUrl = useGitRemoteUrlStore((s) => (activeRepo ? s.urls[activeRepo] ?? null : null))
-  const gitRemoteNeedsRepoPick = !activeRepo && gitRepoCount > 1
-  const gitRemoteReady = !!gitRemoteUrl || gitRemoteNeedsRepoPick
-  const gitRemoteProvider = detectGitRemoteProvider(gitRemoteUrl ?? '')
-  useEffect(() => {
-    if (activeRepo) void useGitRemoteUrlStore.getState().refresh(activeRepo)
-  }, [activeRepo])
   useEffect(() => {
     useConfigRepoStore.getState().syncOnLaunch()
   }, [])
@@ -358,29 +345,12 @@ export default function App() {
   // it in the tab strip, same as any other tab, so the user can watch.
   function openClaudeBrowserTab(url: string) {
     // Seed the store with the URL main just loaded, before the tab (and so
-    // BrowserTab) mounts — same order git-remote uses below. Without it
+    // BrowserTab) mounts. Without it
     // BrowserTab would mount with an empty url, skip creating/registering the
     // native view it already has, and silently swallow the first manual
     // navigation the user types into that tab's address bar.
     useBrowserStore.getState().ensureTab(CLAUDE_BROWSER_ID, url)
     useEditorStore.getState().openTab({ path: buildBrowserPath(CLAUDE_BROWSER_ID), content: '', dirty: false })
-  }
-
-  // Opens the active repo's web page (from its git remote) in that repo's
-  // own browser tab. Multi-repo with no repo open: pick one first.
-  async function openGitRemote() {
-    if (!activeRepo) {
-      if (gitRepoCount > 1) useSearchStore.getState().openRepoPalette()
-      return
-    }
-    // Re-read on click so a remote changed since the repo was selected is honored.
-    const url = await useGitRemoteUrlStore.getState().refresh(activeRepo)
-    if (!url) return
-    const id = gitRemoteBrowserId(activeRepo)
-    useBrowserStore.getState().ensureTab(id, url)
-    const tab = { path: buildBrowserPath(id), content: '', dirty: false }
-    useEditorStore.getState().openTab(tab)
-    if (useGitRemoteSettingsStore.getState().closeSidePanelOnOpen) setLeftPanel(null)
   }
 
   const sidebarPercent = remToPercent(clampRem(sidebarRem, SIDEBAR_PANEL, groupPx, rootPx), groupPx, rootPx)
@@ -517,6 +487,11 @@ export default function App() {
     const next = panelForRequest(appPanelRequest)
     if (next) setLeftPanel(next)
   }, [appPanelRequest?.seq])
+
+  // vide.ui.closeSidePanel() from a store app (0 = never asked).
+  useEffect(() => {
+    if (appSidePanelCloseRequest > 0) setLeftPanel(null)
+  }, [appSidePanelCloseRequest])
 
   // Mirrors the chat panel above: driven imperatively rather than
   // conditionally unmounted (see the sidebar Panel's own comment for why —
@@ -1086,17 +1061,10 @@ export default function App() {
               active: leftPanel === 'scripts',
               onClick: togglePanel('scripts'),
             } : null,
-            'git-remote': gitRemoteReady ? {
-              id: 'git-remote',
-              icon: gitRemoteIcon(gitRemoteProvider),
-              title: gitRemoteLabel(gitRemoteProvider),
-              active: !!activeRepo && activeTabPath === buildBrowserPath(gitRemoteBrowserId(activeRepo)),
-              onClick: () => { void openGitRemote() },
-            } : null,
           }
           // Installed store apps with a panel can sit on the bar too (`app:<id>`).
           const storeBarItems = buildStoreAppBarItems({
-            apps: storeApps, runtimeErrors, panels: appPanels, projectOpen: !!projectRoot, activePanel: leftPanel,
+            apps: storeApps, runtimeErrors, panels: appPanels, launchers: appLaunchers, projectOpen: !!projectRoot, activePanel: leftPanel,
             togglePanel: (appId) => setLeftPanel((p) => (p === `app:${appId}` ? null : `app:${appId}`)),
           })
           const appItems: Record<string, ActivityBarItem | null> = { ...builtInItems, ...storeBarItems }
@@ -1110,7 +1078,7 @@ export default function App() {
           lastTemporaryAppRef.current = temporaryId
           const temporaryItem = temporaryId ? appItems[temporaryId]! : undefined
           const storeEntries = buildStoreAppEntries({
-            apps: storeApps, runtimeErrors, panels: appPanels, settingsPages: appSettingsPages,
+            apps: storeApps, runtimeErrors, panels: appPanels, launchers: appLaunchers, settingsPages: appSettingsPages,
             projectOpen: !!projectRoot, favorites: favoriteIds,
             openPanel: (appId) => setLeftPanel((p) => (p === `app:${appId}` ? null : `app:${appId}`)),
             openSettings: (appId) => useEditorStore.getState().openTab({ path: buildAppSettingsPath(appId), content: '', dirty: false }),

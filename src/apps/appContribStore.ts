@@ -9,6 +9,9 @@ export interface SettingsContrib { appId: string; title: string; component: Comp
 export interface TabKindContrib { appId: string; kind: string; title: (p: Json) => string; component: ComponentType<{ params: Json }> }
 export interface CommandContrib { appId: string; command: Command }
 export interface NotificationContrib { appId: string; id: string; text: string; onClick?: () => void }
+// An activity-bar button that runs an action instead of opening a panel (one per app).
+export interface LauncherContrib { appId: string; title: string; icon: ComponentType; onClick: () => void; visible: boolean; active: boolean }
+export type LauncherPatch = Partial<Pick<LauncherContrib, 'title' | 'icon' | 'visible' | 'active'>>
 
 interface AppContribState {
   apps: AppInfo[]
@@ -19,6 +22,9 @@ interface AppContribState {
   tabKinds: Record<string, TabKindContrib>
   commands: CommandContrib[]
   notifications: NotificationContrib[]
+  launchers: Record<string, LauncherContrib>
+  // Bumped by vide.ui.closeSidePanel(); App closes the left side panel.
+  sidePanelCloseRequest: number
   // Set by vide.ui.openPanel(); App reads it and opens the app's panel.
   panelRequest: { appId: string; seq: number } | null
 
@@ -26,6 +32,7 @@ interface AppContribState {
   clearApp(appId: string): void
   setRuntimeError(appId: string, msg: string | null): void
   requestPanel(appId: string): void
+  requestSidePanelClose(): void
 
   registerPanel(p: PanelContrib): void
   unregisterPanel(appId: string): void
@@ -38,6 +45,9 @@ interface AppContribState {
   unregisterCommand(commandId: string): void
   registerNotification(n: NotificationContrib): void
   unregisterNotification(appId: string, id: string): void
+  registerLauncher(l: LauncherContrib): void
+  updateLauncher(appId: string, patch: LauncherPatch): void
+  unregisterLauncher(appId: string): void
 }
 
 function omitKey<T>(rec: Record<string, T>, key: string): Record<string, T> {
@@ -58,6 +68,8 @@ export const useAppContribStore = create<AppContribState>((set) => ({
   tabKinds: {},
   commands: [],
   notifications: [],
+  launchers: {},
+  sidePanelCloseRequest: 0,
   panelRequest: null,
 
   setApps: (apps) => set({ apps }),
@@ -68,10 +80,12 @@ export const useAppContribStore = create<AppContribState>((set) => ({
       tabKinds: omitApp(s.tabKinds, appId),
       commands: s.commands.filter((c) => c.appId !== appId),
       notifications: s.notifications.filter((n) => n.appId !== appId),
+      launchers: omitKey(s.launchers, appId),
       runtimeErrors: omitKey(s.runtimeErrors, appId),
     })),
   setRuntimeError: (appId, msg) =>
     set((s) => ({ runtimeErrors: msg === null ? omitKey(s.runtimeErrors, appId) : { ...s.runtimeErrors, [appId]: msg } })),
+  requestSidePanelClose: () => set((s) => ({ sidePanelCloseRequest: s.sidePanelCloseRequest + 1 })),
   requestPanel: (appId) => set((s) => ({ panelRequest: { appId, seq: (s.panelRequest?.seq ?? 0) + 1 } })),
 
   registerPanel: (p) => set((s) => ({ panels: { ...s.panels, [p.appId]: p } })),
@@ -88,4 +102,8 @@ export const useAppContribStore = create<AppContribState>((set) => ({
     set((s) => ({ notifications: [...s.notifications.filter((x) => !(x.appId === n.appId && x.id === n.id)), n] })),
   unregisterNotification: (appId, id) =>
     set((s) => ({ notifications: s.notifications.filter((x) => !(x.appId === appId && x.id === id)) })),
+  registerLauncher: (l) => set((s) => ({ launchers: { ...s.launchers, [l.appId]: l } })),
+  updateLauncher: (appId, patch) =>
+    set((s) => (s.launchers[appId] ? { launchers: { ...s.launchers, [appId]: { ...s.launchers[appId], ...patch } } } : s)),
+  unregisterLauncher: (appId) => set((s) => ({ launchers: omitKey(s.launchers, appId) })),
 }))

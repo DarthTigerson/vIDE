@@ -20,7 +20,7 @@ describe('appSettings', () => {
   })
 
   it('has a setter for every app except the GitHub/GitLab one', () => {
-    for (const id of MOVABLE_APP_IDS) expect(appEnabledSetter(id) === null).toBe(id === 'git-remote')
+    for (const id of MOVABLE_APP_IDS) expect(appEnabledSetter(id)).toBeTypeOf('function')
   })
 
   it("flips the app's Enable switch", () => {

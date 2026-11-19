@@ -174,7 +174,6 @@ export function createMobileApi(wsUrl: string): Window['api'] {
     gitGraph: invoke('git:graph'),
     gitBranches: invoke('git:branches'),
     gitDefaultBranch: invoke('git:defaultBranch'),
-    gitRemoteWebUrl: invoke('git:remoteWebUrl'),
     gitBranchList: invoke('git:branchList'),
     gitBranchDiff: invoke('git:branchDiff'),
     gitShowStat: invoke('git:showStat'),

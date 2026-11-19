@@ -27,6 +27,10 @@ flushSync(() => root.render(<SyncSplash palette={DEFAULT_SPLASH_PALETTE} />))
 const { runPreMountSync, preMountSyncResult } = await import('./lib/preBootSync')
 await runPreMountSync()
 
+// After the pull, so a value synced in from another machine is carried too.
+const { migrateGitRemoteSettings } = await import('./lib/gitpageMigration')
+try { migrateGitRemoteSettings(localStorage) } catch { /* storage unavailable */ }
+
 // A release marked critical was seen during an earlier session: block the app
 // until it's installed (src/lib/updateSeverity.ts). Mobile has no install.
 const { requiredUpdateVersion } = await import('./lib/updateSeverity')

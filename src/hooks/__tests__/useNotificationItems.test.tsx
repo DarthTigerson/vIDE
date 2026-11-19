@@ -387,7 +387,7 @@ describe('store update notices', () => {
   describe('moved-to-Store notice', () => {
     beforeEach(() => {
       localStorage.clear()
-      useStoreStore.setState({ registry: null, movedNoticeDismissed: false, movedNoticeOpen: false })
+      useStoreStore.setState({ registry: null, movedNoticeDismissed: [], movedNoticeOpen: false })
       useAppContribStore.setState({ apps: [] })
     })
     const moved: RegistryState = {
@@ -405,8 +405,8 @@ describe('store update notices', () => {
       item.onClick?.()
       expect(useStoreStore.getState().movedNoticeOpen).toBe(true)
       item.onDismiss?.()
-      expect(useStoreStore.getState().movedNoticeDismissed).toBe(true)
-      expect(localStorage.getItem('vide:store:movedNoticeDismissed')).toBe('true')
+      expect(useStoreStore.getState().movedNoticeDismissed).toContain('docker')
+      expect(JSON.parse(localStorage.getItem('vide:store:movedNoticeDismissed')!)).toContain('docker')
     })
 
     it('stays silent when the built-in was not enabled', () => {
