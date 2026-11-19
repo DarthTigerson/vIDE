@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useLatestUsage } from './useLatestUsage'
 import { PaceBar } from './UsageStats'
 import { SESSION_WINDOW_HOURS, WEEKLY_WINDOW_HOURS } from './pace'
-import { CheckableMenuButton, MenuButton, MenuDivider, MenuHeading } from '@/components/ui/MenuItems'
+import { CheckableMenuButton, MenuButton, SubMenuButton } from '@/components/ui/MenuItems'
 import { useAppContribStore } from '@/apps/appContribStore'
 import { AppErrorBoundary } from '@/apps/AppErrorBoundary'
 import type { UsageWindow } from '@/apps/videApiTypes'
@@ -145,12 +145,12 @@ export function UsagePanel() {
           style={{ left: menu.x, top: menu.y }}
           onClick={(e) => e.stopPropagation()}
         >
-          <MenuHeading>View</MenuHeading>
-          <CheckableMenuButton checked={shownView === 'bars'} onClick={() => pick('bars')}>Bars</CheckableMenuButton>
-          {Object.values(usageViews).map((v) => (
-            <CheckableMenuButton key={v.appId} checked={shownView === `app:${v.appId}`} onClick={() => pick(`app:${v.appId}`)}>{v.title}</CheckableMenuButton>
-          ))}
-          <MenuDivider />
+          <SubMenuButton label="View">
+            <CheckableMenuButton checked={shownView === 'bars'} onClick={() => pick('bars')}>Bars</CheckableMenuButton>
+            {Object.values(usageViews).map((v) => (
+              <CheckableMenuButton key={v.appId} checked={shownView === `app:${v.appId}`} onClick={() => pick(`app:${v.appId}`)}>{v.title}</CheckableMenuButton>
+            ))}
+          </SubMenuButton>
           {appView && settingsPages[appView.appId] && <MenuButton onClick={openPreferences}>Preferences…</MenuButton>}
           <MenuButton onClick={openStore}>Store…</MenuButton>
         </div>,
