@@ -144,10 +144,11 @@ describe('StorePage', () => {
   it('shows the site filters in order with counts', () => {
     render(<StorePage />)
     const titles = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
-    expect(titles.slice(0, 3)).toEqual(['Category', 'Made by', 'Applications'])
+    expect(titles.slice(0, 2)).toEqual(['Category', 'Made by'])
+    expect(titles).not.toContain('Applications')
     expect(screen.getByRole('button', { name: /^Community/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^Made by vSuite/ }).textContent).toBe('Made by vSuite2')
-    expect(screen.getByRole('checkbox', { name: 'vIDE' })).toBeChecked()
+    expect(screen.queryByRole('checkbox', { name: 'vIDE' })).toBeNull()
   })
 
   it('filters by Made by and clears back to the defaults', () => {
@@ -161,12 +162,11 @@ describe('StorePage', () => {
     expect(screen.getByRole('heading', { name: 'Docker' })).toBeInTheDocument()
   })
 
-  it('hides apps for other applications until vIDE is unticked', () => {
+  it('never shows apps for other applications', () => {
     setRegistry({ ...ok, apps: [listing('docker', 'Docker', 'x'), listing('web', 'Web only', 'y', { targets: ['site'] })] } as RegistryState)
     render(<StorePage />)
+    expect(screen.getByRole('heading', { name: 'Docker' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Web only' })).toBeNull()
-    fireEvent.click(screen.getByRole('checkbox', { name: 'vIDE' }))
-    expect(screen.getByRole('heading', { name: 'Web only' })).toBeInTheDocument()
   })
 
   it('filters by search and says when nothing matches', () => {
