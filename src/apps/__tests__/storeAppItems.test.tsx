@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
-import { buildStoreAppEntries, buildStoreDisabledEntries, buildStoreAppBarItems, storeAppPanelLeavesOnProjectClose, panelForRequest, storeEntriesHaveBadge } from '../storeAppItems'
+import { buildStoreAppEntries, buildStoreDisabledEntries, isUsageViewApp, buildStoreAppBarItems, storeAppPanelLeavesOnProjectClose, panelForRequest, storeEntriesHaveBadge } from '../storeAppItems'
 import type { AppInfo } from '../../../electron/apps/appTypes'
+import type { RegistryState } from '@/types/api'
 
 const app = (over: Partial<AppInfo>): AppInfo => ({
   id: 'hello', name: 'Hello', version: '1.0.0', source: 'store', rendererUrl: '', hasMain: false,
@@ -18,6 +19,15 @@ describe('buildStoreAppEntries', () => {
     expect(buildStoreAppEntries({ ...base, apps: [app({})], panels })[0]).toMatchObject({ favoritable: true, favorite: false })
     expect(buildStoreAppEntries({ ...base, apps: [app({})], panels, favorites: ['app:hello'] })[0].favorite).toBe(true)
   })
+  it('never lists a usage view, even with a panel, failed or disabled', () => {
+    const isUsageView = (id: string) => id === 'hello'
+    expect(buildStoreAppEntries({ ...base, apps: [app({})], isUsageView })).toEqual([])
+    const panels = { hello: { appId: 'hello', title: 'Hello', icon: () => null, component: () => null, requiresProject: false } }
+    expect(buildStoreAppEntries({ ...base, apps: [app({})], panels, isUsageView })).toEqual([])
+    expect(buildStoreAppEntries({ ...base, apps: [app({ status: 'failed', error: 'bad' })], isUsageView })).toEqual([])
+    const disabled = { apps: [app({ status: 'disabled' })], setEnabled: vi.fn(), uninstall: vi.fn(), isUsageView }
+    expect(buildStoreDisabledEntries(disabled)).toEqual([])
+  })
   it('lists a failed app inert with the error as tooltip', () => {
     const [e] = buildStoreAppEntries({ ...base, apps: [app({ status: 'failed', error: 'bad' })] })
     expect(e.subtitle).toBe('Failed to load')
@@ -29,6 +39,20 @@ describe('buildStoreAppEntries', () => {
     const panels = { hello: { appId: 'hello', title: 'Hello', icon: () => null, component: () => null, requiresProject: true } }
     expect(buildStoreAppEntries({ ...base, apps: [app({})], panels, projectOpen: false })).toEqual([])
     expect(buildStoreAppEntries({ ...base, apps: [app({})], panels })[0].onOpen).toBeTypeOf('function')
+  })
+})
+
+describe('isUsageViewApp', () => {
+  const view = { appId: 'gauge', title: 'Gauge', component: () => null }
+  const registry = (category: string) =>
+    ({ status: 'ok', apps: [{ id: 'gauge', category }] }) as unknown as RegistryState
+  it("is true for an app in the Store's usage category, loaded or not", () => {
+    expect(isUsageViewApp('gauge', registry('usage'), {})).toBe(true)
+    expect(isUsageViewApp('gauge', registry('applications'), {})).toBe(false)
+  })
+  it('is true for an app that registered a usage view (installed from a file)', () => {
+    expect(isUsageViewApp('gauge', null, { gauge: view })).toBe(true)
+    expect(isUsageViewApp('gauge', null, {})).toBe(false)
   })
 })
 

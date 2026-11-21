@@ -3,7 +3,22 @@ import type { AppInfo } from '../../electron/apps/appTypes'
 import type { AllAppsEntry, DisabledAppEntry } from '@/components/AllApps/AllAppsPanel'
 import { StoreBagIcon } from '@/components/Store/storeUi'
 import type { ActivityBarItem } from '@/components/ActivityBar/ActivityBar'
-import type { LauncherContrib, PanelContrib, SettingsContrib } from './appContribStore'
+import type { LauncherContrib, PanelContrib, SettingsContrib, UsageViewContrib } from './appContribStore'
+import type { RegistryState } from '@/types/api'
+
+// Usage views (gauges) are display tools, not apps: they are in use while the
+// usage panel shows them and removed by uninstalling from the Store, so All
+// Apps never lists them, not even as disabled or failed. Known by the Store
+// listing's 'usage' category, or, for an app installed from a file, by the
+// view it registered.
+export function isUsageViewApp(
+  appId: string,
+  registry: RegistryState | null,
+  usageViews: Record<string, UsageViewContrib>
+): boolean {
+  if (usageViews[appId]) return true
+  return registry?.status === 'ok' && registry.apps.some((a) => a.id === appId && a.category === 'usage')
+}
 
 export interface StoreAppItemsInput {
   apps: AppInfo[]
@@ -12,6 +27,8 @@ export interface StoreAppItemsInput {
   settingsPages: Record<string, SettingsContrib>
   // Apps with an activity-bar launcher instead of a panel (a panel wins if both).
   launchers?: Record<string, LauncherContrib>
+  // Usage views (see isUsageViewApp), left out of the list.
+  isUsageView?: (appId: string) => boolean
   projectOpen: boolean
   // Favorite ids (`app:<appId>` for store apps); a store app listed here shows a filled star.
   favorites?: readonly string[]
@@ -29,7 +46,7 @@ export function buildStoreAppEntries(input: StoreAppItemsInput): AllAppsEntry[] 
   const entries: AllAppsEntry[] = []
   for (const app of input.apps) {
     // A switched-off app is listed in the Disabled section instead.
-    if (app.status === 'disabled') continue
+    if (app.status === 'disabled' || input.isUsageView?.(app.id)) continue
     const panel = input.panels[app.id]
     const launcher = panel ? undefined : input.launchers?.[app.id]
     const hasSettings = !!input.settingsPages[app.id]
@@ -67,9 +84,10 @@ export function buildStoreDisabledEntries(input: {
   apps: AppInfo[]
   setEnabled: (appId: string, enabled: boolean) => Promise<{ ok: true } | { ok: false; error: string }>
   uninstall: (appId: string) => Promise<{ ok: true } | { ok: false; error: string }>
+  isUsageView?: (appId: string) => boolean
 }): DisabledAppEntry[] {
   return input.apps
-    .filter((app) => app.status === 'disabled')
+    .filter((app) => app.status === 'disabled' && !input.isUsageView?.(app.id))
     .map((app) => ({
       id: `app:${app.id}`,
       title: app.name,
