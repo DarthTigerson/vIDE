@@ -485,7 +485,9 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   commitMessageGenerate: (diff: string, model: string, customPrompt: string) =>
-    ipcRenderer.invoke('commitMessage:generate', diff, model, customPrompt) as Promise<string | null>,
+    ipcRenderer.invoke('commitMessage:generate', diff, model, customPrompt) as Promise<
+      { message: string } | { error: 'auth' | 'failed' }
+    >,
 
   inlineEditStart: (payload: import('./inlineEdit').InlineEditStartPayload) =>
     ipcRenderer.send('inlineEdit:start', payload),
