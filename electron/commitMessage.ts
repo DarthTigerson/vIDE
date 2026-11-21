@@ -23,6 +23,17 @@ export function postProcessCommitMessage(raw: string): string | null {
   return text || null
 }
 
+// What generate() resolves with. 'auth' is the CLI saying its login is gone
+// (expired OAuth token, logged out, rejected key) — the one failure the user
+// can fix themselves with /login, so the renderer surfaces it differently.
+export type CommitMessageResult = { message: string } | { error: 'auth' | 'failed' }
+
+const AUTH_FAILURE = /\/login|not logged in|invalid api key|oauth token|authentication_error|\b401\b/i
+
+export function isAuthFailure(output: string): boolean {
+  return AUTH_FAILURE.test(output)
+}
+
 import { BrowserWindow, ipcMain } from 'electron'
 import { spawn, type ChildProcessByStdio } from 'child_process'
 import type { Readable, Writable } from 'stream'
@@ -54,13 +65,13 @@ export class CommitMessageManager {
     diff: string,
     model: string,
     customPrompt: string
-  ): Promise<string | null> {
+  ): Promise<CommitMessageResult> {
     this.currentByWindow.get(windowId)?.kill()
 
-    if (!diff.trim()) return null
+    if (!diff.trim()) return { error: 'failed' }
 
     const claudePath = await resolveClaudePath()
-    if (!claudePath) return null
+    if (!claudePath) return { error: 'failed' }
 
     return new Promise((resolve) => {
       try {
@@ -81,9 +92,10 @@ export class CommitMessageManager {
         this.currentByWindow.set(windowId, proc)
 
         let stdout = ''
+        let stderr = ''
         let settled = false
 
-        const finish = (result: string | null) => {
+        const finish = (result: CommitMessageResult) => {
           if (settled) return
           settled = true
           clearTimeout(timer)
@@ -93,17 +105,24 @@ export class CommitMessageManager {
 
         const timer = setTimeout(() => {
           proc.kill()
-          finish(null)
+          finish({ error: 'failed' })
         }, TIMEOUT_MS)
 
         proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString() })
-        proc.on('error', () => finish(null))
+        // `claude -p` prints its auth errors on stdout or stderr depending on
+        // the version, so both are checked.
+        proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
+        proc.on('error', () => finish({ error: 'failed' }))
         proc.on('close', (code) => {
-          if (code !== 0) { finish(null); return }
-          finish(postProcessCommitMessage(stdout))
+          if (code !== 0) {
+            finish({ error: isAuthFailure(stdout + stderr) ? 'auth' : 'failed' })
+            return
+          }
+          const message = postProcessCommitMessage(stdout)
+          finish(message ? { message } : { error: 'failed' })
         })
       } catch {
-        resolve(null)
+        resolve({ error: 'failed' })
       }
     })
   }

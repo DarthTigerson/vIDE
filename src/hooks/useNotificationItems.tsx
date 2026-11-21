@@ -2,7 +2,8 @@ import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { useUsageAlertStore } from '@/stores/usageAlertStore'
 import { useUpdateStore } from '@/stores/updateStore'
-import { useGitStore } from '@/stores/gitStore'
+import { COMMIT_MESSAGE_LOGIN_ERROR, useGitStore } from '@/stores/gitStore'
+import { startClaudeLogin } from '@/lib/claudeLogin'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitPanelOpenAlertStore } from '@/stores/gitPanelOpenAlertStore'
 import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
@@ -120,8 +121,21 @@ export function useNotificationItems(): NotificationItem[] {
 
   // Same shape as the commit-error rows above: lives in gitStore until the
   // message is edited, a commit succeeds, or the next generation starts.
+  // An expired login gets its own row: clicking it (or Log in) opens a Claude
+  // session that runs /login.
   for (const [cwd, repoState] of Object.entries(gitRepos)) {
     if (!repoState.commitMessageError) continue
+    if (repoState.commitMessageError === COMMIT_MESSAGE_LOGIN_ERROR) {
+      items.push({
+        id: `commit-message-error-${cwd}`,
+        text: COMMIT_MESSAGE_LOGIN_ERROR,
+        disabled: false,
+        icon: <ClaudeIcon />,
+        onClick: startClaudeLogin,
+        action: { label: 'Log in', onClick: startClaudeLogin },
+      })
+      continue
+    }
     const repoName = cwd.split('/').pop()
     items.push({
       id: `commit-message-error-${cwd}`,

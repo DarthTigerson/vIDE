@@ -50,7 +50,7 @@ import type { ActivityBarItem } from './components/ActivityBar/ActivityBar'
 import { BatteryPill } from './components/TitleBar/BatteryPill'
 import { AllAppsPanel, type AllAppsEntry, type DisabledAppEntry } from './components/AllApps/AllAppsPanel'
 import { useAppContribStore } from './apps/appContribStore'
-import { buildStoreAppEntries, buildStoreDisabledEntries, buildStoreAppBarItems, storeAppPanelLeavesOnProjectClose, panelForRequest, storeEntriesHaveBadge } from './apps/storeAppItems'
+import { buildStoreAppEntries, buildStoreDisabledEntries, isUsageViewApp, buildStoreAppBarItems, storeAppPanelLeavesOnProjectClose, panelForRequest, storeEntriesHaveBadge } from './apps/storeAppItems'
 import { StoreAppPanel } from './apps/StoreAppPanel'
 import { useAppFavoritesStore } from './stores/appFavoritesStore'
 import { APPEND_TARGET, MOVABLE_APP_IDS, isMovableAppId, pickTemporaryApp, splitApps, type MovableAppId } from './lib/appFavorites'
@@ -132,6 +132,7 @@ import { LlamaPanel } from './components/Llama/LlamaPanel'
 import { useNotificationSoundSettingsStore, playNotificationSound } from './stores/notificationSoundSettingsStore'
 import { useConfigRepoStore } from './stores/configRepoStore'
 import { startThemeShuffle } from './stores/themeShuffleStore'
+import { useStoreStore } from './stores/storeStore'
 import type { AssistantKind, MemoryBreakdown } from './types/api'
 
 // Rendered once at the app root rather than per-TabBar: Cmd+W is handled here,
@@ -200,6 +201,8 @@ export default function App() {
   const appPanelRequest = useAppContribStore((s) => s.panelRequest)
   const appSidePanelCloseRequest = useAppContribStore((s) => s.sidePanelCloseRequest)
   const appLaunchers = useAppContribStore((s) => s.launchers)
+  const appUsageViews = useAppContribStore((s) => s.usageViews)
+  const storeRegistry = useStoreStore((s) => s.registry)
   const selectedRepo = useGitReposStore((s) => s.selectedRepo)
   const refreshGitStatus = useGitStore((s) => s.refreshStatus)
   const instances = useClaudeStore((s) => s.instances)
@@ -1077,8 +1080,9 @@ export default function App() {
           const temporaryId = pickTemporaryApp(otherIds, otherIds.find((id) => appItems[id]!.active), lastTemporaryAppRef.current)
           lastTemporaryAppRef.current = temporaryId
           const temporaryItem = temporaryId ? appItems[temporaryId]! : undefined
+          const isUsageView = (appId: string) => isUsageViewApp(appId, storeRegistry, appUsageViews)
           const storeEntries = buildStoreAppEntries({
-            apps: storeApps, runtimeErrors, panels: appPanels, launchers: appLaunchers, settingsPages: appSettingsPages,
+            apps: storeApps, runtimeErrors, panels: appPanels, launchers: appLaunchers, isUsageView, settingsPages: appSettingsPages,
             projectOpen: !!projectRoot, favorites: favoriteIds,
             openPanel: (appId) => setLeftPanel((p) => (p === `app:${appId}` ? null : `app:${appId}`)),
             openSettings: (appId) => useEditorStore.getState().openTab({ path: buildAppSettingsPath(appId), content: '', dirty: false }),
@@ -1087,6 +1091,7 @@ export default function App() {
           })
           const storeDisabledEntries = buildStoreDisabledEntries({
             apps: storeApps,
+            isUsageView,
             setEnabled: (appId, enabled) => window.api.appsSetEnabled(appId, enabled),
             uninstall: (appId) => window.api.appsUninstall(appId),
           })

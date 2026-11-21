@@ -71,7 +71,7 @@
     "dompurify": "^3.4.17"
   },
   "allowScripts": {
-    "electron@45.2.3": true
+    "electron@45.3.4": true
   },
   "build": {
     "appId": "com.thomasbonnici.vide",
@@ -93,7 +93,9 @@
     "protocols": [
       {
         "name": "vIDE",
-        "schemes": ["vide"]
+        "schemes": [
+          "vide"
+        ]
       }
     ],
     "mac": {

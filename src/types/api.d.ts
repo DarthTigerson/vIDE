@@ -502,7 +502,11 @@ declare global {
       autocompleteGetState: () => Promise<AutocompleteRuntimeState>
       onAutocompleteState: (cb: (state: AutocompleteRuntimeState) => void) => () => void
 
-      commitMessageGenerate: (diff: string, model: string, customPrompt: string) => Promise<string | null>
+      commitMessageGenerate: (
+        diff: string,
+        model: string,
+        customPrompt: string
+      ) => Promise<{ message: string } | { error: 'auth' | 'failed' }>
 
       inlineEditStart: (payload: InlineEditStartPayload) => void
       inlineEditCancel: () => void

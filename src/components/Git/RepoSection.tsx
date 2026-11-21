@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { MouseEvent, ReactNode } from 'react'
 import type { GitFileEntry } from '@/types/index'
-import { useGitStore, useRepoGitState } from '@/stores/gitStore'
+import { COMMIT_MESSAGE_ERROR, COMMIT_MESSAGE_LOGIN_ERROR, useGitStore, useRepoGitState } from '@/stores/gitStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { useGitGraphStore } from '@/stores/gitGraphStore'
 import { buildGitDiffPath } from './paths'
@@ -174,7 +174,7 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
   const isExpanded = !showHeader || repo === selectedRepo
   const closeRepo = useGitOpenReposStore((s) => s.closeRepo)
   const closeAll = useGitOpenReposStore((s) => s.closeAll)
-  const { branch, status, commitMessage, commitError, commitMessageError, commandStatus, aheadBehind } = useRepoGitState(repo)
+  const { branch, status, commitMessage, commandStatus, aheadBehind } = useRepoGitState(repo)
   // getAheadBehind() returns null when the branch has no upstream at all, so
   // there is no meaningful count to show and Publish Branch — not Push — is
   // the action that applies. Treat that as "nothing pending" rather than
@@ -219,15 +219,15 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
     setCommitMessageError(repo, null)
     try {
       const diff = await window.api.gitStagedDiff(repo)
-      const message = await window.api.commitMessageGenerate(diff, commitMessageModel, commitMessagePrompt)
-      if (message) {
-        setCommitMessage(repo, message)
+      const result = await window.api.commitMessageGenerate(diff, commitMessageModel, commitMessagePrompt)
+      if ('message' in result) {
+        setCommitMessage(repo, result.message)
       } else {
-        setCommitMessageError(repo, 'Could not generate a commit message')
+        setCommitMessageError(repo, result.error === 'auth' ? COMMIT_MESSAGE_LOGIN_ERROR : COMMIT_MESSAGE_ERROR)
       }
     } catch (error) {
       console.error('commit message generation failed', error)
-      setCommitMessageError(repo, 'Could not generate a commit message')
+      setCommitMessageError(repo, COMMIT_MESSAGE_ERROR)
     } finally {
       setGeneratingMessage(false)
     }
@@ -405,8 +405,6 @@ export function RepoSection({ repo, showHeader }: { repo: string; showHeader: bo
             </button>
           )}
         </div>
-        {commitMessageError && <p className="text-xs text-red-400">{commitMessageError}</p>}
-        {commitError && <p className="text-xs text-red-400">{commitError}</p>}
         <SplitCommandButton
           label="Commit"
           disabled={!commitMessage.trim() || status.staged.length === 0}

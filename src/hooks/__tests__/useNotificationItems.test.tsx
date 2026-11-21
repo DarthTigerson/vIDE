@@ -3,7 +3,8 @@ import { renderHook, act } from '@testing-library/react'
 import { useNotificationItems } from '../useNotificationItems'
 import { useUsageAlertStore } from '@/stores/usageAlertStore'
 import { useUpdateStore } from '@/stores/updateStore'
-import { useGitStore, emptyRepoGitState } from '@/stores/gitStore'
+import { useGitStore, emptyRepoGitState, COMMIT_MESSAGE_LOGIN_ERROR } from '@/stores/gitStore'
+import { startClaudeLogin } from '@/lib/claudeLogin'
 import { useGitReposStore } from '@/stores/gitReposStore'
 import { useGitPanelOpenAlertStore } from '@/stores/gitPanelOpenAlertStore'
 import { useLlamaSettingsStore } from '@/stores/llamaSettingsStore'
@@ -15,6 +16,8 @@ import { useStoreStore } from '@/stores/storeStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { useAppContribStore } from '@/apps/appContribStore'
 import type { RegistryState } from '@/types/api'
+
+vi.mock('@/lib/claudeLogin', () => ({ startClaudeLogin: vi.fn() }))
 
 beforeEach(() => {
   useUsageAlertStore.setState({ alerts: [] })
@@ -188,6 +191,20 @@ describe('useNotificationItems', () => {
     act(() => item!.onClick!())
     expect(useGitReposStore.getState().selectedRepo).toBe('/repo/one')
     expect(useGitPanelOpenAlertStore.getState().openRequest).toBe(1)
+  })
+
+  it('turns an expired-login commit-message error into a row that starts /login', () => {
+    useGitStore.setState({
+      repos: { '/repo/one': { ...emptyRepoGitState, commitMessageError: COMMIT_MESSAGE_LOGIN_ERROR } },
+    })
+    const { result } = renderHook(() => useNotificationItems())
+    const item = result.current.find((i) => i.id === 'commit-message-error-/repo/one')
+    expect(item?.text).toBe(COMMIT_MESSAGE_LOGIN_ERROR)
+    expect(item?.action?.label).toBe('Log in')
+    act(() => item?.onClick?.())
+    expect(startClaudeLogin).toHaveBeenCalledTimes(1)
+    act(() => item?.action?.onClick())
+    expect(startClaudeLogin).toHaveBeenCalledTimes(2)
   })
 
   it('includes one commit-message-error item per affected repo only', () => {
