@@ -19,6 +19,7 @@
     "electron/searchShared.ts",
     "electron/searchTypes.ts",
     "electron/autocomplete/catalog.ts",
+    "electron/tts/catalog.ts",
     "electron/storeRegistry.ts",
     "electron/apps/appManifest.ts",
     "electron/apps/appTypes.ts",

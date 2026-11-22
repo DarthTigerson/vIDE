@@ -4,29 +4,11 @@ import { CLAUDE_MODELS } from '@/stores/claudeModels'
 import { useInlineEditSettingsStore } from '@/stores/inlineEditSettingsStore'
 import { useCommitMessageSettingsStore } from '@/stores/commitMessageSettingsStore'
 import { useUsagePassiveSettingsStore } from '@/stores/usagePassiveSettingsStore'
-import { useNotificationSoundSettingsStore, NOTIFICATION_SOUND_OPTIONS, playNotificationSound } from '@/stores/notificationSoundSettingsStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
 import { Select } from '@/components/ui/Select'
 import { FeatureBlock, SettingRow } from './FeatureBlock'
 import { InlineEditPreview, CommitMessagePreview } from './previews/claudePreviews'
-
-function SpeakerIcon() {
-  return (
-    <svg
-      className="shrink-0"
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path d="M4 9.5V14.5H8L13 18.5V5.5L8 9.5H4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-      <path d="M16.5 8.5C17.5 9.5 18 10.7 18 12C18 13.3 17.5 14.5 16.5 15.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M19 6C20.7 7.7 21.5 9.8 21.5 12C21.5 14.2 20.7 16.3 19 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  )
-}
 
 export function ClaudeSettingsPage() {
   const claudeEnabled = useModelSettingsStore((s) => s.enabled.claude)
@@ -43,10 +25,6 @@ export function ClaudeSettingsPage() {
   const setCommitMessageModel = useCommitMessageSettingsStore((s) => s.setModel)
   const commitMessagePrompt = useCommitMessageSettingsStore((s) => s.prompt)
   const setCommitMessagePrompt = useCommitMessageSettingsStore((s) => s.setPrompt)
-  const notificationSoundEnabled = useNotificationSoundSettingsStore((s) => s.enabled)
-  const setNotificationSoundEnabled = useNotificationSoundSettingsStore((s) => s.setEnabled)
-  const notificationSoundId = useNotificationSoundSettingsStore((s) => s.soundId)
-  const setNotificationSoundId = useNotificationSoundSettingsStore((s) => s.setSoundId)
 
   useEffect(() => {
     useUsagePassiveSettingsStore.getState().init()
@@ -65,35 +43,6 @@ export function ClaudeSettingsPage() {
           description="Show Claude Code in the model dropdown."
           toggle={{ checked: claudeEnabled, onChange: (value) => setModelEnabled('claude', value), label: 'Claude' }}
         />
-
-        <FeatureBlock
-          title="Done sound"
-          description="Play a sound when Claude finishes responding. Claude only, for now."
-          toggle={{ checked: notificationSoundEnabled, onChange: setNotificationSoundEnabled, label: 'Play sound when Claude is done' }}
-        >
-          <SettingRow label="Sound" htmlFor="notification-sound-select">
-            <div className="flex items-center gap-2">
-              <div className="w-44">
-                <Select
-                  id="notification-sound-select"
-                  value={notificationSoundId}
-                  onChange={setNotificationSoundId}
-                  options={NOTIFICATION_SOUND_OPTIONS.map((s) => ({ value: s.id, label: s.label }))}
-                  ariaLabel="Sound"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => playNotificationSound(notificationSoundId)}
-                aria-label="Test sound"
-                title="Test sound"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-fg transition-colors hover:border-fg-subtle"
-              >
-                <SpeakerIcon />
-              </button>
-            </div>
-          </SettingRow>
-        </FeatureBlock>
 
         <FeatureBlock
           title="Inline edit (⌘K)"

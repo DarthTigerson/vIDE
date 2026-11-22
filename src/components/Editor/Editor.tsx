@@ -91,7 +91,9 @@ import {
   STORE_SETTINGS_TAB_PATH,
   AGENT_TOOLING_SETTINGS_TAB_PATH,
   LLAMA_SETTINGS_TAB_PATH,
+  SOUND_SETTINGS_TAB_PATH,
 } from '@/components/Settings/paths'
+import { SoundSettingsPage } from '@/components/Settings/SoundSettingsPage'
 import { TerminalTab } from '@/components/Terminal/TerminalTab'
 import { BrowserTab } from '@/components/Browser/BrowserTab'
 import { DisplayPage } from '@/components/Settings/DisplayPage'
@@ -717,6 +719,8 @@ function EditorPane({ paneId }: { paneId: string }) {
             <EditorSettingsPage />
           ) : activeTab.path === FILE_TREE_SETTINGS_TAB_PATH ? (
             <FileTreeSettingsPage />
+          ) : activeTab.path === SOUND_SETTINGS_TAB_PATH ? (
+            <SoundSettingsPage />
           ) : activeTab.path === ABOUT_SETTINGS_TAB_PATH ? (
             <AboutSettingsPage />
           ) : activeTab.path === BROWSER_SETTINGS_TAB_PATH ? (

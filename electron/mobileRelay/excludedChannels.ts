@@ -63,6 +63,8 @@ export const EXCLUDED_CHANNELS = new Set<string>([
   'autocomplete:configure', 'autocomplete:start', 'autocomplete:stop', 'autocomplete:getState',
   // Local Llama server lifecycle — starts/stops a long-running model process (and reads its memory use and output log) on this machine
   'graphify:getInstall', 'graphify:install', 'llama:isAvailable', 'llama:start', 'llama:stop', 'llama:getMemoryUsage', 'llama:getLog', 'llama:getInstall', 'llama:install',
+  // Local speech engine and voices (Settings › Sound & Voice): installs and synthesizes on this machine; playback is the desktop's
+  'tts:getInstall', 'tts:install', 'tts:listVoices', 'tts:installVoice', 'tts:removeVoice', 'tts:speak', 'tts:stop',
 
   // App-level operations
   'update:restart',  // quits the desktop app

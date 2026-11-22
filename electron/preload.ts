@@ -137,6 +137,13 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('claude:busy', handler)
     return () => ipcRenderer.removeListener('claude:busy', handler)
   },
+  // Fired by the Stop hook when a Claude/Rocky turn finishes, with the
+  // reply's text (claudeStop.ts) — drives the done sound / speaking mode.
+  onClaudeTurnDone: (cb: (instanceId: string, text: string) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, instanceId: string, text: string) => cb(instanceId, text)
+    ipcRenderer.on('claude:turnDone', handler)
+    return () => ipcRenderer.removeListener('claude:turnDone', handler)
+  },
   onBrowserOpenExternalUrl: (cb: (url: string) => void) => {
     const handler = (_: Electron.IpcRendererEvent, url: string) => cb(url)
     ipcRenderer.on('browser:open-external-url', handler)
@@ -606,6 +613,24 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('llama:installProgress', handler)
     return () => ipcRenderer.removeListener('llama:installProgress', handler)
   },
+  // Local speech (Settings › Sound & Voice), electron/tts/manager.ts.
+  ttsGetInstall: () => ipcRenderer.invoke('tts:getInstall'),
+  ttsInstall: () => ipcRenderer.invoke('tts:install'),
+  onTtsInstallProgress: (cb: (received: number, total: number) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, received: number, total: number) => cb(received, total)
+    ipcRenderer.on('tts:installProgress', handler)
+    return () => ipcRenderer.removeListener('tts:installProgress', handler)
+  },
+  ttsListVoices: () => ipcRenderer.invoke('tts:listVoices'),
+  ttsInstallVoice: (id: string) => ipcRenderer.invoke('tts:installVoice', id),
+  ttsRemoveVoice: (id: string) => ipcRenderer.invoke('tts:removeVoice', id),
+  onTtsVoiceProgress: (cb: (id: string, received: number, total: number) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, id: string, received: number, total: number) => cb(id, received, total)
+    ipcRenderer.on('tts:voiceProgress', handler)
+    return () => ipcRenderer.removeListener('tts:voiceProgress', handler)
+  },
+  ttsSpeak: (text: string, voiceId: string, speed: number) => ipcRenderer.invoke('tts:speak', text, voiceId, speed),
+  ttsStop: () => ipcRenderer.invoke('tts:stop'),
   onLlamaData: (cb: (id: string, data: string) => void) => {
     const handler = (_: Electron.IpcRendererEvent, id: string, data: string) => cb(id, data)
     ipcRenderer.on('llama:data', handler)

@@ -490,6 +490,35 @@ describe('ClaudeManager session restore', () => {
     expect(spawnedEnv().VIDE_CLAUDE_SESSION_FILE).toBe(path.join(dir, 'sessions', 'inst-1.json'))
   })
 
+  it('passes a Stop hook and the per-instance stop file alongside the session hook', async () => {
+    const { spawnHandler } = setup()
+    spawnMock.mockReturnValue(fakePty())
+
+    await spawnHandler({ sender: fakeWin(1) }, '/p', 'inst-1', undefined)
+
+    const settings = JSON.parse(spawnedCommand().match(/--settings '([^']*)'/)![1])
+    expect(settings.hooks.SessionStart).toBeDefined()
+    expect(settings.hooks.Stop[0].hooks[0].command).toBe('cat > "$VIDE_CLAUDE_STOP_FILE"')
+    expect(spawnedEnv().VIDE_CLAUDE_STOP_FILE).toBe(path.join(dir, 'sessions', 'inst-1.stop.json'))
+  })
+
+  it('sends claude:turnDone with the reply text when the Stop hook writes its payload', async () => {
+    const { spawnHandler } = setup()
+    spawnMock.mockReturnValue(fakePty())
+    const win = fakeWin(1)
+
+    await spawnHandler({ sender: win }, '/p', 'inst-1', undefined)
+    // macOS can drop a change made the instant a watch starts; the real hook
+    // only ever writes at the end of a turn.
+    await new Promise((r) => setTimeout(r, 200))
+    fs.writeFileSync(path.join(dir, 'sessions', 'inst-1.stop.json'), JSON.stringify({ last_assistant_message: 'All done.' }))
+
+    await vi.waitFor(() => {
+      expect(win.webContents.send).toHaveBeenCalledWith('claude:turnDone', 'inst-1', 'All done.')
+    }, { timeout: 3000 })
+    handlers['claude:kill']({ sender: win }, 'inst-1')
+  })
+
   it('resumes the recorded conversation when restoring an instance whose transcript exists', async () => {
     const { spawnHandler } = setup()
     spawnMock.mockReturnValue(fakePty())

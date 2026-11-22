@@ -6,7 +6,6 @@ import { useModelSettingsStore } from '@/stores/modelSettingsStore'
 import { useInlineEditSettingsStore } from '@/stores/inlineEditSettingsStore'
 import { useUsagePassiveSettingsStore } from '@/stores/usagePassiveSettingsStore'
 import { useCommitMessageSettingsStore } from '@/stores/commitMessageSettingsStore'
-import { useNotificationSoundSettingsStore } from '@/stores/notificationSoundSettingsStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { USAGE_GRAPH_TAB_PATH } from '@/components/Settings/paths'
 
@@ -27,7 +26,6 @@ afterEach(() => {
   useInlineEditSettingsStore.setState({ enabled: true, model: 'claude-sonnet-5' })
   useUsagePassiveSettingsStore.setState({ enabled: false, initialized: false })
   useCommitMessageSettingsStore.setState({ enabled: false, model: 'claude-sonnet-5', prompt: '' })
-  useNotificationSoundSettingsStore.setState({ enabled: false, muted: false, soundId: 'ding' })
 })
 
 describe('ClaudeSettingsPage general section', () => {
@@ -131,72 +129,5 @@ describe('ClaudeSettingsPage usage monitoring section', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open Usage Graph' }))
 
     expect(useEditorStore.getState().tabs.some((t) => t.path === USAGE_GRAPH_TAB_PATH)).toBe(true)
-  })
-})
-
-describe('ClaudeSettingsPage notifications section', () => {
-  // Plain IIFE, not vi.hoisted: nothing here is needed before imports, and
-  // vitest 4+ rejects vi.hoisted() outside the module's top level.
-  const { audioInstances, AudioMock } = (() => {
-    const audioInstances: Array<{ src: string; play: ReturnType<typeof vi.fn> }> = []
-    class AudioMock {
-      src: string
-      play = vi.fn().mockResolvedValue(undefined)
-      constructor(src: string) {
-        this.src = src
-        audioInstances.push(this)
-      }
-    }
-    return { audioInstances, AudioMock }
-  })()
-
-  beforeEach(() => {
-    audioInstances.length = 0
-    vi.stubGlobal('Audio', AudioMock)
-  })
-
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
-  it('reflects the current enabled state', () => {
-    useNotificationSoundSettingsStore.setState({ enabled: true })
-    render(<ClaudeSettingsPage />)
-    expect(screen.getByRole('switch', { name: 'Play sound when Claude is done' })).toHaveAttribute('aria-checked', 'true')
-  })
-
-  it('greys out the sound picker and test button while disabled', () => {
-    render(<ClaudeSettingsPage />)
-    expect(screen.getByLabelText('Sound')).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Test sound' })).toBeDisabled()
-  })
-
-  it('shows the sound picker and test button once enabled', () => {
-    render(<ClaudeSettingsPage />)
-    fireEvent.click(screen.getByRole('switch', { name: 'Play sound when Claude is done' }))
-    expect(screen.getByLabelText('Sound')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Test sound' })).toBeTruthy()
-  })
-
-  it('toggles the setting on click', () => {
-    render(<ClaudeSettingsPage />)
-    fireEvent.click(screen.getByRole('switch', { name: 'Play sound when Claude is done' }))
-    expect(useNotificationSoundSettingsStore.getState().enabled).toBe(true)
-  })
-
-  it('updates the selected sound when changed', () => {
-    useNotificationSoundSettingsStore.setState({ enabled: true })
-    render(<ClaudeSettingsPage />)
-    fireEvent.click(screen.getByLabelText('Sound'))
-    fireEvent.click(screen.getByRole('option', { name: 'Beep' }))
-    expect(useNotificationSoundSettingsStore.getState().soundId).toBe('beep')
-  })
-
-  it('plays the selected sound when the test button is clicked', () => {
-    useNotificationSoundSettingsStore.setState({ enabled: true, soundId: 'beep' })
-    render(<ClaudeSettingsPage />)
-    fireEvent.click(screen.getByRole('button', { name: 'Test sound' }))
-    expect(audioInstances).toHaveLength(1)
-    expect(audioInstances[0].play).toHaveBeenCalled()
   })
 })

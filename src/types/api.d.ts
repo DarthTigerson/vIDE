@@ -28,6 +28,7 @@ export type { LatestUsage, UsageSnapshot, UpdateInfo }
 export type { Script, ScriptTags }
 export type ScriptInput = { title: string; description?: string; body?: string; shareOutput?: boolean }
 export type ScriptPatch = Partial<Pick<Script, 'title' | 'description' | 'body' | 'shareOutput'>>
+export type TtsVoiceInfo = import('../../electron/tts/catalog').TtsVoiceInfo
 
 export type AssistantKind = 'claude' | 'bridge' | (string & {})
 
@@ -317,6 +318,7 @@ declare global {
       claudeKill: (instanceId: string) => void
       onClaudeData: (cb: (instanceId: string, data: string) => void) => () => void
       onClaudeBusy: (cb: (instanceId: string, busy: boolean, chunkCount: number) => void) => () => void
+      onClaudeTurnDone: (cb: (instanceId: string, text: string) => void) => () => void
       onBrowserOpenExternalUrl: (cb: (url: string) => void) => () => void
       onOpenClaudeBrowserTab: (cb: (url: string) => void) => () => void
 
@@ -541,6 +543,15 @@ declare global {
       llamaGetInstall: () => Promise<{ path: string | null; source: 'system' | 'vide' | null; downloadBytes: number | null }>
       llamaInstall: () => Promise<{ ok: true; path: string } | { ok: false; error: string }>
       onLlamaInstallProgress: (cb: (received: number, total: number) => void) => () => void
+      ttsGetInstall: () => Promise<{ path: string | null; source: 'vide' | null; downloadBytes: number | null }>
+      ttsInstall: () => Promise<{ ok: true; path: string } | { ok: false; error: string }>
+      onTtsInstallProgress: (cb: (received: number, total: number) => void) => () => void
+      ttsListVoices: () => Promise<TtsVoiceInfo[]>
+      ttsInstallVoice: (id: string) => Promise<{ ok: true } | { ok: false; error: string }>
+      ttsRemoveVoice: (id: string) => Promise<{ ok: true } | { ok: false; error: string }>
+      onTtsVoiceProgress: (cb: (id: string, received: number, total: number) => void) => () => void
+      ttsSpeak: (text: string, voiceId: string, speed: number) => Promise<{ ok: true; wav: Uint8Array } | { ok: false; error: string }>
+      ttsStop: () => Promise<void>
       onLlamaData: (cb: (id: string, data: string) => void) => () => void
       onLlamaExit: (cb: (id: string, code: number) => void) => () => void
 

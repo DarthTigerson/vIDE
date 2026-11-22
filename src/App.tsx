@@ -129,7 +129,9 @@ import { useScriptsStore } from './stores/scriptsStore'
 import { useScriptsSettingsStore } from './stores/scriptsSettingsStore'
 import { runScriptInNewTerminal, runScriptInAgentTerminal } from './lib/runScript'
 import { LlamaPanel } from './components/Llama/LlamaPanel'
-import { useNotificationSoundSettingsStore, playNotificationSound } from './stores/notificationSoundSettingsStore'
+import { useDoneFeedbackStore } from './stores/doneFeedbackStore'
+import { handleTurnDone } from './lib/doneFeedback'
+import { DoneModeMenu, DoneModeIcon } from './components/ActivityBar/DoneModeMenu'
 import { useConfigRepoStore } from './stores/configRepoStore'
 import { startThemeShuffle } from './stores/themeShuffleStore'
 import type { AssistantKind, MemoryBreakdown } from './types/api'
@@ -216,6 +218,8 @@ export default function App() {
   // Stable identity: NewSessionMenu's window listeners depend on onClose, so an
   // inline arrow would tear down and re-add them on every App render.
   const closeNewSessionMenu = useCallback(() => setNewSessionMenu(null), [])
+  const [doneModeMenu, setDoneModeMenu] = useState<DOMRect | null>(null)
+  const closeDoneModeMenu = useCallback(() => setDoneModeMenu(null), [])
   const agentOptions = availableAgents(enabledModels, llamaModels).map((o) => ({
     ...o,
     running: isLlamaKind(o.kind) ? Boolean(llamaRuns[llamaModelId(o.kind)]?.running) : undefined,
@@ -278,9 +282,7 @@ export default function App() {
   const font = useDisplayStore((s) => s.font)
   const memoryUsageVisible = useDisplayStore((s) => s.memoryUsageVisible)
   const batteryVisible = useDisplayStore((s) => s.batteryVisible)
-  const notificationSoundEnabled = useNotificationSoundSettingsStore((s) => s.enabled)
-  const notificationSoundMuted = useNotificationSoundSettingsStore((s) => s.muted)
-  const setNotificationSoundMuted = useNotificationSoundSettingsStore((s) => s.setMuted)
+  const doneMode = useDoneFeedbackStore((s) => s.mode)
   const backgroundImage = useDisplayStore((s) => s.backgroundImage)
   const navbarPosition = useDisplayStore((s) => s.navbarPosition)
   const mirrored = navbarPosition === 'right'
@@ -616,24 +618,18 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    return window.api.onClaudeBusy((instanceId, busy, chunkCount) => {
-      const wasBusy = useClaudeStore.getState().busyByInstance[instanceId] ?? false
+    // Drives the status-icon animation only. The done sound / speech comes
+    // from the Stop hook below, which knows a turn really ended — this busy
+    // signal is a PTY-output heuristic that also fires on redraws and goes
+    // idle during quiet stretches inside a long turn.
+    return window.api.onClaudeBusy((instanceId, busy) => {
       useClaudeStore.getState().setBusy(instanceId, busy)
-      // Falling edge only (busy -> idle) — that's "this instance finished a
-      // turn". Fires for every stacked instance, not just the active one —
-      // a background session finishing is exactly the kind of thing worth a
-      // sound for. Gated on chunkCount rather than how long the episode
-      // ran: electron/claude.ts's busy signal fires on any non-echo PTY
-      // output, so a single incidental redraw (e.g. a resize repaint) is
-      // indistinguishable from a short real reply by *duration* alone —
-      // both settle idle after the same fixed timeout. Chunk count isn't: a
-      // one-off redraw is ~1 output write, while even a brief streamed
-      // reply is several, so requiring more than one reliably separates the
-      // two without risking silence on genuinely fast replies.
-      if (wasBusy && !busy && chunkCount > 1) {
-        const { enabled, muted, soundId } = useNotificationSoundSettingsStore.getState()
-        if (enabled && !muted) playNotificationSound(soundId)
-      }
+    })
+  }, [])
+
+  useEffect(() => {
+    return window.api.onClaudeTurnDone((instanceId, text) => {
+      handleTurnDone(useClaudeStore.getState().instances, instanceId, text).catch(() => {})
     })
   }, [])
 
@@ -1357,16 +1353,18 @@ export default function App() {
               },
             ],
             [
-              ...(notificationSoundEnabled ? [{
-                id: 'mute-notification-sound',
-                icon: notificationSoundMuted
-                  ? <span className="text-accent"><MutedSpeakerIcon /></span>
-                  : <SpeakerIcon />,
-                title: notificationSoundMuted ? 'Unmute completion sound' : 'Mute completion sound',
-                active: false,
+              {
+                id: 'done-mode',
+                icon: <DoneModeIcon mode={doneMode} />,
+                title: 'When Done',
+                active: doneModeMenu !== null,
                 disabled: !projectRoot || !hasClaudeSession,
-                onClick: () => setNotificationSoundMuted(!notificationSoundMuted),
-              }] : []),
+                onClick: (e: MouseEvent<HTMLButtonElement>) => {
+                  e.stopPropagation()
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  setDoneModeMenu((open) => (open ? null : rect))
+                },
+              },
               {
                 id: 'usage',
                 icon: <UsageIcon />,
@@ -1441,6 +1439,9 @@ export default function App() {
       <StoreHost />
       <AutocompleteLifecycle />
       <DiscardScratchPromptHost />
+      {doneModeMenu && (
+        <DoneModeMenu anchor={doneModeMenu} side={mirrored ? 'left' : 'right'} onClose={closeDoneModeMenu} />
+      )}
       {newSessionMenu && (
         <NewSessionMenu
           anchor={newSessionMenu}
@@ -1639,35 +1640,3 @@ function RamIcon() {
   )
 }
 
-function SpeakerIcon() {
-  return (
-    <svg
-      className="shrink-0"
-      width="1.25rem"
-      height="1.25rem"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path d="M4 9.5V14.5H8L13 18.5V5.5L8 9.5H4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-      <path d="M16.5 8.5C17.5 9.5 18 10.7 18 12C18 13.3 17.5 14.5 16.5 15.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M19 6C20.7 7.7 21.5 9.8 21.5 12C21.5 14.2 20.7 16.3 19 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function MutedSpeakerIcon() {
-  return (
-    <svg
-      className="shrink-0"
-      width="1.25rem"
-      height="1.25rem"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path d="M4 9.5V14.5H8L13 18.5V5.5L8 9.5H4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-      <path d="M16.5 9.5L21 14M21 9.5L16.5 14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  )
-}

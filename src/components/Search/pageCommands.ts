@@ -23,6 +23,7 @@ import {
   LLAMA_SETTINGS_TAB_PATH,
   STORE_SETTINGS_TAB_PATH,
   AGENT_TOOLING_SETTINGS_TAB_PATH,
+  SOUND_SETTINGS_TAB_PATH,
   USAGE_GRAPH_TAB_PATH,
   ALARMS_TAB_PATH,
   GRAPHIFY_GRAPH_TAB_PATH,
@@ -47,6 +48,7 @@ export interface SettingsPage {
 export const SETTINGS_PAGES: SettingsPage[] = [
   { id: 'settings-display', label: 'Settings: Display', path: DISPLAY_TAB_PATH, description: 'Theme, panel style', keywords: ['theme', 'appearance', 'colour', 'color'] },
   { id: 'settings-file-tree', label: 'Settings: Site Tree', path: FILE_TREE_SETTINGS_TAB_PATH, description: 'Git status letters and colours', keywords: ['file tree', 'explorer', 'git', 'status', 'badge', 'decorations'] },
+  { id: 'settings-sound', label: 'Settings: Sound & Voice', path: SOUND_SETTINGS_TAB_PATH, description: 'Done sound, speaking mode, voices', keywords: ['sound', 'voice', 'speak', 'speech', 'tts', 'done', 'notification', 'mute'] },
   { id: 'settings-about', label: 'Settings: About', path: ABOUT_SETTINGS_TAB_PATH, description: 'Version, updates, release notes', keywords: ['version', 'update', 'check', 'changelog', 'release', 'notes'] },
   { id: 'settings-editor', label: 'Settings: Editor', path: EDITOR_SETTINGS_TAB_PATH, description: 'Font size, auto-save, autocomplete', keywords: ['font', 'autosave', 'editor', 'autocomplete'] },
   { id: 'settings-git', label: 'Settings: Git', path: GIT_SETTINGS_TAB_PATH, description: 'Remote, identity', keywords: ['remote', 'origin', 'identity'] },

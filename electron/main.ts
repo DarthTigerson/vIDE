@@ -9,6 +9,7 @@ import { GitRunner } from './gitRunner'
 import { GraphifyManager } from './graphify'
 import { createGraphifyInstaller } from './graphifyInstall'
 import { LlamaManager } from './llama'
+import { TtsManager } from './tts/manager'
 import { bundledLlamaDir, findInstalledLlamaServer, installLlama } from './autocomplete/llamaInstall'
 import { GitWatcher } from './gitWatcher'
 import { FileWatcher } from './fileWatcher'
@@ -983,6 +984,7 @@ app.whenReady().then(async () => {
     { dir: bundledLlamaDir(app.getPath('userData')), find: findInstalledLlamaServer, install: installLlama },
   )
   llamaMgr.registerHandlers()
+  new TtsManager(join(app.getPath('userData'), 'tts')).registerHandlers()
   gitWatcher = new GitWatcher()
   gitWatcher.registerHandlers()
   fileWatcher = new FileWatcher()

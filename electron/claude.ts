@@ -1,10 +1,11 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import * as pty from 'node-pty'
-import { existsSync, mkdirSync, readFileSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, watch, writeFileSync, type FSWatcher } from 'fs'
 import { join } from 'path'
 import { getMobileBroadcaster } from './mobile'
 import { ROCKY_FLAGS, ROCKY_SETTINGS, rockySpawnEnv } from './rocky'
 import { isMultiRepoProject, MULTI_REPO_PATHS_PROMPT } from './multiRepoPaths'
+import { STOP_HOOK, replyTextFromStopPayload } from './claudeStop'
 
 type SessionMode = 'attach' | 'new' | 'continue' | 'resume'
 
@@ -24,9 +25,18 @@ const INSTALL_MESSAGE = "Install it with: npm install -g @anthropic-ai/claude-co
 // with `claude --resume <id>` instead of starting a new conversation. The
 // path travels via env rather than being baked into this JSON so it never
 // needs shell quoting (userData lives under "Application Support").
+// The Stop hook rides along (see claudeStop.ts): it is what tells vIDE a turn
+// really finished, for the done sound / speaking mode.
 const SESSION_HOOK_SETTINGS = {
-  hooks: { SessionStart: [{ hooks: [{ type: 'command', command: 'cat > "$VIDE_CLAUDE_SESSION_FILE"' }] }] },
+  hooks: {
+    SessionStart: [{ hooks: [{ type: 'command', command: 'cat > "$VIDE_CLAUDE_SESSION_FILE"' }] }],
+    Stop: [STOP_HOOK],
+  },
 }
+
+// The Stop hook's `cat >` truncates then writes, which can fire the watcher
+// more than once; the payload is read once things settle.
+const STOP_SETTLE_MS = 150
 
 // Instance ids become filenames and session ids go into the shell command,
 // so both must be plain ids (UUIDs in practice).
@@ -48,6 +58,10 @@ function restoreCommand(sessionFile: string): string {
     // missing or unreadable record — fall through to a fresh session
   }
   return COMMANDS.new
+}
+
+function stopFileFor(sessionFile: string): string {
+  return sessionFile.replace(/\.json$/, '.stop.json')
 }
 
 function hasValidSize(cols: number, rows: number): boolean {
@@ -85,6 +99,9 @@ interface InstanceState {
   // during that wait with no process to apply it to; the PTY is spawned at
   // this size instead of 80x24 so the CLI never draws for the wrong width.
   size?: { cols: number; rows: number }
+  // Watches this instance's Stop-hook file (claudeStop.ts).
+  stopWatcher?: FSWatcher
+  stopTimer?: NodeJS.Timeout
 }
 
 interface WindowState {
@@ -183,13 +200,15 @@ export class ClaudeManager {
         env: {
           ...(process.env as Record<string, string>),
           ...shimEnv,
-          ...(sessionFile ? { VIDE_CLAUDE_SESSION_FILE: sessionFile } : {}),
+          ...(sessionFile ? { VIDE_CLAUDE_SESSION_FILE: sessionFile, VIDE_CLAUDE_STOP_FILE: stopFileFor(sessionFile) } : {}),
           ...(rocky ? rockySpawnEnv(multiRepo ? MULTI_REPO_PATHS_PROMPT : undefined) : {}),
           ...(!rocky && multiRepo ? { VIDE_PATHS_PROMPT: MULTI_REPO_PATHS_PROMPT } : {}),
         },
       })
       inst.proc = proc
       inst.cwd = cwd
+      this.stopWatching(inst)
+      if (sessionFile) this.watchStopFile(win, inst, instanceId, stopFileFor(sessionFile))
       proc.onData((data) => {
         if (!win.isDestroyed()) win.webContents.send('claude:data', instanceId, data)
         getMobileBroadcaster().emit('claude:data', instanceId, data)
@@ -211,6 +230,7 @@ export class ClaudeManager {
         if (inst.proc === proc) {
           inst.proc = undefined
           inst.cwd = undefined
+          this.stopWatching(inst)
         }
         clearTimeout(inst.busyTimer)
         inst.busyTimer = undefined
@@ -244,8 +264,39 @@ export class ClaudeManager {
     const inst = state.instances.get(instanceId)
     if (!inst) return
     clearTimeout(inst.busyTimer)
+    this.stopWatching(inst)
     inst.proc?.kill()
     state.instances.delete(instanceId)
+  }
+
+  // Each Stop-hook write is one finished turn: read the reply text and tell
+  // the renderer (claude:turnDone), which plays the done sound or speaks.
+  private watchStopFile(win: BrowserWindow, inst: InstanceState, instanceId: string, stopFile: string): void {
+    try {
+      writeFileSync(stopFile, '')
+      inst.stopWatcher = watch(stopFile, () => {
+        clearTimeout(inst.stopTimer)
+        inst.stopTimer = setTimeout(() => {
+          let raw = ''
+          try { raw = readFileSync(stopFile, 'utf8') } catch { return }
+          if (!raw.trim()) return
+          try { writeFileSync(stopFile, '') } catch {}
+          replyTextFromStopPayload(raw).then((text) => {
+            if (!win.isDestroyed()) win.webContents.send('claude:turnDone', instanceId, text)
+          })
+        }, STOP_SETTLE_MS)
+      })
+      inst.stopWatcher.on('error', () => this.stopWatching(inst))
+    } catch {
+      // no watcher: the done sound / speech simply never fires for this instance
+    }
+  }
+
+  private stopWatching(inst: InstanceState): void {
+    clearTimeout(inst.stopTimer)
+    inst.stopTimer = undefined
+    inst.stopWatcher?.close()
+    inst.stopWatcher = undefined
   }
 
   private setBusy(win: BrowserWindow, inst: InstanceState, instanceId: string, busy: boolean): void {
@@ -278,6 +329,7 @@ export class ClaudeManager {
     if (!state) return
     for (const inst of state.instances.values()) {
       clearTimeout(inst.busyTimer)
+      this.stopWatching(inst)
       inst.proc?.kill()
     }
     this.byWindow.delete(winId)

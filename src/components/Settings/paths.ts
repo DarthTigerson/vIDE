@@ -26,6 +26,8 @@ export const STORE_SETTINGS_TAB_PATH = 'settings://Store'
 export const AGENT_TOOLING_SETTINGS_TAB_PATH = 'settings://AgentTooling'
 // Version, update check and release history (VIDE-143).
 export const ABOUT_SETTINGS_TAB_PATH = 'settings://About'
+// Done sound / speaking mode when Claude or Rocky finishes.
+export const SOUND_SETTINGS_TAB_PATH = 'settings://Sound'
 export const GIT_LOG_TAB_PATH = 'git-log://Git Log'
 
 export function isSettingsTab(path: string): boolean {
