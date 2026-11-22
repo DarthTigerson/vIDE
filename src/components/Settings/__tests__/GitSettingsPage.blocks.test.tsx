@@ -15,17 +15,17 @@ afterEach(cleanup)
 const block = (name: string) => screen.getByRole('region', { name })
 
 describe('GitSettingsPage — feature blocks', () => {
-  it('lays the page out as the eight blocks, in order', () => {
+  it('lays the page out as the seven blocks, in order', () => {
     render(<GitSettingsPage />)
     const names = screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'))
     expect(names).toEqual([
-      'Blame', 'Inline diff', 'Force push safety', 'Git Log', 'Background fetch', 'Multi-repo', 'Graph & List Diff', 'Remote launcher',
+      'Blame', 'Inline diff', 'Force push safety', 'Git Log', 'Background fetch', 'Multi-repo', 'Graph & List Diff',
     ])
   })
 
   it('gives every block but Multi-repo a preview', () => {
     render(<GitSettingsPage />)
-    for (const id of ['blame-preview', 'inline-diff-preview', 'force-push-preview', 'git-log-preview', 'fetch-preview', 'graph-tabs-preview', 'remote-preview']) {
+    for (const id of ['blame-preview', 'inline-diff-preview', 'force-push-preview', 'git-log-preview', 'fetch-preview', 'graph-tabs-preview']) {
       expect(screen.getByTestId(id)).toBeInTheDocument()
     }
     expect(block('Multi-repo').querySelector('[data-preview]')).toBeNull()
