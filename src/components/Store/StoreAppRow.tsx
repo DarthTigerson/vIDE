@@ -28,6 +28,9 @@ export function StoreAppRow({ app, onOpen }: { app: StoreListing; onOpen: () => 
   const fromFile = installed?.source === 'file'
   const disabled = installed?.status === 'disabled'
   const busy = useStoreStore((s) => !!s.busy[app.id])
+  // Usage views are in use while the usage panel shows them: no Disable, only
+  // Uninstall (Enable stays so one switched off before this can come back).
+  const usageView = app.category === 'usage'
   const id = `app:${app.id}`
   return (
     <article
@@ -56,7 +59,7 @@ export function StoreAppRow({ app, onOpen }: { app: StoreListing; onOpen: () => 
           favorite={favorite}
           onToggleFavorite={hasPanel && !disabled ? () => (favorite ? unfavorite(id) : placeFavorite(id, APPEND_TARGET, 'after')) : undefined}
           onSettings={hasSettings && !disabled ? () => useEditorStore.getState().openTab({ path: buildAppSettingsPath(app.id), content: '', dirty: false }) : undefined}
-          onDisable={!disabled && !busy && installed.status === 'loaded' ? () => void setEnabled(app.id, false) : undefined}
+          onDisable={!usageView && !disabled && !busy && installed.status === 'loaded' ? () => void setEnabled(app.id, false) : undefined}
           onEnable={disabled && !busy ? () => void setEnabled(app.id, true) : undefined}
           onUninstall={busy ? undefined : () => setConfirming(true)}
           onClose={() => setMenu(null)}

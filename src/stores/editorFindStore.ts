@@ -1,16 +1,21 @@
 import { create } from 'zustand'
 
-// State of the in-editor find box. What you search for (query, flags,
-// replacement) is shared across panes, like most editors; whether the box is
-// open, and whether its replace row is showing, is per pane.
+// State of the in-editor find box, kept per pane: each split editor has its
+// own search text, replacement, flags, open state and replace row, so typing in
+// one pane's box never changes another's.
 
 export type FindToggle = 'caseSensitive' | 'wholeWord' | 'regex'
 
-interface PaneFind {
+export interface PaneFind {
   open: boolean
   showReplace: boolean
   // Bumped on every open so an already-open box refocuses its input.
   focusTick: number
+  query: string
+  replacement: string
+  caseSensitive: boolean
+  wholeWord: boolean
+  regex: boolean
 }
 
 interface NavRequest {
@@ -20,18 +25,13 @@ interface NavRequest {
 }
 
 interface EditorFindState {
-  query: string
-  replacement: string
-  caseSensitive: boolean
-  wholeWord: boolean
-  regex: boolean
   panes: Record<string, PaneFind>
   // F3 / Cmd+G: the box (which owns the controller) picks this up.
   navRequest: NavRequest | null
 
-  setQuery: (query: string) => void
-  setReplacement: (replacement: string) => void
-  toggle: (flag: FindToggle) => void
+  setQuery: (paneId: string, query: string) => void
+  setReplacement: (paneId: string, replacement: string) => void
+  toggle: (paneId: string, flag: FindToggle) => void
   // `replace: true` opens with the replace row; leaving it out keeps whatever
   // the pane had. `seed` is the editor's selected text, used as the query when
   // it is a sensible single line.
@@ -44,55 +44,52 @@ interface EditorFindState {
 
 const MAX_SEED_LENGTH = 200
 
-const closedPane: PaneFind = { open: false, showReplace: false, focusTick: 0 }
+export function newPaneFind(): PaneFind {
+  return {
+    open: false, showReplace: false, focusTick: 0,
+    query: '', replacement: '', caseSensitive: false, wholeWord: false, regex: false,
+  }
+}
 
 let navTick = 0
 
-export const useEditorFindStore = create<EditorFindState>((set, get) => ({
-  query: '',
-  replacement: '',
-  caseSensitive: false,
-  wholeWord: false,
-  regex: false,
-  panes: {},
-  navRequest: null,
+export const useEditorFindStore = create<EditorFindState>((set, get) => {
+  const pane = (paneId: string): PaneFind => get().panes[paneId] ?? newPaneFind()
+  const patch = (paneId: string, change: Partial<PaneFind>) =>
+    set({ panes: { ...get().panes, [paneId]: { ...pane(paneId), ...change } } })
 
-  setQuery: (query) => set({ query }),
-  setReplacement: (replacement) => set({ replacement }),
-  toggle: (flag) => set({ [flag]: !get()[flag] } as Pick<EditorFindState, FindToggle>),
+  return {
+    panes: {},
+    navRequest: null,
 
-  openFind: (paneId, options = {}) => {
-    const pane = get().panes[paneId] ?? closedPane
-    const seed = options.seed
-    const useSeed = !!seed && !seed.includes('\n') && seed.length <= MAX_SEED_LENGTH
-    set({
-      ...(useSeed ? { query: seed } : {}),
-      panes: {
-        ...get().panes,
-        [paneId]: {
-          open: true,
-          showReplace: options.replace ?? pane.showReplace,
-          focusTick: pane.focusTick + 1,
-        },
-      },
-    })
-  },
+    setQuery: (paneId, query) => patch(paneId, { query }),
+    setReplacement: (paneId, replacement) => patch(paneId, { replacement }),
+    toggle: (paneId, flag) => patch(paneId, { [flag]: !pane(paneId)[flag] }),
 
-  closeFind: (paneId) => {
-    const pane = get().panes[paneId]
-    if (!pane) return
-    set({ panes: { ...get().panes, [paneId]: { ...pane, open: false } } })
-  },
+    openFind: (paneId, options = {}) => {
+      const current = pane(paneId)
+      const seed = options.seed
+      const useSeed = !!seed && !seed.includes('\n') && seed.length <= MAX_SEED_LENGTH
+      patch(paneId, {
+        ...(useSeed ? { query: seed } : {}),
+        open: true,
+        showReplace: options.replace ?? current.showReplace,
+        focusTick: current.focusTick + 1,
+      })
+    },
 
-  toggleReplace: (paneId) => {
-    const pane = get().panes[paneId] ?? closedPane
-    set({ panes: { ...get().panes, [paneId]: { ...pane, showReplace: !pane.showReplace } } })
-  },
+    closeFind: (paneId) => {
+      if (!get().panes[paneId]) return
+      patch(paneId, { open: false })
+    },
 
-  requestNav: (paneId, delta) => {
-    if (!get().panes[paneId]?.open) get().openFind(paneId)
-    set({ navRequest: { paneId, delta, tick: ++navTick } })
-  },
+    toggleReplace: (paneId) => patch(paneId, { showReplace: !pane(paneId).showReplace }),
 
-  clearNavRequest: () => set({ navRequest: null }),
-}))
+    requestNav: (paneId, delta) => {
+      if (!get().panes[paneId]?.open) get().openFind(paneId)
+      set({ navRequest: { paneId, delta, tick: ++navTick } })
+    },
+
+    clearNavRequest: () => set({ navRequest: null }),
+  }
+})

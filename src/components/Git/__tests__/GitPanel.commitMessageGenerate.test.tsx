@@ -3,7 +3,7 @@ import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/re
 import { GitPanel } from '../GitPanel'
 import { useFileStore } from '@/stores/fileStore'
 import { useGitReposStore } from '@/stores/gitReposStore'
-import { useGitStore, emptyRepoGitState } from '@/stores/gitStore'
+import { useGitStore, emptyRepoGitState, COMMIT_MESSAGE_LOGIN_ERROR } from '@/stores/gitStore'
 import { useCommitMessageSettingsStore } from '@/stores/commitMessageSettingsStore'
 import { CLAUDE_WORKING_GIFS } from '@/assets/claudeGifs'
 import type { GitStatus } from '@/types/index'
@@ -18,11 +18,11 @@ beforeEach(() => {
   ;(global as any).window.api = {
     // RepoSection does a full refresh (branch + ahead/behind + status) on mount.
     gitBranch: vi.fn().mockResolvedValue('main'),
-    gitAheadBehind: vi.fn().mockResolvedValue(null),
+    gitAheadBehind: vi.fn().mockResolvedValue({ error: 'failed' }),
     gitStatus: vi.fn().mockResolvedValue(staged),
     gitListIgnored: vi.fn().mockResolvedValue([]),
     gitStagedDiff: vi.fn().mockResolvedValue('diff --git a/x b/x'),
-    commitMessageGenerate: vi.fn().mockResolvedValue('Fix the login bug'),
+    commitMessageGenerate: vi.fn().mockResolvedValue({ message: 'Fix the login bug' }),
   }
   useFileStore.setState({ projectRoot: '/proj' })
   useGitReposStore.setState({ repos: ['/proj'], selectedRepo: '/proj' })
@@ -85,18 +85,32 @@ describe('GitPanel — generate commit message', () => {
     await waitFor(() => expect(useGitStore.getState().repos['/proj'].commitMessage).toBe('Fix the login bug'))
   })
 
-  it('shows an error and leaves the message box alone when generation fails', async () => {
-    ;(window.api.commitMessageGenerate as ReturnType<typeof vi.fn>).mockResolvedValue(null)
+  it('leaves the message box alone when generation fails, without an inline error', async () => {
+    ;(window.api.commitMessageGenerate as ReturnType<typeof vi.fn>).mockResolvedValue({ error: 'failed' })
     useGitStore.setState({ repos: { '/proj': { ...emptyRepoGitState, status: staged, commitMessage: 'wip' } } })
     render(<GitPanel />)
     fireEvent.click(generateButton())
 
-    await waitFor(() => expect(screen.getByText('Could not generate a commit message')).toBeTruthy())
+    await waitFor(() =>
+      expect(useGitStore.getState().repos['/proj'].commitMessageError).toBe('Could not generate a commit message')
+    )
     expect(useGitStore.getState().repos['/proj'].commitMessage).toBe('wip')
+    // Errors live in the notification center only.
+    expect(screen.queryByText('Could not generate a commit message')).toBeNull()
+  })
+
+  it('records a login error when the CLI reports its login expired', async () => {
+    ;(window.api.commitMessageGenerate as ReturnType<typeof vi.fn>).mockResolvedValue({ error: 'auth' })
+    render(<GitPanel />)
+    fireEvent.click(generateButton())
+
+    await waitFor(() =>
+      expect(useGitStore.getState().repos['/proj'].commitMessageError).toBe(COMMIT_MESSAGE_LOGIN_ERROR)
+    )
   })
 
   it('records the failure in the git store so the notification center can show it', async () => {
-    ;(window.api.commitMessageGenerate as ReturnType<typeof vi.fn>).mockResolvedValue(null)
+    ;(window.api.commitMessageGenerate as ReturnType<typeof vi.fn>).mockResolvedValue({ error: 'failed' })
     render(<GitPanel />)
     fireEvent.click(generateButton())
 
@@ -113,18 +127,19 @@ describe('GitPanel — generate commit message', () => {
     await waitFor(() =>
       expect(useGitStore.getState().repos['/proj'].commitMessageError).toBe('Could not generate a commit message')
     )
-    expect(screen.getByText('Could not generate a commit message')).toBeTruthy()
   })
 
-  it('keeps showing the error after the Git panel is closed and reopened', async () => {
-    ;(window.api.commitMessageGenerate as ReturnType<typeof vi.fn>).mockResolvedValue(null)
+  it('keeps the error after the Git panel is closed and reopened', async () => {
+    ;(window.api.commitMessageGenerate as ReturnType<typeof vi.fn>).mockResolvedValue({ error: 'failed' })
     const first = render(<GitPanel />)
     fireEvent.click(generateButton())
-    await waitFor(() => expect(screen.getByText('Could not generate a commit message')).toBeTruthy())
+    await waitFor(() =>
+      expect(useGitStore.getState().repos['/proj'].commitMessageError).toBe('Could not generate a commit message')
+    )
     first.unmount()
 
     render(<GitPanel />)
-    expect(screen.getByText('Could not generate a commit message')).toBeTruthy()
+    expect(useGitStore.getState().repos['/proj'].commitMessageError).toBe('Could not generate a commit message')
   })
 
   it('clears the previous error when a later generation succeeds', async () => {
@@ -139,9 +154,9 @@ describe('GitPanel — generate commit message', () => {
   })
 
   it('swaps to a looping gif while generating, then reverts to the Claude icon once done', async () => {
-    let resolveGenerate!: (msg: string) => void
+    let resolveGenerate!: (result: { message: string }) => void
     window.api.commitMessageGenerate = vi.fn(
-      () => new Promise<string>((resolve) => { resolveGenerate = resolve })
+      () => new Promise<{ message: string }>((resolve) => { resolveGenerate = resolve })
     ) as any
     render(<GitPanel />)
 
@@ -151,7 +166,7 @@ describe('GitPanel — generate commit message', () => {
     await waitFor(() => expect(generateButton().querySelector('img')).not.toBeNull())
     expect(CLAUDE_WORKING_GIFS).toContain(generateButton().querySelector('img')?.getAttribute('src'))
 
-    resolveGenerate('Fix the login bug')
+    resolveGenerate({ message: 'Fix the login bug' })
     await waitFor(() => expect(generateButton().querySelector('img')).toBeNull())
   })
 

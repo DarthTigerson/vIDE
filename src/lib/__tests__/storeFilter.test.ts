@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { StoreListing } from '@/types/api'
 import {
-  DEFAULT_STORE_FILTERS, filterLanguageServers, filterStoreApps, mergeStoreItems, sortStoreApps, isDefaultStoreFilters, storeFilterCounts,
+  DEFAULT_STORE_FILTERS, forVide, filterLanguageServers, filterStoreApps, mergeStoreItems, sortStoreApps, isDefaultStoreFilters, storeFilterCounts,
 } from '../storeFilter'
 
 function app(id: string, name: string, extra: Partial<StoreListing> = {}): StoreListing {
@@ -18,12 +18,8 @@ const notes = app('notes', 'Notes')
 const other = app('other', 'Other', { targets: ['elsewhere'] })
 
 describe('storeFilter', () => {
-  it('keeps vIDE apps by default and drops apps for other targets', () => {
-    expect(filterStoreApps([docker, notes, other], DEFAULT_STORE_FILTERS).map((a) => a.id)).toEqual(['docker', 'notes'])
-  })
-
-  it('shows every target when Applications is unticked', () => {
-    expect(filterStoreApps([docker, other], { ...DEFAULT_STORE_FILTERS, targets: [] })).toHaveLength(2)
+  it('keeps only vIDE listings', () => {
+    expect(forVide([docker, notes, other]).map((a) => a.id)).toEqual(['docker', 'notes'])
   })
 
   it('filters by search text over name and description', () => {
@@ -42,7 +38,6 @@ describe('storeFilter', () => {
   it('knows when filters are at their defaults', () => {
     expect(isDefaultStoreFilters(DEFAULT_STORE_FILTERS)).toBe(true)
     expect(isDefaultStoreFilters({ ...DEFAULT_STORE_FILTERS, maker: 'vsuite' })).toBe(false)
-    expect(isDefaultStoreFilters({ ...DEFAULT_STORE_FILTERS, targets: [] })).toBe(false)
   })
 
   it('counts and filters the agent-tools category', () => {

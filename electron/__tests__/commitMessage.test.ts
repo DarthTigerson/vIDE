@@ -69,6 +69,7 @@ describe('postProcessCommitMessage', () => {
 function fakeProc() {
   const proc: any = new EventEmitter()
   proc.stdout = new EventEmitter()
+  proc.stderr = new EventEmitter()
   proc.stdin = { end: vi.fn() }
   proc.kill = vi.fn(() => proc.emit('close', 1))
   return proc
@@ -106,7 +107,7 @@ describe('CommitMessageManager commitMessage:generate', () => {
     proc.stdout.emit('data', Buffer.from('Fix the login bug'))
     proc.emit('close', 0)
 
-    expect(await promise).toBe('Fix the login bug')
+    expect(await promise).toEqual({ message: 'Fix the login bug' })
   })
 
   it('spawns the resolved claude path directly (no shell) with the model and prompt', async () => {
@@ -129,7 +130,33 @@ describe('CommitMessageManager commitMessage:generate', () => {
     expect(args).not.toContain('--bare')
   })
 
-  it('resolves null on non-zero exit', async () => {
+  it('reports an auth failure when the CLI says the login expired', async () => {
+    const { handler } = setup()
+    const proc = fakeProc()
+    spawnMock.mockReturnValueOnce(proc)
+
+    const promise = handler({ sender: fakeWin(1) }, 'diff --git a/x b/x', 'claude-haiku-4-5-20251001', '')
+    await flushMicrotasks()
+    proc.stderr.emit('data', Buffer.from('OAuth token has expired. Please run /login'))
+    proc.emit('close', 1)
+
+    expect(await promise).toEqual({ error: 'auth' })
+  })
+
+  it('reports an auth failure printed on stdout too', async () => {
+    const { handler } = setup()
+    const proc = fakeProc()
+    spawnMock.mockReturnValueOnce(proc)
+
+    const promise = handler({ sender: fakeWin(1) }, 'diff --git a/x b/x', 'claude-haiku-4-5-20251001', '')
+    await flushMicrotasks()
+    proc.stdout.emit('data', Buffer.from('Invalid API key · Please run /login'))
+    proc.emit('close', 1)
+
+    expect(await promise).toEqual({ error: 'auth' })
+  })
+
+  it('fails on non-zero exit', async () => {
     const { handler } = setup()
     const proc = fakeProc()
     spawnMock.mockReturnValueOnce(proc)
@@ -138,10 +165,10 @@ describe('CommitMessageManager commitMessage:generate', () => {
     await flushMicrotasks()
     proc.emit('close', 1)
 
-    expect(await promise).toBeNull()
+    expect(await promise).toEqual({ error: 'failed' })
   })
 
-  it('resolves null when the process errors', async () => {
+  it('fails when the process errors', async () => {
     const { handler } = setup()
     const proc = fakeProc()
     spawnMock.mockReturnValueOnce(proc)
@@ -150,10 +177,10 @@ describe('CommitMessageManager commitMessage:generate', () => {
     await flushMicrotasks()
     proc.emit('error', new Error('spawn failed'))
 
-    expect(await promise).toBeNull()
+    expect(await promise).toEqual({ error: 'failed' })
   })
 
-  it('resolves null (not rejects) when spawn() throws synchronously', async () => {
+  it('fails (not rejects) when spawn() throws synchronously', async () => {
     const { handler } = setup()
     spawnMock.mockImplementationOnce(() => {
       throw new Error('spawn EINVAL, argv contains a null byte')
@@ -161,21 +188,21 @@ describe('CommitMessageManager commitMessage:generate', () => {
 
     await expect(
       handler({ sender: fakeWin(1) }, 'diff --git a/x b/x', 'claude-haiku-4-5-20251001', '')
-    ).resolves.toBeNull()
+    ).resolves.toEqual({ error: 'failed' })
   })
 
-  it('resolves null without spawning when claude cannot be resolved on PATH', async () => {
+  it('fails without spawning when claude cannot be resolved on PATH', async () => {
     execFileMock.mockImplementation((_shell, _args, cb) => cb(new Error('not found'), '', ''))
     const { handler } = setup()
 
-    expect(await handler({ sender: fakeWin(1) }, 'diff --git a/x b/x', 'claude-haiku-4-5-20251001', '')).toBeNull()
+    expect(await handler({ sender: fakeWin(1) }, 'diff --git a/x b/x', 'claude-haiku-4-5-20251001', '')).toEqual({ error: 'failed' })
     expect(spawnMock).not.toHaveBeenCalled()
   })
 
-  it('resolves null without spawning when the diff is empty (nothing staged)', async () => {
+  it('fails without spawning when the diff is empty (nothing staged)', async () => {
     const { handler } = setup()
 
-    expect(await handler({ sender: fakeWin(1) }, '', 'claude-haiku-4-5-20251001', '')).toBeNull()
+    expect(await handler({ sender: fakeWin(1) }, '', 'claude-haiku-4-5-20251001', '')).toEqual({ error: 'failed' })
     expect(spawnMock).not.toHaveBeenCalled()
   })
 
@@ -205,6 +232,6 @@ describe('CommitMessageManager commitMessage:generate', () => {
     handler({ sender: fakeWin(1) }, 'diff b', 'claude-haiku-4-5-20251001', '')
 
     expect(procA.kill).toHaveBeenCalled()
-    expect(await promiseA).toBeNull()
+    expect(await promiseA).toEqual({ error: 'failed' })
   })
 })

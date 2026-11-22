@@ -86,15 +86,15 @@ const ARROW_UP = 'M8 13V3M4 7l4-4 4 4'
 const ARROW_DOWN = 'M8 3v10M4 9l4 4 4-4'
 const CROSS = 'M4 4l8 8M12 4l-8 8'
 
-function OptionToggle({ flag, label, setTip, children }: { flag: FindToggle; label: string; setTip: SetTip; children: string }) {
-  const pressed = useEditorFindStore((s) => s[flag])
+function OptionToggle({ paneId, flag, label, setTip, children }: { paneId: string; flag: FindToggle; label: string; setTip: SetTip; children: string }) {
+  const pressed = useEditorFindStore((s) => s.panes[paneId]?.[flag] ?? false)
   const toggle = useEditorFindStore((s) => s.toggle)
   return (
     <button
       type="button"
       aria-label={label}
       aria-pressed={pressed}
-      onClick={() => toggle(flag)}
+      onClick={() => toggle(paneId, flag)}
       {...tipHandlers(label, setTip)}
       className={[
         'flex h-5 min-w-5 items-center justify-center rounded-sm px-0.5 font-mono text-[0.6875rem] leading-none transition-colors',
@@ -110,11 +110,11 @@ const FIELD = 'h-7 w-full rounded-sm border border-border bg-bg px-2 text-xs tex
 
 export function EditorFindBox({ paneId, editor }: { paneId: string; editor: FindEditor | null }) {
   const pane = useEditorFindStore((s) => s.panes[paneId])
-  const query = useEditorFindStore((s) => s.query)
-  const replacement = useEditorFindStore((s) => s.replacement)
-  const caseSensitive = useEditorFindStore((s) => s.caseSensitive)
-  const wholeWord = useEditorFindStore((s) => s.wholeWord)
-  const regex = useEditorFindStore((s) => s.regex)
+  const query = pane?.query ?? ''
+  const replacement = pane?.replacement ?? ''
+  const caseSensitive = pane?.caseSensitive ?? false
+  const wholeWord = pane?.wholeWord ?? false
+  const regex = pane?.regex ?? false
   const navRequest = useEditorFindStore((s) => s.navRequest)
   const { setQuery, setReplacement, closeFind, toggleReplace, clearNavRequest } = useEditorFindStore.getState()
 
@@ -223,7 +223,7 @@ export function EditorFindBox({ paneId, editor }: { paneId: string; editor: Find
       <input
         ref={inputRef}
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => setQuery(paneId, e.target.value)}
         onKeyDown={onFindKeyDown}
         placeholder="Find"
         aria-label="Find"
@@ -231,9 +231,9 @@ export function EditorFindBox({ paneId, editor }: { paneId: string; editor: Find
         className={`${FIELD} pr-[4.75rem] ${snapshot.error ? 'border-red-400/70' : ''}`}
       />
       <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
-        <OptionToggle flag="caseSensitive" label={TIPS.caseSensitive} setTip={setTip}>Aa</OptionToggle>
-        <OptionToggle flag="wholeWord" label={TIPS.wholeWord} setTip={setTip}>ab</OptionToggle>
-        <OptionToggle flag="regex" label={TIPS.regex} setTip={setTip}>.*</OptionToggle>
+        <OptionToggle paneId={paneId} flag="caseSensitive" label={TIPS.caseSensitive} setTip={setTip}>Aa</OptionToggle>
+        <OptionToggle paneId={paneId} flag="wholeWord" label={TIPS.wholeWord} setTip={setTip}>ab</OptionToggle>
+        <OptionToggle paneId={paneId} flag="regex" label={TIPS.regex} setTip={setTip}>.*</OptionToggle>
       </div>
     </div>
   )
@@ -272,7 +272,7 @@ export function EditorFindBox({ paneId, editor }: { paneId: string; editor: Find
           <span />
           <input
             value={replacement}
-            onChange={(e) => setReplacement(e.target.value)}
+            onChange={(e) => setReplacement(paneId, e.target.value)}
             onKeyDown={onReplaceKeyDown}
             placeholder={regex ? 'Replace ($1, $2 for groups)' : 'Replace'}
             aria-label="Replace with"

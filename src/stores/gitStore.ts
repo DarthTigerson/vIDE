@@ -30,6 +30,10 @@ export interface RepoGitState {
   silentFetchInFlight: boolean
 }
 
+export const COMMIT_MESSAGE_ERROR = 'Could not generate a commit message'
+// The notification center keys its "log in" row off this exact text.
+export const COMMIT_MESSAGE_LOGIN_ERROR = 'Claude login expired — log in to generate commit messages'
+
 export const emptyRepoGitState: RepoGitState = {
   branch: null,
   aheadBehind: null,

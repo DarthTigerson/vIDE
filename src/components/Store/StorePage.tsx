@@ -6,7 +6,7 @@ import { useAppContribStore } from '@/apps/appContribStore'
 import { useEditorStore } from '@/stores/editorStore'
 import { buildStoreAppPath } from '@/components/Settings/paths'
 import {
-  DEFAULT_STORE_FILTERS, filterLanguageServers, filterStoreApps, mergeStoreItems, sortStoreApps, isDefaultStoreFilters, storeFilterCounts,
+  DEFAULT_STORE_FILTERS, filterLanguageServers, forVide, filterStoreApps, mergeStoreItems, sortStoreApps, isDefaultStoreFilters, storeFilterCounts,
   type StoreFilters, type Category, type Maker,
 } from '@/lib/storeFilter'
 import { StoreAppRow } from './StoreAppRow'
@@ -93,10 +93,10 @@ export function StorePage() {
   const openApp = (id: string) => openTab({ path: buildStoreAppPath(id), content: '', dirty: false })
   const set = (patch: Partial<StoreFilters>) => setFilters((f) => ({ ...f, ...patch }))
 
-  const all = registry?.status === 'ok' ? registry.apps : []
+  const all = registry?.status === 'ok' ? forVide(registry.apps) : []
   const isInstalled = (a: StoreListing) => installedApps.some((i) => i.id === a.id && i.source !== 'dev')
   const hasUpdate = (a: StoreListing) => hasUpdateRule(a, installedApps.find((i) => i.id === a.id))
-  const allServers = registry?.status === 'ok' ? registry.languageServers : []
+  const allServers = registry?.status === 'ok' ? forVide(registry.languageServers) : []
   const serverInstalled = (id: string) => isServerInstalled(installedServers, id)
   const installedCount = all.filter(isInstalled).length + allServers.filter((l) => serverInstalled(l.id)).length
   const updatesCount = all.filter(hasUpdate).length
@@ -106,11 +106,10 @@ export function StorePage() {
   const shownServers = show === 'installed' ? allServers.filter((l) => serverInstalled(l.id)) : show === 'updates' ? [] : allServers
   const servers = filterLanguageServers(shownServers, filters)
   const counts = storeFilterCounts(all, allServers)
-  const vide = filters.targets.includes('vide')
   const devApps = installedApps.filter((a) => a.source === 'dev')
   // File installs the catalog does not list (listed ones get a badge on their row).
   const fileApps = installedApps.filter((a) => a.source === 'file' && !all.some((l) => l.id === a.id))
-  const activeFilters = Number(filters.category !== 'all') + Number(filters.maker !== 'all') + Number(!vide)
+  const activeFilters = Number(filters.category !== 'all') + Number(filters.maker !== 'all')
 
   const filterGroups = (
     <>
@@ -140,18 +139,6 @@ export function StorePage() {
       {([['all', 'Everyone'], ['vsuite', 'Made by vSuite'], ['community', 'Community']] as [Maker, string][]).map(([id, label]) => (
         <FilterRow key={id} label={label} count={counts.maker[id]} active={filters.maker === id} onClick={() => set({ maker: id })} />
       ))}
-    </FilterGroup>
-
-    <FilterGroup title="Applications">
-      <label className="flex items-center gap-2.5 px-2.5 text-xs text-fg cursor-pointer">
-        <input
-          type="checkbox"
-          checked={vide}
-          onChange={() => set({ targets: vide ? [] : ['vide'] })}
-          className="w-3.5 h-3.5 accent-accent"
-        />
-        vIDE
-      </label>
     </FilterGroup>
 
     {(registry?.status === 'ok' || registry?.status === 'empty') && (

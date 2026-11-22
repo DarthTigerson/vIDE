@@ -1,6 +1,7 @@
 // Filtering for the Store tab. Same filters, order and defaults as the
 // vsuite.tech Store page (vsuite-store/src/lib/storeFilter.ts) so the two
-// read the same: Category, Made by, Applications.
+// read the same: Category, Made by. Only vIDE's own listings are shown here
+// (see forVide); the site's Applications filter has no place inside vIDE.
 import type { LanguageServerEntry, StoreListing } from '@/types/api'
 
 export type Maker = 'all' | 'vsuite' | 'community'
@@ -10,18 +11,21 @@ export interface StoreFilters {
   query: string
   category: Category
   maker: Maker
-  /** Selected targets; an app must target at least one. Empty = no target filter. */
-  targets: string[]
 }
 
-export const DEFAULT_STORE_FILTERS: StoreFilters = { query: '', category: 'all', maker: 'all', targets: ['vide'] }
+export const DEFAULT_STORE_FILTERS: StoreFilters = { query: '', category: 'all', maker: 'all' }
+
+// The catalog also lists apps for other vSuite applications; vIDE's Store
+// shows only its own.
+export function forVide<T extends { targets: string[] }>(items: T[]): T[] {
+  return items.filter((i) => i.targets.includes('vide'))
+}
 
 export function filterStoreApps(apps: StoreListing[], f: StoreFilters): StoreListing[] {
   const q = f.query.trim().toLowerCase()
   return apps.filter((a) =>
     (f.category === 'all' || a.category === f.category) &&
     (f.maker === 'all' || (f.maker === 'vsuite') === a.firstParty) &&
-    (f.targets.length === 0 || f.targets.some((t) => a.targets.includes(t))) &&
     (!q || `${a.name} ${a.description}`.toLowerCase().includes(q)),
   )
 }
@@ -34,7 +38,6 @@ export function filterLanguageServers(list: LanguageServerEntry[], f: StoreFilte
   return list.filter((l) =>
     (f.category === 'all' || f.category === 'language-servers') &&
     f.maker === 'all' &&
-    (f.targets.length === 0 || f.targets.some((t) => l.targets.includes(t))) &&
     (!q || `${l.name} ${l.description} ${l.languages.join(' ')}`.toLowerCase().includes(q)),
   )
 }
@@ -61,9 +64,7 @@ export function sortStoreApps(apps: StoreListing[]): StoreListing[] {
 }
 
 export function isDefaultStoreFilters(f: StoreFilters): boolean {
-  return f.query.trim() === '' && f.category === 'all' && f.maker === 'all' &&
-    f.targets.length === DEFAULT_STORE_FILTERS.targets.length &&
-    f.targets.every((t) => DEFAULT_STORE_FILTERS.targets.includes(t))
+  return f.query.trim() === '' && f.category === 'all' && f.maker === 'all'
 }
 
 export function storeFilterCounts(apps: StoreListing[], languageServers: LanguageServerEntry[] = []) {
