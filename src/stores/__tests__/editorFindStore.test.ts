@@ -4,10 +4,7 @@ import { useEditorFindStore } from '../editorFindStore'
 const get = () => useEditorFindStore.getState()
 
 beforeEach(() => {
-  useEditorFindStore.setState({
-    query: '', replacement: '', caseSensitive: false, wholeWord: false, regex: false,
-    panes: {}, navRequest: null,
-  })
+  useEditorFindStore.setState({ panes: {}, navRequest: null })
 })
 
 describe('editorFindStore — opening and closing per pane', () => {
@@ -64,30 +61,52 @@ describe('editorFindStore — opening and closing per pane', () => {
 describe('editorFindStore — seeding from the selection', () => {
   it('uses a single-line selection as the query', () => {
     get().openFind('p1', { seed: 'needle' })
-    expect(get().query).toBe('needle')
+    expect(get().panes.p1.query).toBe('needle')
   })
 
   it('keeps the previous query when there is no usable selection', () => {
-    get().setQuery('old')
+    get().openFind('p1')
+    get().setQuery('p1', 'old')
     get().openFind('p1', { seed: '' })
     get().openFind('p1', { seed: null })
     get().openFind('p1', { seed: 'two\nlines' })
     get().openFind('p1', { seed: 'x'.repeat(500) })
-    expect(get().query).toBe('old')
+    expect(get().panes.p1.query).toBe('old')
+  })
+
+  it('seeds only the pane being opened', () => {
+    get().openFind('p1', { seed: 'left' })
+    get().openFind('p2', { seed: 'right' })
+    expect(get().panes.p1.query).toBe('left')
+    expect(get().panes.p2.query).toBe('right')
   })
 })
 
-describe('editorFindStore — shared search state', () => {
+describe('editorFindStore — search state per pane', () => {
   it('flips the case / whole word / regex flags', () => {
-    get().toggle('caseSensitive'); get().toggle('wholeWord'); get().toggle('regex')
-    expect(get()).toMatchObject({ caseSensitive: true, wholeWord: true, regex: true })
-    get().toggle('regex')
-    expect(get().regex).toBe(false)
+    get().toggle('p1', 'caseSensitive'); get().toggle('p1', 'wholeWord'); get().toggle('p1', 'regex')
+    expect(get().panes.p1).toMatchObject({ caseSensitive: true, wholeWord: true, regex: true })
+    get().toggle('p1', 'regex')
+    expect(get().panes.p1.regex).toBe(false)
   })
 
   it('stores the query and replacement text', () => {
-    get().setQuery('a'); get().setReplacement('b')
-    expect(get()).toMatchObject({ query: 'a', replacement: 'b' })
+    get().setQuery('p1', 'a'); get().setReplacement('p1', 'b')
+    expect(get().panes.p1).toMatchObject({ query: 'a', replacement: 'b' })
+  })
+
+  it('keeps each pane\'s search separate (split editors)', () => {
+    get().openFind('p1'); get().openFind('p2')
+    get().setQuery('p1', 'dist')
+    get().setReplacement('p1', 'out')
+    get().toggle('p1', 'regex')
+    expect(get().panes.p2).toMatchObject({ query: '', replacement: '', regex: false })
+    expect(get().panes.p1).toMatchObject({ query: 'dist', replacement: 'out', regex: true, open: true })
+  })
+
+  it('keeps the query across close and reopen', () => {
+    get().openFind('p1'); get().setQuery('p1', 'x'); get().closeFind('p1'); get().openFind('p1')
+    expect(get().panes.p1.query).toBe('x')
   })
 })
 

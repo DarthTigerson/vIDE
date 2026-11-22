@@ -8,6 +8,7 @@ import { useSearchStore } from '@/stores/searchStore'
 import { useGlobalSearchStore } from '@/stores/globalSearchStore'
 import { useEditorFindStore } from '@/stores/editorFindStore'
 import { EditorFindBox } from './EditorFindBox'
+import { addEditorCommand } from '@/lib/editorCommand'
 import { useThemeStore, MONACO_THEMES } from '@/stores/themeStore'
 import { useCustomThemeStore, useEditorBackground } from '@/stores/customThemeStore'
 import {
@@ -821,16 +822,16 @@ function EditorPane({ paneId }: { paneId: string }) {
                 }}
                 onMount={(editor, monaco) => {
                   const modified = editor.getModifiedEditor()
-                  modified.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Equal, () => {
+                  addEditorCommand(modified, monaco.KeyMod.CtrlCmd | monaco.KeyCode.Equal, () => {
                     useInstanceFontSizeStore.getState().increase(activeTab.path)
                   })
-                  modified.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Minus, () => {
+                  addEditorCommand(modified, monaco.KeyMod.CtrlCmd | monaco.KeyCode.Minus, () => {
                     useInstanceFontSizeStore.getState().decrease(activeTab.path)
                   })
-                  modified.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Digit0, () => {
+                  addEditorCommand(modified, monaco.KeyMod.CtrlCmd | monaco.KeyCode.Digit0, () => {
                     useInstanceFontSizeStore.getState().reset(activeTab.path)
                   })
-                  modified.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.KeyZ, () => {
+                  addEditorCommand(modified, monaco.KeyMod.Alt | monaco.KeyCode.KeyZ, () => {
                     useEditorSettingsStore.getState().toggleWordWrap()
                   })
                 }}
@@ -901,15 +902,15 @@ function EditorPane({ paneId }: { paneId: string }) {
                   if (editor.hasTextFocus() || useEditorCursorStore.getState().owner === cursorOwner) publishCursor()
                 })
                 editor.onDidDispose(() => useEditorCursorStore.getState().release(cursorOwner))
-                editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+                addEditorCommand(editor, monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
                   activatePane()
                   saveActiveTab({ allowCreateMissing: true })
                 })
-                editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyD, () => {
+                addEditorCommand(editor, monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyD, () => {
                   activatePane()
                   useEditorStore.getState().splitActivePane('horizontal')
                 })
-                editor.addCommand(
+                addEditorCommand(editor, 
                   monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyD,
                   () => {
                     activatePane()
@@ -930,32 +931,32 @@ function EditorPane({ paneId }: { paneId: string }) {
                   activatePane()
                   useEditorFindStore.getState().requestNav(paneId, delta)
                 }
-                editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () => openFind())
-                editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyF, () => openFind(true))
-                editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH, () => openFind(true))
-                editor.addCommand(monaco.KeyCode.F3, () => stepFind(1))
-                editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.F3, () => stepFind(-1))
-                editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyG, () => stepFind(1))
-                editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyG, () => stepFind(-1))
-                editor.addCommand(
+                addEditorCommand(editor, monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () => openFind())
+                addEditorCommand(editor, monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyF, () => openFind(true))
+                addEditorCommand(editor, monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH, () => openFind(true))
+                addEditorCommand(editor, monaco.KeyCode.F3, () => stepFind(1))
+                addEditorCommand(editor, monaco.KeyMod.Shift | monaco.KeyCode.F3, () => stepFind(-1))
+                addEditorCommand(editor, monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyG, () => stepFind(1))
+                addEditorCommand(editor, monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyG, () => stepFind(-1))
+                addEditorCommand(editor, 
                   monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF,
                   () => { useGlobalSearchStore.getState().requestFocus() }
                 )
-                editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyP, () => {
+                addEditorCommand(editor, monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyP, () => {
                   useSearchStore.getState().openCommandPalette()
                 })
-                editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.KeyZ, () => {
+                addEditorCommand(editor, monaco.KeyMod.Alt | monaco.KeyCode.KeyZ, () => {
                   useEditorSettingsStore.getState().toggleWordWrap()
                 })
-                editor.addCommand(
+                addEditorCommand(editor, 
                   monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP,
                   () => { useSearchStore.getState().openActionPalette() }
                 )
-                editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyT, () => {
+                addEditorCommand(editor, monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyT, () => {
                   const id = Date.now().toString(36)
                   useEditorStore.getState().openTab({ path: `terminal://${id}`, content: '', dirty: false })
                 })
-                editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyL, () => {
+                addEditorCommand(editor, monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyL, () => {
                   activatePane()
                   const selection = editor.getSelection()
                   const model = editor.getModel()
@@ -972,13 +973,13 @@ function EditorPane({ paneId }: { paneId: string }) {
                   })
                   useClaudeStore.getState().sendSelection(text)
                 })
-                editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Equal, () => {
+                addEditorCommand(editor, monaco.KeyMod.CtrlCmd | monaco.KeyCode.Equal, () => {
                   useInstanceFontSizeStore.getState().increase(activeTab.path)
                 })
-                editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Minus, () => {
+                addEditorCommand(editor, monaco.KeyMod.CtrlCmd | monaco.KeyCode.Minus, () => {
                   useInstanceFontSizeStore.getState().decrease(activeTab.path)
                 })
-                editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Digit0, () => {
+                addEditorCommand(editor, monaco.KeyMod.CtrlCmd | monaco.KeyCode.Digit0, () => {
                   useInstanceFontSizeStore.getState().reset(activeTab.path)
                 })
 

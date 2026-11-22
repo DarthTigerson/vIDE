@@ -2,20 +2,20 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, cleanup, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { EditorFindBox } from '../EditorFindBox'
-import { useEditorFindStore } from '@/stores/editorFindStore'
+import { useEditorFindStore, newPaneFind, type PaneFind } from '@/stores/editorFindStore'
 import { fakeEditor, sel } from '@/lib/__tests__/fakeFindEditor'
 
 const DOC = 'const path = 1\nreturn path\nlet other = path'
 
-function openBox(over: Partial<ReturnType<typeof useEditorFindStore.getState>> = {}, showReplace = false) {
+function openBox(over: Partial<PaneFind> = {}, showReplace = false) {
   useEditorFindStore.setState({
-    query: '', replacement: '', caseSensitive: false, wholeWord: false, regex: false,
-    panes: { p1: { open: true, showReplace, focusTick: 1 } }, navRequest: null, ...over,
+    panes: { p1: { ...newPaneFind(), open: true, showReplace, focusTick: 1, ...over } }, navRequest: null,
   })
 }
 
 const find = () => screen.getByRole('textbox', { name: /^find$/i }) as HTMLInputElement
 const store = () => useEditorFindStore.getState()
+const p1 = () => useEditorFindStore.getState().panes.p1
 
 beforeEach(() => { openBox() })
 afterEach(() => { cleanup(); vi.useRealTimers() })
@@ -23,7 +23,7 @@ afterEach(() => { cleanup(); vi.useRealTimers() })
 describe('EditorFindBox — visibility', () => {
   it('renders nothing while closed, or without an editor', () => {
     const f = fakeEditor(DOC)
-    useEditorFindStore.setState({ panes: { p1: { open: false, showReplace: false, focusTick: 0 } } })
+    useEditorFindStore.setState({ panes: { p1: newPaneFind() } })
     const { container, rerender } = render(<EditorFindBox paneId="p1" editor={f.editor} />)
     expect(container.firstChild).toBeNull()
     openBox()
@@ -93,7 +93,7 @@ describe('EditorFindBox — searching', () => {
     const f = fakeEditor(DOC)
     render(<EditorFindBox paneId="p1" editor={f.editor} />)
     await user.type(find(), 'path')
-    expect(store().query).toBe('path')
+    expect(p1().query).toBe('path')
     expect(screen.getByText('1 of 3')).toBeTruthy()
     expect(f.selection()).toEqual(sel(1, 7))
   })
@@ -140,9 +140,9 @@ describe('EditorFindBox — searching', () => {
     await user.click(screen.getByRole('button', { name: 'Match Case' }))
 
     await user.click(screen.getByRole('button', { name: 'Use Regular Expression' }))
-    expect(store().regex).toBe(true)
+    expect(p1().regex).toBe(true)
     await user.click(screen.getByRole('button', { name: 'Match Whole Word' }))
-    expect(store().wholeWord).toBe(true)
+    expect(p1().wholeWord).toBe(true)
   })
 
   it('follows edits made in the editor', () => {
@@ -168,7 +168,7 @@ describe('EditorFindBox — searching', () => {
 
   it('answers a next/previous request (F3), even one that opened the box', () => {
     const f = fakeEditor(DOC)
-    useEditorFindStore.setState({ panes: {}, query: 'path' })
+    useEditorFindStore.setState({ panes: { p1: { ...newPaneFind(), query: 'path' } } })
     render(<EditorFindBox paneId="p1" editor={f.editor} />)
     act(() => { store().requestNav('p1', 1) })
     expect(screen.getByText('1 of 3')).toBeTruthy()
@@ -291,7 +291,7 @@ describe('EditorFindBox — replace', () => {
     openBox({}, true)
     render(<EditorFindBox paneId="p1" editor={f.editor} />)
     await user.type(screen.getByRole('textbox', { name: /replace with/i }), 'abc')
-    expect(store().replacement).toBe('abc')
+    expect(p1().replacement).toBe('abc')
   })
 
   it('hints at $1 groups only when regex is on', () => {

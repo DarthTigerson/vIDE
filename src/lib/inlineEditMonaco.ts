@@ -4,6 +4,7 @@ import { useInlineEditSettingsStore } from '@/stores/inlineEditSettingsStore'
 import { getCompletionContext } from './autocompleteContext'
 import { startInlineEdit, cancelInlineEdit, subscribeToInlineEditEvents } from './inlineEditClient'
 import type * as Monaco from 'monaco-editor'
+import { addEditorCommand } from './editorCommand'
 
 // Bounds the size of the <selection> block sent to `claude -p`. Unlike
 // prefix/suffix (capped at 4000/2000 chars via getCompletionContext), the
@@ -342,7 +343,7 @@ export function registerInlineEditCommands(
     editor.focus()
   }
 
-  editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, () => {
+  addEditorCommand(editor, monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, () => {
     if (!useInlineEditSettingsStore.getState().enabled) return
     if (useInlineEditStore.getState().status !== 'idle') {
       cancelInlineEdit()
