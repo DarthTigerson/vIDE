@@ -1,4 +1,14 @@
 # vIDE
+## v0.3.8 (2026-11-22)
+- **Expired Claude login**: when generating a commit message fails because your Claude login has expired, the notification bell now says so and has a Log in button. Clicking it opens a new Claude session and runs `/login` for you
+- **Find and replace per pane**: with the editor split, each pane now has its own find box, with its own search text, replacement and options, so searching in one pane no longer changes another
+- **Store shows vIDE listings only**: the Store's Applications filter is gone, and the Store now always lists only apps and language servers made for vIDE
+- Usage panel looks like Bike Gauge and Simple Gauge no longer show up in All Apps, and can no longer be switched off from the Store
+
+**Bug fixes**
+- Fixed editor shortcuts like find (`⌘F`) always acting on the leftmost pane when the editor was split. They now act on the pane you are typing in
+
+
 ## v0.3.7 (2026-11-19)
 - **Usage panel looks**: the usage panel now opens on the Bars view, and other looks come from the Store's new Usage category. The bike gauges are now the Bike Gauge app, and Simple Gauge brings back the original ring gauges with burn rate and run-out estimate. Right-click the panel and use View to switch between Bars and any look you've installed, Preferences… for a look's own settings when it has them, and Store… to browse more looks. If you had picked the Gauges view, it comes back by itself once you install Bike Gauge
 - **Git Page is now a Store app**: the activity-bar button that opens the active repo on GitHub, GitLab, Bitbucket or any other host moved out to the Git Page app in the Store. Your favourite and the "Close side panel when opening" setting carry over when you install it
